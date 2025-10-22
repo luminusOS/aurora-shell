@@ -1,0 +1,30 @@
+{
+  "name": "Aurora Shell",
+  "version": "1.0.0",
+  "description": "Synchronizes topbar background color with dock background color",
+  "type": "module",
+  "main": "dist/extension.js",
+  "license": "LGPL-3.0-or-later",
+  "private": true,
+  "scripts": {
+    "clear": "rm -rf dist",
+    "build:ts": "node esbuild.js",
+    "build:css": "sass src/styles/stylesheet.scss dist/stylesheet.css --no-source-map",
+    "build": "npm run clear && npm run build:css && npm run build:ts",
+    "validate": "tsc --noEmit",
+    "watch:css": "sass src/styles/stylesheet.scss dist/stylesheet.css --watch --no-source-map"
+  },
+  "devDependencies": {
+    "@tsconfig/strictest": "^2.0.6",
+    "adm-zip": "^0.5.16",
+    "esbuild": "^0.25.11",
+    "sass": "^1.93.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@girs/gjs": "^4.0.0-beta.38",
+    "@girs/gnome-shell": "^49.0.3",
+    "@girs/gobject-2.0": "^2.86.0-4.0.0-beta.38",
+    "@girs/st-17": "^17.0.0-4.0.0-beta.38"
+  }
+}

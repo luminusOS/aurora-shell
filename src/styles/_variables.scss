@@ -1,0 +1,27 @@
+// Aurora Shell - Variáveis de Configuração
+// ===========================================
+
+// Cores do tema Aurora
+$aurora-dash-bg: #38383b;
+$aurora-panel-bg-original: #000000;
+$aurora-panel-opacity: 1.0;
+
+// Cores de hover/interação
+$aurora-hover-bg: rgba(255, 255, 255, 0.1);
+$aurora-hover-bg-light: rgba(255, 255, 255, 0.15);
+$aurora-active-bg: rgba(255, 255, 255, 0.2);
+
+// Cores de texto
+$aurora-text-color: #ffffff;
+$aurora-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+
+// Transições
+$aurora-transition-duration: 200ms;
+$aurora-transition-timing: ease-out;
+
+// Espaçamentos
+$aurora-button-padding: 8px 12px;
+$aurora-button-margin: 0 4px;
+
+// Border radius
+$aurora-border-radius: 4px;

@@ -1,0 +1,173 @@
+// Aurora Shell - Panel Styles
+// ============================
+// Estilos para o painel superior do GNOME Shell
+
+@use 'sass:color';
+@use 'variables' as *;
+
+/* ===== PAINEL ===== */
+/* Aplica cores do dash apenas em modo escuro (aurora-dark-mode class) */
+
+/* Background do painel - cor do dash (somente quando tem a classe aurora-dark-mode) */
+#panel.aurora-dark-mode {
+  background-color: $aurora-dash-bg;
+}
+
+/* #panel .panel-button:focus,
+#panel .panel-button:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.17);
+}
+
+#panel .panel-button:active,
+#panel .panel-button:checked {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.28);
+}
+
+#panel .panel-button:active:hover,
+#panel .panel-button:checked:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.32);
+}
+
+#panel .panel-button.clock-display:focus,
+#panel .panel-button.clock-display:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.17);
+}
+
+#panel .panel-button.clock-display:active,
+#panel .panel-button.clock-display:checked {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.28);
+}
+
+#panel .panel-button.clock-display:active:hover,
+#panel .panel-button.clock-display:checked:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.32);
+}
+
+#panel .panel-button.clock-display:focus .clock,
+#panel .panel-button.clock-display:hover .clock {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.17);
+}
+
+#panel .panel-button.clock-display:active .clock,
+#panel .panel-button.clock-display:checked .clock {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.28);
+}
+
+#panel .panel-button.clock-display:active .clock:hover,
+#panel .panel-button.clock-display:checked .clock:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.32);
+} */
+
+#panel:overview,
+#panel.unlock-screen,
+#panel.login-screen {
+  background-color: transparent;
+}
+
+#panel.unlock-screen .panel-button:focus,
+#panel.unlock-screen .panel-button:hover,
+#panel.login-screen .panel-button:focus,
+#panel.login-screen .panel-button:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.17);
+}
+
+#panel.unlock-screen .panel-button:active,
+#panel.unlock-screen .panel-button:checked,
+#panel.login-screen .panel-button:active,
+#panel.login-screen .panel-button:checked {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.28);
+}
+
+#panel.unlock-screen .panel-button:active:hover,
+#panel.unlock-screen .panel-button:checked:hover,
+#panel.login-screen .panel-button:active:hover,
+#panel.login-screen .panel-button:checked:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.32);
+}
+
+#panel.unlock-screen .panel-button.clock-display:focus,
+#panel.unlock-screen .panel-button.clock-display:hover,
+#panel.login-screen .panel-button.clock-display:focus,
+#panel.login-screen .panel-button.clock-display:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.17);
+}
+
+#panel.unlock-screen .panel-button.clock-display:active,
+#panel.unlock-screen .panel-button.clock-display:checked,
+#panel.login-screen .panel-button.clock-display:active,
+#panel.login-screen .panel-button.clock-display:checked {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.28);
+}
+
+#panel.unlock-screen .panel-button.clock-display:active:hover,
+#panel.unlock-screen .panel-button.clock-display:checked:hover,
+#panel.login-screen .panel-button.clock-display:active:hover,
+#panel.login-screen .panel-button.clock-display:checked:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.32);
+}
+
+#panel.unlock-screen .panel-button.clock-display:focus .clock,
+#panel.unlock-screen .panel-button.clock-display:hover .clock,
+#panel.login-screen .panel-button.clock-display:focus .clock,
+#panel.login-screen .panel-button.clock-display:hover .clock {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.17);
+}
+
+#panel.unlock-screen .panel-button.clock-display:active .clock,
+#panel.unlock-screen .panel-button.clock-display:checked .clock,
+#panel.login-screen .panel-button.clock-display:active .clock,
+#panel.login-screen .panel-button.clock-display:checked .clock {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.28);
+}
+
+#panel.unlock-screen .panel-button.clock-display:active .clock:hover,
+#panel.unlock-screen .panel-button.clock-display:checked .clock:hover,
+#panel.login-screen .panel-button.clock-display:active .clock:hover,
+#panel.login-screen .panel-button.clock-display:checked .clock:hover {
+  box-shadow: inset 0 0 0 100px color.change($aurora-dash-bg, $alpha: 0.32);
+}
+
+#panel:overview .panel-button:focus,
+#panel:overview .panel-button:hover {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.17);
+}
+
+#panel:overview .panel-button:active,
+#panel:overview .panel-button:checked {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.28);
+}
+
+#panel:overview .panel-button:active:hover,
+#panel:overview .panel-button:checked:hover {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.32);
+}
+
+#panel:overview .panel-button.clock-display:focus,
+#panel:overview .panel-button.clock-display:hover {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.17);
+}
+
+#panel:overview .panel-button.clock-display:active,
+#panel:overview .panel-button.clock-display:checked {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.28);
+}
+
+#panel:overview .panel-button.clock-display:active:hover,
+#panel:overview .panel-button.clock-display:checked:hover {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.32);
+}
+
+#panel:overview .panel-button.clock-display:focus .clock,
+#panel:overview .panel-button.clock-display:hover .clock {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.17);
+}
+
+#panel:overview .panel-button.clock-display:active .clock,
+#panel:overview .panel-button.clock-display:checked .clock {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.28);
+}
+
+#panel:overview .panel-button.clock-display:active .clock:hover,
+#panel:overview .panel-button.clock-display:checked .clock:hover {
+  box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.32);
+}

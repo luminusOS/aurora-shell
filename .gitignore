@@ -1,0 +1,24 @@
+# Node modules
+node_modules/
+
+# Compiled output
+dist/
+
+# npm
+package-lock.json
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
