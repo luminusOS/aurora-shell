@@ -3,8 +3,8 @@ import '@girs/gjs';
 
 import { Extension, gettext as _, type ConsoleLike } from "@girs/gnome-shell/extensions/extension";
 
-import { ThemeChanger } from "./modules/themeChanger.js";
-import type { AuroraModule } from "./modules/BaseModule.js";
+import { ThemeChanger } from "./modules/themeChanger";
+import type { BaseModule } from "./modules/baseModule";
 
 /**
  * Aurora Shell Extension
@@ -13,7 +13,7 @@ import type { AuroraModule } from "./modules/BaseModule.js";
  * Each module is independent and can be enabled/disabled separately.
  */
 export default class AuroraShellExtension extends Extension {
-  private _modules: Map<string, AuroraModule> = new Map();
+  private _modules: Map<string, BaseModule> = new Map();
   private _console: ConsoleLike | null = null;
 
   override enable(): void {

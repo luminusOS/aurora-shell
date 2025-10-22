@@ -1,5 +1,5 @@
 {
-  "name": "Aurora Shell",
+  "name": "aurora-shell",
   "version": "1.0.0",
   "description": "Synchronizes topbar background color with dock background color",
   "type": "module",
