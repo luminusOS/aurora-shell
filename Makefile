@@ -54,7 +54,3 @@ all: clean build install
 	@echo ""
 	@echo "Complete installation finished!"
 	@echo "Aurora Shell is active!"
-
-pack: build
-	@echo "Zip file created: aurora-shell@luminusos.com.zip"
-	@echo "Install with: gnome-extensions install aurora-shell@luminusos.com.zip"

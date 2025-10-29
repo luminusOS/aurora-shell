@@ -9,10 +9,10 @@
   "scripts": {
     "clear": "rm -rf dist",
     "build:ts": "node esbuild.js",
-    "build:css": "sass src/styles/stylesheet.scss dist/stylesheet.css --no-source-map",
+    "build:css": "npx sass src/styles/stylesheet.scss dist/stylesheet.css --no-source-map",
     "build": "npm run clear && npm run build:css && npm run build:ts",
     "validate": "tsc --noEmit",
-    "watch:css": "sass src/styles/stylesheet.scss dist/stylesheet.css --watch --no-source-map"
+    "watch:css": "npx sass src/styles/stylesheet.scss dist/stylesheet.css --watch --no-source-map"
   },
   "devDependencies": {
     "@tsconfig/strictest": "^2.0.6",
