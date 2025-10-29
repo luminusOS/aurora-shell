@@ -27,29 +27,20 @@ build({
     const metaSrc = resolve(__dirname, 'metadata.json');
     const metaDist = resolve(__dirname, 'dist/metadata.json');
     const styleSrc = resolve(__dirname, 'dist/stylesheet.css');
+    const extensionSrc = resolve(__dirname, 'dist/extension.js');
     const zipFilename = `${metadata.uuid}.zip`;
-    const zipDist = resolve(__dirname, zipFilename);
+    const zipDist = resolve(__dirname, 'dist', zipFilename);
     
-    // Copy metadata
     copyFileSync(metaSrc, metaDist);
 
-    // Create zip
     const zip = new AdmZip();
-    zip.addLocalFolder(resolve(__dirname, 'dist'));
+    zip.addLocalFile(extensionSrc);
+    zip.addLocalFile(styleSrc);
+    zip.addLocalFile(metaDist);
     zip.writeZip(zipDist);
 
-    console.log(`✅ Build complete. Zip file: ${zipFilename}\n`);
-    console.log(`📦 Install with: gnome-extensions install ${zipFilename}`);
-    console.log(`🔄 Update with: gnome-extensions install --force ${zipFilename}`);
-    console.log(`🔌 Enable with: gnome-extensions enable ${metadata.uuid}`);
-    console.log('');
-    console.log(`⛔ Disable with: gnome-extensions disable ${metadata.uuid}`);
-    console.log(`🗑️  Remove with: gnome-extensions uninstall ${metadata.uuid}`);
-    console.log('');
-    console.log('💡 To check if the extension has been recognized: gnome-extensions list');
-    console.log(`   If ${metadata.uuid} is listed, you can activate it.`);
-    console.log('   Otherwise, restart GNOME Shell (logout/login on Wayland).');
+    console.debug(`Build complete. Zip file: ${zipFilename}\n`);
 }).catch((error) => {
-    console.error('❌ Build failed:', error);
+    console.error('Build failed:', error);
     process.exit(1);
 });
