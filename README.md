@@ -106,8 +106,6 @@ export abstract class BaseAuroraModule implements AuroraModule {
 - ✅ Consistent logging interface
 - ✅ Type-safe with TypeScript
 
-See [MODULE-SYSTEM.md](MODULE-SYSTEM.md) for details on creating new modules.
-
 ### Style System
 
 Styles are organized using SCSS with a modular structure:
@@ -241,10 +239,6 @@ npm run validate
 ```
 
 ## 💻 Development
-
-### Project Structure
-
-See the **Architecture** section above for detailed project structure.
 
 ### Building
 
