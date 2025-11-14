@@ -1,18 +1,5 @@
-// Aurora Shell - Stylesheet Principal
-// ====================================
-// Este arquivo importa todos os módulos SCSS e compila em um único stylesheet.css
-
-// Importar módulos SASS
 @use 'sass:color';
 
-// Importar variáveis primeiro
 @use 'variables' as *;
 
-// Importar módulos de componentes
 @use 'panel';
-
-// Adicione novos módulos aqui conforme necessário:
-// @use 'overview';
-// @use 'dash';
-// @use 'buttons';
-// etc...

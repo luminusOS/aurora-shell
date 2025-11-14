@@ -56,6 +56,20 @@ make install
 make enable
 ```
 
+### Testing
+
+To test the extension, use the follow command:
+
+- Gnome 49 and later
+```bash
+dbus-run-session -- gnome-shell --devkit
+```
+
+- Gnome 48 and earlier
+```bash
+dbus-run-session -- gnome-shell --nested --wayland
+```
+
 ## 🗑️ Uninstallation
 
 ```bash
@@ -208,11 +222,6 @@ gnome-extensions list
 journalctl -f -o cat /usr/bin/gnome-shell | grep "Aurora Shell"
 ```
 
-Or use the test command:
-```bash
-make test
-```
-
 ### Colors not syncing
 
 1. Make sure you're in dark mode
@@ -220,15 +229,6 @@ make test
 3. Try disabling and re-enabling:
 ```bash
 make reload
-```
-
-### Compilation errors
-
-Clean and rebuild:
-```bash
-make clean
-npm install
-npm run build
 ```
 
 ### Type checking
@@ -246,29 +246,6 @@ npm run validate
 npm run build        # Build everything
 npm run build:ts     # TypeScript only
 npm run build:css    # SCSS only
-```
-
-### Active Development
-
-For development with auto-recompilation:
-
-```bash
-npm run watch:css    # Watch CSS changes
-make dev            # Development mode with logs
-```
-
-### Testing
-
-Monitor logs in real-time:
-
-```bash
-make test
-```
-
-Quick reload after changes:
-
-```bash
-make reload
 ```
 
 ### Code Style
@@ -316,27 +293,6 @@ Contributions are very welcome! Feel free to:
 - Add informative logs
 - Document parameters and behavior
 - Follow TypeScript best practices
-
-## �️ Roadmap
-
-### Version 1.x - Solid Foundation
-- [x] v1.0: Theme management module
-- [ ] v1.1: Modular architecture
-- [ ] v1.2: Build system with esbuild
-- [ ] v1.3: Configuration system
-- [ ] v1.4: Preferences UI
-
-### Version 2.x - Enhanced Functionality
-- [ ] v2.0: Window management improvements
-- [ ] v2.1: Custom workspaces behavior
-- [ ] v2.2: Animation system
-- [ ] v2.3: Hot corners customization
-
-### Version 3.x - Complete Shell
-- [ ] v3.0: All shell components customization
-- [ ] v3.1: Complete theming system
-- [ ] v3.2: "Aurora Desktop" mode
-- [ ] v3.3: Extension API for third-party modules
 
 ## 🙏 Acknowledgments
 
