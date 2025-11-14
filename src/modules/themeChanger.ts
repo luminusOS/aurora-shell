@@ -2,7 +2,7 @@ import '@girs/gjs';
 
 import Gio from "gi://Gio";
 import * as Main from '@girs/gnome-shell/ui/main';
-import { BaseModule } from './baseModule';
+import { BaseModule } from './baseModule.ts';
 
 /**
  * ThemeChanger Module
@@ -66,47 +66,7 @@ export class ThemeChanger extends BaseModule {
     }
   }
 
-  setDarkMode(): void {
-    if (this._settings) {
-      this.log('Switching to dark mode');
-      this._settings.set_string('color-scheme', 'prefer-dark');
-    }
-  }
-
-  setLightMode(): void {
-    if (this._settings) {
-      this.log('Switching to light mode');
-      this._settings.set_string('color-scheme', 'prefer-light');
-    }
-  }
-
-  toggleMode(): void {
-    if (!this._settings) return;
-
-    const current = this._settings.get_string('color-scheme');
-    if (current === 'prefer-dark') {
-      this.setLightMode();
-    } else {
-      this.setDarkMode();
-    }
-  }
-
-  getCurrentScheme(): string {
-    if (!this._settings) return 'unknown';
-    return this._settings.get_string('color-scheme');
-  }
-
-  isDarkMode(): boolean {
-    const scheme = this.getCurrentScheme();
-    return scheme === 'prefer-dark';
-  }
-
-  isLightMode(): boolean {
-    const scheme = this.getCurrentScheme();
-    return scheme === 'prefer-light' || scheme === 'default';
-  }
-
-  disable(): void {
+  override disable(): void {
     this.log('Disabling theme monitor');
 
     const panel = Main.panel;

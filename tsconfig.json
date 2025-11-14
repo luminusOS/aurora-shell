@@ -3,11 +3,17 @@
   "compilerOptions": {
     "lib": ["ESNext"],
     "types": [],
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "skipLibCheck": true
+  "target": "ESNext",
+  "module": "NodeNext",
+  "moduleResolution": "NodeNext",
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "experimentalDecorators": true
   },
   "include": ["src"],
-  "files": ["src/extension.ts"]
+  "files": [
+    "src/extension.ts",
+    "src/types/gnome-shell.d.ts"
+  ]
 }

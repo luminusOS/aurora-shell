@@ -3,8 +3,9 @@ import '@girs/gjs';
 
 import { Extension, gettext as _, type ConsoleLike } from "@girs/gnome-shell/extensions/extension";
 
-import { ThemeChanger } from "./modules/themeChanger";
-import type { BaseModule } from "./modules/baseModule";
+import { ThemeChanger } from "./modules/themeChanger.ts";
+import { SmartDock } from "./modules/smartDock.ts";
+import type { BaseModule } from "./modules/baseModule.ts";
 
 /**
  * Aurora Shell Extension
@@ -25,7 +26,8 @@ export default class AuroraShellExtension extends Extension {
   }
 
   private _initializeModules(): void {
-    this._modules.set('themeChanger', new ThemeChanger(this._console!));
+  this._modules.set('themeChanger', new ThemeChanger(this._console!));
+  this._modules.set('smartDock', new SmartDock(this._console!));
 
     // Add more modules here as needed:
     // this._modules.set('moduleName', new ModuleName());
