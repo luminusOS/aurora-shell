@@ -8,18 +8,26 @@
   "private": true,
   "scripts": {
     "clear": "rm -rf dist",
-    "build:ts": "node esbuild.js",
+    "build:ts": "tsx esbuild.ts",
     "build:css": "npx sass src/styles/stylesheet.scss dist/stylesheet.css --no-source-map",
     "build": "npm run clear && npm run build:css && npm run build:ts",
+    "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",
     "validate": "tsc --noEmit",
     "watch:css": "npx sass src/styles/stylesheet.scss dist/stylesheet.css --watch --no-source-map"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@tsconfig/strictest": "^2.0.6",
+    "@types/node": "^24.10.1",
     "adm-zip": "^0.5.16",
+    "cross-env": "^10.1.0",
     "esbuild": "^0.25.11",
+    "eslint": "^9.39.1",
+    "jiti": "^2.6.1",
     "sass": "^1.93.2",
-    "typescript": "^5.9.3"
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.4"
   },
   "dependencies": {
     "@girs/gjs": "^4.0.0-beta.38",
