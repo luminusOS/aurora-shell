@@ -2,7 +2,7 @@ import '@girs/gjs';
 
 import Gio from "gi://Gio";
 import * as Main from '@girs/gnome-shell/ui/main';
-import { BaseModule } from './baseModule.ts';
+import { Module } from './module.ts';
 
 /**
  * ThemeChanger Module
@@ -13,7 +13,7 @@ import { BaseModule } from './baseModule.ts';
  * 
  * This ensures the Aurora Shell panel colors only apply in dark mode.
  */
-export class ThemeChanger extends BaseModule {
+export class ThemeChanger extends Module {
   private _settings: any;
   private _signalId: number | null = null;
 

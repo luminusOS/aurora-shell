@@ -4,8 +4,8 @@ import '@girs/gjs';
 import { Extension, gettext as _, type ConsoleLike } from "@girs/gnome-shell/extensions/extension";
 
 import { ThemeChanger } from "./modules/themeChanger.ts";
-import { SmartDock } from "./modules/smartDock.ts";
-import type { BaseModule } from "./modules/baseModule.ts";
+import { Dock } from "./modules/dock.ts";
+import type { Module } from "./modules/module.ts";
 
 /**
  * Aurora Shell Extension
@@ -14,7 +14,7 @@ import type { BaseModule } from "./modules/baseModule.ts";
  * Each module is independent and can be enabled/disabled separately.
  */
 export default class AuroraShellExtension extends Extension {
-  private _modules: Map<string, BaseModule> = new Map();
+  private _modules: Map<string, Module> = new Map();
   private _console: ConsoleLike | null = null;
 
   override enable(): void {
@@ -26,8 +26,8 @@ export default class AuroraShellExtension extends Extension {
   }
 
   private _initializeModules(): void {
-  this._modules.set('themeChanger', new ThemeChanger(this._console!));
-  this._modules.set('smartDock', new SmartDock(this._console!));
+    this._modules.set('themeChanger', new ThemeChanger(this._console!));
+    this._modules.set('dock', new Dock(this._console!));
 
     // Add more modules here as needed:
     // this._modules.set('moduleName', new ModuleName());

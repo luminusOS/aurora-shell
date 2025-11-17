@@ -4,7 +4,7 @@ import type { ConsoleLike } from '@girs/gnome-shell/extensions/extension';
  * Abstract base class for Aurora Shell modules
  * Provides common functionality like logging
  */
-export abstract class BaseModule {
+export abstract class Module {
   protected _console: ConsoleLike;
 
   constructor(console: ConsoleLike) {
