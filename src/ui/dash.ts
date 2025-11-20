@@ -1,10 +1,9 @@
 // @ts-nocheck
-/* eslint-disable @typescript-eslint/consistent-type-imports */
 import '@girs/gjs';
 import GLib from '@girs/glib-2.0';
 import Clutter from '@girs/clutter-17';
-import St from '@girs/st-17';
 import GObject from '@girs/gobject-2.0';
+import type St from '@girs/st-17';
 import * as Main from '@girs/gnome-shell/ui/main';
 // @ts-ignore: GNOME Shell resolves resource:// imports at runtime
 import { Dash } from 'resource:///org/gnome/shell/ui/dash.js';
@@ -19,7 +18,7 @@ export interface DashBounds {
 const LAYOUT_TARGET_BOX_PADDING = 8;
 type TargetBoxListener = (bounds: DashBounds | null) => void;
 
-const DOCK_AUTOHIDE_TIMEOUT = 500;
+const DOCK_AUTOHIDE_TIMEOUT = 100;
 const DOCK_ANIMATION_TIME = 200;
 const DOCK_VISIBILITY_ANIMATION_TIME = 200;
 const DOCK_HIDE_SCALE = 0.98;
@@ -35,17 +34,14 @@ export class AuroraDash extends Dash {
   private _workArea: DashBounds | null = null;
   private _dashBounds: DashBounds | null = null;
   private _container: St.Bin | null = null;
-  private _containerAllocationId = 0;
-  private _containerDestroyId = 0;
-  private _dashAllocationId = 0;
   private _autohideTimeoutId = 0;
   private _delayEnsureAutoHideId = 0;
   private _blockAutoHideDelayId = 0;
-  private _menuOpened = false;
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
   private _draggingItem = false;
   private _targetBoxListener: TargetBoxListener | null = null;
+  private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
 
   _init(params: AuroraDashParams = {}): void {
     super._init(params);
@@ -79,7 +75,7 @@ export class AuroraDash extends Dash {
     this.set_x_expand?.(false);
     this.set_y_expand?.(false);
 
-    this._dashAllocationId = this.connect('notify::allocation', () => this._queueTargetBoxUpdate());
+    this.connectObject?.('notify::allocation', () => this._queueTargetBoxUpdate(), this);
   }
 
   get monitorIndex(): number {
@@ -111,11 +107,7 @@ export class AuroraDash extends Dash {
     this._detachContainerSignals();
     this._container = null;
     this._targetBox = null;
-
-    if (this._dashAllocationId) {
-      this.disconnect(this._dashAllocationId);
-      this._dashAllocationId = 0;
-    }
+    this._pendingShow = null;
 
     super.destroy();
   }
@@ -145,25 +137,14 @@ export class AuroraDash extends Dash {
 
     const containerAny = container as unknown as {
       connectObject?: (signal: string, handler: () => void, scope?: object) => void;
-      disconnectObject?: (scope: object) => void;
     };
 
-    if (typeof containerAny.connectObject === 'function') {
-      containerAny.connectObject('notify::allocation', () => this._queueTargetBoxUpdate(), this);
-      containerAny.connectObject('destroy', () => {
-        if (this._container === container) {
-          this._container = null;
-        }
-      }, this);
-      return;
-    }
-
-    this._containerAllocationId = container.connect('notify::allocation', () => this._queueTargetBoxUpdate());
-    this._containerDestroyId = container.connect('destroy', () => {
+    containerAny.connectObject?.('notify::allocation', () => this._queueTargetBoxUpdate(), this);
+    containerAny.connectObject?.('destroy', () => {
       if (this._container === container) {
         this._container = null;
       }
-    });
+    }, this);
 
     this._queueTargetBoxUpdate();
   }
@@ -174,6 +155,7 @@ export class AuroraDash extends Dash {
     this._dashBounds = null;
     this._targetBox = null;
     this._targetBoxListener?.(null);
+    this._pendingShow = null;
   }
 
   applyWorkArea(workArea: DashBounds): void {
@@ -218,7 +200,28 @@ export class AuroraDash extends Dash {
     }));
   }
 
+  private _hasValidAllocation(): boolean {
+    const allocation = this.get_allocation_box?.();
+    if (!allocation) {
+      return false;
+    }
+
+    const width = Math.max(0, (allocation.x2 ?? 0) - (allocation.x1 ?? 0));
+    const height = Math.max(0, (allocation.y2 ?? 0) - (allocation.y1 ?? 0));
+    return width > 0 && height > 0;
+  }
+
   override show(animate = true, onComplete?: () => void): void {
+    if (!this._hasValidAllocation()) {
+      this._pendingShow = { animate, onComplete };
+      return;
+    }
+
+    this._pendingShow = null;
+    this._performShow(animate, onComplete);
+  }
+
+  private _performShow(animate = true, onComplete?: () => void): void {
     if (this._shown()) {
       onComplete?.();
       return;
@@ -345,7 +348,7 @@ export class AuroraDash extends Dash {
       if (dashContainer?.get_hover?.()) {
         return GLib.SOURCE_CONTINUE;
       }
-      if (this._draggingItem || this._menuOpened || this._blockAutoHide) {
+      if (this._draggingItem || this._blockAutoHide) {
         return GLib.SOURCE_CONTINUE;
       }
       this.hide(true);
@@ -434,6 +437,17 @@ export class AuroraDash extends Dash {
     const dashBounds: DashBounds = { x: stageX, y: stageY, width, height };
     this._dashBounds = dashBounds;
     this._updateTargetBox(dashBounds);
+    this._flushPendingShow();
+  }
+
+  private _flushPendingShow(): void {
+    if (!this._pendingShow || !this._hasValidAllocation()) {
+      return;
+    }
+
+    const pending = this._pendingShow;
+    this._pendingShow = null;
+    this._performShow(pending.animate, pending.onComplete);
   }
 
   private _hasSameBounds(first: DashBounds | null, second: DashBounds | null): boolean {
@@ -462,24 +476,7 @@ export class AuroraDash extends Dash {
   }
 
   private _detachContainerSignals(): void {
-    if (!this._container) {
-      return;
-    }
-
-    const containerAny = this._container as unknown as { disconnectObject?: (scope: object) => void };
-    if (typeof containerAny.disconnectObject === 'function') {
-      containerAny.disconnectObject(this);
-    }
-
-    if (this._containerAllocationId) {
-      this._container.disconnect(this._containerAllocationId);
-      this._containerAllocationId = 0;
-    }
-
-    if (this._containerDestroyId) {
-      this._container.disconnect(this._containerDestroyId);
-      this._containerDestroyId = 0;
-    }
+    this._container?.disconnectObject?.(this);
   }
 
 }

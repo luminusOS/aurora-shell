@@ -1,0 +1,12 @@
+@use 'sass:color';
+@use 'variables' as *;
+
+#dash .dash-background {
+  background-color: $aurora-dash-dark-bg;
+}
+
+#dash .dash-item-container .show-apps .overview-icon,
+#dash .dash-item-container .overview-tile .overview-icon,
+#dash .dash-item-container .grid-search-result .overview-icon {
+  background-color: $aurora-dash-dark-bg;
+}

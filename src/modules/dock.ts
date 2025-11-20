@@ -1,7 +1,6 @@
 // @ts-nocheck
 import '@girs/gjs';
 
-import type Clutter from '@girs/clutter-17';
 import St from '@girs/st-17';
 import GObject from '@girs/gobject-2.0';
 import Meta from '@girs/meta-17';
@@ -11,7 +10,6 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import * as Layout from '@girs/gnome-shell/ui/layout';
 
 import { Module } from './module.ts';
-import type { ConsoleLike } from '@girs/gnome-shell/extensions/extension';
 import { AuroraDash, type DashBounds } from '../ui/dash.ts';
 
 const HOT_AREA_TRIGGER_SPEED = 150;
@@ -39,6 +37,15 @@ type MonitorGeometry = {
   y: number;
   width: number;
   height: number;
+};
+
+type ManagedDockBinding = {
+  monitorIndex: number;
+  container: St.Bin;
+  dash: AuroraDash;
+  intellihide: InstanceType<typeof DockIntellihide>;
+  hotArea: InstanceType<typeof DockHotArea> | null;
+  destroyed: boolean;
 };
 
 const DockHotArea = GObject.registerClass({
@@ -114,7 +121,7 @@ const DockHotArea = GObject.registerClass({
       x2: left + width,
       y1: bottom,
       y2: bottom,
-      directions: Meta.BarrierDirection.NEGATIVE_Y,
+      directions: Meta.BarrierDirection.POSITIVE_Y,
     });
 
     this._pressureBarrier.addBarrier(this._horizontalBarrier);
@@ -163,6 +170,7 @@ const DockIntellihide = GObject.registerClass({
   private _status: OverlapStatus = OverlapStatus.UNDEFINED;
   private _focusActor: any = null;
   private _focusActorId = 0;
+  private _destroyed = false;
 
   _init(params: { 'monitor-index'?: number; monitorIndex?: number } = {}) {
     super._init(params);
@@ -325,12 +333,17 @@ const DockIntellihide = GObject.registerClass({
   }
 
   override destroy(): void {
+    if (this._destroyed) {
+      return;
+    }
+    this._destroyed = true;
     this._disconnectFocusActor();
     global.display.disconnectObject(this);
     Main.layoutManager.disconnectObject(this);
     this._tracker?.disconnectObject(this);
     this._tracker = null;
     Main.keyboard.disconnectObject(this);
+    this.disconnectObject?.(this);
     const parentDestroy = (GObject.Object.prototype as GObject.Object & { destroy?: () => void }).destroy;
     if (typeof parentDestroy === 'function') {
       parentDestroy.call(this);
@@ -340,65 +353,119 @@ const DockIntellihide = GObject.registerClass({
   }
 });
 
-type DockBindingSignals = {
-  intellihide: number;
-  hotArea: number;
-};
+export class Dock extends Module {
+  private _bindings = new Map<number, ManagedDockBinding>();
 
-class DockBinding {
-  private _dash: AuroraDash;
-  private _container: St.Bin;
-  private _intellihide: DockIntellihide;
-  private _hotArea: DockHotArea | null = null;
-  private _signals: DockBindingSignals = { intellihide: 0, hotArea: 0 };
+  override enable(): void {
+    console.log('Enabling dock module');
+    Main.overview.dash.hide();
 
-  constructor(private _monitorIndex: number, monitor: MonitorGeometry, private _console: ConsoleLike | null) {
-    this._container = new St.Bin({
-      name: `aurora-dock-container-${_monitorIndex}`,
-      reactive: false,
+    this._rebuildBindings();
+    Main.layoutManager.connectObject(
+      'monitors-changed', () => this._rebuildBindings(),
+      'hot-corners-changed', () => this._rebuildBindings(),
+      this
+    );
+    global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this);
+  }
+
+  override disable(): void {
+    console.log('Disabling dock module');
+    Main.overview.dash.show();
+    Main.layoutManager.disconnectObject(this);
+    global.display.disconnectObject(this);
+    this._clearBindings();
+  }
+
+  private _rebuildBindings(): void {
+    this._clearBindings();
+
+    const monitors: MonitorGeometry[] = Main.layoutManager.monitors ?? [];
+    monitors.forEach((monitor, index) => {
+      if (this._hasDefinedBottom(monitors, index)) {
+        const binding = this._createBinding(monitor, index);
+        if (binding) {
+          this._bindings.set(index, binding);
+        }
+      }
     });
 
-    Main.layoutManager.addChrome(this._container, {
+    this._refreshWorkAreas();
+  }
+
+  private _createBinding(monitor: MonitorGeometry, monitorIndex: number): ManagedDockBinding | null {
+    const container = new St.Bin({
+      name: `aurora-dock-container-${monitorIndex}`,
+      reactive: false,
+      visible: false,
+    });
+
+    Main.layoutManager.addChrome(container, {
       trackFullscreen: true,
       affectsInputRegion: true,
       affectsStruts: false,
     });
 
-    this._dash = new AuroraDash({ monitorIndex: _monitorIndex });
-    this._container.set_child(this._dash);
-    this._dash.attachToContainer(this._container);
+    const dash = new AuroraDash({ monitorIndex });
+    container.set_child(dash);
+    dash.attachToContainer(container);
 
-    this._intellihide = new DockIntellihide({ monitorIndex: _monitorIndex, 'monitor-index': _monitorIndex });
-
-    this._dash.setTargetBoxListener((box) => {
-      this._intellihide.updateTargetBox(box);
+    const intellihide = new DockIntellihide({ monitorIndex, 'monitor-index': monitorIndex });
+    dash.setTargetBoxListener((box) => {
+      intellihide.updateTargetBox(box);
     });
 
-    this._signals.intellihide = this._intellihide.connect('status-changed', () => {
-      switch (this._intellihide.status) {
+    intellihide.connectObject('status-changed', () => {
+      switch (intellihide.status) {
         case OverlapStatus.CLEAR:
-          this._dash.blockAutoHide(true);
-          this._dash.show(true);
+          dash.blockAutoHide(true);
+          dash.show(true);
           break;
         case OverlapStatus.BLOCKED:
-          this._dash.blockAutoHide(false);
+          dash.blockAutoHide(false);
           break;
         default:
           break;
       }
-    });
+    }, this);
 
-    this._createHotArea(monitor);
+    const binding: ManagedDockBinding = {
+      monitorIndex,
+      container,
+      dash,
+      intellihide,
+      hotArea: this._createHotArea(monitorIndex, monitor, dash),
+      destroyed: false,
+    };
+
+    return binding;
   }
 
-  get monitorIndex(): number {
-    return this._monitorIndex;
+  private _createHotArea(monitorIndex: number, monitor: MonitorGeometry, dash: AuroraDash): InstanceType<typeof DockHotArea> | null {
+    if (!monitor || !this._isValidMonitor(monitor)) {
+      console.warn(`Skipping dock hot area for monitor ${monitorIndex}: invalid geometry`, monitor);
+      return null;
+    }
+
+    const hotArea = new DockHotArea(monitor);
+    hotArea.setBarrierSize(monitor.width);
+    hotArea.connectObject('triggered', () => {
+      console.log(`Dock hot area triggered on monitor ${monitorIndex}`);
+      dash.show(true);
+      dash.ensureAutoHide();
+    }, this);
+
+    return hotArea;
   }
 
-  updateWorkArea(): void {
-    const workArea = Main.layoutManager.getWorkAreaForMonitor(this._monitorIndex);
+  private _refreshWorkAreas(): void {
+    this._bindings.forEach((binding) => this._updateWorkArea(binding));
+  }
+
+  private _updateWorkArea(binding: ManagedDockBinding): void {
+    const workArea = Main.layoutManager.getWorkAreaForMonitor(binding.monitorIndex);
     if (!workArea) {
-      this._dash.hide(false);
+      binding.dash.hide(false);
       return;
     }
 
@@ -409,91 +476,33 @@ class DockBinding {
       height: workArea.height,
     };
 
-    this._dash.applyWorkArea(bounds);
+    binding.dash.applyWorkArea(bounds);
+    binding.container.show();
   }
 
-  private _createHotArea(monitor: MonitorGeometry): void {
-    if (!monitor) {
+  private _clearBindings(): void {
+    this._bindings.forEach((binding) => this._destroyBinding(binding));
+    this._bindings.clear();
+  }
+
+  private _destroyBinding(binding: ManagedDockBinding): void {
+    if (binding.destroyed) {
       return;
     }
+    binding.destroyed = true;
 
-    if (!this._isValidMonitor(monitor)) {
-      this._console?.warn?.(`Skipping dock hot area for monitor ${this._monitorIndex}: invalid geometry`, monitor);
-      return;
-    }
+    binding.intellihide.disconnectObject?.(this);
+    binding.hotArea?.disconnectObject?.(this);
 
-    this._hotArea = new DockHotArea(monitor);
-    this._hotArea.setBarrierSize(monitor.width);
-    this._signals.hotArea = this._hotArea.connect('triggered', () => {
-      this._console?.log(`Dock hot area triggered on monitor ${this._monitorIndex}`);
-      this._dash.show(true);
-      this._dash.ensureAutoHide();
-    });
-  }
+    binding.hotArea?.destroy();
+    binding.hotArea = null;
 
-  destroy(): void {
-    if (this._signals.intellihide) {
-      this._intellihide.disconnect(this._signals.intellihide);
-      this._signals.intellihide = 0;
-    }
+    binding.intellihide.destroy();
+    binding.dash.detachFromContainer();
+    binding.dash.destroy();
 
-    if (this._signals.hotArea && this._hotArea) {
-      this._hotArea.disconnect(this._signals.hotArea);
-      this._signals.hotArea = 0;
-    }
-
-    this._hotArea?.destroy();
-    this._hotArea = null;
-
-    this._intellihide.destroy();
-    this._dash.detachFromContainer();
-    this._dash.destroy();
-
-    Main.layoutManager.removeChrome?.(this._container);
-    this._container.destroy();
-  }
-
-  private _isValidMonitor(monitor: MonitorGeometry): boolean {
-    return [monitor.x, monitor.y, monitor.width, monitor.height].every((value) => Number.isFinite(value)) && monitor.width > 0 && monitor.height > 0;
-  }
-}
-
-class DockManager {
-  private _bindings = new Map<number, DockBinding>();
-  private _destroyed = false;
-
-  constructor(private _console: ConsoleLike | null) {
-    this._rebuild();
-
-    Main.layoutManager.connectObject(
-      'monitors-changed', () => this._rebuild(),
-      'hot-corners-changed', () => this._rebuild(),
-      this
-    );
-
-    global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this);
-  }
-
-  private _rebuild(): void {
-    if (this._destroyed) {
-      return;
-    }
-
-    this._clearBindings();
-
-    const monitors: MonitorGeometry[] = Main.layoutManager.monitors ?? [];
-    monitors.forEach((monitor, index) => {
-      if (this._hasDefinedBottom(monitors, index)) {
-        const binding = new DockBinding(index, monitor, this._console);
-        this._bindings.set(index, binding);
-      }
-    });
-
-    this._refreshWorkAreas();
-  }
-
-  private _refreshWorkAreas(): void {
-    this._bindings.forEach((binding) => binding.updateWorkArea());
+    Main.layoutManager.removeChrome?.(binding.container);
+    binding.container.destroy();
   }
 
   private _hasDefinedBottom(monitors: MonitorGeometry[], index: number): boolean {
@@ -523,72 +532,7 @@ class DockManager {
     return !hasMonitorBelow;
   }
 
-  destroy(): void {
-    this._destroyed = true;
-    this._clearBindings();
-    Main.layoutManager.disconnectObject(this);
-    global.display.disconnectObject(this);
-  }
-
-  private _clearBindings(): void {
-    this._bindings.forEach((binding) => binding.destroy());
-    this._bindings.clear();
-  }
-}
-
-export class Dock extends Module {
-  private _manager: DockManager | null = null;
-  private _hiddenDashActors: Clutter.Actor[] = [];
-
-  override enable(): void {
-    this.log('Enabling dock module');
-    this._hideDefaultDash();
-    this._manager = new DockManager(this._console);
-  }
-
-  override disable(): void {
-    this.log('Disabling dock module');
-    this._manager?.destroy();
-    this._manager = null;
-    this._restoreDefaultDash();
-  }
-
-  private _hideDefaultDash(): void {
-    const layoutManager = Main.layoutManager as Record<string, Clutter.Actor | undefined>;
-    const overview = Main.overview as Record<string, Clutter.Actor | undefined> | null;
-    const tryAdd = (actor?: Clutter.Actor | null | undefined): void => {
-      if (!actor || this._hiddenDashActors.includes(actor)) {
-        return;
-      }
-      this._hiddenDashActors.push(actor);
-      try {
-        if (typeof (actor as any).hide === 'function') {
-          (actor as any).hide();
-        }
-      } catch (_error) {
-        /* ignore */
-      }
-      actor.visible = false;
-    };
-
-    ['dash', '_dash', 'primaryDash', '_primaryDash'].forEach((key) => tryAdd(layoutManager[key]));
-    tryAdd((Main as any).dash);
-    if (overview) {
-      ['dash', '_dash'].forEach((key) => tryAdd(overview[key]));
-    }
-  }
-
-  private _restoreDefaultDash(): void {
-    for (const actor of this._hiddenDashActors) {
-      try {
-        if (typeof (actor as any).show === 'function') {
-          (actor as any).show();
-        }
-      } catch (_error) {
-        /* ignore */
-      }
-      actor.visible = true;
-    }
-    this._hiddenDashActors = [];
+  private _isValidMonitor(monitor: MonitorGeometry): boolean {
+    return [monitor.x, monitor.y, monitor.width, monitor.height].every((value) => Number.isFinite(value)) && monitor.width > 0 && monitor.height > 0;
   }
 }
