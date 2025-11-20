@@ -40,7 +40,7 @@ build({
 
     copyFileSync(metadataPath, metaDist);
 
-    const zip = new AdmZip();
+    const zip: AdmZip = new AdmZip();
     zip.addLocalFile(extensionSrc);
     zip.addLocalFile(styleSrc);
     zip.addLocalFile(metaDist);
