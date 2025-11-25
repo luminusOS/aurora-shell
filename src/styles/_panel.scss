@@ -1,8 +1,8 @@
 @use 'sass:color';
-@use 'variables' as *;
+@use 'variables' as vars;
 
-#panel.aurora-dark-mode {
-  background-color: $aurora-panel-dark-bg;
+#panel {
+  background-color: vars.$aurora-panel-bg;
 }
 
 /* #panel .panel-button:focus,
@@ -53,10 +53,10 @@
 #panel:overview,
 #panel.unlock-screen,
 #panel.login-screen {
-  background-color: $aurora-panel-dark-bg;
+  background-color: vars.$aurora-panel-bg;
 }
 
-#panel.unlock-screen .panel-button:focus,
+/* #panel.unlock-screen .panel-button:focus,
 #panel.unlock-screen .panel-button:hover,
 #panel.login-screen .panel-button:focus,
 #panel.login-screen .panel-button:hover {
@@ -162,4 +162,4 @@
 #panel:overview .panel-button.clock-display:active .clock:hover,
 #panel:overview .panel-button.clock-display:checked .clock:hover {
   box-shadow: inset 0 0 0 100px rgba(250, 250, 251, 0.32);
-}
+} */

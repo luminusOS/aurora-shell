@@ -21,6 +21,8 @@ install: build
 	@mkdir -p $(EXTENSION_DIR)
 	@cp dist/extension.js $(EXTENSION_DIR)/
 	@cp dist/stylesheet.css $(EXTENSION_DIR)/
+	@cp dist/stylesheet-light.css $(EXTENSION_DIR)/
+	@cp dist/stylesheet-dark.css $(EXTENSION_DIR)/
 	@cp dist/metadata.json $(EXTENSION_DIR)/
 	@echo "Extension installed at: $(EXTENSION_DIR)"
 	@echo ""
@@ -48,6 +50,8 @@ quick: build
 	@echo "Quick update..."
 	@cp dist/extension.js $(EXTENSION_DIR)/
 	@cp dist/stylesheet.css $(EXTENSION_DIR)/
+	@cp dist/stylesheet-light.css $(EXTENSION_DIR)/
+	@cp dist/stylesheet-dark.css $(EXTENSION_DIR)/
 	@cp dist/metadata.json $(EXTENSION_DIR)/
 	@echo "Files updated!"
 	@echo "Run 'make reload' to apply changes"

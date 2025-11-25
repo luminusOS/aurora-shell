@@ -1,6 +1,1 @@
-@use 'sass:color';
-
-@use 'variables' as *;
-
-@use 'panel';
-@use 'dash';
+@forward './stylesheet-light.scss';

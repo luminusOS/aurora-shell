@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { copyFileSync, readFileSync } from 'node:fs';
+import { copyFileSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AdmZip from 'adm-zip';
@@ -33,8 +33,12 @@ build({
 })
   .then(() => {
     const metaDist = resolve(currentDir, 'dist/metadata.json');
-    const styleSrc = resolve(currentDir, 'dist/stylesheet.css');
     const extensionSrc = resolve(currentDir, 'dist/extension.js');
+    const styleFiles = [
+      'dist/stylesheet.css',
+      'dist/stylesheet-light.css',
+      'dist/stylesheet-dark.css',
+    ].map((file) => resolve(currentDir, file));
     const zipFilename = `${metadata.uuid}.zip`;
     const zipDist = resolve(currentDir, 'dist', zipFilename);
 
@@ -42,7 +46,11 @@ build({
 
     const zip: AdmZip = new AdmZip();
     zip.addLocalFile(extensionSrc);
-    zip.addLocalFile(styleSrc);
+    styleFiles.forEach((stylePath) => {
+      if (existsSync(stylePath)) {
+        zip.addLocalFile(stylePath);
+      }
+    });
     zip.addLocalFile(metaDist);
     zip.writeZip(zipDist);
 

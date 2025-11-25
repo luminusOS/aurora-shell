@@ -9,13 +9,14 @@
   "scripts": {
     "clear": "rm -rf dist",
     "build:ts": "tsx esbuild.ts",
-    "build:css": "npx sass src/styles/stylesheet.scss dist/stylesheet.css --no-source-map",
+    "build:css": "tsx sass.config.ts",
     "build": "npm run clear && npm run build:css && npm run build:ts",
     "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",
     "validate": "tsc --noEmit",
-    "watch:css": "npx sass src/styles/stylesheet.scss dist/stylesheet.css --watch --no-source-map"
+    "watch:css": "tsx sass.config.ts --watch"
   },
   "devDependencies": {
+    "chokidar": "^3.6.0",
     "@eslint/js": "^9.39.1",
     "@stylistic/eslint-plugin": "^2.6.4",
     "@tsconfig/strictest": "^2.0.6",

@@ -1,10 +1,19 @@
 // Aurora Shell - Configuration Variables
 // ===========================================
 
+// Variant configuration (mirrors GNOME Shell theme defaults)
+$variant: 'light' !default;
+$contrast: 'normal' !default;
+
 // Aurora theme colors
-$aurora-panel-dark-bg: #303030;
-$aurora-dash-dark-bg: #303030;
-$aurora-dash-light-bg: #f0f0f0;
+$aurora-panel-bg-light: #fafafb;
+$aurora-panel-bg-dark: #303030;
+$aurora-panel-bg: if($variant == 'light', $aurora-panel-bg-light, $aurora-panel-bg-dark);
+
+$aurora-dash-bg-light: #fafafb;
+$aurora-dash-bg-dark: #303030;
+$aurora-dash-bg: if($variant == 'light', $aurora-dash-bg-light, $aurora-dash-bg-dark);
+
 $aurora-panel-opacity: 1.0;
 
 // Hover/interaction colors
