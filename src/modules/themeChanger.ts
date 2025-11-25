@@ -1,7 +1,6 @@
 import '@girs/gjs';
 
 import Gio from "gi://Gio";
-import * as Main from '@girs/gnome-shell/ui/main';
 import { Module } from './module.ts';
 
 /**
@@ -27,7 +26,6 @@ export class ThemeChanger extends Module {
       
       const currentScheme = this._settings.get_string('color-scheme');
       console.log(`Current color-scheme: ${currentScheme}`);
-      this._applyThemeClass(currentScheme);
 
       this._signalId = this._settings.connect('changed::color-scheme', () => {
         this._onColorSchemeChanged();
@@ -48,30 +46,10 @@ export class ThemeChanger extends Module {
       this._settings.set_string('color-scheme', 'prefer-light');
       return;
     }
-    
-    this._applyThemeClass(scheme);
-  }
-
-  private _applyThemeClass(scheme: string): void {
-    const panel = Main.panel;
-    
-    if (scheme === 'prefer-dark') {
-      console.log('Dark mode active - panel colors enabled');
-      panel.add_style_class_name('aurora-dark-mode');
-      panel.remove_style_class_name('aurora-light-mode');
-    } else if (scheme === 'prefer-light' || scheme === 'default') {
-      console.log('Light mode active - panel colors disabled');
-      panel.remove_style_class_name('aurora-dark-mode');
-      panel.add_style_class_name('aurora-light-mode');
-    }
   }
 
   override disable(): void {
     console.log('Disabling theme monitor');
-
-    const panel = Main.panel;
-    panel.remove_style_class_name('aurora-dark-mode');
-    panel.remove_style_class_name('aurora-light-mode');
 
     if (this._signalId && this._settings) {
       this._settings.disconnect(this._signalId);
