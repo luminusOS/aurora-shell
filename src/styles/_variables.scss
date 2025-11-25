@@ -1,37 +1,7 @@
-// Aurora Shell - Configuration Variables
-// ===========================================
+@use 'palette' as palette;
 
-// Variant configuration (mirrors GNOME Shell theme defaults)
 $variant: 'light' !default;
 $contrast: 'normal' !default;
 
-// Aurora theme colors
-$aurora-panel-bg-light: #fafafb;
-$aurora-panel-bg-dark: #303030;
-$aurora-panel-bg: if($variant == 'light', $aurora-panel-bg-light, $aurora-panel-bg-dark);
-
-$aurora-dash-bg-light: #fafafb;
-$aurora-dash-bg-dark: #303030;
-$aurora-dash-bg: if($variant == 'light', $aurora-dash-bg-light, $aurora-dash-bg-dark);
-
-$aurora-panel-opacity: 1.0;
-
-// Hover/interaction colors
-$aurora-hover-bg: rgba(255, 255, 255, 0.1);
-$aurora-hover-bg-light: rgba(255, 255, 255, 0.15);
-$aurora-active-bg: rgba(255, 255, 255, 0.2);
-
-// Text colors
-$aurora-text-color: #ffffff;
-$aurora-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-
-// Transitions
-$aurora-transition-duration: 200ms;
-$aurora-transition-timing: ease-out;
-
-// Spacing
-$aurora-button-padding: 8px 12px;
-$aurora-button-margin: 0 4px;
-
-// Border radius
-$aurora-border-radius: 4px;
+$aurora-panel-bg: if($variant == 'light', palette.$light-1, palette.$dark-1);
+$aurora-dash-bg: if($variant == 'light', palette.$light-1, palette.$dark-1);
