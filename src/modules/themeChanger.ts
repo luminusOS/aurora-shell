@@ -7,10 +7,10 @@ import { Module } from './module.ts';
  * ThemeChanger Module
  * 
  * Monitors the Dark Style toggle and synchronizes it with GNOME's color-scheme setting.
- * - When Dark Style is enabled → sets 'prefer-dark' → adds 'aurora-dark-mode' class
+ * - When Dark Style is enabled → sets 'prefer-dark'
  * - When Dark Style is disabled → 'default' → forces to 'prefer-light'
  * 
- * This ensures the Aurora Shell panel colors only apply in dark mode.
+ * This ensures consistent theming across GNOME Shell and applications.
  */
 export class ThemeChanger extends Module {
   private _settings: any;
