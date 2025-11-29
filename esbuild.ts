@@ -17,7 +17,7 @@ const metadata = JSON.parse(readFileSync(metadataPath, 'utf8')) as ExtensionMeta
 console.debug(`Building ${metadata.name} v${metadata.version}...`);
 
 build({
-  entryPoints: ['src/extension.ts'],
+  entryPoints: ['src/extension.ts', 'src/prefs.ts'],
   outdir: 'dist',
   bundle: true,
   // Do not remove the functions `enable()`, `disable()` and `init()`
@@ -34,6 +34,8 @@ build({
   .then(() => {
     const metaDist = resolve(currentDir, 'dist/metadata.json');
     const extensionSrc = resolve(currentDir, 'dist/extension.js');
+    const prefsSrc = resolve(currentDir, 'dist/prefs.js');
+    const schemasSrc = resolve(currentDir, 'schemas');
     const styleFiles = [
       'dist/stylesheet.css',
       'dist/stylesheet-light.css',
@@ -46,12 +48,18 @@ build({
 
     const zip: AdmZip = new AdmZip();
     zip.addLocalFile(extensionSrc);
+    if (existsSync(prefsSrc)) {
+      zip.addLocalFile(prefsSrc);
+    }
     styleFiles.forEach((stylePath) => {
       if (existsSync(stylePath)) {
         zip.addLocalFile(stylePath);
       }
     });
     zip.addLocalFile(metaDist);
+    if (existsSync(schemasSrc)) {
+      zip.addLocalFolder(schemasSrc, 'schemas');
+    }
     zip.writeZip(zipDist);
 
     console.debug(`Build complete. Zip file: ${zipFilename}`);

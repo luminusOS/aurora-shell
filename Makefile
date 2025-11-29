@@ -20,10 +20,13 @@ install: build
 	@echo "Installing extension..."
 	@mkdir -p $(EXTENSION_DIR)
 	@cp dist/extension.js $(EXTENSION_DIR)/
+	@cp dist/prefs.js $(EXTENSION_DIR)/ 2>/dev/null || true
 	@cp dist/stylesheet.css $(EXTENSION_DIR)/
 	@cp dist/stylesheet-light.css $(EXTENSION_DIR)/
 	@cp dist/stylesheet-dark.css $(EXTENSION_DIR)/
 	@cp dist/metadata.json $(EXTENSION_DIR)/
+	@cp -r schemas $(EXTENSION_DIR)/ 2>/dev/null || true
+	@glib-compile-schemas $(EXTENSION_DIR)/schemas/ 2>/dev/null || true
 	@echo "Extension installed at: $(EXTENSION_DIR)"
 	@echo ""
 	@echo "To activate:"
@@ -49,10 +52,13 @@ clean:
 quick: build
 	@echo "Quick update..."
 	@cp dist/extension.js $(EXTENSION_DIR)/
+	@cp dist/prefs.js $(EXTENSION_DIR)/ 2>/dev/null || true
 	@cp dist/stylesheet.css $(EXTENSION_DIR)/
 	@cp dist/stylesheet-light.css $(EXTENSION_DIR)/
 	@cp dist/stylesheet-dark.css $(EXTENSION_DIR)/
 	@cp dist/metadata.json $(EXTENSION_DIR)/
+	@cp -r schemas $(EXTENSION_DIR)/ 2>/dev/null || true
+	@glib-compile-schemas $(EXTENSION_DIR)/schemas/ 2>/dev/null || true
 	@echo "Files updated!"
 	@echo "Run 'make reload' to apply changes"
 

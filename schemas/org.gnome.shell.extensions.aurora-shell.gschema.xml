@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.aurora-shell" path="/org/gnome/shell/extensions/aurora-shell/">
+    <key name="module-theme-changer" type="b">
+      <default>true</default>
+      <summary>Enable Theme Changer module</summary>
+      <description>
+        Monitors and synchronizes GNOME's color scheme setting
+      </description>
+    </key>
+    <key name="module-dock" type="b">
+      <default>true</default>
+      <summary>Enable Dock module</summary>
+      <description>
+        Custom dock with auto-hide and intellihide features
+      </description>
+    </key>
+  </schema>
+</schemalist>
