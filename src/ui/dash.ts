@@ -42,6 +42,7 @@ export class AuroraDash extends Dash {
   private _draggingItem = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
+  private _isDestroyed = false;
 
   _init(params: AuroraDashParams = {}): void {
     super._init(params);
@@ -95,6 +96,11 @@ export class AuroraDash extends Dash {
   }
 
   override destroy(): void {
+    if (this._isDestroyed) {
+      return;
+    }
+    this._isDestroyed = true;
+
     this._clearTimeout('_autohideTimeoutId');
     this._clearTimeout('_delayEnsureAutoHideId');
     this._clearTimeout('_blockAutoHideDelayId');
@@ -110,6 +116,14 @@ export class AuroraDash extends Dash {
     this._pendingShow = null;
 
     super.destroy();
+  }
+
+  // Override to prevent calls after destruction
+  override _queueRedisplay(): void {
+    if (this._isDestroyed) {
+      return;
+    }
+    super._queueRedisplay();
   }
 
   refresh(): void {
