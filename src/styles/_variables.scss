@@ -1,7 +1,33 @@
+@use 'sass:color';
+
 @use 'palette' as palette;
 
 $variant: 'light' !default;
 $contrast: 'normal' !default;
 
 $aurora-panel-bg: if($variant == 'light', palette.$light-1, palette.$dark-1);
+
 $aurora-dash-bg: if($variant == 'light', palette.$light-1, palette.$dark-1);
+$aurora-dash-icon-color: if($variant == 'light', palette.$dark-1, palette.$light-1);
+$aurora-dash-separator-color: if($variant == 'light', color.adjust(palette.$dark-1, $alpha: -0.9), color.adjust(palette.$light-1, $alpha: -0.9));
+$aurora-dash-focus-bg: st-mix(
+	st-mix(-st-accent-color, #ffffff, 60%),
+	#30303040,
+	5%
+);
+$aurora-dash-focus-hover-bg: st-mix(
+	st-mix(-st-accent-color, #ffffff, 60%),
+	if($variant == 'light', st-darken($aurora-dash-bg, 7%), st-lighten($aurora-dash-bg, 7%)),
+	5%
+);
+$aurora-dash-hover-bg: if($variant == 'light', st-darken($aurora-dash-bg, 7%), st-lighten($aurora-dash-bg, 7%));
+$aurora-dash-active-bg: if($variant == 'light', st-darken($aurora-dash-bg, 9%), st-lighten($aurora-dash-bg, 9%));
+$aurora-dash-active-hover-bg: if($variant == 'light', st-darken($aurora-dash-bg, 9%), st-lighten($aurora-dash-bg, 9%));
+$aurora-dash-active-focus-bg: st-mix(
+	st-mix(-st-accent-color, #ffffff, 60%),
+	if($variant == 'light', st-darken($aurora-dash-bg, 9%), st-lighten($aurora-dash-bg, 9%)),
+	5%
+);
+$aurora-dash-checked-bg: if($variant == 'light', st-darken($aurora-dash-bg, 8%), st-lighten($aurora-dash-bg, 8%));
+$aurora-dash-checked-hover-bg: if($variant == 'light', st-darken($aurora-dash-bg, 8%), st-lighten($aurora-dash-bg, 8%));
+$aurora-dash-checked-active-bg: if($variant == 'light', st-darken($aurora-dash-bg, 9%), st-lighten($aurora-dash-bg, 9%));

@@ -8,59 +8,71 @@
 #dash .dash-item-container .show-apps .overview-icon,
 #dash .dash-item-container .overview-tile .overview-icon,
 #dash .dash-item-container .grid-search-result .overview-icon {
+  color: vars.$aurora-dash-icon-color;
   background-color: vars.$aurora-dash-bg;
 }
 
 #dash .dash-item-container .show-apps:focus .overview-icon,
 #dash .dash-item-container .overview-tile:focus .overview-icon,
 #dash .dash-item-container .grid-search-result:focus .overview-icon {
-  background-color: st-mix(st-mix(-st-accent-color, #ffffff, 60%), rgba(48, 48, 48, 0.25), 5%);
+  color: vars.$aurora-dash-icon-color;
+  background-color: vars.$aurora-dash-focus-bg;
 }
 
 #dash .dash-item-container .show-apps:focus .overview-icon:hover,
 #dash .dash-item-container .overview-tile:focus .overview-icon:hover,
 #dash .dash-item-container .grid-search-result:focus .overview-icon:hover {
-  background-color: st-mix(st-mix(-st-accent-color, #ffffff, 60%), st-lighten(vars.$aurora-dash-bg, 7%), 5%);
+  background-color: vars.$aurora-dash-focus-hover-bg;
 }
 
 #dash .dash-item-container .show-apps:hover .overview-icon,
 #dash .dash-item-container .overview-tile:hover .overview-icon,
 #dash .dash-item-container .grid-search-result:hover .overview-icon {
-  background-color: st-lighten(vars.$aurora-dash-bg, 7%);
+  color: vars.$aurora-dash-icon-color;
+  background-color: vars.$aurora-dash-hover-bg;
 }
 
 #dash .dash-item-container .show-apps:active .overview-icon,
 #dash .dash-item-container .overview-tile:active .overview-icon,
 #dash .dash-item-container .grid-search-result:active .overview-icon {
-  background-color: st-lighten(vars.$aurora-dash-bg, 9%); 
+  color: vars.$aurora-dash-icon-color;
+  background-color: vars.$aurora-dash-active-bg; 
 }
 
 #dash .dash-item-container .show-apps:active .overview-icon:hover,
 #dash .dash-item-container .overview-tile:active .overview-icon:hover,
 #dash .dash-item-container .grid-search-result:active .overview-icon:hover {
-  background-color: st-lighten(st-lighten(vars.$aurora-dash-bg, 9%), 7%); 
+  background-color: vars.$aurora-dash-active-hover-bg; 
 }
 
 #dash .dash-item-container .show-apps:active .overview-icon:focus,
 #dash .dash-item-container .overview-tile:active .overview-icon:focus,
 #dash .dash-item-container .grid-search-result:active .overview-icon:focus {
-  background-color: st-mix(st-mix(-st-accent-color, #ffffff, 60%), st-lighten(vars.$aurora-dash-bg, 9%), 5%);
+  background-color: vars.$aurora-dash-active-focus-bg;
 }
 
 #dash .dash-item-container .show-apps:checked .overview-icon,
 #dash .dash-item-container .overview-tile:checked .overview-icon,
 #dash .dash-item-container .grid-search-result:checked .overview-icon {
-  background-color: st-lighten(vars.$aurora-dash-bg, 8%); 
+  color: vars.$aurora-dash-icon-color;
+  background-color: vars.$aurora-dash-checked-bg; 
 }
 
 #dash .dash-item-container .show-apps:checked .overview-icon:hover,
 #dash .dash-item-container .overview-tile:checked .overview-icon:hover,
 #dash .dash-item-container .grid-search-result:checked .overview-icon:hover {
-  background-color: st-lighten(st-lighten(vars.$aurora-dash-bg, 8%), 7%); 
+  background-color: vars.$aurora-dash-checked-hover-bg; 
 }
 
 #dash .dash-item-container .show-apps:checked .overview-icon:active,
 #dash .dash-item-container .overview-tile:checked .overview-icon:active,
 #dash .dash-item-container .grid-search-result:checked .overview-icon:active {
-  background-color: st-lighten(st-lighten(vars.$aurora-dash-bg, 8%), 9%); 
+  background-color: vars.$aurora-dash-checked-active-bg; 
+}
+
+#dash .dash-separator {
+    width: 1px;
+    margin-left: 4px;
+    margin-right: 4px;
+    background-color: vars.$aurora-dash-separator-color; 
 }
