@@ -367,6 +367,13 @@ export class Dock extends Module {
     );
     global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this);
     Main.sessionMode.connectObject('updated', () => this._refreshBindingsLayout(), this);
+
+    // Hide the dock while the overview or app grid is visible
+    Main.overview.connectObject(
+      'showing', () => this._setOverviewVisible(true),
+      'hidden', () => this._setOverviewVisible(false),
+      this
+    );
   }
 
   override disable(): void {
@@ -374,6 +381,7 @@ export class Dock extends Module {
     Main.layoutManager.disconnectObject(this);
     global.display.disconnectObject(this);
     Main.sessionMode.disconnectObject(this);
+    Main.overview.disconnectObject(this);
     this._clearBindings();
   }
 
@@ -559,6 +567,23 @@ export class Dock extends Module {
       GLib.source_remove(binding.autoHideReleaseId);
       binding.autoHideReleaseId = 0;
     }
+  }
+
+  /** Hide all dock containers during overview/app grid, restore on close. */
+  private _setOverviewVisible(overviewShowing: boolean): void {
+    this._bindings.forEach((binding) => {
+      if (overviewShowing) {
+        this._clearHotAreaReveal(binding);
+        binding.hotAreaActive = false;
+        binding.dash.blockAutoHide(false);
+        binding.dash.hide(false);
+        binding.container.hide();
+      } else {
+        binding.container.show();
+        // Let intellihide decide whether to show the dash
+        binding.intellihide.emit('status-changed');
+      }
+    });
   }
 }
 
