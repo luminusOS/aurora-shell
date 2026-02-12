@@ -23,8 +23,6 @@ const ANIMATION_TIME = 200;
 const VISIBILITY_ANIMATION_TIME = 200;
 const HIDE_SCALE = 0.98;
 const EASE_DURATION_FACTOR = 0.8;
-/** Horizontal padding (px) inside the dash container so icons don't touch the background edge. */
-const DOCK_CONTENT_PADDING = 8;
 
 interface AuroraDashParams {
   monitorIndex?: number;
@@ -79,7 +77,6 @@ export class AuroraDash extends Dash {
     const dashContainer = (this as unknown as { _dashContainer?: St.Widget })._dashContainer;
     dashContainer?.set_track_hover?.(true);
     dashContainer?.set_reactive?.(true);
-    dashContainer?.set_style?.(`padding: 0 ${DOCK_CONTENT_PADDING}px;`);
     dashContainer?.connectObject?.('notify::hover', this._onHover.bind(this), this);
 
     this.set_x_align?.(Clutter.ActorAlign.CENTER);
