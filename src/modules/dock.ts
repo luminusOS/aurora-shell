@@ -579,7 +579,9 @@ export class Dock extends Module {
         binding.dash.hide(false);
         binding.container.hide();
       } else {
-        binding.container.show();
+        // Re-apply work area so the container is at the correct position
+        // and size before making anything visible again.
+        this._updateWorkArea(binding);
         // Let intellihide decide whether to show the dash
         binding.intellihide.emit('status-changed');
       }

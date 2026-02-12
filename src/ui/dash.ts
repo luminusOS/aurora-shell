@@ -35,12 +35,17 @@ interface AuroraDashParams {
  *
  * Extends the default GNOME Shell Dash with autohide behavior, slide-in/out
  * animations, intellihide target-box tracking, and per-monitor positioning.
+ *
+ * Positioning model:
+ * - The **container** (St.Bin, managed by Dock) is positioned at screen
+ *   coordinates via `applyWorkArea → container.set_position()`.
+ * - The **dash** (this widget) always sits at local y=0 inside the container.
+ *   Show/hide animations use `translation_y` only — never modify `this.y`.
  */
 @GObject.registerClass
 export class AuroraDash extends Dash {
   private _monitorIndex = Main.layoutManager.primaryIndex;
   private _workArea: DashBounds | null = null;
-  private _dashBounds: DashBounds | null = null;
   private _container: St.Bin | null = null;
   private _autohideTimeoutId = 0;
   private _delayEnsureAutoHideId = 0;
@@ -159,7 +164,6 @@ export class AuroraDash extends Dash {
   detachFromContainer(): void {
     this._container?.disconnectObject?.(this);
     this._container = null;
-    this._dashBounds = null;
     this._targetBox = null;
     this._targetBoxListener?.(null);
     this._pendingShow = null;
@@ -224,9 +228,7 @@ export class AuroraDash extends Dash {
     this.set_pivot_point(0.5, 1);
 
     if (!animate) {
-      this.translation_y = this.height;
-      this.opacity = 0;
-      this.set_scale(HIDE_SCALE, HIDE_SCALE);
+      this._applyHiddenState();
       super.hide();
       return;
     }
@@ -254,18 +256,22 @@ export class AuroraDash extends Dash {
       return;
     }
 
-    super.show();
-    this._correctYPosition();
+    // Reset all transforms BEFORE making visible so Clutter never sees the
+    // actor at a stale position (avoids "needs an allocation" warnings and
+    // prevents _queueTargetBoxUpdate from reading a wrong transformed Y).
     this.remove_all_transitions();
     this.set_pivot_point(0.5, 1);
 
     if (!animate) {
-      this.translation_y = 0;
-      this.opacity = 255;
-      this.set_scale(1, 1);
+      this._applyShownState();
+      super.show();
       onComplete?.();
       return;
     }
+
+    // Start from the hidden pose, then animate in
+    this._applyHiddenState();
+    super.show();
 
     this.ease({
       opacity: 255,
@@ -280,6 +286,20 @@ export class AuroraDash extends Dash {
       duration: VISIBILITY_ANIMATION_TIME * EASE_DURATION_FACTOR,
       mode: Clutter.AnimationMode.LINEAR,
     });
+  }
+
+  /** Set transform properties to the fully-visible resting state. */
+  private _applyShownState(): void {
+    this.translation_y = 0;
+    this.opacity = 255;
+    this.set_scale(1, 1);
+  }
+
+  /** Set transform properties to the fully-hidden state. */
+  private _applyHiddenState(): void {
+    this.translation_y = this.height;
+    this.opacity = 0;
+    this.set_scale(HIDE_SCALE, HIDE_SCALE);
   }
 
   /**
@@ -394,21 +414,7 @@ export class AuroraDash extends Dash {
 
   private _isFullyHidden(): boolean {
     return !this.visible
-      && this.translation_y === this.height
-      && this.scale_x === HIDE_SCALE
-      && this.scale_y === HIDE_SCALE
       && this.opacity === 0;
-  }
-
-  /** Correct dock Y position if it drifts from the work area bottom edge. */
-  private _correctYPosition(): void {
-    if (!this._workArea || !this._dashBounds) return;
-
-    const dockBottom = this._dashBounds.y + this._dashBounds.height;
-    const workAreaBottom = this._workArea.y + this._workArea.height;
-    if (dockBottom !== workAreaBottom) {
-      this.y += workAreaBottom - dockBottom;
-    }
   }
 
   /** Read the allocation box and return `{ width, height }`, or null if empty/missing. */
@@ -425,16 +431,26 @@ export class AuroraDash extends Dash {
     return this._getAllocationSize() !== null;
   }
 
+  /**
+   * Compute the dash bounds in stage coordinates and notify the intellihide
+   * listener. Only reads `get_transformed_position` when the dash is visible
+   * with no active translation, so the result reflects the true resting
+   * position rather than a mid-animation snapshot.
+   */
   private _queueTargetBoxUpdate(): void {
     if (!this._container) return;
 
     const size = this._getAllocationSize();
     if (!size) return;
 
+    // Only compute stage position when transforms are at rest to avoid
+    // capturing a mid-animation Y that would cause intellihide to track
+    // a wrong position.
+    if (!this.visible || this.translation_y !== 0) return;
+
     const [stageX, stageY] = (this as any).get_transformed_position?.() ?? [0, 0];
 
     const dashBounds: DashBounds = { x: stageX, y: stageY, ...size };
-    this._dashBounds = dashBounds;
 
     const padded: DashBounds = {
       x: dashBounds.x - TARGET_BOX_PADDING,
