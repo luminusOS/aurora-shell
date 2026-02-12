@@ -4,6 +4,7 @@ import Adw from "@girs/adw-1";
 import Gio from "@girs/gio-2.0";
 
 import { ExtensionPreferences } from '@girs/gnome-shell/extensions/prefs';
+import { MODULE_REGISTRY } from './registry.ts';
 
 export default class AuroraShellPreferences extends ExtensionPreferences {
   override fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {
@@ -19,32 +20,15 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
       description: 'Enable or disable extension modules',
     });
 
-    // Theme Changer module
-    const themeChangerRow = new Adw.SwitchRow({
-      title: 'Theme Changer',
-      subtitle: 'Monitors and synchronizes GNOME color scheme',
-    });
-    settings.bind(
-      'module-theme-changer',
-      themeChangerRow,
-      'active',
-      Gio.SettingsBindFlags.DEFAULT
-    );
+    for (const def of MODULE_REGISTRY) {
+      const row = new Adw.SwitchRow({
+        title: def.title,
+        subtitle: def.subtitle,
+      });
+      settings.bind(def.settingsKey, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+      group.add(row);
+    }
 
-    // Dock module
-    const dockRow = new Adw.SwitchRow({
-      title: 'Dock',
-      subtitle: 'Custom dock with auto-hide and intellihide features',
-    });
-    settings.bind(
-      'module-dock',
-      dockRow,
-      'active',
-      Gio.SettingsBindFlags.DEFAULT
-    );
-
-    group.add(themeChangerRow);
-    group.add(dockRow);
     page.add(group);
     window.add(page);
 
