@@ -18,7 +18,7 @@ const HOT_AREA_TRIGGER_SPEED = 150;
 const HOT_AREA_TRIGGER_TIMEOUT = 550;
 const HOT_AREA_REVEAL_DURATION = 1500;
 /** Height (in pixels) of the invisible strip at the screen bottom that triggers dock reveal. */
-const HOT_AREA_STRIP_HEIGHT = 2;
+const HOT_AREA_STRIP_HEIGHT = 1;
 
 const HOT_AREA_ALLOWED_MODES = Shell.ActionMode.ALL ?? [
   Shell.ActionMode.NORMAL,
