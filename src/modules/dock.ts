@@ -556,8 +556,18 @@ export class Dock extends Module {
     binding.autoHideReleaseId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_REVEAL_DURATION, () => {
       binding.autoHideReleaseId = 0;
       binding.hotAreaActive = false;
-      binding.dash.blockAutoHide(false);
-      binding.dash.ensureAutoHide();
+
+      // If no window overlaps the dock, keep it visible instead of
+      // unconditionally releasing auto-hide (which would cause the
+      // dock to disappear even with no overlapping windows).
+      if (binding.intellihide.status === OverlapStatus.CLEAR) {
+        binding.dash.blockAutoHide(true);
+        binding.dash.show(true);
+      } else {
+        binding.dash.blockAutoHide(false);
+        binding.dash.ensureAutoHide();
+      }
+
       return GLib.SOURCE_REMOVE;
     });
   }
