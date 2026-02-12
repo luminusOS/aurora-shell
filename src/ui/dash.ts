@@ -48,6 +48,7 @@ export class AuroraDash extends Dash {
   private _autohideTimeoutId = 0;
   private _delayEnsureAutoHideId = 0;
   private _blockAutoHideDelayId = 0;
+  private _workAreaUpdateId = 0;
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
   private _draggingItem = false;
@@ -90,6 +91,12 @@ export class AuroraDash extends Dash {
       'window-left-monitor', () => this._queueRedisplay(),
       this
     );
+
+    // Re-evaluate when the active workspace changes
+    global.workspace_manager.connectObject(
+      'active-workspace-changed', () => this._queueRedisplay(),
+      this
+    );
   }
 
   get monitorIndex(): number {
@@ -116,6 +123,7 @@ export class AuroraDash extends Dash {
     this.disconnectObject?.(this);
     Main.overview.disconnectObject(this);
     global.display.disconnectObject(this);
+    global.workspace_manager.disconnectObject(this);
     (this as any)._dashContainer?.disconnectObject?.(this);
     this._container?.disconnectObject?.(this);
 
@@ -316,15 +324,15 @@ export class AuroraDash extends Dash {
     const oldIconSize = dashAny.iconSize;
 
     // Temporarily patch get_running() so the base Dash only sees apps with
-    // windows on this monitor. Non-favorite running apps from other monitors
-    // will not appear in this dock.
+    // windows on this monitor and active workspace. Non-favorite running apps
+    // from other monitors or workspaces will not appear in this dock.
     const appSystem = dashAny._appSystem;
     const origGetRunning = appSystem?.get_running;
     if (appSystem && origGetRunning) {
-      const monitorIndex = this._monitorIndex;
+      const isRelevant = (w: any) => this._isWindowRelevant(w);
       appSystem.get_running = function () {
         return origGetRunning.call(this).filter((app: any) =>
-          app.get_windows().some((w: any) => w.get_monitor() === monitorIndex)
+          app.get_windows().some(isRelevant)
         );
       };
     }
@@ -342,14 +350,29 @@ export class AuroraDash extends Dash {
     if (dashAny.iconSize !== oldIconSize) {
       this._animateIconResize();
     } else if (this._workArea) {
-      this.applyWorkArea(this._workArea);
+      // Defer the work-area resize so newly-added icon containers have
+      // completed their initial layout pass and report accurate preferred
+      // sizes. Without this, the container can be sized too small and the
+      // last icon gets clipped.
+      this._queueWorkAreaUpdate();
     }
   }
 
   /**
+   * Check whether a window belongs to this dock's monitor and the active
+   * workspace. Windows stuck to all workspaces are always considered relevant.
+   */
+  private _isWindowRelevant(w: any): boolean {
+    return w.get_monitor() === this._monitorIndex
+      && (w.is_on_all_workspaces?.()
+        || w.get_workspace() === global.workspace_manager.get_active_workspace());
+  }
+
+  /**
    * Show the running-indicator dot only for apps that have at least one
-   * window on this dash's monitor. This ensures favorites pinned across
-   * all docks only display activity on the monitor where the app is open.
+   * window on this dash's monitor and active workspace. This ensures
+   * favorites pinned across all docks only display activity where the
+   * app is actually open.
    */
   private _updatePerMonitorRunningDots(): void {
     const children = (this as any)._box?.get_children?.() ?? [];
@@ -358,7 +381,7 @@ export class AuroraDash extends Dash {
       if (!icon?.app) continue;
 
       const hasWindowHere = icon.app.get_windows().some(
-        (w: any) => w.get_monitor() === this._monitorIndex
+        (w: any) => this._isWindowRelevant(w)
       );
 
       const dot = icon._dot;
@@ -532,7 +555,19 @@ export class AuroraDash extends Dash {
     }
   }
 
-  private _clearTimeout(prop: '_autohideTimeoutId' | '_delayEnsureAutoHideId' | '_blockAutoHideDelayId'): void {
+  /** Coalesce work-area resizes into a single deferred update. */
+  private _queueWorkAreaUpdate(): void {
+    if (this._workAreaUpdateId) return;
+    this._workAreaUpdateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+      this._workAreaUpdateId = 0;
+      if (!this._isDestroyed && this._workArea) {
+        this.applyWorkArea(this._workArea);
+      }
+      return GLib.SOURCE_REMOVE;
+    });
+  }
+
+  private _clearTimeout(prop: '_autohideTimeoutId' | '_delayEnsureAutoHideId' | '_blockAutoHideDelayId' | '_workAreaUpdateId'): void {
     if (this[prop]) {
       GLib.source_remove(this[prop]);
       this[prop] = 0;
@@ -543,6 +578,7 @@ export class AuroraDash extends Dash {
     this._clearTimeout('_autohideTimeoutId');
     this._clearTimeout('_delayEnsureAutoHideId');
     this._clearTimeout('_blockAutoHideDelayId');
+    this._clearTimeout('_workAreaUpdateId');
   }
 }
 

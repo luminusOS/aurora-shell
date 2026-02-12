@@ -181,8 +181,8 @@ const DockIntellihide = GObject.registerClass({
   },
   Signals: { 'status-changed': {} },
 }, class DockIntellihide extends GObject.Object {
-  private _monitorIndex = Main.layoutManager.primaryIndex;
-  private _tracker: Shell.WindowTracker | null = null;
+  private declare _monitorIndex: number;
+  private declare _tracker: Shell.WindowTracker | null;
   private _targetBox: DashBounds | null = null;
   private _status: OverlapStatus = OverlapStatus.UNDEFINED;
   private _focusActor: any = null;
