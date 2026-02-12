@@ -42,7 +42,7 @@ interface AuroraDashParams {
  */
 @GObject.registerClass
 export class AuroraDash extends Dash {
-  private _monitorIndex = Main.layoutManager.primaryIndex;
+  private declare _monitorIndex: number;
   private _workArea: DashBounds | null = null;
   private _container: St.Bin | null = null;
   private _autohideTimeoutId = 0;
@@ -58,9 +58,7 @@ export class AuroraDash extends Dash {
   _init(params: AuroraDashParams = {}): void {
     super._init();
 
-    if (typeof params.monitorIndex === 'number') {
-      this._monitorIndex = params.monitorIndex;
-    }
+    this._monitorIndex = params.monitorIndex ?? Main.layoutManager.primaryIndex;
 
     // Redirect "Show Apps" button to the overview instead of toggling
     const button = (this as any).showAppsButton;
@@ -85,6 +83,13 @@ export class AuroraDash extends Dash {
     this.set_y_expand?.(false);
 
     this.connectObject?.('notify::allocation', () => this._queueTargetBoxUpdate(), this);
+
+    // Re-evaluate per-monitor app filtering when windows move between monitors
+    global.display.connectObject(
+      'window-entered-monitor', () => this._queueRedisplay(),
+      'window-left-monitor', () => this._queueRedisplay(),
+      this
+    );
   }
 
   get monitorIndex(): number {
@@ -110,6 +115,7 @@ export class AuroraDash extends Dash {
     (this as any).showAppsButton?.disconnectObject?.(this);
     this.disconnectObject?.(this);
     Main.overview.disconnectObject(this);
+    global.display.disconnectObject(this);
     (this as any)._dashContainer?.disconnectObject?.(this);
     this._container?.disconnectObject?.(this);
 
@@ -308,11 +314,57 @@ export class AuroraDash extends Dash {
   private _redisplay(): void {
     const dashAny = this as any;
     const oldIconSize = dashAny.iconSize;
+
+    // Temporarily patch get_running() so the base Dash only sees apps with
+    // windows on this monitor. Non-favorite running apps from other monitors
+    // will not appear in this dock.
+    const appSystem = dashAny._appSystem;
+    const origGetRunning = appSystem?.get_running;
+    if (appSystem && origGetRunning) {
+      const monitorIndex = this._monitorIndex;
+      appSystem.get_running = function () {
+        return origGetRunning.call(this).filter((app: any) =>
+          app.get_windows().some((w: any) => w.get_monitor() === monitorIndex)
+        );
+      };
+    }
+
     Dash.prototype._redisplay.call(this);
+
+    if (appSystem && origGetRunning) {
+      appSystem.get_running = origGetRunning;
+    }
+
+    // Update running-indicator dots for favorites: hide the dot when the
+    // app has no windows on this monitor even if the app is globally running.
+    this._updatePerMonitorRunningDots();
+
     if (dashAny.iconSize !== oldIconSize) {
       this._animateIconResize();
     } else if (this._workArea) {
       this.applyWorkArea(this._workArea);
+    }
+  }
+
+  /**
+   * Show the running-indicator dot only for apps that have at least one
+   * window on this dash's monitor. This ensures favorites pinned across
+   * all docks only display activity on the monitor where the app is open.
+   */
+  private _updatePerMonitorRunningDots(): void {
+    const children = (this as any)._box?.get_children?.() ?? [];
+    for (const child of children) {
+      const icon = child.child?._delegate;
+      if (!icon?.app) continue;
+
+      const hasWindowHere = icon.app.get_windows().some(
+        (w: any) => w.get_monitor() === this._monitorIndex
+      );
+
+      const dot = icon._dot;
+      if (dot) {
+        dot.visible = hasWindowHere;
+      }
     }
   }
 
