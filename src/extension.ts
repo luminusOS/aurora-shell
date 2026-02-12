@@ -7,6 +7,8 @@ import { Extension, gettext as _ } from "@girs/gnome-shell/extensions/extension"
 
 import { ThemeChanger } from "./modules/themeChanger.ts";
 import { Dock } from "./modules/dock.ts";
+import { NoOverview } from "./modules/noOverview.ts";
+import { PipOnTop } from "./modules/pipOnTop.ts";
 import type { Module } from "./modules/module.ts";
 
 /**
@@ -36,6 +38,14 @@ export default class AuroraShellExtension extends Extension {
 
     if (this._settings?.get_boolean('module-dock')) {
       this._modules.set('dock', new Dock());
+    }
+
+    if (this._settings?.get_boolean('module-no-overview')) {
+      this._modules.set('noOverview', new NoOverview());
+    }
+
+    if (this._settings?.get_boolean('module-pip-on-top')) {
+      this._modules.set('pipOnTop', new PipOnTop());
     }
 
     // Add more modules here as needed:
@@ -68,6 +78,18 @@ export default class AuroraShellExtension extends Extension {
       this._toggleModule('dock', Dock, this._settings!.get_boolean('module-dock'));
     });
     this._settingsHandlers.push(dockId);
+
+    // Watch for no-overview module setting changes
+    const noOverviewId = this._settings.connect('changed::module-no-overview', () => {
+      this._toggleModule('noOverview', NoOverview, this._settings!.get_boolean('module-no-overview'));
+    });
+    this._settingsHandlers.push(noOverviewId);
+
+    // Watch for pip-on-top module setting changes
+    const pipOnTopId = this._settings.connect('changed::module-pip-on-top', () => {
+      this._toggleModule('pipOnTop', PipOnTop, this._settings!.get_boolean('module-pip-on-top'));
+    });
+    this._settingsHandlers.push(pipOnTopId);
 
     // Add more module watchers here as needed
   }

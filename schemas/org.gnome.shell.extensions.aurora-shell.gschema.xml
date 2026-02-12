@@ -15,5 +15,19 @@
         Custom dock with auto-hide and intellihide features
       </description>
     </key>
+    <key name="module-no-overview" type="b">
+      <default>true</default>
+      <summary>Enable No Overview module</summary>
+      <description>
+        Disables the overview at startup
+      </description>
+    </key>
+    <key name="module-pip-on-top" type="b">
+      <default>true</default>
+      <summary>Enable Pip On Top module</summary>
+      <description>
+        Keeps Picture-in-Picture windows always on top
+      </description>
+    </key>
   </schema>
 </schemalist>
