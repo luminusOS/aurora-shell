@@ -554,6 +554,20 @@ export class Dock extends Module {
     binding.dash.show(true);
 
     binding.autoHideReleaseId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_REVEAL_DURATION, () => {
+      // Keep the dock visible while the cursor is in the dock area.
+      // This prevents a show/hide/re-trigger cycle when overlapping
+      // windows cause BLOCKED status but the user is still at the
+      // bottom of the screen trying to use the dock.
+      const dashBounds = binding.dash.targetBox;
+      if (dashBounds) {
+        const [cursorX, cursorY] = global.get_pointer();
+        if (cursorY >= dashBounds.y
+            && cursorX >= dashBounds.x
+            && cursorX <= dashBounds.x + dashBounds.width) {
+          return GLib.SOURCE_CONTINUE;
+        }
+      }
+
       binding.autoHideReleaseId = 0;
       binding.hotAreaActive = false;
 
