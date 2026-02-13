@@ -10,19 +10,19 @@
     "clear": "rm -rf dist",
     "build:ts": "tsx esbuild.ts",
     "build:css": "tsx sass.config.ts",
-    "build": "npm run clear && npm run build:css && npm run build:ts",
+    "build": "yarn clear && yarn build:css && yarn build:ts",
     "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",
     "validate": "tsc --noEmit",
     "watch:css": "tsx sass.config.ts --watch"
   },
   "devDependencies": {
-    "chokidar": "^3.6.0",
     "@eslint/js": "^9.39.1",
     "@stylistic/eslint-plugin": "^2.6.4",
     "@tsconfig/strictest": "^2.0.6",
     "@types/adm-zip": "^0.5.7",
     "@types/node": "^24.10.1",
     "adm-zip": "^0.5.16",
+    "chokidar": "^3.6.0",
     "cross-env": "^10.1.0",
     "esbuild": "^0.25.11",
     "eslint": "^9.39.1",
@@ -35,9 +35,10 @@
   "dependencies": {
     "@girs/adw-1": "1.9.0-4.0.0-beta.38",
     "@girs/gjs": "^4.0.0-beta.38",
-    "@girs/gnome-shell": "^49.0.3",
+    "@girs/gnome-shell": "^49.1.0",
     "@girs/gobject-2.0": "^2.86.0-4.0.0-beta.38",
     "@girs/shell-17": "^17.0.0-4.0.0-beta.38",
     "@girs/st-17": "^17.0.0-4.0.0-beta.38"
-  }
+  },
+  "packageManager": "yarn@4.12.0"
 }

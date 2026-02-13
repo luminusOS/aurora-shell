@@ -29,6 +29,10 @@ build({
   // firefox102 // Since GJS 1.73.2
   target: 'firefox102',
   format: 'esm',
+  alias: {
+    // Not exported in @girs/gnome-shell v49; map directly to runtime resource
+    '@girs/gnome-shell/ui/dash': 'resource:///org/gnome/shell/ui/dash.js',
+  },
   external: ['gi://*', 'resource://*', 'system', 'gettext', 'cairo'],
 })
   .then(() => {
