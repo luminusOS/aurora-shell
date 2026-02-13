@@ -261,6 +261,14 @@ export class AuroraDash extends Dash {
       return;
     }
 
+    // Recalculate the container size to account for icon changes that
+    // occurred while the dock was hidden (e.g. apps opened/closed during
+    // IntelliHide BLOCKED state). Without this, the container can retain
+    // a stale width and clip the last icons or overlap the show-apps button.
+    if (this._workArea) {
+      this.applyWorkArea(this._workArea);
+    }
+
     // Reset all transforms BEFORE making visible so Clutter never sees the
     // actor at a stale position (avoids "needs an allocation" warnings and
     // prevents _queueTargetBoxUpdate from reading a wrong transformed Y).
