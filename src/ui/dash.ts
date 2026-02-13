@@ -141,12 +141,7 @@ export class AuroraDash extends Dash {
 
   /** Force the dash to re-render its icon list. */
   refresh(): void {
-    const dash = this as unknown as { _redisplay?: () => void; _queueRedisplay?: () => void };
-    if (typeof dash._redisplay === 'function') {
-      dash._redisplay();
-    } else {
-      dash._queueRedisplay?.();
-    }
+    (this as any)._redisplay();
   }
 
   setTargetBoxListener(listener: TargetBoxListener | null): void {
@@ -160,14 +155,13 @@ export class AuroraDash extends Dash {
     this._container?.disconnectObject?.(this);
     this._container = container;
 
-    const containerObj = container as unknown as {
-      connectObject?: (signal: string, handler: () => void, scope?: object) => void;
-    };
-
-    containerObj.connectObject?.('notify::allocation', () => this._queueTargetBoxUpdate(), this);
-    containerObj.connectObject?.('destroy', () => {
-      if (this._container === container) this._container = null;
-    }, this);
+    (container as any).connectObject?.(
+      'notify::allocation', () => this._queueTargetBoxUpdate(),
+      'destroy', () => {
+        if (this._container === container) this._container = null;
+      },
+      this
+    );
 
     this._queueTargetBoxUpdate();
   }
@@ -521,14 +515,13 @@ export class AuroraDash extends Dash {
     if (!this.visible || this.translation_y !== 0) return;
 
     const [stageX, stageY] = (this as any).get_transformed_position?.() ?? [0, 0];
-
-    const dashBounds: DashBounds = { x: stageX, y: stageY, ...size };
+    const p = TARGET_BOX_PADDING;
 
     const padded: DashBounds = {
-      x: dashBounds.x - TARGET_BOX_PADDING,
-      y: dashBounds.y - TARGET_BOX_PADDING,
-      width: dashBounds.width + TARGET_BOX_PADDING * 2,
-      height: dashBounds.height + TARGET_BOX_PADDING * 2,
+      x: stageX - p,
+      y: stageY - p,
+      width: size.width + p * 2,
+      height: size.height + p * 2,
     };
 
     if (!boundsEqual(this._targetBox, padded)) {

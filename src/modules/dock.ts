@@ -20,13 +20,6 @@ const HOT_AREA_REVEAL_DURATION = 1500;
 /** Height (in pixels) of the invisible strip at the screen bottom that triggers dock reveal. */
 const HOT_AREA_STRIP_HEIGHT = 1;
 
-const HOT_AREA_ALLOWED_MODES = Shell.ActionMode.ALL ?? [
-  Shell.ActionMode.NORMAL,
-  Shell.ActionMode.OVERVIEW,
-  Shell.ActionMode.POPUP,
-  Shell.ActionMode.FULLSCREEN,
-].reduce((mask, mode) => mask | (typeof mode === 'number' ? mode : 0), 0);
-
 /** Window types considered when checking whether a window overlaps the dock. */
 const OVERLAP_WINDOW_TYPES: Meta.WindowType[] = [
   Meta.WindowType.NORMAL,
@@ -40,17 +33,9 @@ const OVERLAP_WINDOW_TYPES: Meta.WindowType[] = [
 ];
 
 enum OverlapStatus {
-  UNDEFINED = -1,
   CLEAR = 0,
   BLOCKED = 1,
 }
-
-type MonitorGeometry = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
 
 type ManagedDockBinding = {
   monitorIndex: number;
@@ -78,16 +63,16 @@ const DockHotArea = GObject.registerClass({
   private _pressureBarrier: any;
   private _horizontalBarrier: Meta.Barrier | null = null;
   private _triggerAllowed = true;
-  private _monitor: MonitorGeometry;
+  private _monitor: DashBounds;
 
-  _init(monitor: MonitorGeometry) {
+  _init(monitor: DashBounds) {
     super._init({ reactive: true, visible: true, name: 'aurora-dock-hot-area' });
     this._monitor = monitor;
 
     this._pressureBarrier = new Layout.PressureBarrier(
       HOT_AREA_TRIGGER_SPEED,
       HOT_AREA_TRIGGER_TIMEOUT,
-      HOT_AREA_ALLOWED_MODES || Shell.ActionMode.NORMAL
+      Shell.ActionMode.ALL
     );
 
     this._pressureBarrier.connectObject('trigger', () => {
@@ -111,13 +96,9 @@ const DockHotArea = GObject.registerClass({
     );
   }
 
-  setGeometry(monitor: MonitorGeometry): void {
+  setGeometry(monitor: DashBounds): void {
     this._monitor = monitor;
     this._rebuildBarrier(monitor.width);
-  }
-
-  setBarrierSize(size: number): void {
-    this._rebuildBarrier(size);
   }
 
   override destroy(): void {
@@ -171,26 +152,19 @@ const DockHotArea = GObject.registerClass({
  * CLEAR and BLOCKED so the Dock module can show/hide the dash accordingly.
  */
 const DockIntellihide = GObject.registerClass({
-  Properties: {
-    'monitor-index': GObject.ParamSpec.int(
-      'monitor-index', 'Monitor Index',
-      'Monitor tracked for dock overlap checks',
-      GObject.ParamFlags.READWRITE, -1, 32,
-      Main.layoutManager.primaryIndex
-    ),
-  },
   Signals: { 'status-changed': {} },
 }, class DockIntellihide extends GObject.Object {
   private declare _monitorIndex: number;
   private declare _tracker: Shell.WindowTracker | null;
   private _targetBox: DashBounds | null = null;
-  private _status: OverlapStatus = OverlapStatus.UNDEFINED;
+  private _status: OverlapStatus = OverlapStatus.CLEAR;
   private _focusActor: any = null;
   private _focusActorId = 0;
   private _destroyed = false;
 
-  _init(params: { 'monitor-index'?: number } = {}) {
-    super._init(params);
+  _init(monitorIndex: number) {
+    super._init();
+    this._monitorIndex = monitorIndex;
     this._tracker = Shell.WindowTracker.get_default() ?? null;
 
     global.display.connectObject(
@@ -209,16 +183,6 @@ const DockIntellihide = GObject.registerClass({
       'hidden', () => this._checkOverlap(),
       this
     );
-  }
-
-  get monitorIndex(): number {
-    return this._monitorIndex;
-  }
-
-  set monitorIndex(index: number) {
-    if (typeof index !== 'number' || this._monitorIndex === index) return;
-    this._monitorIndex = index;
-    this._checkOverlap();
   }
 
   get status(): OverlapStatus {
@@ -243,7 +207,6 @@ const DockIntellihide = GObject.registerClass({
     Main.overview.disconnectObject(this);
     this.disconnectObject?.(this);
 
-    // GObject.Object has no destroy(); use run_dispose() instead
     (this as unknown as { run_dispose?: () => void }).run_dispose?.();
   }
 
@@ -368,7 +331,6 @@ export class Dock extends Module {
     global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this);
     Main.sessionMode.connectObject('updated', () => this._refreshBindingsLayout(), this);
 
-    // Hide the dock while the overview or app grid is visible
     Main.overview.connectObject(
       'showing', () => this._setOverviewVisible(true),
       'hidden', () => this._setOverviewVisible(false),
@@ -388,7 +350,7 @@ export class Dock extends Module {
   private _rebuildBindings(): void {
     this._clearBindings();
 
-    const monitors: MonitorGeometry[] = Main.layoutManager.monitors ?? [];
+    const monitors: DashBounds[] = Main.layoutManager.monitors ?? [];
     monitors.forEach((monitor, index) => {
       if (this._hasDefinedBottom(monitors, index)) {
         const binding = this._createBinding(monitor, index);
@@ -399,7 +361,7 @@ export class Dock extends Module {
     this._refreshWorkAreas();
   }
 
-  private _createBinding(monitor: MonitorGeometry, monitorIndex: number): ManagedDockBinding | null {
+  private _createBinding(monitor: DashBounds, monitorIndex: number): ManagedDockBinding | null {
     const container = new St.Bin({
       name: `aurora-dock-container-${monitorIndex}`,
       reactive: false,
@@ -416,7 +378,7 @@ export class Dock extends Module {
     container.set_child(dash);
     dash.attachToContainer(container);
 
-    const intellihide = new DockIntellihide({ 'monitor-index': monitorIndex });
+    const intellihide = new DockIntellihide(monitorIndex);
     dash.setTargetBoxListener((box) => intellihide.updateTargetBox(box));
 
     const binding: ManagedDockBinding = {
@@ -447,8 +409,8 @@ export class Dock extends Module {
     return binding;
   }
 
-  private _createHotArea(binding: ManagedDockBinding, monitor: MonitorGeometry): InstanceType<typeof DockHotArea> | null {
-    if (!isValidMonitor(monitor)) return null;
+  private _createHotArea(binding: ManagedDockBinding, monitor: DashBounds): InstanceType<typeof DockHotArea> | null {
+    if (monitor.width <= 0 || monitor.height <= 0) return null;
 
     const hotArea = new DockHotArea(monitor);
     Main.layoutManager.addChrome(hotArea, {
@@ -459,7 +421,6 @@ export class Dock extends Module {
 
     hotArea.set_size(monitor.width, HOT_AREA_STRIP_HEIGHT);
     hotArea.set_position(monitor.x, monitor.y + monitor.height - HOT_AREA_STRIP_HEIGHT);
-    hotArea.setBarrierSize(monitor.width);
 
     hotArea.connectObject('triggered', () => this._revealDockFromHotArea(binding), this);
 
@@ -533,7 +494,7 @@ export class Dock extends Module {
    * Returns true if no other monitor sits directly below this one.
    * Used to avoid placing a dock between vertically stacked monitors.
    */
-  private _hasDefinedBottom(monitors: MonitorGeometry[], index: number): boolean {
+  private _hasDefinedBottom(monitors: DashBounds[], index: number): boolean {
     const monitor = monitors[index];
     if (!monitor) return false;
 
@@ -571,9 +532,6 @@ export class Dock extends Module {
       binding.autoHideReleaseId = 0;
       binding.hotAreaActive = false;
 
-      // If no window overlaps the dock, keep it visible instead of
-      // unconditionally releasing auto-hide (which would cause the
-      // dock to disappear even with no overlapping windows).
       if (binding.intellihide.status === OverlapStatus.CLEAR) {
         binding.dash.blockAutoHide(true);
         binding.dash.show(true);
@@ -593,7 +551,6 @@ export class Dock extends Module {
     }
   }
 
-  /** Hide all dock containers during overview/app grid, restore on close. */
   private _setOverviewVisible(overviewShowing: boolean): void {
     this._bindings.forEach((binding) => {
       if (overviewShowing) {
@@ -603,18 +560,9 @@ export class Dock extends Module {
         binding.dash.hide(false);
         binding.container.hide();
       } else {
-        // Re-apply work area so the container is at the correct position
-        // and size before making anything visible again.
         this._updateWorkArea(binding);
-        // Let intellihide decide whether to show the dash
         binding.intellihide.emit('status-changed');
       }
     });
   }
-}
-
-// -- Utilities --
-
-function isValidMonitor(m: MonitorGeometry): boolean {
-  return Number.isFinite(m.x) && Number.isFinite(m.y) && m.width > 0 && m.height > 0;
 }
