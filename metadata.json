@@ -1,6 +1,6 @@
 {
     "name": "Aurora Shell",
-    "description": "Synchronizes topbar background color with dock background color",
+    "description": "A customizable GNOME Shell extension that enhances the user experience with various modules and features.",
     "version": "49",
     "uuid": "aurora-shell@luminusos.com",
     "url": "https://github.com/luminusOS/aurora-shell",
