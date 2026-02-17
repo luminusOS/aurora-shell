@@ -1,6 +1,5 @@
 {
   "name": "aurora-shell",
-  "version": "1.0.0",
   "description": "A customizable GNOME Shell extension that enhances the user experience with various modules and features.",
   "type": "module",
   "main": "dist/extension.js",
