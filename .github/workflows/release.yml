@@ -36,5 +36,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
-          files: dist/aurora-shell@luminusos.com.zip
+          files: dist/aurora-shell@luminusos.github.io.zip
           generate_release_notes: true

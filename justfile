@@ -1,4 +1,4 @@
-uuid := "aurora-shell@luminusos.com"
+uuid := "aurora-shell@luminusos.github.io"
 ext_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
 
 # List available commands
