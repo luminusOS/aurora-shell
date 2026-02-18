@@ -349,6 +349,10 @@ export class AuroraDash extends Dash {
     // app has no windows on this monitor even if the app is globally running.
     this._updatePerMonitorRunningDots();
 
+    // Patch icon activation so clicking an app with multiple windows on
+    // this monitor raises all of them instead of only the most recent one.
+    this._overrideIconActivation();
+
     if (dashAny.iconSize !== oldIconSize) {
       this._animateIconResize();
     } else if (this._workArea) {
@@ -390,6 +394,51 @@ export class AuroraDash extends Dash {
       if (dot) {
         dot.visible = hasWindowHere;
       }
+    }
+  }
+
+  /**
+   * Override app icon activation so clicking an app with multiple windows
+   * on this monitor and active workspace raises all of them instead of
+   * only the most recently used one.
+   */
+  private _overrideIconActivation(): void {
+    const children = (this as any)._box?.get_children?.() ?? [];
+    for (const child of children) {
+      const appIcon = child.child?._delegate;
+      if (!appIcon?.app || appIcon._auroraActivatePatched) continue;
+
+      appIcon._auroraActivatePatched = true;
+      const originalActivate = appIcon.activate.bind(appIcon);
+      const isRelevant = (w: any) => this._isWindowRelevant(w);
+
+      appIcon.activate = function (button: number) {
+        // Ctrl+click or middle-click opens a new window — keep default behavior
+        const event = Clutter.get_current_event();
+        const modifiers = event ? event.get_state() : 0;
+        const isMiddleButton = button && button === Clutter.BUTTON_MIDDLE;
+        const isCtrlPressed = (modifiers & Clutter.ModifierType.CONTROL_MASK) !== 0;
+
+        if (isCtrlPressed || isMiddleButton) {
+          originalActivate(button);
+          return;
+        }
+
+        const windows = appIcon.app.get_windows().filter(isRelevant);
+
+        if (windows.length <= 1) {
+          originalActivate(button);
+          return;
+        }
+
+        // Raise all windows: iterate in reverse MRU order so the most
+        // recently used window ends up focused on top.
+        for (let i = windows.length - 1; i >= 0; i--) {
+          const win = windows[i];
+          if (win.minimized) win.unminimize();
+          win.activate(global.get_current_time());
+        }
+      };
     }
   }
 
