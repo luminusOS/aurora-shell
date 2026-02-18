@@ -54,6 +54,7 @@ export class AuroraDash extends Dash {
   private _draggingItem = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
+  private _cycleState: { appId: string; windows: any[]; index: number } | null = null;
   private _isDestroyed = false;
 
   _init(params: AuroraDashParams = {}): void {
@@ -130,6 +131,7 @@ export class AuroraDash extends Dash {
     this._container = null;
     this._targetBox = null;
     this._pendingShow = null;
+    this._cycleState = null;
 
     super.destroy();
   }
@@ -399,10 +401,15 @@ export class AuroraDash extends Dash {
 
   /**
    * Override app icon activation so clicking an app with multiple windows
-   * on this monitor and active workspace raises all of them instead of
-   * only the most recently used one.
+   * on this monitor and active workspace cycles through them in MRU
+   * (Most Recently Used) order. A snapshot of the MRU list is taken on the
+   * first click and reused for subsequent clicks so the order stays stable
+   * while cycling. The snapshot resets automatically when the focused
+   * window no longer matches the last cycled-to window (e.g. the user
+   * clicked a window directly or switched apps).
    */
   private _overrideIconActivation(): void {
+    const self = this;
     const children = (this as any)._box?.get_children?.() ?? [];
     for (const child of children) {
       const appIcon = child.child?._delegate;
@@ -420,6 +427,7 @@ export class AuroraDash extends Dash {
         const isCtrlPressed = (modifiers & Clutter.ModifierType.CONTROL_MASK) !== 0;
 
         if (isCtrlPressed || isMiddleButton) {
+          self._cycleState = null;
           originalActivate(button);
           return;
         }
@@ -427,17 +435,50 @@ export class AuroraDash extends Dash {
         const windows = appIcon.app.get_windows().filter(isRelevant);
 
         if (windows.length <= 1) {
+          self._cycleState = null;
           originalActivate(button);
           return;
         }
 
-        // Raise all windows: iterate in reverse MRU order so the most
-        // recently used window ends up focused on top.
-        for (let i = windows.length - 1; i >= 0; i--) {
-          const win = windows[i];
+        const focusedWindow = global.display.focus_window;
+        const isFocused = windows.some((w: any) => w === focusedWindow);
+        const appId = appIcon.app.get_id();
+
+        if (!isFocused) {
+          // App not focused: activate the most recently used window
+          self._cycleState = null;
+          const win = windows[0];
           if (win.minimized) win.unminimize();
-          win.activate(global.get_current_time());
+          Main.activateWindow(win);
+          return;
         }
+
+        // Check if we can continue an existing MRU cycle: the focused
+        // window must match the last window we cycled to.
+        if (
+          self._cycleState?.appId === appId &&
+          self._cycleState.windows[self._cycleState.index] === focusedWindow
+        ) {
+          // Advance to the next window in the snapshot
+          const nextIndex = (self._cycleState.index + 1) % self._cycleState.windows.length;
+          const next = self._cycleState.windows[nextIndex];
+
+          // Validate the window still exists on this monitor/workspace
+          if (windows.some((w: any) => w === next)) {
+            self._cycleState.index = nextIndex;
+            if (next.minimized) next.unminimize();
+            Main.activateWindow(next);
+            return;
+          }
+          // Window was closed — fall through to start a fresh cycle
+        }
+
+        // Start a new MRU cycle: snapshot the current order and activate
+        // the second entry (the first is the already-focused window).
+        self._cycleState = { appId, windows: [...windows], index: 1 };
+        const next = windows[1];
+        if (next.minimized) next.unminimize();
+        Main.activateWindow(next);
       };
     }
   }
