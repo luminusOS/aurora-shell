@@ -1,5 +1,7 @@
 uuid := "aurora-shell@luminusos.github.io"
 ext_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
+toolbox_name := "gnome-shell-devel"
+toolbox_image := "registry.fedoraproject.org/fedora-toolbox:42"
 
 # List available commands
 default:
@@ -71,3 +73,38 @@ distclean: clean
 # Clean build + install
 all: clean build install
     @echo "Complete installation finished."
+
+# Run GNOME Shell with the extension (auto-detects --devkit or --nested)
+run: install
+    #!/usr/bin/env bash
+    set -e
+    if gnome-shell --help 2>&1 | grep -q -- --devkit; then
+        mode=--devkit
+    elif gnome-shell --help 2>&1 | grep -q -- --nested; then
+        mode=--nested
+    else
+        echo "Error: gnome-shell has neither --devkit nor --nested support" >&2
+        exit 1
+    fi
+    env XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell "$mode"
+
+# Run GNOME Shell with the extension inside a toolbox (auto-detects --devkit or --nested)
+toolbox-run: install
+    #!/usr/bin/env bash
+    set -e
+    if toolbox --container {{ toolbox_name }} run gnome-shell --help 2>&1 | grep -q -- --devkit; then
+        mode=--devkit
+    elif toolbox --container {{ toolbox_name }} run gnome-shell --help 2>&1 | grep -q -- --nested; then
+        mode=--nested
+    else
+        echo "Error: gnome-shell has neither --devkit nor --nested support" >&2
+        exit 1
+    fi
+    toolbox --container {{ toolbox_name }} run \
+        env XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell "$mode"
+
+# Create development toolbox for testing
+create-toolbox:
+    toolbox create --image {{ toolbox_image }} {{ toolbox_name }}
+    toolbox run --container {{ toolbox_name }} sudo dnf install -y gnome-shell glib2-devel
+    @echo "Toolbox '{{ toolbox_name }}' created successfully."

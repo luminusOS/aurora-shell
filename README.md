@@ -35,27 +35,31 @@ just install
 ## Commands
 
 ```
-just              # list all commands
-just build        # build everything (deps + CSS + TS + zip)
-just install      # build + install to GNOME Shell
-just quick        # rebuild + copy files (skip full install)
-just uninstall    # disable + remove extension
-just logs         # show recent extension logs
-just clean        # remove build artifacts
-just distclean    # remove artifacts + node_modules
-just validate     # type-check without emitting
-just lint         # run eslint
-just watch        # watch SCSS for changes
+just                # list all commands
+just build          # build everything (deps + CSS + TS + zip)
+just install        # build + install to GNOME Shell
+just quick          # rebuild + copy files (skip full install)
+just uninstall      # disable + remove extension
+just run            # build + install + run GNOME Shell (auto-detects --devkit or --nested)
+just toolbox-run    # same as run, but inside a toolbox
+just create-toolbox # create a Fedora toolbox for testing
+just logs           # show recent extension logs
+just clean          # remove build artifacts
+just distclean      # remove artifacts + node_modules
+just validate       # type-check without emitting
+just lint           # run eslint
+just watch          # watch SCSS for changes
 ```
 
 ## Testing
 
 ```bash
-# GNOME 49+
-dbus-run-session -- gnome-shell --devkit
+# Run directly on the host (builds, installs, and launches GNOME Shell)
+just run
 
-# GNOME 48 and earlier
-dbus-run-session -- gnome-shell --nested --wayland
+# Run inside a toolbox (useful when host lacks gnome-shell dev packages)
+just create-toolbox   # first time only
+just toolbox-run
 ```
 
 ## Adding a Module
