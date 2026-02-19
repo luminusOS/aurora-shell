@@ -5,11 +5,30 @@
 $variant: 'light' !default;
 $contrast: 'normal' !default;
 
-$aurora-panel-bg: if($variant == 'light', palette.$light-1, palette.$dark-1);
+$aurora-panel-bg: palette.$dark-1;
+$aurora-dash-bg: palette.$dark-1;
+$aurora-dash-icon-color: palette.$light-1;
+$aurora-dash-separator-color: color.adjust(palette.$light-1, $alpha: -0.9);
+$aurora-dash-hover-bg: st-lighten($aurora-dash-bg, 7%);
+$aurora-dash-active-bg: st-lighten($aurora-dash-bg, 9%);
+$aurora-dash-active-hover-bg: st-lighten($aurora-dash-bg, 9%);
+$aurora-dash-checked-bg: st-lighten($aurora-dash-bg, 8%);
+$aurora-dash-checked-hover-bg: st-lighten($aurora-dash-bg, 8%);
+$aurora-dash-checked-active-bg: st-lighten($aurora-dash-bg, 9%);
 
-$aurora-dash-bg: if($variant == 'light', palette.$light-1, palette.$dark-1);
-$aurora-dash-icon-color: if($variant == 'light', palette.$dark-1, palette.$light-1);
-$aurora-dash-separator-color: if($variant == 'light', color.adjust(palette.$dark-1, $alpha: -0.9), color.adjust(palette.$light-1, $alpha: -0.9));
+@if $variant == 'light' {
+	$aurora-panel-bg: palette.$light-1;
+	$aurora-dash-bg: palette.$light-1;
+	$aurora-dash-icon-color: palette.$dark-1;
+	$aurora-dash-separator-color: color.adjust(palette.$dark-1, $alpha: -0.9);
+	$aurora-dash-hover-bg: st-darken($aurora-dash-bg, 7%);
+	$aurora-dash-active-bg: st-darken($aurora-dash-bg, 9%);
+	$aurora-dash-active-hover-bg: st-darken($aurora-dash-bg, 9%);
+	$aurora-dash-checked-bg: st-darken($aurora-dash-bg, 8%);
+	$aurora-dash-checked-hover-bg: st-darken($aurora-dash-bg, 8%);
+	$aurora-dash-checked-active-bg: st-darken($aurora-dash-bg, 9%);
+}
+
 $aurora-dash-focus-bg: st-mix(
 	st-mix(-st-accent-color, #ffffff, 60%),
 	#30303040,
@@ -17,17 +36,11 @@ $aurora-dash-focus-bg: st-mix(
 );
 $aurora-dash-focus-hover-bg: st-mix(
 	st-mix(-st-accent-color, #ffffff, 60%),
-	if($variant == 'light', st-darken($aurora-dash-bg, 7%), st-lighten($aurora-dash-bg, 7%)),
+	$aurora-dash-hover-bg,
 	5%
 );
-$aurora-dash-hover-bg: if($variant == 'light', st-darken($aurora-dash-bg, 7%), st-lighten($aurora-dash-bg, 7%));
-$aurora-dash-active-bg: if($variant == 'light', st-darken($aurora-dash-bg, 9%), st-lighten($aurora-dash-bg, 9%));
-$aurora-dash-active-hover-bg: if($variant == 'light', st-darken($aurora-dash-bg, 9%), st-lighten($aurora-dash-bg, 9%));
 $aurora-dash-active-focus-bg: st-mix(
 	st-mix(-st-accent-color, #ffffff, 60%),
-	if($variant == 'light', st-darken($aurora-dash-bg, 9%), st-lighten($aurora-dash-bg, 9%)),
+	$aurora-dash-active-bg,
 	5%
 );
-$aurora-dash-checked-bg: if($variant == 'light', st-darken($aurora-dash-bg, 8%), st-lighten($aurora-dash-bg, 8%));
-$aurora-dash-checked-hover-bg: if($variant == 'light', st-darken($aurora-dash-bg, 8%), st-lighten($aurora-dash-bg, 8%));
-$aurora-dash-checked-active-bg: if($variant == 'light', st-darken($aurora-dash-bg, 9%), st-lighten($aurora-dash-bg, 9%));
