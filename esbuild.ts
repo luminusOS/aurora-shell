@@ -1,8 +1,16 @@
+import type { Plugin } from 'esbuild';
 import { build } from 'esbuild';
-import { copyFileSync, readFileSync, existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import {
+  copyFileSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  existsSync,
+} from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AdmZip from 'adm-zip';
+import { format } from 'prettier';
 
 interface ExtensionMetadata {
   name: string;
@@ -10,16 +18,38 @@ interface ExtensionMetadata {
   uuid: string;
 }
 
+// Externalize local .ts imports and rewrite paths to .js
+const localExternals: Plugin = {
+  name: 'local-externals',
+  setup(ctx) {
+    ctx.onResolve({ filter: /\.ts$/ }, (args) => {
+      if (args.kind === 'entry-point') return;
+      if (args.path.startsWith('.')) {
+        return {
+          path: args.path.replace(/\.ts$/, '.js'),
+          external: true,
+        };
+      }
+    });
+  },
+};
+
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const metadataPath = resolve(currentDir, 'metadata.json');
 const metadata = JSON.parse(readFileSync(metadataPath, 'utf8')) as ExtensionMetadata;
 
+const srcDir = resolve(currentDir, 'src');
+const entryPoints = (readdirSync(srcDir, { recursive: true }) as string[])
+  .filter((file) => file.endsWith('.ts') && !file.endsWith('.d.ts'))
+  .map((file) => join('src', file));
+
 console.debug(`Building ${metadata.name} v${metadata.version}...`);
 
-build({
-  entryPoints: ['src/extension.ts', 'src/prefs.ts'],
+const sharedOptions = {
   outdir: 'dist',
+  outbase: 'src',
   bundle: true,
+  plugins: [localExternals],
   // Do not remove the functions `enable()`, `disable()` and `init()`
   treeShaking: false,
   // firefox60  // Since GJS 1.53.90
@@ -27,35 +57,55 @@ build({
   // firefox78  // Since GJS 1.65.90
   // firefox91  // Since GJS 1.71.1
   // firefox102 // Since GJS 1.73.2
-  target: 'firefox102',
-  format: 'esm',
+  target: 'firefox102' as const,
+  format: 'esm' as const,
   alias: {
     // Not exported in @girs/gnome-shell v49; map directly to runtime resource
     '@girs/gnome-shell/ui/dash': 'resource:///org/gnome/shell/ui/dash.js',
   },
   external: ['gi://*', 'resource://*', 'system', 'gettext', 'cairo'],
-})
-  .then(() => {
-    const metaDist = resolve(currentDir, 'dist/metadata.json');
-    const extensionSrc = resolve(currentDir, 'dist/extension.js');
-    const prefsSrc = resolve(currentDir, 'dist/prefs.js');
+};
+
+Promise.all(
+  entryPoints.map((entryPoint) =>
+    build({ ...sharedOptions, entryPoints: [entryPoint] }),
+  ),
+)
+  .then(async () => {
+    const distDir = resolve(currentDir, 'dist');
+    const metaDist = resolve(distDir, 'metadata.json');
     const schemasSrc = resolve(currentDir, 'schemas');
     const styleFiles = [
-      'dist/stylesheet.css',
-      'dist/stylesheet-light.css',
-      'dist/stylesheet-dark.css',
-    ].map((file) => resolve(currentDir, file));
+      'stylesheet.css',
+      'stylesheet-light.css',
+      'stylesheet-dark.css',
+    ];
     const zipFilename = `${metadata.uuid}.zip`;
-    const zipDist = resolve(currentDir, 'dist', zipFilename);
+    const zipDist = resolve(distDir, zipFilename);
+
+    // Format output files with prettier
+    const jsFiles = (readdirSync(distDir, { recursive: true }) as string[])
+      .filter((file) => file.endsWith('.js'));
+
+    for (const file of jsFiles) {
+      const filePath = resolve(distDir, file);
+      const content = readFileSync(filePath, 'utf8');
+      const formatted = await format(content, { parser: 'babel', filepath: filePath });
+      writeFileSync(filePath, formatted);
+    }
 
     copyFileSync(metadataPath, metaDist);
 
     const zip: AdmZip = new AdmZip();
-    zip.addLocalFile(extensionSrc);
-    if (existsSync(prefsSrc)) {
-      zip.addLocalFile(prefsSrc);
+
+    for (const file of jsFiles) {
+      const filePath = resolve(distDir, file);
+      const dir = dirname(file);
+      zip.addLocalFile(filePath, dir === '.' ? '' : dir);
     }
-    styleFiles.forEach((stylePath) => {
+
+    styleFiles.forEach((styleFile) => {
+      const stylePath = resolve(distDir, styleFile);
       if (existsSync(stylePath)) {
         zip.addLocalFile(stylePath);
       }
