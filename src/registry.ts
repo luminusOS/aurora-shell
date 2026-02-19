@@ -2,7 +2,7 @@ import { ThemeChanger } from "./modules/themeChanger.ts";
 import { Dock } from "./modules/dock.ts";
 import { NoOverview } from "./modules/noOverview.ts";
 import { PipOnTop } from "./modules/pipOnTop.ts";
-import type { Module } from "./modules/module.ts";
+import type { Module } from "./module.ts";
 
 /**
  * Module definition that includes both runtime and UI metadata

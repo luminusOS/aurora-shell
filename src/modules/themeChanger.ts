@@ -1,7 +1,7 @@
 import '@girs/gjs';
 
 import Gio from "gi://Gio";
-import { Module } from './module.ts';
+import { Module } from '../module.ts';
 
 /**
  * ThemeChanger Module

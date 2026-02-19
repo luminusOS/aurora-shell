@@ -4,7 +4,7 @@ import '@girs/gjs';
 import Gio from "@girs/gio-2.0";
 import { Extension } from "@girs/gnome-shell/extensions/extension";
 
-import type { Module } from "./modules/module.ts";
+import type { Module } from "./module.ts";
 import { MODULE_REGISTRY, type ModuleDefinition } from "./registry.ts";
 
 /**

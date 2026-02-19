@@ -1,6 +1,6 @@
 import * as Main from '@girs/gnome-shell/ui/main';
 
-import { Module } from './module.ts';
+import { Module } from '../module.ts';
 
 /**
  * NoOverview Module

@@ -11,7 +11,7 @@ import GLib from '@girs/glib-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as Layout from '@girs/gnome-shell/ui/layout';
 
-import { Module } from './module.ts';
+import { Module } from '../module.ts';
 import { AuroraDash, type DashBounds } from '../ui/dash.ts';
 
 const HOT_AREA_TRIGGER_SPEED = 150;
