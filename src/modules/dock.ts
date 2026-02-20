@@ -44,7 +44,6 @@ type ManagedDockBinding = {
   intellihide: InstanceType<typeof DockIntellihide>;
   hotArea: InstanceType<typeof DockHotArea> | null;
   autoHideReleaseId: number;
-  destroyed: boolean;
   hotAreaActive: boolean;
 };
 
@@ -160,7 +159,6 @@ const DockIntellihide = GObject.registerClass({
   private _status: OverlapStatus = OverlapStatus.CLEAR;
   private _focusActor: any = null;
   private _focusActorId = 0;
-  private _destroyed = false;
 
   _init(monitorIndex: number) {
     super._init();
@@ -195,9 +193,6 @@ const DockIntellihide = GObject.registerClass({
   }
 
   override destroy(): void {
-    if (this._destroyed) return;
-    this._destroyed = true;
-
     this._disconnectFocusActor();
     global.display.disconnectObject(this);
     Main.layoutManager.disconnectObject(this);
@@ -206,8 +201,6 @@ const DockIntellihide = GObject.registerClass({
     Main.keyboard.disconnectObject(this);
     Main.overview.disconnectObject(this);
     this.disconnectObject?.(this);
-
-    (this as unknown as { run_dispose?: () => void }).run_dispose?.();
   }
 
   private _checkOverlap(): void {
@@ -388,7 +381,6 @@ export class Dock extends Module {
       intellihide,
       hotArea: null,
       autoHideReleaseId: 0,
-      destroyed: false,
       hotAreaActive: false,
     };
 
@@ -469,10 +461,11 @@ export class Dock extends Module {
   }
 
   private _destroyBinding(binding: ManagedDockBinding): void {
-    if (binding.destroyed) return;
-    binding.destroyed = true;
+    if (binding.autoHideReleaseId) {
+      GLib.source_remove(binding.autoHideReleaseId);
+      binding.autoHideReleaseId = 0;
+    }
 
-    this._clearHotAreaReveal(binding);
     binding.intellihide.disconnectObject?.(this);
     binding.hotArea?.disconnectObject?.(this);
 

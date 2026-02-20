@@ -63,8 +63,6 @@ export class PipOnTop extends Module {
   }
 
   private _disconnectWorkspace(): void {
-    if (!this._lastWorkspace) return;
-
     if (this._windowAddedId) {
       this._lastWorkspace.disconnect(this._windowAddedId);
       this._windowAddedId = 0;

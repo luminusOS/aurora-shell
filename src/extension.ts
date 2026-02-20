@@ -28,7 +28,6 @@ const MODULE_FACTORIES: Record<string, () => Module> = {
 export default class AuroraShellExtension extends Extension {
   private _modules: Map<string, Module> = new Map();
   private _settings: Gio.Settings | null = null;
-  private _settingsHandlers: number[] = [];
 
   override enable(): void {
     console.log('Enabling extension');
@@ -60,12 +59,15 @@ export default class AuroraShellExtension extends Extension {
   private _connectSettings(): void {
     if (!this._settings) return;
 
+    const args: any[] = [];
     for (const def of MODULE_REGISTRY) {
-      const handlerId = this._settings.connect(`changed::${def.settingsKey}`, () => {
+      args.push(`changed::${def.settingsKey}`, () => {
         this._toggleModule(def);
       });
-      this._settingsHandlers.push(handlerId);
     }
+    args.push(this);
+
+    this._settings.connectObject(...args);
   }
 
   private _toggleModule(def: ModuleDefinition): void {
@@ -95,12 +97,7 @@ export default class AuroraShellExtension extends Extension {
   override disable(): void {
     console.log('Aurora Shell: Disabling extension');
 
-    if (this._settings) {
-      for (const handlerId of this._settingsHandlers) {
-        this._settings.disconnect(handlerId);
-      }
-      this._settingsHandlers = [];
-    }
+    this._settings?.disconnectObject(this);
 
     for (const [name, module] of this._modules) {
       try {

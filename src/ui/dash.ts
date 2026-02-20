@@ -40,8 +40,8 @@ interface AuroraDashParams {
  * - The **dash** (this widget) always sits at local y=0 inside the container.
  *   Show/hide animations use `translation_y` only — never modify `this.y`.
  */
-@GObject.registerClass
-export class AuroraDash extends Dash {
+export const AuroraDash = GObject.registerClass(
+class AuroraDashClass extends Dash {
   private declare _monitorIndex: number;
   private _workArea: DashBounds | null = null;
   private _container: St.Bin | null = null;
@@ -55,7 +55,6 @@ export class AuroraDash extends Dash {
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
   private _cycleState: { appId: string; windows: any[]; index: number } | null = null;
-  private _isDestroyed = false;
 
   _init(params: AuroraDashParams = {}): void {
     super._init();
@@ -115,9 +114,6 @@ export class AuroraDash extends Dash {
   }
 
   override destroy(): void {
-    if (this._isDestroyed) return;
-    this._isDestroyed = true;
-
     this._clearAllTimeouts();
 
     (this as any).showAppsButton?.disconnectObject?.(this);
@@ -137,7 +133,6 @@ export class AuroraDash extends Dash {
   }
 
   override _queueRedisplay(): void {
-    if (this._isDestroyed) return;
     super._queueRedisplay();
   }
 
@@ -651,7 +646,7 @@ export class AuroraDash extends Dash {
     if (this._workAreaUpdateId) return;
     this._workAreaUpdateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
       this._workAreaUpdateId = 0;
-      if (!this._isDestroyed && this._workArea) {
+      if (this._workArea) {
         this.applyWorkArea(this._workArea);
       }
       return GLib.SOURCE_REMOVE;
@@ -671,7 +666,9 @@ export class AuroraDash extends Dash {
     this._clearTimeout('_blockAutoHideDelayId');
     this._clearTimeout('_workAreaUpdateId');
   }
-}
+});
+
+export type AuroraDash = InstanceType<typeof AuroraDash>;
 
 function boundsEqual(a: DashBounds | null, b: DashBounds | null): boolean {
   if (a === b) return true;
