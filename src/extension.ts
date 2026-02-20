@@ -7,6 +7,18 @@ import { Extension } from "@girs/gnome-shell/extensions/extension";
 import type { Module } from "./module.ts";
 import { MODULE_REGISTRY, type ModuleDefinition } from "./registry.ts";
 
+import { ThemeChanger } from "./modules/themeChanger.ts";
+import { Dock } from "./modules/dock.ts";
+import { NoOverview } from "./modules/noOverview.ts";
+import { PipOnTop } from "./modules/pipOnTop.ts";
+
+const MODULE_FACTORIES: Record<string, () => Module> = {
+  themeChanger: () => new ThemeChanger(),
+  dock: () => new Dock(),
+  noOverview: () => new NoOverview(),
+  pipOnTop: () => new PipOnTop(),
+};
+
 /**
  * Aurora Shell Extension
  *
@@ -30,7 +42,7 @@ export default class AuroraShellExtension extends Extension {
   private _initializeModules(): void {
     for (const def of MODULE_REGISTRY) {
       if (this._settings?.get_boolean(def.settingsKey)) {
-        this._modules.set(def.key, def.create());
+        this._modules.set(def.key, MODULE_FACTORIES[def.key]());
       }
     }
   }
@@ -63,7 +75,7 @@ export default class AuroraShellExtension extends Extension {
     if (enabled && !existing) {
       console.log(`Aurora Shell: Enabling module ${def.key}`);
       try {
-        const module = def.create();
+        const module = MODULE_FACTORIES[def.key]();
         module.enable();
         this._modules.set(def.key, module);
       } catch (e) {
