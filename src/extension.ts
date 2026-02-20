@@ -11,12 +11,14 @@ import { ThemeChanger } from "./modules/themeChanger.ts";
 import { Dock } from "./modules/dock.ts";
 import { NoOverview } from "./modules/noOverview.ts";
 import { PipOnTop } from "./modules/pipOnTop.ts";
+import { SystemTray } from "./modules/systemTray.ts";
 
 const MODULE_FACTORIES: Record<string, () => Module> = {
   themeChanger: () => new ThemeChanger(),
   dock: () => new Dock(),
   noOverview: () => new NoOverview(),
   pipOnTop: () => new PipOnTop(),
+  systemTray: () => new SystemTray(),
 };
 
 /**

@@ -29,5 +29,12 @@
         Keeps Picture-in-Picture windows always on top
       </description>
     </key>
+    <key name="module-system-tray" type="b">
+      <default>true</default>
+      <summary>Enable System Tray module</summary>
+      <description>
+        Shows legacy tray icons in the top panel
+      </description>
+    </key>
   </schema>
 </schemalist>
