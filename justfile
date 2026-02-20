@@ -30,12 +30,7 @@ watch:
 # Install extension to GNOME Shell
 install: build
     mkdir -p {{ ext_dir }}
-    cp dist/extension.js {{ ext_dir }}/
-    cp dist/prefs.js {{ ext_dir }}/ 2>/dev/null || true
-    cp dist/stylesheet.css {{ ext_dir }}/
-    cp dist/stylesheet-light.css {{ ext_dir }}/
-    cp dist/stylesheet-dark.css {{ ext_dir }}/
-    cp dist/metadata.json {{ ext_dir }}/
+    rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
     cp -r schemas {{ ext_dir }}/ 2>/dev/null || true
     glib-compile-schemas {{ ext_dir }}/schemas/ 2>/dev/null || true
     @echo "Installed at: {{ ext_dir }}"
@@ -48,12 +43,7 @@ uninstall:
 
 # Quick update (rebuild + copy files, no full install)
 quick: build
-    cp dist/extension.js {{ ext_dir }}/
-    cp dist/prefs.js {{ ext_dir }}/ 2>/dev/null || true
-    cp dist/stylesheet.css {{ ext_dir }}/
-    cp dist/stylesheet-light.css {{ ext_dir }}/
-    cp dist/stylesheet-dark.css {{ ext_dir }}/
-    cp dist/metadata.json {{ ext_dir }}/
+    rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
     cp -r schemas {{ ext_dir }}/ 2>/dev/null || true
     glib-compile-schemas {{ ext_dir }}/schemas/ 2>/dev/null || true
     @echo "Files updated. Log out and back in to apply."
