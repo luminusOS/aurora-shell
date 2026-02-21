@@ -1,0 +1,86 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Aurora Shell
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the information below to help us investigate.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: Describe what happened and what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Enable '...'
+        2. Open '...'
+        3. Click on '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected Module
+      description: Which module is affected?
+      options:
+        - Theme Changer
+        - Dock
+        - No Overview
+        - Pip On Top
+        - Other / General
+    validations:
+      required: true
+
+  - type: input
+    id: gnome-version
+    attributes:
+      label: GNOME Shell Version
+      description: Run `gnome-shell --version` to find out.
+      placeholder: "e.g. 47"
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+      description: Which Linux distribution are you using?
+      placeholder: "e.g. Fedora 41, Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: session-type
+    attributes:
+      label: Session Type
+      options:
+        - Wayland
+        - X11
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: |
+        Paste any relevant logs from `journalctl /usr/bin/gnome-shell` or the Looking Glass console (`Alt+F2` then `lg`).
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or screen recordings about the problem here.
