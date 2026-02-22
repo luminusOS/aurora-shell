@@ -40,8 +40,8 @@ interface AuroraDashParams {
  * - The **dash** (this widget) always sits at local y=0 inside the container.
  *   Show/hide animations use `translation_y` only — never modify `this.y`.
  */
-export const AuroraDash = GObject.registerClass(
-class AuroraDashClass extends Dash {
+@GObject.registerClass
+export class AuroraDash extends Dash {
   private declare _monitorIndex: number;
   private _workArea: DashBounds | null = null;
   private _container: St.Bin | null = null;
@@ -666,9 +666,7 @@ class AuroraDashClass extends Dash {
     this._clearTimeout('_blockAutoHideDelayId');
     this._clearTimeout('_workAreaUpdateId');
   }
-});
-
-export type AuroraDash = InstanceType<typeof AuroraDash>;
+}
 
 function boundsEqual(a: DashBounds | null, b: DashBounds | null): boolean {
   if (a === b) return true;
