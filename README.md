@@ -44,7 +44,7 @@ just install
 
 ## Commands
 
-```
+```bash
 just                # list all commands
 just build          # build everything (deps + CSS + TS + zip)
 just install        # build + install to GNOME Shell
