@@ -26,6 +26,16 @@ All modules can be toggled independently via the extension preferences.
 
 ## Installation
 
+### From extensions.gnome.org (Recommended)
+
+The easiest way to install is from the official GNOME Extensions website.
+
+<a href="https://extensions.gnome.org/extension/9389/aurora-shell/">
+  <img src="https://github.com/andyholmes/gnome-shell-extensions-badge/raw/master/get-it-on-ego.svg" alt="Get it on EGO" width="200" />
+</a>
+
+### From command-line
+
 ```bash
 git clone https://github.com/luminusOS/aurora-shell.git
 cd aurora-shell
@@ -80,16 +90,29 @@ export class MyModule extends Module {
 }
 ```
 
-2. Register in `src/registry.ts`:
+2. Add an entry to `MODULE_REGISTRY` in `src/registry.ts`:
 
 ```typescript
-import { MyModule } from './modules/myModule.ts';
-
-// Add to MODULE_REGISTRY:
-{ key: 'myModule', settingsKey: 'module-my-module', create: () => new MyModule(), title: 'My Module', subtitle: 'Description' },
+{
+  key: 'myModule',
+  settingsKey: 'module-my-module',
+  title: 'My Module',
+  subtitle: 'Description',
+},
 ```
 
-3. Add key to `schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`:
+3. Add the import and factory to `MODULE_FACTORIES` in `src/extension.ts`:
+
+```typescript
+import { MyModule } from "./modules/myModule.ts";
+
+const MODULE_FACTORIES: Record<string, () => Module> = {
+  // ...existing entries...
+  myModule: () => new MyModule(),
+};
+```
+
+4. Add the key to `schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`:
 
 ```xml
 <key name="module-my-module" type="b">

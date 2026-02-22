@@ -65,6 +65,16 @@ export function addBlankLinesBetweenMembers(code: string): string {
         needsBlank = true;
       }
 
+      // Between last import and first non-import declaration
+      if (
+        !needsBlank &&
+        prevIndent === 0 &&
+        prevTrimmed.startsWith('import ') &&
+        !currTrimmed.startsWith('import ')
+      ) {
+        needsBlank = true;
+      }
+
       if (needsBlank) {
         result.push('');
       }
