@@ -8,7 +8,7 @@ import type { Module } from "./module.ts";
 import { MODULE_REGISTRY, type ModuleDefinition } from "./registry.ts";
 
 import { ThemeChanger } from "./modules/themeChanger.ts";
-import { Dock } from "./modules/dock.ts";
+import { Dock } from "./modules/dock/index.ts";
 import { NoOverview } from "./modules/noOverview.ts";
 import { PipOnTop } from "./modules/pipOnTop.ts";
 
