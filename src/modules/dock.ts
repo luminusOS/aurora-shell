@@ -56,9 +56,10 @@ type ManagedDockBinding = {
  * when the user pushes the pointer against the bottom edge, then emits
  * 'triggered' so the Dock module can reveal the dash.
  */
-const DockHotArea = GObject.registerClass({
+@GObject.registerClass({
   Signals: { triggered: {} },
-}, class DockHotArea extends St.Widget {
+})
+class DockHotArea extends St.Widget {
   private _pressureBarrier: any;
   private _horizontalBarrier: Meta.Barrier | null = null;
   private _triggerAllowed = true;
@@ -140,7 +141,7 @@ const DockHotArea = GObject.registerClass({
     this._horizontalBarrier.destroy();
     this._horizontalBarrier = null;
   }
-});
+}
 
 // -- Intellihide --
 
@@ -150,9 +151,10 @@ const DockHotArea = GObject.registerClass({
  * Emits 'status-changed' whenever the overlap state transitions between
  * CLEAR and BLOCKED so the Dock module can show/hide the dash accordingly.
  */
-const DockIntellihide = GObject.registerClass({
+@GObject.registerClass({
   Signals: { 'status-changed': {} },
-}, class DockIntellihide extends GObject.Object {
+})
+class DockIntellihide extends GObject.Object {
   private declare _monitorIndex: number;
   private declare _tracker: Shell.WindowTracker | null;
   private _targetBox: DashBounds | null = null;
@@ -293,7 +295,7 @@ const DockIntellihide = GObject.registerClass({
     this._applyOverlap(Main.keyboard.visible, true);
     if (!Main.keyboard.visible) this._checkOverlap();
   }
-});
+}
 
 // -- Dock Module --
 
