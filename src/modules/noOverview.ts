@@ -4,20 +4,28 @@ import { Module } from '../module.ts';
 
 /**
  * NoOverview Module
- * 
- * Automatically hides the GNOME Overview on startup.
- * This provides a cleaner desktop experience for users who prefer not to use the overview.
- * Note: This module only hides the overview on startup. Users can still access it via hotkeys or gestures.
+ *
+ * Prevents the GNOME Overview from showing at startup by temporarily disabling
+ * `sessionMode.hasOverview`, which causes the startup animation to skip the
+ * overview transition entirely. Once startup completes, `hasOverview` is restored
+ * so the overview remains accessible via hotkeys, gestures, and the Activities button.
  */
 export class NoOverview extends Module {
   override enable(): void {
+    if (!Main.layoutManager._startingUp) return;
+
+    Main.sessionMode.hasOverview = false;
+
     Main.layoutManager.connectObject(
-      'startup-complete', () => Main.overview.hide(),
+      'startup-complete', () => {
+        Main.sessionMode.hasOverview = true;
+      },
       this
     );
   }
 
   override disable(): void {
+    Main.sessionMode.hasOverview = true;
     Main.layoutManager.disconnectObject(this);
   }
 }
