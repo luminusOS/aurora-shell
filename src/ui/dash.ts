@@ -52,6 +52,7 @@ export class AuroraDash extends Dash {
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
   private _draggingItem = false;
+  private _isDestroyed = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
   private _cycleState: { appId: string; windows: any[]; index: number } | null = null;
@@ -114,6 +115,7 @@ export class AuroraDash extends Dash {
   }
 
   override destroy(): void {
+    this._isDestroyed = true;
     this._clearAllTimeouts();
 
     (this as any).showAppsButton?.disconnectObject?.(this);
@@ -133,6 +135,7 @@ export class AuroraDash extends Dash {
   }
 
   override _queueRedisplay(): void {
+    if (this._isDestroyed) return;
     super._queueRedisplay();
   }
 
@@ -250,7 +253,25 @@ export class AuroraDash extends Dash {
     });
   }
 
-  // -- Private helpers --
+  private _isMenuOpen(): boolean {
+    const dashAny = this as any;
+    const children = dashAny._box?.get_children?.() ?? [];
+    
+    for (const child of children) {
+      const appIcon = child.child?._delegate;
+      
+      if (appIcon?._menu?.isOpen) {
+        return true;
+      }
+    }
+    
+    const showApps = dashAny.showAppsButton || dashAny._showAppsIcon?._delegate;
+    if (showApps?._menu?.isOpen) {
+      return true;
+    }
+    
+    return false;
+  }
 
   private _performShow(animate = true, onComplete?: () => void): void {
     if (this._isFullyShown()) {
@@ -501,6 +522,7 @@ export class AuroraDash extends Dash {
 
     const onAnimationDone = () => {
       pendingAnimations--;
+      if (this._isDestroyed) return;
       if (pendingAnimations === 0 && this._workArea) {
         this.applyWorkArea(this._workArea);
       }
@@ -540,12 +562,15 @@ export class AuroraDash extends Dash {
 
   /** Start or restart the autohide timeout — hides the dock if not hovered/dragging/blocked. */
   private _onHover(): void {
+    if (this._isDestroyed) return;
     this._clearTimeout('_autohideTimeoutId');
     this._autohideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTOHIDE_TIMEOUT, () => {
       const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
-      if (dashContainer?.get_hover?.() || this._draggingItem || this._blockAutoHide) {
+      
+      if (dashContainer?.get_hover?.() || this._draggingItem || this._blockAutoHide || this._isMenuOpen()) {
         return GLib.SOURCE_CONTINUE;
       }
+      
       this.hide(true);
       this._autohideTimeoutId = 0;
       return GLib.SOURCE_REMOVE;
@@ -554,6 +579,7 @@ export class AuroraDash extends Dash {
 
   /** If the cursor is still over the dash container, ensure the dock stays shown. */
   private _ensureHoverState(): void {
+    if (this._isDestroyed) return;
     this._clearTimeout('_blockAutoHideDelayId');
     this._blockAutoHideDelayId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
       const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
@@ -643,7 +669,7 @@ export class AuroraDash extends Dash {
 
   /** Coalesce work-area resizes into a single deferred update. */
   private _queueWorkAreaUpdate(): void {
-    if (this._workAreaUpdateId) return;
+    if (this._isDestroyed || this._workAreaUpdateId) return;
     this._workAreaUpdateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
       this._workAreaUpdateId = 0;
       if (this._workArea) {
