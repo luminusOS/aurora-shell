@@ -49,6 +49,8 @@ export class DockHotArea extends St.Widget {
 
     this.connectObject('enter-event', () => {
       if (this._triggerAllowed) {
+        this._clearDebounceTimer();
+        
         this._pointerDwellTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_DEBOUNCE_TIMEOUT, () => {
           this.emit('triggered');
           this._pointerDwellTimeoutId = 0;
@@ -86,11 +88,7 @@ export class DockHotArea extends St.Widget {
   override destroy(): void {
     global.display.disconnectObject(this);
     this._destroyBarrier();
-
-    if (this._pointerDwellTimeoutId) {
-      GLib.source_remove(this._pointerDwellTimeoutId);
-      this._pointerDwellTimeoutId = 0;
-    }
+    this._clearDebounceTimer();
 
     this._pressureBarrier?.disconnectObject?.(this);
     this._pressureBarrier?.destroy?.();
@@ -127,5 +125,12 @@ export class DockHotArea extends St.Widget {
     this._pressureBarrier?.removeBarrier(this._horizontalBarrier);
     this._horizontalBarrier.destroy();
     this._horizontalBarrier = null;
+  }
+
+  private _clearDebounceTimer(): void {
+    if (this._pointerDwellTimeoutId) {
+      GLib.source_remove(this._pointerDwellTimeoutId);
+      this._pointerDwellTimeoutId = 0;
+    }
   }
 }
