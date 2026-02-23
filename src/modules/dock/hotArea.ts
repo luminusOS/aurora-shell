@@ -4,6 +4,7 @@ import '@girs/gjs';
 import St from '@girs/st-17';
 import Clutter from '@girs/clutter-17';
 import GObject from '@girs/gobject-2.0';
+import GLib from '@girs/glib-2.0';
 import Meta from '@girs/meta-17';
 import Shell from '@girs/shell-17';
 
@@ -13,6 +14,7 @@ import type { DashBounds } from '../../ui/dash.ts';
 
 const HOT_AREA_TRIGGER_SPEED = 150;
 const HOT_AREA_TRIGGER_TIMEOUT = 550;
+const HOT_AREA_DEBOUNCE_TIMEOUT = 250;
 
 /**
  * Invisible input barrier at the bottom screen edge.
@@ -29,6 +31,7 @@ export class DockHotArea extends St.Widget {
   private _horizontalBarrier: Meta.Barrier | null = null;
   private _triggerAllowed = true;
   private _monitor: DashBounds;
+  private _pointerDwellTimeoutId = 0;
 
   _init(monitor: DashBounds) {
     super._init({ reactive: true, visible: true, name: 'aurora-dock-hot-area' });
@@ -45,7 +48,21 @@ export class DockHotArea extends St.Widget {
     }, this);
 
     this.connectObject('enter-event', () => {
-      if (this._triggerAllowed) this.emit('triggered');
+      if (this._triggerAllowed) {
+        this._pointerDwellTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_DEBOUNCE_TIMEOUT, () => {
+          this.emit('triggered');
+          this._pointerDwellTimeoutId = 0;
+          return GLib.SOURCE_REMOVE;
+        });
+      }
+      return Clutter.EVENT_PROPAGATE;
+    }, this);
+
+    this.connectObject('leave-event', () => {
+      if (this._pointerDwellTimeoutId) {
+        GLib.source_remove(this._pointerDwellTimeoutId);
+        this._pointerDwellTimeoutId = 0;
+      }
       return Clutter.EVENT_PROPAGATE;
     }, this);
 
@@ -69,6 +86,11 @@ export class DockHotArea extends St.Widget {
   override destroy(): void {
     global.display.disconnectObject(this);
     this._destroyBarrier();
+
+    if (this._pointerDwellTimeoutId) {
+      GLib.source_remove(this._pointerDwellTimeoutId);
+      this._pointerDwellTimeoutId = 0;
+    }
 
     this._pressureBarrier?.disconnectObject?.(this);
     this._pressureBarrier?.destroy?.();
