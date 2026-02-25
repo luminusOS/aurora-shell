@@ -17,6 +17,7 @@ export default [
         process: 'readonly',
         imports: 'readonly',
         globalThis: 'readonly',
+        global: 'readonly',
       },
       parserOptions: {
         tsconfigRootDir: import.meta.dirname,

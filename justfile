@@ -3,68 +3,62 @@ ext_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
 toolbox_name := "gnome-shell-devel"
 toolbox_image := "registry.fedoraproject.org/fedora-toolbox:42"
 
-# List available commands
 default:
     @just --list
 
-# Install dependencies
 deps:
     yarn install
 
-# Build everything (CSS + TypeScript + zip)
 build: deps
     yarn build
 
-# Type-check without emitting
+package:
+    mkdir -p dist/target
+    cp metadata.json dist/metadata.json
+    cd dist && \
+      zip -r "target/{{ uuid }}.zip" . \
+        -x "target/*" \
+        -x "*.zip"
+
 validate:
     yarn validate
 
-# Lint the codebase
 lint:
     yarn lint
 
-# Watch SCSS files for changes
 watch:
     yarn watch:css
 
-# Install extension to GNOME Shell
-install: build
+install: build package
     mkdir -p {{ ext_dir }}
     rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
     cp -r schemas {{ ext_dir }}/ 2>/dev/null || true
     glib-compile-schemas {{ ext_dir }}/schemas/ 2>/dev/null || true
     @echo "Installed at: {{ ext_dir }}"
 
-# Uninstall extension
 uninstall:
     gnome-extensions disable {{ uuid }} 2>/dev/null || true
     rm -rf {{ ext_dir }}
     @echo "Uninstalled."
 
-# Quick update (rebuild + copy files, no full install)
 quick: build
     rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
     cp -r schemas {{ ext_dir }}/ 2>/dev/null || true
     glib-compile-schemas {{ ext_dir }}/schemas/ 2>/dev/null || true
     @echo "Files updated. Log out and back in to apply."
 
-# Show recent extension logs
 logs:
-    journalctl -b 0 /usr/bin/gnome-shell | grep "Aurora Shell" | tail -n 20
+    journalctl -b 0 /usr/bin/gnome-shell | grep "aurora"
 
-# Clean build artifacts
 clean:
     rm -rf dist
 
-# Full clean (artifacts + dependencies)
 distclean: clean
     rm -rf node_modules
 
-# Clean build + install
 all: clean build install
     @echo "Complete installation finished."
 
-# Run GNOME Shell with the extension (auto-detects --devkit or --nested)
 run: install
     #!/usr/bin/env bash
     set -e
@@ -78,7 +72,6 @@ run: install
     fi
     env XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell "$mode"
 
-# Run GNOME Shell with the extension inside a toolbox (auto-detects --devkit or --nested)
 toolbox-run: install
     #!/usr/bin/env bash
     set -e
@@ -93,7 +86,6 @@ toolbox-run: install
     toolbox --container {{ toolbox_name }} run \
         env XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell "$mode"
 
-# Create development toolbox for testing
 create-toolbox:
     toolbox create --image {{ toolbox_image }} {{ toolbox_name }}
     toolbox run --container {{ toolbox_name }} sudo dnf install -y gnome-shell glib2-devel

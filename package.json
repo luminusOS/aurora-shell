@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "clear": "rm -rf dist",
-    "build:ts": "tsx esbuild.ts",
+    "build:ts": "npx tsc --noEmit && npx eslint src/ && tsx esbuild.ts",
     "build:css": "tsx sass.config.ts",
     "build": "yarn clear && yarn build:css && yarn build:ts",
     "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",

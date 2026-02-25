@@ -16,9 +16,11 @@ export class NoOverview extends Module {
 
     Main.sessionMode.hasOverview = false;
 
+    // @ts-ignore
     Main.layoutManager.connectObject(
       'startup-complete', () => {
         Main.sessionMode.hasOverview = true;
+        Main.overview.hide();
       },
       this
     );
@@ -26,6 +28,7 @@ export class NoOverview extends Module {
 
   override disable(): void {
     Main.sessionMode.hasOverview = true;
+    // @ts-ignore
     Main.layoutManager.disconnectObject(this);
   }
 }

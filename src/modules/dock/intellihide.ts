@@ -147,14 +147,18 @@ export class DockIntellihide extends GObject.Object {
   }
 
   /** AABB overlap test between a window rectangle and the dock's target box. */
-  private _doesOverlap(rect: Meta.Rectangle): boolean {
-    const t = this._targetBox!;
-    return !(
-      rect.x + rect.width < t.x ||
-      t.x + t.width < rect.x ||
-      rect.y + rect.height < t.y ||
-      t.y + t.height < rect.y
-    );
+  private _doesOverlap(rectangle: Meta.Rectangle): boolean {
+    const target = this._targetBox;
+    if (!target) {
+      return false;
+    }
+
+    const isToTheLeft = rectangle.x + rectangle.width < target.x;
+    const isToTheRight = target.x + target.width < rectangle.x;
+    const isAbove = rectangle.y + rectangle.height < target.y;
+    const isBelow = target.y + target.height < rectangle.y;
+
+    return !(isToTheLeft || isToTheRight || isAbove || isBelow);
   }
 
   private _applyOverlap(overlap: boolean, force = false): void {

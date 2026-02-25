@@ -1,13 +1,12 @@
-// @ts-nocheck
 import '@girs/gjs';
 
 import St from '@girs/st-17';
 import Clutter from '@girs/clutter-17';
-import GObject from '@girs/gobject-2.0';
 import GLib from '@girs/glib-2.0';
 import Meta from '@girs/meta-17';
 import Shell from '@girs/shell-17';
 
+import * as GObject from '@girs/gobject-2.0';
 import * as Layout from '@girs/gnome-shell/ui/layout';
 
 import type { DashBounds } from '../../ui/dash.ts';
@@ -27,13 +26,13 @@ const HOT_AREA_DEBOUNCE_TIMEOUT = 250;
   Signals: { triggered: {} },
 })
 export class DockHotArea extends St.Widget {
-  private _pressureBarrier: any;
+  private _pressureBarrier: Layout.PressureBarrier | null = null;
   private _horizontalBarrier: Meta.Barrier | null = null;
+  private _monitor!: DashBounds;
   private _triggerAllowed = true;
-  private _monitor: DashBounds;
   private _pointerDwellTimeoutId = 0;
 
-  _init(monitor: DashBounds) {
+  override _init(monitor: DashBounds) {
     super._init({ reactive: true, visible: true, name: 'aurora-dock-hot-area' });
     this._monitor = monitor;
 
@@ -47,10 +46,11 @@ export class DockHotArea extends St.Widget {
       if (this._triggerAllowed) this.emit('triggered');
     }, this);
 
+    // @ts-ignore
     this.connectObject('enter-event', () => {
       if (this._triggerAllowed) {
         this._clearDebounceTimer();
-        
+
         this._pointerDwellTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_DEBOUNCE_TIMEOUT, () => {
           this.emit('triggered');
           this._pointerDwellTimeoutId = 0;
@@ -60,6 +60,7 @@ export class DockHotArea extends St.Widget {
       return Clutter.EVENT_PROPAGATE;
     }, this);
 
+    // @ts-ignore
     this.connectObject('leave-event', () => {
       if (this._pointerDwellTimeoutId) {
         GLib.source_remove(this._pointerDwellTimeoutId);
@@ -69,6 +70,7 @@ export class DockHotArea extends St.Widget {
     }, this);
 
     // Suppress triggers while the user is dragging a window
+    // @ts-ignore
     global.display.connectObject(
       'grab-op-begin', (_d: any, _w: any, op: Meta.GrabOp) => {
         if (op === Meta.GrabOp.MOVING) this._triggerAllowed = false;
@@ -86,6 +88,7 @@ export class DockHotArea extends St.Widget {
   }
 
   override destroy(): void {
+    // @ts-ignore
     global.display.disconnectObject(this);
     this._destroyBarrier();
     this._clearDebounceTimer();
