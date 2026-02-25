@@ -1,7 +1,7 @@
 {
     "name": "Aurora Shell",
     "description": "A customizable GNOME Shell extension that enhances the user experience with various modules and features.",
-    "version": "49",
+    "version": "49.2",
     "uuid": "aurora-shell@luminusos.github.io",
     "url": "https://github.com/luminusOS/aurora-shell",
     "settings-schema": "org.gnome.shell.extensions.aurora-shell",

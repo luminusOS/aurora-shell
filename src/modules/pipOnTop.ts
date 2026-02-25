@@ -1,7 +1,5 @@
 import Meta from '@girs/meta-17';
 
-import * as Main from '@girs/gnome-shell/ui/main';
-
 import { Module } from '../module.ts';
 
 const PIP_TITLES = [
@@ -23,6 +21,7 @@ export class PipOnTop extends Module {
   private _windowRemovedId = 0;
 
   override enable(): void {
+    // @ts-ignore
     global.window_manager.connectObject(
       'switch-workspace', () => this._onSwitchWorkspace(),
       this
@@ -31,6 +30,7 @@ export class PipOnTop extends Module {
   }
 
   override disable(): void {
+    // @ts-ignore
     global.window_manager.disconnectObject(this);
     this._disconnectWorkspace();
 

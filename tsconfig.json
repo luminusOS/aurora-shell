@@ -3,13 +3,14 @@
   "compilerOptions": {
     "lib": ["ESNext"],
     "types": [],
-  "target": "ESNext",
-  "module": "NodeNext",
-  "moduleResolution": "NodeNext",
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "skipLibCheck": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src"],
   "files": [

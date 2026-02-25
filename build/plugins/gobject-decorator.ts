@@ -8,8 +8,18 @@ export const gobjectDecorator: Plugin = {
   name: 'gobject-decorator',
   setup(ctx) {
     ctx.onLoad({ filter: /\.ts$/ }, (args) => {
-      const source = readFileSync(args.path, 'utf8');
-      if (!source.includes('@GObject.registerClass')) return undefined;
+      const original = readFileSync(args.path, 'utf8');
+      let source = original;
+
+      // GJS requires a default import for GObject, but Aurora often uses namespace import.
+      // Rewrite "import * as GObject" to "import GObject" to ensure clean output.
+      if (source.includes('@girs/gobject-2.0')) {
+        source = source.replace(/import\s+\*\s+as\s+GObject\s+from\s+['"]@girs\/gobject-2\.0['"];?/g, "import GObject from '@girs/gobject-2.0';");
+      }
+
+      if (!source.includes('@GObject.registerClass')) {
+        return source !== original ? { contents: source, loader: 'ts' } : undefined;
+      }
       return { contents: transformGObjectDecorators(source), loader: 'ts' };
     });
   },

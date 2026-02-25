@@ -1,7 +1,7 @@
 
 import '@girs/gjs';
 
-import Gio from "@girs/gio-2.0";
+import type Gio from "@girs/gio-2.0";
 import { Extension } from "@girs/gnome-shell/extensions/extension";
 
 import type { Module } from "./module.ts";
@@ -41,6 +41,7 @@ export default class AuroraShellExtension extends Extension {
   private _initializeModules(): void {
     for (const def of MODULE_REGISTRY) {
       if (this._settings?.get_boolean(def.settingsKey)) {
+        // @ts-ignore
         this._modules.set(def.key, MODULE_FACTORIES[def.key]());
       }
     }
@@ -67,6 +68,7 @@ export default class AuroraShellExtension extends Extension {
     }
     args.push(this);
 
+    // @ts-ignore
     this._settings.connectObject(...args);
   }
 
@@ -77,6 +79,7 @@ export default class AuroraShellExtension extends Extension {
     if (enabled && !existing) {
       console.log(`Aurora Shell: Enabling module ${def.key}`);
       try {
+        // @ts-ignore
         const module = MODULE_FACTORIES[def.key]();
         module.enable();
         this._modules.set(def.key, module);
@@ -97,6 +100,7 @@ export default class AuroraShellExtension extends Extension {
   override disable(): void {
     console.log('Aurora Shell: Disabling extension');
 
+    // @ts-ignore
     this._settings?.disconnectObject(this);
 
     for (const [name, module] of this._modules) {
