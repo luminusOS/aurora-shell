@@ -11,10 +11,12 @@ deps:
 
 build: deps
     yarn build
+    cp metadata.json dist/
+    cp -r schemas dist/ 2>/dev/null || true
+    #glib-compile-schemas dist/schemas/ 2>/dev/null || true
 
-package:
+package: build
     mkdir -p dist/target
-    cp metadata.json dist/metadata.json
     cd dist && \
       zip -r "target/{{ uuid }}.zip" . \
         -x "target/*" \
@@ -29,11 +31,9 @@ lint:
 watch:
     yarn watch:css
 
-install: build package
+install: package
     mkdir -p {{ ext_dir }}
     rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
-    cp -r schemas {{ ext_dir }}/ 2>/dev/null || true
-    glib-compile-schemas {{ ext_dir }}/schemas/ 2>/dev/null || true
     @echo "Installed at: {{ ext_dir }}"
 
 uninstall:
@@ -42,9 +42,8 @@ uninstall:
     @echo "Uninstalled."
 
 quick: build
+    mkdir -p {{ ext_dir }}
     rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
-    cp -r schemas {{ ext_dir }}/ 2>/dev/null || true
-    glib-compile-schemas {{ ext_dir }}/schemas/ 2>/dev/null || true
     @echo "Files updated. Log out and back in to apply."
 
 logs:
