@@ -47,3 +47,19 @@ jobs:
           name: ${{ github.ref_name }}
           files: dist/target/aurora-shell@luminusos.github.io.zip
           generate_release_notes: true
+
+      - name: Create Release Branch
+        run: |
+          # Extract the major version number from the tag string (e.g., v50.1 -> 50)
+          VERSION_NUM=${GITHUB_REF_NAME#v}
+          MAJOR_VERSION=$(echo "$VERSION_NUM" | cut -d. -f1)
+          BRANCH_NAME="release/v${MAJOR_VERSION}.x"
+          
+          # Check if the branch already exists on the remote
+          if git ls-remote --exit-code --heads origin "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists. Skipping creation."
+          else
+            echo "Creating and pushing new branch $BRANCH_NAME based on the current tag's HEAD"
+            git checkout -b "$BRANCH_NAME"
+            git push origin "$BRANCH_NAME"
+          fi
