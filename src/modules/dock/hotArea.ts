@@ -9,7 +9,7 @@ import Shell from '@girs/shell-17';
 import * as GObject from '@girs/gobject-2.0';
 import * as Layout from '@girs/gnome-shell/ui/layout';
 
-import type { DashBounds } from '../../ui/dash.ts';
+import type { DashBounds } from '~/shared/ui/dash.ts';
 
 const HOT_AREA_TRIGGER_SPEED = 150;
 const HOT_AREA_TRIGGER_TIMEOUT = 550;

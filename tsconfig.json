@@ -1,7 +1,9 @@
 {
   "extends": "@tsconfig/strictest/tsconfig.json",
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": [
+      "ESNext"
+    ],
     "types": [],
     "target": "ESNext",
     "module": "NodeNext",
@@ -10,9 +12,16 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "experimentalDecorators": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "~/*": [
+        "./src/*"
+      ]
+    }
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "files": [
     "src/extension.ts",
     "src/types/gnome-shell.d.ts",

@@ -1,6 +1,6 @@
 import Meta from '@girs/meta-17';
 
-import { Module } from '../module.ts';
+import { Module } from '~/module.ts';
 
 const PIP_TITLES = [
   'Picture-in-Picture',

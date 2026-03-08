@@ -1,33 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.aurora-shell" path="/org/gnome/shell/extensions/aurora-shell/">
-    <key name="module-theme-changer" type="b">
-      <default>true</default>
-      <summary>Enable Theme Changer module</summary>
-      <description>
-        Monitors and synchronizes GNOME's color scheme setting
-      </description>
-    </key>
-    <key name="module-dock" type="b">
-      <default>true</default>
-      <summary>Enable Dock module</summary>
-      <description>
-        Custom dock with auto-hide and intellihide features
-      </description>
-    </key>
     <key name="module-no-overview" type="b">
       <default>true</default>
       <summary>Enable No Overview module</summary>
-      <description>
-        Disables the overview at startup
-      </description>
+      <description>Disables the overview at startup</description>
     </key>
     <key name="module-pip-on-top" type="b">
       <default>true</default>
       <summary>Enable Pip On Top module</summary>
-      <description>
-        Keeps Picture-in-Picture windows always on top
-      </description>
+      <description>Keeps Picture-in-Picture windows always on top</description>
+    </key>
+    <key name="module-theme-changer" type="b">
+      <default>true</default>
+      <summary>Enable Theme Changer module</summary>
+      <description>Monitors and synchronizes GNOME color scheme</description>
+    </key>
+    <key name="module-dock" type="b">
+      <default>true</default>
+      <summary>Enable Dock module</summary>
+      <description>Custom dock with auto-hide and intellihide features</description>
+    </key>
+    <key name="module-volume-mixer" type="b">
+      <default>true</default>
+      <summary>Enable Volume Mixer module</summary>
+      <description>Per-application volume control in Quick Settings</description>
     </key>
   </schema>
 </schemalist>

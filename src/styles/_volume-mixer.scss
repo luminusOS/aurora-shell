@@ -1,0 +1,51 @@
+@use 'variables' as vars;
+
+.aurora-volume-mixer {
+  padding: 0 12px;
+}
+
+.aurora-volume-mixer-list {
+  spacing: 2px;
+}
+
+.aurora-volume-mixer-item {
+  spacing: 0;
+
+  .icon-button {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 4px;
+
+    &:hover {
+      background-color: rgba(127, 127, 127, 0.2);
+    }
+
+    &:active {
+      background-color: rgba(127, 127, 127, 0.35);
+    }
+  }
+}
+
+.aurora-volume-mixer-header {
+  spacing: 6px;
+  padding: 6px 6px 0 36px;
+}
+
+.aurora-volume-mixer-app-icon {
+  icon-size: 16px;
+}
+
+.aurora-volume-mixer-label {
+  font-size: 0.9em;
+  font-weight: 500;
+  color: inherit;
+}
+
+.aurora-volume-mixer-empty {
+  font-size: 0.9em;
+  font-weight: 400;
+  color: inherit;
+  opacity: 0.5;
+  padding: 16px 12px;
+}

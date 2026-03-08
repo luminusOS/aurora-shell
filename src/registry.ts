@@ -1,27 +1,34 @@
-/**
- * Module definition that includes both runtime and UI metadata
- */
+// AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.
+import type { Module } from '~/module.ts';
+
 export type ModuleDefinition = {
-  /** Internal key used in the modules Map */
   key: string;
-  /** GSettings schema key */
   settingsKey: string;
-  /** User-facing title for preferences UI */
   title: string;
-  /** User-facing subtitle/description for preferences UI */
   subtitle: string;
 };
 
-/**
- * Single source of truth for all available modules.
- * To add a new module:
- * 1. Add one entry to this array
- * 2. Add a factory entry in extension.ts MODULE_FACTORIES
- * 3. Add corresponding key to gschema.xml
- */
+import { NoOverview } from '~/modules/noOverview.ts';
+import { PipOnTop } from '~/modules/pipOnTop.ts';
+import { ThemeChanger } from '~/modules/themeChanger.ts';
+import { Dock } from '~/modules/dock/dock.ts';
+import { VolumeMixer } from '~/modules/volumeMixer/volumeMixer.ts';
+
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
-    key: 'themeChanger',
+    key: 'no-overview',
+    settingsKey: 'module-no-overview',
+    title: 'No Overview',
+    subtitle: 'Disables the overview at startup',
+  },
+  {
+    key: 'pip-on-top',
+    settingsKey: 'module-pip-on-top',
+    title: 'Pip On Top',
+    subtitle: 'Keeps Picture-in-Picture windows always on top',
+  },
+  {
+    key: 'theme-changer',
     settingsKey: 'module-theme-changer',
     title: 'Theme Changer',
     subtitle: 'Monitors and synchronizes GNOME color scheme',
@@ -33,15 +40,17 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     subtitle: 'Custom dock with auto-hide and intellihide features',
   },
   {
-    key: 'noOverview',
-    settingsKey: 'module-no-overview',
-    title: 'No Overview',
-    subtitle: 'Disables the overview at startup',
-  },
-  {
-    key: 'pipOnTop',
-    settingsKey: 'module-pip-on-top',
-    title: 'Pip On Top',
-    subtitle: 'Keeps Picture-in-Picture windows always on top',
+    key: 'volume-mixer',
+    settingsKey: 'module-volume-mixer',
+    title: 'Volume Mixer',
+    subtitle: 'Per-application volume control in Quick Settings',
   },
 ];
+
+export const MODULE_FACTORIES: Record<string, () => Module> = {
+  'no-overview': () => new NoOverview(),
+  'pip-on-top': () => new PipOnTop(),
+  'theme-changer': () => new ThemeChanger(),
+  'dock': () => new Dock(),
+  'volume-mixer': () => new VolumeMixer(),
+};

@@ -7,16 +7,18 @@ import { Extension } from "@girs/gnome-shell/extensions/extension";
 import type { Module } from "./module.ts";
 import { MODULE_REGISTRY, type ModuleDefinition } from "./registry.ts";
 
-import { ThemeChanger } from "./modules/themeChanger.ts";
-import { Dock } from "./modules/dock/index.ts";
-import { NoOverview } from "./modules/noOverview.ts";
-import { PipOnTop } from "./modules/pipOnTop.ts";
+import { ThemeChanger } from "~/modules/themeChanger.ts";
+import { Dock } from "~/modules/dock/dock.ts";
+import { NoOverview } from "~/modules/noOverview.ts";
+import { PipOnTop } from "~/modules/pipOnTop.ts";
+import { VolumeMixer } from "~/modules/volumeMixer/volumeMixer.ts";
 
 const MODULE_FACTORIES: Record<string, () => Module> = {
   themeChanger: () => new ThemeChanger(),
   dock: () => new Dock(),
   noOverview: () => new NoOverview(),
   pipOnTop: () => new PipOnTop(),
+  volumeMixer: () => new VolumeMixer(),
 };
 
 /**

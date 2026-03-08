@@ -7,7 +7,7 @@ import Shell from '@girs/shell-17';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
-import type { DashBounds } from '../../ui/dash.ts';
+import type { DashBounds } from '~/shared/ui/dash.ts';
 
 /** Window types considered when checking whether a window overlaps the dock. */
 const OVERLAP_WINDOW_TYPES: Meta.WindowType[] = [
