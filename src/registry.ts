@@ -1,18 +1,9 @@
-// AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.
-import type { Module } from '~/module.ts';
-
 export type ModuleDefinition = {
   key: string;
   settingsKey: string;
   title: string;
   subtitle: string;
 };
-
-import { NoOverview } from '~/modules/noOverview.ts';
-import { PipOnTop } from '~/modules/pipOnTop.ts';
-import { ThemeChanger } from '~/modules/themeChanger.ts';
-import { Dock } from '~/modules/dock/dock.ts';
-import { VolumeMixer } from '~/modules/volumeMixer/volumeMixer.ts';
 
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
@@ -46,11 +37,3 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     subtitle: 'Per-application volume control in Quick Settings',
   },
 ];
-
-export const MODULE_FACTORIES: Record<string, () => Module> = {
-  'no-overview': () => new NoOverview(),
-  'pip-on-top': () => new PipOnTop(),
-  'theme-changer': () => new ThemeChanger(),
-  'dock': () => new Dock(),
-  'volume-mixer': () => new VolumeMixer(),
-};

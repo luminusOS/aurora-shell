@@ -107,7 +107,7 @@ export class VolumeMixer extends Module {
     slider.menu.addMenuItem(this._menuSection, 2);
 
     this._toggleButton = new St.Button({
-      child: new St.Icon({ icon_name: 'view-list-bullet-symbolic' }),
+      child: new St.Icon({ icon_name: 'open-menu-symbolic' }),
       style_class: 'icon-button flat',
       can_focus: true,
       x_expand: false,
