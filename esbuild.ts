@@ -16,7 +16,7 @@ const entryPoints = (readdirSync(srcDir, { recursive: true }) as string[])
   .filter((file) => file.endsWith('.ts') && !file.endsWith('.d.ts'))
   .map((file) => join('src', file));
 
-console.debug('Building extension...');
+console.log('Building extension...');
 
 try {
   await build({
@@ -35,18 +35,18 @@ try {
   const jsFiles = (readdirSync(distDir, { recursive: true }) as string[])
     .filter((file) => file.endsWith('.js'));
 
-  console.debug('Formatting output files...');
-  
+  console.log('Formatting output files...');
+
   for (const file of jsFiles) {
     const filePath = resolve(distDir, file);
     const content = readFileSync(filePath, 'utf8');
-    
+
     const prettierConfig = await resolveConfig(filePath) || {};
-    
-    const formatted = await format(content, { 
-      ...prettierConfig, 
-      parser: 'babel', 
-      filepath: filePath 
+
+    const formatted = await format(content, {
+      ...prettierConfig,
+      parser: 'babel',
+      filepath: filePath
     });
 
     writeFileSync(filePath, addBlankLinesBetweenMembers(formatted));
@@ -54,7 +54,8 @@ try {
 
   copyFileSync(resolve(currentDir, 'metadata.json'), resolve(distDir, 'metadata.json'));
 
-  console.debug('Build complete.');
+  console.log('Build complete.');
+  process.exit(0);
 } catch (error) {
   console.error('Build failed:', error);
   process.exit(1);

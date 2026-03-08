@@ -6,13 +6,12 @@ import GLib from '@girs/glib-2.0';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
-import { Module } from '../../module.ts';
-import { AuroraDash, type DashBounds } from '../../ui/dash.ts';
-import { DockHotArea } from './hotArea.ts';
-import { DockIntellihide, OverlapStatus } from './intellihide.ts';
+import { Module } from '~/module.ts';
+import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
+import { DockHotArea } from '~/modules/dock/hotArea.ts';
+import { DockIntellihide, OverlapStatus } from '~/modules/dock/intellihide.ts';
 
 const HOT_AREA_REVEAL_DURATION = 1500;
-/** Height (in pixels) of the invisible strip at the screen bottom that triggers dock reveal. */
 const HOT_AREA_STRIP_HEIGHT = 1;
 
 type ManagedDockBinding = {
@@ -91,7 +90,6 @@ export class Dock extends Module {
 
     Main.layoutManager.addChrome(container, {
       trackFullscreen: true,
-      affectsInputRegion: true,
       affectsStruts: false,
     });
 
@@ -135,7 +133,6 @@ export class Dock extends Module {
     const hotArea = new DockHotArea(monitor);
     Main.layoutManager.addChrome(hotArea, {
       trackFullscreen: true,
-      affectsInputRegion: true,
       affectsStruts: false,
     });
 
@@ -244,8 +241,8 @@ export class Dock extends Module {
       if (dashBounds) {
         const [cursorX, cursorY] = global.get_pointer();
         if (cursorY >= dashBounds.y
-            && cursorX >= dashBounds.x
-            && cursorX <= dashBounds.x + dashBounds.width) {
+          && cursorX >= dashBounds.x
+          && cursorX <= dashBounds.x + dashBounds.width) {
           return GLib.SOURCE_CONTINUE;
         }
       }

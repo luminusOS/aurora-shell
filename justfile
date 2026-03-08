@@ -1,7 +1,7 @@
 uuid := "aurora-shell@luminusos.github.io"
 ext_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
 toolbox_name := "gnome-shell-devel"
-toolbox_image := "registry.fedoraproject.org/fedora-toolbox:42"
+toolbox_image := "registry.fedoraproject.org/fedora-toolbox:44"
 
 default:
     @just --list
@@ -13,14 +13,14 @@ build: deps
     yarn build
     cp metadata.json dist/
     cp -r schemas dist/ 2>/dev/null || true
-    #glib-compile-schemas dist/schemas/ 2>/dev/null || true
 
 package: build
     mkdir -p dist/target
     cd dist && \
       zip -r "target/{{ uuid }}.zip" . \
         -x "target/*" \
-        -x "*.zip"
+        -x "*.zip" \
+        -x "schemas/gschemas.compiled"
 
 validate:
     yarn validate
@@ -32,18 +32,18 @@ watch:
     yarn watch:css
 
 install: package
-    mkdir -p {{ ext_dir }}
-    rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
+    gnome-extensions install --force dist/target/{{ uuid }}.zip
+    glib-compile-schemas {{ ext_dir }}/schemas/
     @echo "Installed at: {{ ext_dir }}"
 
 uninstall:
-    gnome-extensions disable {{ uuid }} 2>/dev/null || true
-    rm -rf {{ ext_dir }}
+    gnome-extensions uninstall {{ uuid }}
     @echo "Uninstalled."
 
 quick: build
     mkdir -p {{ ext_dir }}
     rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
+    glib-compile-schemas {{ ext_dir }}/schemas/
     @echo "Files updated. Log out and back in to apply."
 
 logs:
@@ -58,34 +58,29 @@ distclean: clean
 all: clean build install
     @echo "Complete installation finished."
 
-run: install
+run:
     #!/usr/bin/env bash
     set -e
-    if gnome-shell --help 2>&1 | grep -q -- --devkit; then
-        mode=--devkit
-    elif gnome-shell --help 2>&1 | grep -q -- --nested; then
-        mode=--nested
-    else
-        echo "Error: gnome-shell has neither --devkit nor --nested support" >&2
-        exit 1
-    fi
-    env XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell "$mode"
+    env XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell --wayland --devkit
 
-toolbox-run: install
+toolbox action *args:
     #!/usr/bin/env bash
     set -e
-    if toolbox --container {{ toolbox_name }} run gnome-shell --help 2>&1 | grep -q -- --devkit; then
-        mode=--devkit
-    elif toolbox --container {{ toolbox_name }} run gnome-shell --help 2>&1 | grep -q -- --nested; then
-        mode=--nested
-    else
-        echo "Error: gnome-shell has neither --devkit nor --nested support" >&2
-        exit 1
-    fi
-    toolbox --container {{ toolbox_name }} run \
-        env XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell "$mode"
-
-create-toolbox:
-    toolbox create --image {{ toolbox_image }} {{ toolbox_name }}
-    toolbox run --container {{ toolbox_name }} sudo dnf install -y gnome-shell glib2-devel
-    @echo "Toolbox '{{ toolbox_name }}' created successfully."
+    case "{{ action }}" in
+        "create")
+            bash scripts/create-toolbox.sh {{ toolbox_name }} {{ toolbox_image }}
+            ;;
+        "run")
+            bash scripts/run-gnome-shell.sh {{ toolbox_name }}
+            ;;
+        "remove")
+            echo "Removing toolbox '{{ toolbox_name }}'..."
+            toolbox rm --force {{ toolbox_name }}
+            echo "Toolbox '{{ toolbox_name }}' removed."
+            ;;
+        *)
+            echo "Unknown toolbox action: {{ action }}"
+            echo "Available: create, run, remove"
+            exit 1
+            ;;
+    esac

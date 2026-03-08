@@ -1,7 +1,7 @@
 import '@girs/gjs';
 
 import Gio from "gi://Gio";
-import { Module } from '../module.ts';
+import { Module } from '~/module.ts';
 
 /**
  * ThemeChanger Module
@@ -23,7 +23,7 @@ export class ThemeChanger extends Module {
       this._settings = new Gio.Settings({
         schema_id: 'org.gnome.desktop.interface'
       });
-      
+
       const currentScheme = this._settings.get_string('color-scheme');
       console.log(`Current color-scheme: ${currentScheme}`);
 
@@ -40,7 +40,7 @@ export class ThemeChanger extends Module {
   private _onColorSchemeChanged(): void {
     const scheme = this._settings.get_string('color-scheme');
     console.log(`Color scheme changed to: ${scheme}`);
-    
+
     if (scheme === 'default') {
       console.warn('Detected "default", forcing to prefer-light');
       this._settings.set_string('color-scheme', 'prefer-light');

@@ -4,9 +4,10 @@ import Adw from "@girs/adw-1";
 import Gio from "@girs/gio-2.0";
 
 import { ExtensionPreferences } from '@girs/gnome-shell/extensions/prefs';
-import { MODULE_REGISTRY } from './registry.ts';
+import { MODULE_REGISTRY } from '~/registry.ts';
 
 export default class AuroraShellPreferences extends ExtensionPreferences {
+  // @ts-ignore: Conflicting Adw version types from gnome-shell
   override fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {
     const settings = this.getSettings();
 
