@@ -5,6 +5,7 @@ import Clutter from '@girs/clutter-17';
 import GObject from '@girs/gobject-2.0';
 import type St from '@girs/st-17';
 import * as Main from '@girs/gnome-shell/ui/main';
+import * as DND from '@girs/gnome-shell/ui/dnd';
 import { Dash } from '@girs/gnome-shell/ui/dash';
 
 export interface DashBounds {
@@ -118,6 +119,11 @@ export class AuroraDash extends Dash {
   override destroy(): void {
     this._isDestroyed = true;
     this._clearAllTimeouts();
+
+    // Remove the parent Dash's drag monitor if a DnD session is in progress.
+    // Without this, dnd.js continues firing callbacks into the disposed object.
+    const dragMonitor = (this as any)._dragMonitor;
+    if (dragMonitor) DND.removeDragMonitor(dragMonitor);
 
     (this as any).showAppsButton?.disconnectObject?.(this);
     this.disconnectObject?.(this);
@@ -335,12 +341,52 @@ export class AuroraDash extends Dash {
   }
 
   /**
+   * Guard wrappers for parent Dash signal handlers that fire during DnD in the
+   * overview workspace view. If GNOME Shell 50's Dash.destroy() fails to
+   * disconnect a signal, the bound handler still reaches here via the prototype
+   * chain. Returning early prevents any GObject property access on the already-
+   * disposed object (JS-object properties such as _isDestroyed remain readable
+   * after GObject disposal).
+   */
+  _onDragBegin(): void {
+    if (this._isDestroyed) return;
+    (Dash.prototype as any)._onDragBegin?.call(this);
+  }
+
+  _onDragEnd(): void {
+    if (this._isDestroyed) return;
+    (Dash.prototype as any)._onDragEnd?.call(this);
+  }
+
+  _onDragMotion(...args: any[]): any {
+    if (this._isDestroyed) return;
+    return (Dash.prototype as any)._onDragMotion?.call(this, ...args);
+  }
+
+  _onDragLeave(): void {
+    if (this._isDestroyed) return;
+    (Dash.prototype as any)._onDragLeave?.call(this);
+  }
+
+  // GNOME 50 added window-drag signals forwarded from the workspace view.
+  _onWindowDragBegin(...args: any[]): void {
+    if (this._isDestroyed) return;
+    (Dash.prototype as any)._onWindowDragBegin?.call(this, ...args);
+  }
+
+  _onWindowDragEnd(...args: any[]): void {
+    if (this._isDestroyed) return;
+    (Dash.prototype as any)._onWindowDragEnd?.call(this, ...args);
+  }
+
+  /**
    * Override Dash._redisplay to resize the container after icon list changes.
    * If iconSize changed, animate icons to the new size (applyWorkArea runs
    * after animation). Otherwise, re-apply the work area immediately so the
    * container grows/shrinks to fit added or removed icons.
    */
   private _redisplay(): void {
+    if (this._isDestroyed) return;
     const dashAny = this as any;
     const oldIconSize = dashAny.iconSize;
 

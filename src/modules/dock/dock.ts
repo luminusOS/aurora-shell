@@ -38,6 +38,7 @@ type ManagedDockBinding = {
  */
 export class Dock extends Module {
   private _bindings = new Map<number, ManagedDockBinding>();
+  private _pendingRebuild = false;
 
   override enable(): void {
     Main.overview.dash.hide();
@@ -64,10 +65,20 @@ export class Dock extends Module {
     global.display.disconnectObject(this);
     Main.sessionMode.disconnectObject(this);
     Main.overview.disconnectObject(this);
+    this._pendingRebuild = false;
     this._clearBindings();
   }
 
   private _rebuildBindings(): void {
+    // Defer the rebuild until the overview is hidden. Destroying dashes while
+    // a window DnD is active in the overview can leave stale signal connections
+    // that fire on the already-disposed AuroraDash objects.
+    if (Main.overview.visible) {
+      this._pendingRebuild = true;
+      return;
+    }
+
+    this._pendingRebuild = false;
     this._clearBindings();
 
     const monitors: DashBounds[] = Main.layoutManager.monitors ?? [];
@@ -270,6 +281,11 @@ export class Dock extends Module {
   }
 
   private _setOverviewVisible(overviewShowing: boolean): void {
+    if (!overviewShowing && this._pendingRebuild) {
+      this._rebuildBindings();
+      return;
+    }
+
     this._bindings.forEach((binding) => {
       if (overviewShowing) {
         this._clearHotAreaReveal(binding);
