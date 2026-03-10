@@ -13,6 +13,7 @@ build: deps
     yarn build
     cp metadata.json dist/
     cp -r schemas dist/ 2>/dev/null || true
+    just compile-mo
 
 package: build
     mkdir -p dist/target
@@ -54,6 +55,48 @@ clean:
 
 distclean: clean
     rm -rf node_modules
+
+# Translation workflow
+# Run `just pot` after adding new translatable strings to regenerate the template.
+# Run `just update-po` to merge new strings from the template into existing .po files.
+# Edit po/*.po files (with Poedit or a text editor), then run `just build`.
+
+pot: build
+    #!/usr/bin/env bash
+    set -e
+    JS_FILES=$(find dist -name '*.js' | sort)
+    xgettext \
+        --from-code=UTF-8 \
+        --language=JavaScript \
+        --keyword=_ \
+        --keyword=ngettext:1,2 \
+        --keyword=pgettext:1c,2 \
+        --output=po/aurora-shell@luminusos.github.io.pot \
+        $JS_FILES
+    @echo "POT file regenerated: po/aurora-shell@luminusos.github.io.pot"
+
+update-po:
+    #!/usr/bin/env bash
+    set -e
+    POT="po/aurora-shell@luminusos.github.io.pot"
+    for po in po/*.po; do
+        echo "Merging $po..."
+        msgmerge --update --backup=none "$po" "$POT"
+    done
+    @echo "All .po files updated."
+
+compile-mo:
+    #!/usr/bin/env bash
+    set -e
+    DOMAIN="aurora-shell@luminusos.github.io"
+    for po in po/*.po; do
+        [ -f "$po" ] || continue
+        lang=$(basename "$po" .po)
+        outdir="dist/locale/$lang/LC_MESSAGES"
+        mkdir -p "$outdir"
+        msgfmt --output-file="$outdir/$DOMAIN.mo" "$po"
+        echo "Compiled $po -> $outdir/$DOMAIN.mo"
+    done
 
 all: clean build install
     @echo "Complete installation finished."

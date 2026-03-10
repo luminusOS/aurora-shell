@@ -1,0 +1,69 @@
+# Aurora Shell — Português do Brasil
+# Copyright (C) 2024 Aurora Shell Contributors
+# SPDX-License-Identifier: LGPL-3.0-or-later
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: aurora-shell\n"
+"Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
+"POT-Creation-Date: 2026-03-09 18:00-0300\n"
+"PO-Revision-Date: 2026-03-09 18:00-0300\n"
+"Last-Translator: Aurora Shell Contributors\n"
+"Language-Team: Portuguese (Brazil)\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: src/prefs.ts
+msgid "General"
+msgstr "Geral"
+
+#: src/prefs.ts
+msgid "Modules"
+msgstr "Módulos"
+
+#: src/prefs.ts
+msgid "Enable or disable extension modules"
+msgstr "Ativar ou desativar módulos da extensão"
+
+#: src/registry.ts
+msgid "No Overview"
+msgstr "Sem Visão Geral"
+
+#: src/registry.ts
+msgid "Disables the overview at startup"
+msgstr "Desativa a visão geral ao iniciar"
+
+#: src/registry.ts
+msgid "Pip On Top"
+msgstr "PiP Sempre no Topo"
+
+#: src/registry.ts
+msgid "Keeps Picture-in-Picture windows always on top"
+msgstr "Mantém janelas Picture-in-Picture sempre no topo"
+
+#: src/registry.ts
+msgid "Theme Changer"
+msgstr "Alternador de Tema"
+
+#: src/registry.ts
+msgid "Monitors and synchronizes GNOME color scheme"
+msgstr "Monitora e sincroniza o esquema de cores do GNOME"
+
+#: src/registry.ts
+msgid "Dock"
+msgstr "Dock"
+
+#: src/registry.ts
+msgid "Custom dock with auto-hide and intellihide features"
+msgstr "Dock personalizado com ocultação automática e inteligente"
+
+#: src/registry.ts
+msgid "Volume Mixer"
+msgstr "Mixer de Volume"
+
+#: src/registry.ts
+msgid "Per-application volume control in Quick Settings"
+msgstr "Controle de volume por aplicativo nas Configurações Rápidas"

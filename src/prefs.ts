@@ -3,8 +3,8 @@ import '@girs/gjs';
 import Adw from "@girs/adw-1";
 import Gio from "@girs/gio-2.0";
 
-import { ExtensionPreferences } from '@girs/gnome-shell/extensions/prefs';
-import { MODULE_REGISTRY } from '~/registry.ts';
+import { ExtensionPreferences, gettext as _ } from '@girs/gnome-shell/extensions/prefs';
+import { getModuleRegistry } from '~/registry.ts';
 
 export default class AuroraShellPreferences extends ExtensionPreferences {
   // @ts-ignore: Conflicting Adw version types from gnome-shell
@@ -12,16 +12,16 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
     const settings = this.getSettings();
 
     const page = new Adw.PreferencesPage({
-      title: 'General',
+      title: _('General'),
       icon_name: 'dialog-information-symbolic',
     });
 
     const group = new Adw.PreferencesGroup({
-      title: 'Modules',
-      description: 'Enable or disable extension modules',
+      title: _('Modules'),
+      description: _('Enable or disable extension modules'),
     });
 
-    for (const def of MODULE_REGISTRY) {
+    for (const def of getModuleRegistry()) {
       const row = new Adw.SwitchRow({
         title: def.title,
         subtitle: def.subtitle,

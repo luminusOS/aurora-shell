@@ -5,7 +5,7 @@ import type Gio from "@girs/gio-2.0";
 import { Extension } from "@girs/gnome-shell/extensions/extension";
 
 import type { Module } from "./module.ts";
-import { MODULE_REGISTRY, type ModuleDefinition } from "./registry.ts";
+import { getModuleRegistry, type ModuleDefinition } from "./registry.ts";
 
 import { NoOverview } from "~/modules/noOverview.ts";
 import { PipOnTop } from "~/modules/pipOnTop.ts";
@@ -41,7 +41,7 @@ export default class AuroraShellExtension extends Extension {
   }
 
   private _initializeModules(): void {
-    for (const def of MODULE_REGISTRY) {
+    for (const def of getModuleRegistry()) {
       if (this._settings?.get_boolean(def.settingsKey)) {
         // @ts-ignore
         this._modules.set(def.key, MODULE_FACTORIES[def.key]());
@@ -63,7 +63,7 @@ export default class AuroraShellExtension extends Extension {
     if (!this._settings) return;
 
     const args: any[] = [];
-    for (const def of MODULE_REGISTRY) {
+    for (const def of getModuleRegistry()) {
       args.push(`changed::${def.settingsKey}`, () => {
         this._toggleModule(def);
       });
