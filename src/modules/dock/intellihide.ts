@@ -41,7 +41,6 @@ export class DockIntellihide extends GObject.Object {
   private _targetBox: DashBounds | null = null;
   private _status: OverlapStatus = OverlapStatus.CLEAR;
   private _focusActor: any = null;
-  private _focusActorId = 0;
 
   _init(monitorIndex: number) {
     super._init();
@@ -120,9 +119,9 @@ export class DockIntellihide extends GObject.Object {
     // Track the focused window's allocation to update overlap in real time
     this._focusActor = focusWin.get_compositor_private();
     if (this._focusActor) {
-      this._focusActorId = this._focusActor.connect('notify::allocation', () => {
+      this._focusActor.connectObject('notify::allocation', () => {
         this._applyOverlap(this._doesOverlap(focusWin.get_frame_rect()));
-      });
+      }, this);
     }
   }
 
@@ -169,9 +168,8 @@ export class DockIntellihide extends GObject.Object {
   }
 
   private _disconnectFocusActor(): void {
-    if (this._focusActor && this._focusActorId) {
-      this._focusActor.disconnect(this._focusActorId);
-      this._focusActorId = 0;
+    if (this._focusActor) {
+      this._focusActor.disconnectObject(this);
       this._focusActor = null;
     }
   }
