@@ -5,6 +5,7 @@
     "uuid": "aurora-shell@luminusos.github.io",
     "url": "https://github.com/luminusOS/aurora-shell",
     "settings-schema": "org.gnome.shell.extensions.aurora-shell",
+    "gettext-domain": "aurora-shell@luminusos.github.io",
     "shell-version": [
         "50"
     ]
