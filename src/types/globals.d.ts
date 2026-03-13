@@ -9,3 +9,8 @@ declare global {
    */
   const global: Shell.Global;
 }
+
+// GJS ESM modules expose import.meta.url (the file:// URI of the current module)
+interface ImportMeta {
+  url: string;
+}

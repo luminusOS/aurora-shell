@@ -2,31 +2,47 @@
 import '@girs/gjs';
 
 import St from '@girs/st-17';
+import Gio from '@girs/gio-2.0';
 
 import type { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
-
 import { Module } from '~/module.ts';
 import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
+import { loadIcon } from '~/shared/icons.ts';
 
 /**
  * Volume Mixer Module
  *
  * Adds a toggle button beside the output slider's device-list icon in Quick
- * Settings. Clicking it opens the slider menu with an additional section that
- * shows per-application volume sliders.
+ * Settings. Clicking it opens the slider menu with the following layout:
+ *
+ *   [header]           "Volume Mixer"
+ *   [_menuSection]     per-application sliders   ← before separator
+ *   [separator]        ─────────────────────────
+ *   [_settingsSection] "Sound Settings" link      ← after separator
+ *
+ * OutputStreamSlider already calls setHeader() in its own _init(), so by the
+ * time _attachToSlider() runs the menu already contains:
+ *   header(0) · separator(1) · deviceSection(2) · …
+ * We insert _menuSection at 1 (shifting separator to 2) and _settingsSection
+ * at 3 (between separator and deviceSection).
  */
 export class VolumeMixer extends Module {
   private _panel: InstanceType<typeof VolumeMixerPanel> | null = null;
   private _toggleButton: St.Button | null = null;
   private _menuSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null =
     null;
+  private _settingsSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null =
+    null;
   private _outputSlider: QuickSlider | null = null;
   private _menuClosedId = 0;
   private _gridChildAddedId = 0;
+  private _quickSettings: Main.QuickSettings | null = null;
 
   override enable(): void {
+    this._quickSettings = Main.panel.statusArea.quickSettings;
+
     const outputSlider = this._findOutputSlider();
     if (outputSlider) {
       this._attachToSlider(outputSlider);
@@ -71,6 +87,11 @@ export class VolumeMixer extends Module {
       this._menuSection = null;
     }
 
+    if (this._settingsSection) {
+      this._settingsSection.destroy();
+      this._settingsSection = null;
+    }
+
     if (this._panel) {
       this._panel.destroy();
       this._panel = null;
@@ -80,8 +101,12 @@ export class VolumeMixer extends Module {
   }
 
   private _findOutputSlider(): QuickSlider | null {
-    const quickSettings = Main.panel.statusArea.quickSettings;
-    const grid = quickSettings.menu._grid;
+    const grid = this._quickSettings?.menu?._grid;
+
+    if (!grid) {
+      console.error('Aurora Shell: VolumeMixer could not find quick settings grid');
+      return null;
+    }
 
     for (const child of grid.get_children()) {
       if (child.constructor.name === 'OutputStreamSlider') {
@@ -92,22 +117,36 @@ export class VolumeMixer extends Module {
     return null;
   }
 
-  /**
-   * Attaches the volume mixer toggle button and panel to the output stream
-   * slider's popup menu. Clicking the button opens a menu showing only
-   * per-application volume sliders.
-   */
   private _attachToSlider(slider: QuickSlider): void {
     this._outputSlider = slider;
     this._panel = new VolumeMixerPanel();
     this._menuSection = new PopupMenu.PopupMenuSection();
+
     this._menuSection.box.add_child(this._panel);
+    slider.menu.addMenuItem(this._menuSection, 1);
     this._menuSection.box.hide();
 
-    slider.menu.addMenuItem(this._menuSection, 2);
+    this._settingsSection = new PopupMenu.PopupMenuSection();
+    const settingsItem = new PopupMenu.PopupMenuItem(
+      _('Sound Settings'),
+    );
+    settingsItem.connect('activate', () => {
+      try {
+        Gio.Subprocess.new(
+          ['gnome-control-center', 'sound'],
+          Gio.SubprocessFlags.NONE,
+        );
+      } catch (e) {
+        console.error(`Aurora Shell: Failed to open sound settings: ${e}`);
+      }
+      this._quickSettings?.menu.close(true);
+    });
+    this._settingsSection.addMenuItem(settingsItem);
+    slider.menu.addMenuItem(this._settingsSection, 3);
+    this._settingsSection.box.hide();
 
     this._toggleButton = new St.Button({
-      child: new St.Icon({ icon_name: 'open-menu-symbolic' }),
+      child: new St.Icon({ gicon: loadIcon('volume-mixer-symbolic') }),
       style_class: 'icon-button flat',
       can_focus: true,
       x_expand: false,
@@ -118,9 +157,10 @@ export class VolumeMixer extends Module {
     slider.child.add_child(this._toggleButton);
 
     this._toggleButton.connect('clicked', () => {
-      if (!this._panel || !this._menuSection) return;
+      if (!this._panel || !this._menuSection || !this._settingsSection) return;
 
       this._menuSection.box.show();
+      this._settingsSection.box.show();
       slider._deviceSection?.box.hide();
       slider.menu._setSettingsVisibility?.(false);
       slider.menu.setHeader('audio-speakers-symbolic', _('Volume Mixer'));
@@ -128,8 +168,9 @@ export class VolumeMixer extends Module {
     });
 
     this._menuClosedId = slider.menu.connect('menu-closed', () => {
-      if (!this._menuSection) return;
+      if (!this._menuSection || !this._settingsSection) return;
       this._menuSection.box.hide();
+      this._settingsSection.box.hide();
       slider._deviceSection?.box.show();
       slider.menu._setSettingsVisibility?.(Main.sessionMode.allowSettings);
       slider.menu.setHeader('audio-headphones-symbolic', _('Sound Output'));
