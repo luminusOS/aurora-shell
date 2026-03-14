@@ -1,7 +1,8 @@
 uuid := "aurora-shell@luminusos.github.io"
 ext_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
-toolbox_name := "gnome-shell-devel"
+toolbox_name := "aurora-shell-devel"
 toolbox_image := "registry.fedoraproject.org/fedora-toolbox:44"
+vagrant_name  := "aurora-shell-devel"
 
 default:
     @just --list
@@ -13,6 +14,7 @@ build: deps
     yarn build
     cp metadata.json dist/
     cp -r schemas dist/ 2>/dev/null || true
+    cp -r icons dist/ 2>/dev/null || true
     just compile-mo
 
 package: build
@@ -104,7 +106,8 @@ all: clean build install
 run:
     #!/usr/bin/env bash
     set -e
-    env XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell --wayland --devkit
+    env GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas \
+        XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell --wayland --devkit
 
 toolbox action *args:
     #!/usr/bin/env bash
@@ -124,6 +127,34 @@ toolbox action *args:
         *)
             echo "Unknown toolbox action: {{ action }}"
             echo "Available: create, run, remove"
+            exit 1
+            ;;
+    esac
+
+# Vagrant-based devkit VM (mirrors 'toolbox' but uses a full Fedora VM via Vagrant).
+# Actions: create | run | ssh | remove
+vagrant action *args:
+    #!/usr/bin/env bash
+    set -e
+    case "{{ action }}" in
+        "create")
+            echo "Booting and provisioning Vagrant VM '{{ vagrant_name }}'..."
+            vagrant up
+            ;;
+        "run")
+            bash scripts/run-vagrant-gnome-shell.sh
+            ;;
+        "ssh")
+            vagrant ssh
+            ;;
+        "remove")
+            echo "Destroying Vagrant VM '{{ vagrant_name }}'..."
+            vagrant destroy -f
+            echo "VM '{{ vagrant_name }}' destroyed."
+            ;;
+        *)
+            echo "Unknown vagrant action: {{ action }}"
+            echo "Available: create, run, ssh, remove"
             exit 1
             ;;
     esac

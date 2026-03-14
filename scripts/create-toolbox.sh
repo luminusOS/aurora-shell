@@ -3,17 +3,15 @@
 set -e
 
 TOOLBOX="${1:-gnome-shell-devel}"
-IMAGE="${2:-registry.fedoraproject.org/fedora-toolbox:42}"
+IMAGE="${2:-registry.fedoraproject.org/fedora-toolbox:44}"
 
 PACKAGES=(
   gnome-shell
   glib2-devel
-  mutter-devel
+  mutter-devkit
+  mutter-tests
   dbus-daemon
-  mesa-dri-drivers
-  mesa-vulkan-drivers
-  gnome-keyring
-  xdg-desktop-portal-gnome
+  gsettings-desktop-schemas
 )
 
 echo "Creating toolbox $TOOLBOX from $IMAGE..."

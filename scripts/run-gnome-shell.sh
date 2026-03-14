@@ -7,7 +7,7 @@ TOOLBOX="${1:-gnome-shell-devel}"
 SHELL_ENV=(
   XDG_CURRENT_DESKTOP=GNOME
   XDG_SESSION_TYPE=wayland
-  WAYLAND_DISPLAY=$WAYLAND_DISPLAY
+  GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas
 )
 SHELL_ARGS=( --wayland --devkit )
 
