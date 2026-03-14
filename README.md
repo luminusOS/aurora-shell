@@ -8,14 +8,17 @@ A modular GNOME Shell extension that adds quality-of-life features missing in va
 
 ## Modules
 
+Aurora is split into independent modules, so you can enable only what you want.
+
 | Module | Description |
 |--------|-------------|
-| **Theme Changer** | Syncs panel style with system color scheme (light/dark) |
-| **Dock** | Taskbar with auto-hide, intellihide, per-monitor and per-workspace activity filtering |
-| **No Overview** | Disables the overview on startup |
-| **Pip On Top** | Keeps Picture-in-Picture windows always on top (Wayland fix) |
+| **No Overview** | Skips the overview on startup so you land directly on your desktop |
+| **Pip On Top** | Keeps Picture-in-Picture windows above other windows automatically |
+| **Theme Changer** | Keeps GNOME light/dark color scheme behavior consistent |
+| **Dock** | Replaces the stock dash with a smart per-monitor dock with intellihide and edge reveal |
+| **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
 
-All modules can be toggled independently via the extension preferences.
+All modules can be toggled independently from the extension preferences.
 
 ## Requirements
 
@@ -42,25 +45,6 @@ cd aurora-shell
 just install
 ```
 
-## Commands
-
-```bash
-just                # list all commands
-just build          # build everything (deps + CSS + TS + zip)
-just install        # build + install to GNOME Shell
-just quick          # rebuild + copy files (skip full install)
-just uninstall      # disable + remove extension
-just run            # build + install + run GNOME Shell (auto-detects --devkit or --nested)
-just toolbox-run    # same as run, but inside a toolbox
-just create-toolbox # create a Fedora toolbox for testing
-just logs           # show recent extension logs
-just clean          # remove build artifacts
-just distclean      # remove artifacts + node_modules
-just validate       # type-check without emitting
-just lint           # run eslint
-just watch          # watch SCSS for changes
-```
-
 ## Testing
 
 ```bash
@@ -74,10 +58,12 @@ just toolbox-run
 
 ## Adding a Module
 
-1. Create `src/modules/myModule.ts`:
+Adding a module is quick. You wire it in once, and Aurora handles lifecycle + preferences automatically.
+
+1. Create your module file at `src/modules/myModule.ts`.
 
 ```typescript
-import { Module } from './module.ts';
+import { Module } from '~/module.ts';
 
 export class MyModule extends Module {
   override enable(): void {
@@ -85,34 +71,35 @@ export class MyModule extends Module {
   }
 
   override disable(): void {
-    // cleanup
+    // cleanup (mirror enable)
   }
 }
 ```
 
-2. Add an entry to `MODULE_REGISTRY` in `src/registry.ts`:
+2. Register the module in `src/registry.ts` so it appears in Preferences.
 
 ```typescript
+// Inside getModuleRegistry()
 {
-  key: 'myModule',
+  key: 'my-module',
   settingsKey: 'module-my-module',
-  title: 'My Module',
-  subtitle: 'Description',
+  title: _('My Module'),
+  subtitle: _('Short, user-facing description'),
 },
 ```
 
-3. Add the import and factory to `MODULE_FACTORIES` in `src/extension.ts`:
+3. Add the module factory in `src/extension.ts`.
 
 ```typescript
-import { MyModule } from "./modules/myModule.ts";
+import { MyModule } from '~/modules/myModule.ts';
 
 const MODULE_FACTORIES: Record<string, () => Module> = {
   // ...existing entries...
-  myModule: () => new MyModule(),
+  'my-module': () => new MyModule(),
 };
 ```
 
-4. Add the key to `schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`:
+4. Add a toggle key to `schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`.
 
 ```xml
 <key name="module-my-module" type="b">
@@ -122,7 +109,13 @@ const MODULE_FACTORIES: Record<string, () => Module> = {
 </key>
 ```
 
-The module automatically appears in extension preferences and responds to runtime toggle.
+5. Build and verify.
+
+```bash
+just build
+```
+
+After that, your module should appear in Preferences and respect runtime enable/disable.
 
 ## Build System
 
@@ -136,7 +129,3 @@ The module automatically appears in extension preferences and responds to runtim
 - Classes: `PascalCase`
 - Private members: `_prefixed`
 - Constants: `UPPER_CASE`
-
-## License
-
-LGPL-3.0-or-later
