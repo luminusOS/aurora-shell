@@ -13,8 +13,8 @@ deps:
 build: deps
     yarn build
     cp metadata.json dist/
-    cp -r schemas dist/ 2>/dev/null || true
-    cp -r icons dist/ 2>/dev/null || true
+    cp -r data/schemas dist/ 2>/dev/null || true
+    cp -r data/icons dist/ 2>/dev/null || true
     just compile-mo
 
 package: build
@@ -23,7 +23,7 @@ package: build
       zip -r "target/{{ uuid }}.zip" . \
         -x "target/*" \
         -x "*.zip" \
-        -x "schemas/gschemas.compiled"
+        -x "data/schemas/gschemas.compiled"
 
 validate:
     yarn validate
@@ -81,7 +81,7 @@ update-po:
     #!/usr/bin/env bash
     set -e
     POT="po/aurora-shell@luminusos.github.io.pot"
-    for po in po/*.po; do
+    for po in data/po/*.po; do
         echo "Merging $po..."
         msgmerge --update --backup=none "$po" "$POT"
     done
@@ -91,7 +91,7 @@ compile-mo:
     #!/usr/bin/env bash
     set -e
     DOMAIN="aurora-shell@luminusos.github.io"
-    for po in po/*.po; do
+    for po in data/po/*.po; do
         [ -f "$po" ] || continue
         lang=$(basename "$po" .po)
         outdir="dist/locale/$lang/LC_MESSAGES"
