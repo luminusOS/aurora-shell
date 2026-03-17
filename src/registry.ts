@@ -39,5 +39,11 @@ export function getModuleRegistry(): ModuleDefinition[] {
       title: _('Volume Mixer'),
       subtitle: _('Per-application volume control in Quick Settings'),
     },
+    {
+      key: 'xwayland-indicator',
+      settingsKey: 'module-xwayland-indicator',
+      title: _('XWayland Indicator'),
+      subtitle: _('Shows an X11 badge on XWayland apps in the Alt+Tab switcher'),
+    },
   ];
 }

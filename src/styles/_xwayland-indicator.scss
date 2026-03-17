@@ -1,0 +1,11 @@
+.xwayland-indicator-badge {
+  // Ensure the badge is drawn on top of the icon it overlays
+  z-position: 1;
+
+  // Slight shadow to keep the icon readable on any background
+  icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+
+  // Add some spacing so it's not fully flush to the corner
+  margin-left: 6px;
+  margin-bottom: 6px;
+}

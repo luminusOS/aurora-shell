@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="16px"
+   height="16px"
+   viewBox="0 0 16 16"
+   version="1.1"
+   id="svg5"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title
+     id="title5">X11</title>
+  <defs
+     id="defs5" />
+  <path
+     d="m 1.0425066,14.989492 c 0,0 5.3278483,-6.7984217 5.3278483,-6.7984217 0,0 -5.3278483,-7.1805622 -5.3278483,-7.1805622 H 4.48831 c 0,0 4.2672556,5.810414 4.2672556,5.810414 L 2.2602962,14.989492 Z M 7.2120243,9.2263858 13.705446,1.0105081 c 0,0 1.252046,0 1.252046,0 L 9.6280524,7.7518728 c 0,0 5.3294396,7.2376192 5.3294396,7.2376192 h -3.445833 z"
+     id="path2830"
+     style="fill:#222222;stroke-width:0.0511984;fill-opacity:1" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:source>https://en.wikipedia.org/wiki/File:X11.svg</dc:source>
+        <dc:title>X11</dc:title>
+        <dc:rights>
+          <cc:Agent>
+            <dc:title>Public Domain</dc:title>
+          </cc:Agent>
+        </dc:rights>
+        <dc:publisher>
+          <cc:Agent>
+            <dc:title>Wikimedia Commons</dc:title>
+          </cc:Agent>
+        </dc:publisher>
+        <cc:license
+           rdf:resource="https://en.wikipedia.org/wiki/File:X11.svg" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

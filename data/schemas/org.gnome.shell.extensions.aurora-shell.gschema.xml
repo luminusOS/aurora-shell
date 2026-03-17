@@ -26,5 +26,10 @@
       <summary>Enable Volume Mixer module</summary>
       <description>Per-application volume control in Quick Settings</description>
     </key>
+    <key name="module-xwayland-indicator" type="b">
+      <default>true</default>
+      <summary>Enable XWayland Indicator module</summary>
+      <description>Shows an X11 badge on XWayland apps in the Alt+Tab switcher</description>
+    </key>
   </schema>
 </schemalist>

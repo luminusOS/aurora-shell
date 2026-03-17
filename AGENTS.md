@@ -42,7 +42,10 @@
   - `shared/` — shared utilities used across modules
   - `styles/` — SCSS stylesheets (compiled to light + dark CSS)
   - `types/` — TypeScript type declarations (`@girs`, GJS, etc.)
-- `schemas/` — GSettings schema XML
+- `data/` — resources files
+  - `schemas/` — GSettings schema XML
+  - `icons/` — SVG icons used in the project
+  - `po/` — translation files
 - `scripts/` — helper shell scripts (`create-toolbox.sh`, `run-gnome-shell.sh`, `bump-version.sh`)
 - `esbuild.ts` — esbuild bundler configuration
 - `sass.config.ts` — Sass compiler configuration
