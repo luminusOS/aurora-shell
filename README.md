@@ -17,6 +17,7 @@ Aurora is split into independent modules, so you can enable only what you want.
 | **Theme Changer** | Keeps GNOME light/dark color scheme behavior consistent |
 | **Dock** | Replaces the stock dash with a smart per-monitor dock with intellihide and edge reveal |
 | **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
+| **XWayland Indicator** | Adds an indicator to the app activities in Ctrl + Tab to indicate where XWayland is running |
 
 All modules can be toggled independently from the extension preferences.
 
