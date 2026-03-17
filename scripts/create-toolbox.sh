@@ -12,6 +12,7 @@ PACKAGES=(
   mutter-tests
   dbus-daemon
   gsettings-desktop-schemas
+  xeyes
 )
 
 echo "Creating toolbox $TOOLBOX from $IMAGE..."

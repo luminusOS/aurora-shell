@@ -82,6 +82,11 @@ export class VolumeMixer extends Module {
       this._toggleButton = null;
     }
 
+    if (this._panel) {
+      this._panel.destroy();
+      this._panel = null;
+    }
+
     if (this._menuSection) {
       this._menuSection.destroy();
       this._menuSection = null;
@@ -90,11 +95,6 @@ export class VolumeMixer extends Module {
     if (this._settingsSection) {
       this._settingsSection.destroy();
       this._settingsSection = null;
-    }
-
-    if (this._panel) {
-      this._panel.destroy();
-      this._panel = null;
     }
 
     this._outputSlider = null;

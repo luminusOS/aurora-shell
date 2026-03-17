@@ -12,6 +12,7 @@ import { PipOnTop } from "~/modules/pipOnTop.ts";
 import { ThemeChanger } from "~/modules/themeChanger.ts";
 import { Dock } from "~/modules/dock/dock.ts";
 import { VolumeMixer } from "~/modules/volumeMixer/volumeMixer.ts";
+import { XwaylandIndicator } from "~/modules/xwaylandIndicator.ts";
 
 const MODULE_FACTORIES: Record<string, () => Module> = {
   'no-overview': () => new NoOverview(),
@@ -19,6 +20,7 @@ const MODULE_FACTORIES: Record<string, () => Module> = {
   'theme-changer': () => new ThemeChanger(),
   'dock': () => new Dock(),
   'volume-mixer': () => new VolumeMixer(),
+  'xwayland-indicator': () => new XwaylandIndicator(),
 };
 
 /**
