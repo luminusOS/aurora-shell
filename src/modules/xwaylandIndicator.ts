@@ -105,7 +105,7 @@ export class XwaylandIndicator extends Module {
       x_expand: true,
       y_expand: true,
       x_align: Clutter.ActorAlign.START,
-      y_align: Clutter.ActorAlign.END,
+      y_align: Clutter.ActorAlign.START,
     });
     wrapper.add_child(badge);
   }
