@@ -27,7 +27,6 @@ const VISIBILITY_ANIMATION_TIME = 200;
 const HIDE_SCALE = 0.98;
 const EASE_DURATION_FACTOR = 0.8;
 const FULL_OPACITY = 255;
-const CLEAR_PLACEHOLDER_DELAY = 60;
 const PIVOT_CENTER_BOTTOM: [number, number] = [0.5, 1];
 
 interface AuroraDashParams {
@@ -58,12 +57,6 @@ export class AuroraDash extends Dash {
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
   private _draggingItem = false;
-  private _dndMonitor: { dragMotion: (e: any) => any; dragDrop: (e: any) => any } | null = null;
-  private _clearPlaceholderTimerId = 0;
-  /** Stage-X of _box, frozen while a placeholder exists so slot math stays consistent across frames. */
-  private _dndBoxOriginX = 0;
-  private _dndDropHandled = false;
-  private _savedDndSource: any = null;
   private _isDestroyed = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
@@ -79,26 +72,20 @@ export class AuroraDash extends Dash {
     button?.connectObject?.('clicked', () => Main.overview.showApps(), this);
 
     // Track drag state so the dock stays visible while dragging items.
-    // Also install a dock-specific drag monitor to bridge the DnD gap: GNOME's
-    // dnd.js finds drop targets by traversing the drag actor's parent chain,
-    // which ends at Main.uiGroup and never reaches the dock's _box._delegate.
-    // The drag monitor calls handleDragOver/acceptDrop directly instead.
     Main.overview.connectObject(
-      'item-drag-begin', (_ov: any, source: any) => {
+      'item-drag-begin', () => {
         this._draggingItem = true;
-        this._dndDropHandled = false;
         this._onHover();
-        this._setupDnd(source);
       },
       'item-drag-end', () => {
         this._draggingItem = false;
         this._onHover();
-        this._teardownDnd();
+        if (this._workArea) this.applyWorkArea(this._workArea);
       },
       'item-drag-cancelled', () => {
         this._draggingItem = false;
         this._onHover();
-        this._teardownDnd();
+        if (this._workArea) this.applyWorkArea(this._workArea);
       },
       this
     );
@@ -151,15 +138,6 @@ export class AuroraDash extends Dash {
     // Without this, dnd.js continues firing callbacks into the disposed object.
     const dragMonitor = (this as any)._dragMonitor;
     if (dragMonitor) DND.removeDragMonitor(dragMonitor);
-
-    if (this._dndMonitor) DND.removeDragMonitor(this._dndMonitor);
-    this._dndMonitor = null;
-    if (this._clearPlaceholderTimerId) {
-      GLib.source_remove(this._clearPlaceholderTimerId);
-      this._clearPlaceholderTimerId = 0;
-    }
-    this._savedDndSource = null;
-    this._restoreClearDragPlaceholder();
 
     (this as any).showAppsButton?.disconnectObject?.(this);
     this.disconnectObject?.(this);
@@ -218,7 +196,6 @@ export class AuroraDash extends Dash {
 
   applyWorkArea(workArea: DashBounds): void {
     this._workArea = workArea;
-    if (this._draggingItem) return;
     if (!this._container) return;
 
     const [, prefW] = this.get_preferred_width(workArea.width);
@@ -404,15 +381,10 @@ export class AuroraDash extends Dash {
     (Dash.prototype as any)._onWindowDragEnd?.call(this, ...args);
   }
 
-  /**
-   * Guard acceptDrop so we can detect when the normal actor-traversal path
-   * succeeds (overview context). `_dndDropHandled` is set here so a
-   * drag-monitor drop doesn't reorder twice.
-   */
-  override acceptDrop(...args: any[]): boolean {
-    if (this._isDestroyed) return false;
-    const result = (Dash.prototype as any).acceptDrop?.call(this, ...args) ?? false;
-    if (result) this._dndDropHandled = true;
+  override handleDragOver(...args: any[]): any {
+    if (this._isDestroyed) return (this as any).DragMotionResult?.CONTINUE ?? 1;
+    const result = (Dash.prototype as any).handleDragOver?.call(this, ...args);
+    this._queueWorkAreaUpdate();
     return result;
   }
 
@@ -458,7 +430,7 @@ export class AuroraDash extends Dash {
 
     if (dashAny.iconSize !== oldIconSize) {
       this._animateIconResize();
-    } else if (this._workArea && !this._draggingItem) {
+    } else if (this._workArea) {
       // Defer the work-area resize so newly-added icon containers have
       // completed their initial layout pass and report accurate preferred
       // sizes. Without this, the container can be sized too small and the
@@ -762,199 +734,6 @@ export class AuroraDash extends Dash {
       }
       return GLib.SOURCE_REMOVE;
     });
-  }
-
-  /**
-   * Install a drag monitor and pre-expand the container for one drag session.
-   *
-   * ## Stable slot calculation
-   * We track `_dndBoxOriginX` = the stage-X of `_box`. While no placeholder
-   * exists the origin is refreshed every dragMotion frame (the box is stable).
-   * The origin `_dndBoxOriginX` is frozen at the pre-drag value of `_box`'s
-   * stage-X while a placeholder exists, and refreshed per-frame when the box
-   * is stable (no placeholder). This works because `handleDragOver` always
-   * subtracts `placeholder.width` from `boxWidth`, making:
-   *   boxWidth_adj = _box.width − placeholder.width = origBoxW
-   * so `pos = floor((event.x − _dndBoxOriginX) × N / origBoxW)` is identical
-   * in all frames — no analytical correction is needed.
-   *
-   * On first placeholder insertion we cancel its fade-in animation immediately
-   * so the layout settles in a single frame.
-   */
-  private _setupDnd(_source: any): void {
-    if (this._dndMonitor) return;
-
-    this._savedDndSource = null;
-    this._dndDropHandled = false;
-
-    // Capture initial origin and pre-expand the container.
-    const box = (this as any)._box;
-    this._dndBoxOriginX = (box?.get_transformed_position?.() ?? [0])[0];
-    this._preExpandContainer();
-    this._patchClearDragPlaceholder();
-
-    this._dndMonitor = {
-      dragMotion: (event: any) => this._dndDragMotion(event),
-      dragDrop: (event: any) => this._dndDragDrop(event),
-    };
-    DND.addDragMonitor(this._dndMonitor);
-  }
-
-  private _teardownDnd(): void {
-    if (this._dndMonitor) {
-      DND.removeDragMonitor(this._dndMonitor);
-      this._dndMonitor = null;
-    }
-    this._cancelClearPlaceholderTimer();
-    this._restoreClearDragPlaceholder();
-    this._savedDndSource = null;
-    this._dndDropHandled = false;
-    if (this._workArea) this.applyWorkArea(this._workArea);
-  }
-
-  private _dndDragMotion(event: any): any {
-    if (this._isDestroyed) return DND.DragMotionResult.CONTINUE;
-
-    const container = this._container;
-    const box = (this as any)._box;
-    if (!container || !box) return DND.DragMotionResult.CONTINUE;
-
-    // Bounds check against the pre-expanded, position-stable container.
-    const [ok, contLocalX, contLocalY] = (container as any).transform_stage_point(event.x, event.y);
-    if (!ok) return DND.DragMotionResult.CONTINUE;
-
-    const [contW, contH] = (container as any).get_size();
-    if (contLocalX < 0 || contLocalX > contW || contLocalY < 0 || contLocalY > contH) {
-      this._scheduleClearPlaceholder();
-      return DND.DragMotionResult.CONTINUE;
-    }
-
-    this._cancelClearPlaceholderTimer();
-
-    // Refresh _box origin only while no placeholder exists (box is stable).
-    // While a placeholder is present, `handleDragOver` self-normalizes:
-    // boxWidth_adj = _box.width − placeholder.width = origBoxW, so the frozen
-    // origin keeps pos consistent across all frames without any correction.
-    const dashAny = this as any;
-    if (!dashAny._dragPlaceholder) {
-      this._dndBoxOriginX = (box.get_transformed_position?.() ?? [0])[0];
-    }
-
-    const hadPlaceholder = dashAny._dragPlaceholder !== null;
-    const localX = event.x - this._dndBoxOriginX;
-
-    const result =
-      (Dash.prototype as any).handleDragOver?.call(this, event.source, event.dragActor, localX, contLocalY, 0) ??
-      DND.DragMotionResult.CONTINUE;
-
-    // On first insertion: cancel fade-in animation so the layout settles
-    // immediately in a single frame rather than over ~200 ms.
-    if (!hadPlaceholder && dashAny._dragPlaceholder?.child) {
-      dashAny._dragPlaceholder.child.remove_all_transitions?.();
-      dashAny._dragPlaceholder.child.set_width(dashAny.iconSize);
-    }
-
-    if (result === DND.DragMotionResult.MOVE_DROP) {
-      this._savedDndSource = event.source;
-    }
-
-    return result;
-  }
-
-  /**
-   * On drop: patch targetActor._delegate so dnd.js actor-traversal reaches
-   * our acceptDrop. Returning CONTINUE lets dnd.js perform its own cleanup
-   * (removes drag actor, emits drag-end, restores cursor).
-   */
-  private _dndDragDrop(event: any): any {
-    if (this._isDestroyed) return DND.DragDropResult.CONTINUE;
-
-    const container = this._container;
-    if (!container || !this._savedDndSource) return DND.DragDropResult.CONTINUE;
-
-    const [cx, cy] = event.clutterEvent?.get_coords?.() ?? [0, 0];
-    const [ok, localX, localY] = (container as any).transform_stage_point(cx, cy);
-    if (!ok) return DND.DragDropResult.CONTINUE;
-
-    const [cW, cH] = (container as any).get_size();
-    if (localX < 0 || localX > cW || localY < 0 || localY > cH) return DND.DragDropResult.CONTINUE;
-
-    const targetActor = event.targetActor;
-    if (targetActor) {
-      const origDelegate = targetActor._delegate;
-      targetActor._delegate = {
-        acceptDrop: (source: any, actor: any, x: number, y: number, time: number) => {
-          targetActor._delegate = origDelegate;
-          const accepted = (Dash.prototype as any).acceptDrop?.call(this, source, actor, x, y, time) ?? false;
-          if (accepted) this._dndDropHandled = true;
-          return accepted;
-        },
-      };
-    }
-
-    return DND.DragDropResult.CONTINUE;
-  }
-
-  /** Pre-expand the container by one icon-slot width before the drag monitor activates. */
-  private _preExpandContainer(): void {
-    if (!this._container || !this._workArea) return;
-
-    const dashAny = this as any;
-    const firstChild = (dashAny._box?.get_children?.() ?? [])[0];
-    const slotWidth =
-      Math.ceil((firstChild?.get_size?.() ?? [0, 0])[0]) ||
-      (dashAny.iconSize ?? 48) + 24;
-
-    const wa = this._workArea;
-    const [, prefW] = this.get_preferred_width(wa.width);
-    const curW = Math.min(Math.max(prefW, 0), wa.width);
-    const expandedW = Math.min(curW + slotWidth, wa.width);
-    const expandedX = wa.x + Math.round((wa.width - expandedW) / 2);
-    const [, prefH] = this.get_preferred_height(expandedW);
-    const expandedH = Math.min(Math.max(prefH, 0), wa.height);
-    const marginBottom = this._getMarginBottom();
-    const expandedY = Math.max(wa.y, wa.y + wa.height - expandedH - marginBottom);
-
-    this._container.set_size(expandedW, expandedH);
-    this._container.set_position(expandedX, expandedY);
-  }
-
-  /**
-   * Replace `_clearDragPlaceholder` on the instance to destroy the placeholder
-   * immediately (no animate-out). This keeps `_animatingPlaceholdersCount` at 0
-   * so `handleDragOver` never enters its ~200 ms locked state.
-   */
-  private _patchClearDragPlaceholder(): void {
-    const dashAny = this as any;
-    dashAny._clearDragPlaceholder = () => {
-      if (dashAny._dragPlaceholder) {
-        dashAny._dragPlaceholder.remove_all_transitions?.();
-        dashAny._dragPlaceholder.child?.remove_all_transitions?.();
-        dashAny._dragPlaceholder.destroy();
-        dashAny._dragPlaceholder = null;
-      }
-      dashAny._dragPlaceholderPos = -1;
-    };
-  }
-
-  private _restoreClearDragPlaceholder(): void {
-    delete (this as any)._clearDragPlaceholder;
-  }
-
-  private _scheduleClearPlaceholder(): void {
-    if (this._clearPlaceholderTimerId) return;
-    this._clearPlaceholderTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, CLEAR_PLACEHOLDER_DELAY, () => {
-      this._clearPlaceholderTimerId = 0;
-      if (!this._isDestroyed) (this as any)._clearDragPlaceholder?.();
-      return GLib.SOURCE_REMOVE;
-    });
-  }
-
-  private _cancelClearPlaceholderTimer(): void {
-    if (this._clearPlaceholderTimerId) {
-      GLib.source_remove(this._clearPlaceholderTimerId);
-      this._clearPlaceholderTimerId = 0;
-    }
   }
 
   private _clearTimeout(prop: TimeoutProp): void {
