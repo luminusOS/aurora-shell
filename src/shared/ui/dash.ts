@@ -19,12 +19,15 @@ export interface DashBounds {
 const TARGET_BOX_PADDING = 8;
 
 type TargetBoxListener = (bounds: DashBounds | null) => void;
+type TimeoutProp = '_autohideTimeoutId' | '_delayEnsureAutoHideId' | '_blockAutoHideDelayId' | '_workAreaUpdateId';
 
 const AUTOHIDE_TIMEOUT = 100;
 const ANIMATION_TIME = 200;
 const VISIBILITY_ANIMATION_TIME = 200;
 const HIDE_SCALE = 0.98;
 const EASE_DURATION_FACTOR = 0.8;
+const FULL_OPACITY = 255;
+const PIVOT_CENTER_BOTTOM: [number, number] = [0.5, 1];
 
 interface AuroraDashParams {
   monitorIndex?: number;
@@ -53,11 +56,9 @@ export class AuroraDash extends Dash {
   private _workAreaUpdateId = 0;
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
-  private _draggingItem = false;
   private _isDestroyed = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
-  private _cycleState: { appId: string; windows: any[]; index: number } | null = null;
 
   _init(params: AuroraDashParams = {}): void {
     super._init();
@@ -68,13 +69,6 @@ export class AuroraDash extends Dash {
     const button = (this as any).showAppsButton;
     button?.set_toggle_mode?.(false);
     button?.connectObject?.('clicked', () => Main.overview.showApps(), this);
-
-    // Track drag state so the dock stays visible while dragging items
-    Main.overview.connectObject(
-      'item-drag-begin', () => { this._draggingItem = true; this._onHover(); },
-      'item-drag-end', () => { this._draggingItem = false; this._onHover(); },
-      this
-    );
 
     const dashContainer = (this as unknown as { _dashContainer?: St.Widget })._dashContainer;
     dashContainer?.set_track_hover?.(true);
@@ -120,11 +114,6 @@ export class AuroraDash extends Dash {
     this._isDestroyed = true;
     this._clearAllTimeouts();
 
-    // Remove the parent Dash's drag monitor if a DnD session is in progress.
-    // Without this, dnd.js continues firing callbacks into the disposed object.
-    const dragMonitor = (this as any)._dragMonitor;
-    if (dragMonitor) DND.removeDragMonitor(dragMonitor);
-
     (this as any).showAppsButton?.disconnectObject?.(this);
     this.disconnectObject?.(this);
     Main.overview.disconnectObject(this);
@@ -136,7 +125,6 @@ export class AuroraDash extends Dash {
     this._container = null;
     this._targetBox = null;
     this._pendingShow = null;
-    this._cycleState = null;
 
     super.destroy();
   }
@@ -237,7 +225,7 @@ export class AuroraDash extends Dash {
     if (this._isFullyHidden()) return;
 
     this.remove_all_transitions();
-    this.set_pivot_point(0.5, 1);
+    this.set_pivot_point(...PIVOT_CENTER_BOTTOM);
 
     if (!animate) {
       this._applyHiddenState();
@@ -263,20 +251,20 @@ export class AuroraDash extends Dash {
   private _isMenuOpen(): boolean {
     const dashAny = this as any;
     const children = dashAny._box?.get_children?.() ?? [];
-    
+
     for (const child of children) {
       const appIcon = child.child?._delegate;
-      
+
       if (appIcon?._menu?.isOpen) {
         return true;
       }
     }
-    
+
     const showApps = dashAny.showAppsButton || dashAny._showAppsIcon?._delegate;
     if (showApps?._menu?.isOpen) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -298,7 +286,7 @@ export class AuroraDash extends Dash {
     // actor at a stale position (avoids "needs an allocation" warnings and
     // prevents _queueTargetBoxUpdate from reading a wrong transformed Y).
     this.remove_all_transitions();
-    this.set_pivot_point(0.5, 1);
+    this.set_pivot_point(...PIVOT_CENTER_BOTTOM);
 
     if (!animate) {
       this._applyShownState();
@@ -312,7 +300,7 @@ export class AuroraDash extends Dash {
     super.show();
 
     this.ease({
-      opacity: 255,
+      opacity: FULL_OPACITY,
       scale_x: 1,
       scale_y: 1,
       duration: VISIBILITY_ANIMATION_TIME,
@@ -329,7 +317,7 @@ export class AuroraDash extends Dash {
   /** Set transform properties to the fully-visible resting state. */
   private _applyShownState(): void {
     this.translation_y = 0;
-    this.opacity = 255;
+    this.opacity = FULL_OPACITY;
     this.set_scale(1, 1);
   }
 
@@ -340,43 +328,39 @@ export class AuroraDash extends Dash {
     this.set_scale(HIDE_SCALE, HIDE_SCALE);
   }
 
-  /**
-   * Guard wrappers for parent Dash signal handlers that fire during DnD in the
-   * overview workspace view. If GNOME Shell 50's Dash.destroy() fails to
-   * disconnect a signal, the bound handler still reaches here via the prototype
-   * chain. Returning early prevents any GObject property access on the already-
-   * disposed object (JS-object properties such as _isDestroyed remain readable
-   * after GObject disposal).
-   */
-  _onDragBegin(): void {
+  // Dash._init() connects these via bare connect() (not connectObject), so they keep firing after
+  // destroy(). Guard them so signals don't reach a disposed object.
+
+  override _onItemDragBegin(): void {
     if (this._isDestroyed) return;
-    (Dash.prototype as any)._onDragBegin?.call(this);
+    (Dash.prototype as any)._onItemDragBegin?.call(this);
   }
 
-  _onDragEnd(): void {
+  override _onItemDragEnd(): void {
     if (this._isDestroyed) return;
-    (Dash.prototype as any)._onDragEnd?.call(this);
+    (Dash.prototype as any)._onItemDragEnd?.call(this);
   }
 
-  _onDragMotion(...args: any[]): any {
+  override _onItemDragCancelled(): void {
     if (this._isDestroyed) return;
-    return (Dash.prototype as any)._onDragMotion?.call(this, ...args);
+    (Dash.prototype as any)._onItemDragCancelled?.call(this);
   }
 
-  _onDragLeave(): void {
-    if (this._isDestroyed) return;
-    (Dash.prototype as any)._onDragLeave?.call(this);
-  }
-
-  // GNOME 50 added window-drag signals forwarded from the workspace view.
-  _onWindowDragBegin(...args: any[]): void {
+  override _onWindowDragBegin(...args: any[]): void {
     if (this._isDestroyed) return;
     (Dash.prototype as any)._onWindowDragBegin?.call(this, ...args);
   }
 
-  _onWindowDragEnd(...args: any[]): void {
+  override _onWindowDragEnd(...args: any[]): void {
     if (this._isDestroyed) return;
     (Dash.prototype as any)._onWindowDragEnd?.call(this, ...args);
+  }
+
+  override handleDragOver(...args: any[]): any {
+    if (this._isDestroyed) return (this as any).DragMotionResult?.CONTINUE ?? 1;
+    const result = (Dash.prototype as any).handleDragOver?.call(this, ...args);
+    this._queueWorkAreaUpdate();
+    return result;
   }
 
   /**
@@ -385,7 +369,7 @@ export class AuroraDash extends Dash {
    * after animation). Otherwise, re-apply the work area immediately so the
    * container grows/shrinks to fit added or removed icons.
    */
-  private _redisplay(): void {
+  override _redisplay(): void {
     if (this._isDestroyed) return;
     const dashAny = this as any;
     const oldIconSize = dashAny.iconSize;
@@ -402,12 +386,13 @@ export class AuroraDash extends Dash {
           app.get_windows().some(isRelevant)
         );
       };
-    }
-
-    Dash.prototype._redisplay.call(this);
-
-    if (appSystem && origGetRunning) {
-      appSystem.get_running = origGetRunning;
+      try {
+        Dash.prototype._redisplay.call(this);
+      } finally {
+        appSystem.get_running = origGetRunning;
+      }
+    } else {
+      Dash.prototype._redisplay.call(this);
     }
 
     // Update running-indicator dots for favorites: hide the dot when the
@@ -482,6 +467,7 @@ export class AuroraDash extends Dash {
       const isRelevant = (w: any) => this._isWindowRelevant(w);
 
       appIcon.activate = function (button: number) {
+        // `this` is appIcon here — _cycleState is stored per icon, not on AuroraDash.
         // Ctrl+click or middle-click opens a new window — keep default behavior
         const event = Clutter.get_current_event();
         const modifiers = event ? event.get_state() : 0;
@@ -606,17 +592,17 @@ export class AuroraDash extends Dash {
     }
   }
 
-  /** Start or restart the autohide timeout — hides the dock if not hovered/dragging/blocked. */
+  /** Start or restart the autohide timeout — hides the dock if not hovered/blocked. */
   private _onHover(): void {
     if (this._isDestroyed) return;
     this._clearTimeout('_autohideTimeoutId');
     this._autohideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTOHIDE_TIMEOUT, () => {
       const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
-      
-      if (dashContainer?.get_hover?.() || this._draggingItem || this._blockAutoHide || this._isMenuOpen()) {
+
+      if (dashContainer?.get_hover?.() || this._blockAutoHide || this._isMenuOpen()) {
         return GLib.SOURCE_CONTINUE;
       }
-      
+
       this.hide(true);
       this._autohideTimeoutId = 0;
       return GLib.SOURCE_REMOVE;
@@ -640,7 +626,7 @@ export class AuroraDash extends Dash {
       && this.translation_y === 0
       && this.scale_x === 1
       && this.scale_y === 1
-      && this.opacity === 255;
+      && this.opacity === FULL_OPACITY;
   }
 
   private _isFullyHidden(): boolean {
@@ -689,7 +675,7 @@ export class AuroraDash extends Dash {
       height: size.height + p * 2,
     };
 
-    if (!boundsEqual(this._targetBox, padded)) {
+    if (!AuroraDash._boundsEqual(this._targetBox, padded)) {
       this._targetBox = padded;
       this._targetBoxListener?.(this._targetBox);
     }
@@ -725,7 +711,7 @@ export class AuroraDash extends Dash {
     });
   }
 
-  private _clearTimeout(prop: '_autohideTimeoutId' | '_delayEnsureAutoHideId' | '_blockAutoHideDelayId' | '_workAreaUpdateId'): void {
+  private _clearTimeout(prop: TimeoutProp): void {
     if (this[prop]) {
       GLib.source_remove(this[prop]);
       this[prop] = 0;
@@ -738,10 +724,10 @@ export class AuroraDash extends Dash {
     this._clearTimeout('_blockAutoHideDelayId');
     this._clearTimeout('_workAreaUpdateId');
   }
-}
 
-function boundsEqual(a: DashBounds | null, b: DashBounds | null): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+  private static _boundsEqual(a: DashBounds | null, b: DashBounds | null): boolean {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+  }
 }
