@@ -31,5 +31,10 @@
       <summary>Enable XWayland Indicator module</summary>
       <description>Shows an X11 badge on XWayland apps in the Alt+Tab switcher</description>
     </key>
+    <key name="module-dnd-on-share" type="b">
+      <default>true</default>
+      <summary>Enable DND on Screen Share module</summary>
+      <description>Automatically enables Do Not Disturb mode when screen sharing</description>
+    </key>
   </schema>
 </schemalist>

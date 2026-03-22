@@ -45,5 +45,11 @@ export function getModuleRegistry(): ModuleDefinition[] {
       title: _('XWayland Indicator'),
       subtitle: _('Shows an X11 badge on XWayland apps in the Alt+Tab switcher'),
     },
+    {
+      key: 'dnd-on-share',
+      settingsKey: 'module-dnd-on-share',
+      title: _('DND on Screen Share'),
+      subtitle: _('Automatically enables Do Not Disturb mode when screen sharing'),
+    },
   ];
 }
