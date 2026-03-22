@@ -18,6 +18,7 @@ Aurora is split into independent modules, so you can enable only what you want.
 | **Dock** | Replaces the stock dash with a smart per-monitor dock with intellihide and edge reveal |
 | **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
 | **XWayland Indicator** | Adds an indicator to the app activities in Ctrl + Tab to indicate where XWayland is running |
+| **DND on Screen Share** | Automatically enables Do Not Disturb mode when screen sharing or recording is active |
 
 All modules can be toggled independently from the extension preferences.
 
@@ -57,76 +58,6 @@ just create-toolbox   # first time only
 just toolbox-run
 ```
 
-## Adding a Module
+## Contributing
 
-Adding a module is quick. You wire it in once, and Aurora handles lifecycle + preferences automatically.
-
-1. Create your module file at `src/modules/myModule.ts`.
-
-```typescript
-import { Module } from '~/module.ts';
-
-export class MyModule extends Module {
-  override enable(): void {
-    // setup
-  }
-
-  override disable(): void {
-    // cleanup (mirror enable)
-  }
-}
-```
-
-2. Register the module in `src/registry.ts` so it appears in Preferences.
-
-```typescript
-// Inside getModuleRegistry()
-{
-  key: 'my-module',
-  settingsKey: 'module-my-module',
-  title: _('My Module'),
-  subtitle: _('Short, user-facing description'),
-},
-```
-
-3. Add the module factory in `src/extension.ts`.
-
-```typescript
-import { MyModule } from '~/modules/myModule.ts';
-
-const MODULE_FACTORIES: Record<string, () => Module> = {
-  // ...existing entries...
-  'my-module': () => new MyModule(),
-};
-```
-
-4. Add a toggle key to `schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`.
-
-```xml
-<key name="module-my-module" type="b">
-  <default>true</default>
-  <summary>Enable My Module</summary>
-  <description>What this module does</description>
-</key>
-```
-
-5. Build and verify.
-
-```bash
-just build
-```
-
-After that, your module should appear in Preferences and respect runtime enable/disable.
-
-## Build System
-
-- **esbuild** bundles TypeScript (target: Firefox 102 / GJS 1.73.2+, format: ESM)
-- **Sass** compiles SCSS stylesheets (light + dark variants)
-- **AdmZip** packages the extension as a `.zip` for distribution
-
-## Code Style
-
-- Files: `camelCase.ts`
-- Classes: `PascalCase`
-- Private members: `_prefixed`
-- Constants: `UPPER_CASE`
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for information on project architecture, code style, and step-by-step instructions on how to add a new module.
