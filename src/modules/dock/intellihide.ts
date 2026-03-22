@@ -95,34 +95,22 @@ export class DockIntellihide extends GObject.Object {
 
     this._disconnectFocusActor();
 
-    const focusApp = this._tracker?.focus_app;
-    if (!focusApp) {
-      this._checkRemainingWindows();
+    const focusWin = global.display.focus_window;
+
+    if (focusWin && this._isCandidateWindow(focusWin)) {
+      this._applyOverlap(this._doesOverlap(focusWin.get_frame_rect()), true);
+
+      // Track the focused window's allocation to update overlap in real time
+      this._focusActor = focusWin.get_compositor_private();
+      if (this._focusActor) {
+        this._focusActor.connectObject('notify::allocation', () => {
+          this._applyOverlap(this._doesOverlap(focusWin.get_frame_rect()));
+        }, this);
+      }
       return;
     }
 
-    let focusWin = focusApp.get_windows().find((w) => this._isCandidateWindow(w));
-
-    // On the primary monitor, ignore windows from other workspaces
-    if (focusWin && this._monitorIndex === Main.layoutManager.primaryIndex) {
-      const activeWs = global.workspace_manager.get_active_workspace();
-      if (focusWin.get_workspace() !== activeWs) focusWin = null;
-    }
-
-    if (!focusWin) {
-      this._checkRemainingWindows();
-      return;
-    }
-
-    this._applyOverlap(this._doesOverlap(focusWin.get_frame_rect()), true);
-
-    // Track the focused window's allocation to update overlap in real time
-    this._focusActor = focusWin.get_compositor_private();
-    if (this._focusActor) {
-      this._focusActor.connectObject('notify::allocation', () => {
-        this._applyOverlap(this._doesOverlap(focusWin.get_frame_rect()));
-      }, this);
-    }
+    this._checkRemainingWindows();
   }
 
   private _checkRemainingWindows(): void {
@@ -130,7 +118,8 @@ export class DockIntellihide extends GObject.Object {
       .map((actor: any) => actor.meta_window)
       .filter((win: Meta.Window) => this._isCandidateWindow(win));
 
-    const overlap = windows.some((win: Meta.Window) => this._doesOverlap(win.get_frame_rect()));
+    const checkWin = windows.length > 0 ? windows[windows.length - 1] : null;
+    const overlap = checkWin ? this._doesOverlap(checkWin.get_frame_rect()) : false;
     this._applyOverlap(overlap, windows.length === 0);
   }
 
