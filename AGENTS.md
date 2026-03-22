@@ -106,3 +106,26 @@ myModule: () => new MyModule(),
 - Constants: `UPPER_CASE`
 - Keep `enable()` and `disable()` symmetric — everything connected in `enable()` must be disconnected in `disable()`.
 - Avoid importing GJS global modules at the top level in code paths that run in multiple processes; use lazy / conditional imports where needed.
+
+## Reading GNOME Shell Source
+
+GNOME Shell JS source is embedded in `libshell-XX.so` as a GResource archive. Use `gresource` to read it without needing the source checkout.
+
+List available resources:
+
+```sh
+gresource list /usr/lib64/gnome-shell/libshell-18.so
+```
+
+Extract a specific file:
+
+```sh
+gresource extract /usr/lib64/gnome-shell/libshell-18.so /org/gnome/shell/ui/dash.js
+```
+
+Common files of interest:
+
+- `/org/gnome/shell/ui/dash.js` — Dash widget (DashIcon, Dash class, DnD handling)
+- `/org/gnome/shell/ui/appFavorites.js` — AppFavorites (reads/writes `favorite-apps` gsettings)
+- `/org/gnome/shell/ui/dnd.js` — drag-and-drop infrastructure (DragMotionResult, DragDropResult)
+- `/org/gnome/shell/ui/main.js` — global singletons (layoutManager, overview, etc.)
