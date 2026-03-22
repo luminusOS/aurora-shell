@@ -56,7 +56,6 @@ export class AuroraDash extends Dash {
   private _workAreaUpdateId = 0;
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
-  private _draggingItem = false;
   private _isDestroyed = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
@@ -70,25 +69,6 @@ export class AuroraDash extends Dash {
     const button = (this as any).showAppsButton;
     button?.set_toggle_mode?.(false);
     button?.connectObject?.('clicked', () => Main.overview.showApps(), this);
-
-    // Track drag state so the dock stays visible while dragging items.
-    Main.overview.connectObject(
-      'item-drag-begin', () => {
-        this._draggingItem = true;
-        this._onHover();
-      },
-      'item-drag-end', () => {
-        this._draggingItem = false;
-        this._onHover();
-        if (this._workArea) this.applyWorkArea(this._workArea);
-      },
-      'item-drag-cancelled', () => {
-        this._draggingItem = false;
-        this._onHover();
-        if (this._workArea) this.applyWorkArea(this._workArea);
-      },
-      this
-    );
 
     const dashContainer = (this as unknown as { _dashContainer?: St.Widget })._dashContainer;
     dashContainer?.set_track_hover?.(true);
@@ -133,11 +113,6 @@ export class AuroraDash extends Dash {
   override destroy(): void {
     this._isDestroyed = true;
     this._clearAllTimeouts();
-
-    // Remove the parent Dash's drag monitor if a DnD session is in progress.
-    // Without this, dnd.js continues firing callbacks into the disposed object.
-    const dragMonitor = (this as any)._dragMonitor;
-    if (dragMonitor) DND.removeDragMonitor(dragMonitor);
 
     (this as any).showAppsButton?.disconnectObject?.(this);
     this.disconnectObject?.(this);
@@ -617,14 +592,14 @@ export class AuroraDash extends Dash {
     }
   }
 
-  /** Start or restart the autohide timeout — hides the dock if not hovered/dragging/blocked. */
+  /** Start or restart the autohide timeout — hides the dock if not hovered/blocked. */
   private _onHover(): void {
     if (this._isDestroyed) return;
     this._clearTimeout('_autohideTimeoutId');
     this._autohideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTOHIDE_TIMEOUT, () => {
       const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
 
-      if (dashContainer?.get_hover?.() || this._draggingItem || this._blockAutoHide || this._isMenuOpen()) {
+      if (dashContainer?.get_hover?.() || this._blockAutoHide || this._isMenuOpen()) {
         return GLib.SOURCE_CONTINUE;
       }
 
