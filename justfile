@@ -103,6 +103,36 @@ compile-mo:
 all: clean build install
     @echo "Complete installation finished."
 
+unit-test:
+    yarn test:unit
+
+# Run a single test script with gnome-shell-test-tool (headless).
+# Wrapped in dbus-run-session to avoid conflicting with any running GNOME session.
+# Usage: just test tests/shell/auroraBasic.js
+test script: package
+    dbus-run-session gnome-shell-test-tool --headless \
+        --extension dist/target/{{ uuid }}.zip \
+        {{ script }}
+
+test-all: package
+    #!/usr/bin/env bash
+    set -e
+    EXT="dist/target/{{ uuid }}.zip"
+    PASS=0; FAIL=0
+    for script in tests/shell/aurora*.js; do
+        echo "==> Running $script"
+        if dbus-run-session gnome-shell-test-tool --headless --extension "$EXT" "$script"; then
+            echo "    PASS: $script"
+            PASS=$((PASS + 1))
+        else
+            echo "    FAIL: $script"
+            FAIL=$((FAIL + 1))
+        fi
+    done
+    echo ""
+    echo "Results: $PASS passed, $FAIL failed"
+    [ "$FAIL" -eq 0 ]
+
 run:
     #!/usr/bin/env bash
     set -e

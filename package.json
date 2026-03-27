@@ -12,7 +12,8 @@
     "build": "yarn clear && yarn build:css && yarn build:ts",
     "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",
     "validate": "tsc --noEmit",
-    "watch:css": "tsx sass.config.ts --watch"
+    "watch:css": "tsx sass.config.ts --watch",
+    "test:unit": "node --import tsx/esm --test tests/unit/metadata.test.ts tests/unit/schema.test.ts tests/unit/registry.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

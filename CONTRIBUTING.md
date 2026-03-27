@@ -97,9 +97,23 @@ After these steps, your module should appear in Preferences and respect the runt
 - **Run (host):** `just run` — build + install + launch a devkit GNOME Shell session
 - **Type-check:** `just validate` — runs `tsc` without emitting output
 - **Lint:** `just lint` — runs ESLint
+- **Unit tests:** `just unit-test` — runs unit tests via vitest (no GNOME Shell required)
+- **Single integration test:** `just test <script>` — runs one shell test headlessly with `gnome-shell-test-tool`
+- **All integration tests:** `just test-all` — builds and runs all shell tests, printing a pass/fail summary
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
 
 *Note: For a full test environment, you can create a Fedora toolbox via `just toolbox create` and run session testing inside it using `just toolbox run`.*
+
+## CI
+
+Every push and pull request runs the CI pipeline defined in `.github/workflows/ci.yml`. It has four jobs:
+
+1. **Lint & type-check** — runs `yarn validate` and `yarn lint`
+2. **Unit & regression tests** — runs `yarn test:unit` (vitest, no GNOME Shell needed)
+3. **Build** — runs `just package` and uploads the extension `.zip` as an artifact (depends on lint)
+4. **Integration tests** — runs all `tests/shell/aurora*.js` scripts against a headless GNOME Shell inside a Fedora container (depends on build + unit tests)
+
+All jobs must pass before a PR can be merged.
 
 ## Coding Standards
 

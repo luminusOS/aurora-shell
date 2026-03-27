@@ -1,0 +1,179 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ['**']   # release.yml handles tags
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Type-check
+        run: yarn validate
+
+      - name: Lint
+        run: yarn lint
+
+  unit-tests:
+    name: Unit & regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Run unit tests
+        run: yarn test:unit
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y just gettext zip
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build & package
+        run: just package
+
+      - name: Upload extension zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: dist/target/aurora-shell@luminusos.github.io.zip
+          retention-days: 1
+
+  integration-tests:
+    name: Integration tests (GNOME ${{ matrix.gnome-version }})
+    runs-on: ubuntu-latest
+    needs: [build, unit-tests]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gnome-version: '50'
+            container: 'fedora:44'
+    container:
+      image: ${{ matrix.container }}
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download extension zip
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zip
+          path: dist/target/
+
+      - name: Install gnome-shell and test dependencies
+        run: |
+          dnf upgrade -y
+          dnf install -y --setopt=install_weak_deps=False \
+            gnome-shell \
+            dbus-daemon \
+            mesa-dri-drivers \
+            xorg-x11-server-Xvfb \
+            python3-dbusmock
+
+      - name: Run integration tests
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          XDG_RUNTIME_DIR: /tmp/xdg-runtime
+          DISPLAY: ':0'
+          WAYLAND_DISPLAY: 'gnome-shell-test-display'
+          # gnome-shell-perf-helper is a GTK4 app that times out (~25 s) trying
+          # to reach org.freedesktop.host.portal.Registry, which is not
+          # available in a headless test environment.  no-portals skips that
+          # lookup so the helper connects directly to the Wayland display and
+          # can exit gnome-shell cleanly.
+          GDK_DEBUG: 'no-portals'
+        run: |
+          mkdir -p /tmp/xdg-runtime
+          chmod 700 /tmp/xdg-runtime
+
+          # Start a system D-Bus so GNOME Shell can reach Gio.DBus.system.
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork --nopidfile
+
+          # Mock org.freedesktop.login1 on the system bus. GNOME Shell 50's
+          # LoginManagerSystemd and EndSessionDialog create a proxy for this
+          # name synchronously at startup; without it the session crashes with
+          # "Launch helper exited with unknown return code 1".
+          python3 -m dbusmock --system --template logind &
+          sleep 1
+
+          PASS=0; FAIL=0
+          for script in tests/shell/aurora*.js; do
+            echo "==> $script"
+            # dbus-update-activation-environment pushes display vars into the
+            # session bus daemon so that D-Bus-activated services (e.g.
+            # xdg-desktop-portal-gtk) inherit them and can connect to the
+            # Wayland compositor.  GDK_DEBUG=no-portals is also propagated so
+            # that gnome-shell-perf-helper (GTK4) skips the portal registry
+            # lookup that would otherwise time out in a headless environment.
+            if dbus-run-session bash -c '
+              dbus-update-activation-environment \
+                DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR LIBGL_ALWAYS_SOFTWARE \
+                GDK_DEBUG
+              exec gnome-shell-test-tool \
+                --headless \
+                --extension dist/target/aurora-shell@luminusos.github.io.zip \
+                "$1"
+            ' -- "$script"; then
+              echo "    PASS"
+              PASS=$((PASS + 1))
+            else
+              echo "    FAIL"
+              FAIL=$((FAIL + 1))
+            fi
+          done
+          echo ""
+          echo "Results: $PASS passed, $FAIL failed"
+          [ "$FAIL" -eq 0 ]
