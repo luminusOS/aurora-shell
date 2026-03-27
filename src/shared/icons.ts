@@ -68,7 +68,7 @@ export function loadIcon(nameOrPath: string): Gio.Icon {
   try {
     defaultLoader ??= new IconThemeLoader(null);
     return defaultLoader.lookupIcon(nameOrPath);
-  } catch (e) {
+  } catch (_e) {
     return Gio.Icon.new_for_string(nameOrPath);
   }
 }

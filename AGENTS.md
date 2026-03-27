@@ -20,6 +20,9 @@
 - **Remove toolbox:** `just toolbox remove` — delete the toolbox
 - **Type-check:** `just validate` — runs `tsc` without emitting output
 - **Lint:** `just lint` — runs ESLint
+- **Unit tests:** `just unit-test` — runs unit tests via `yarn test:unit` (vitest)
+- **Single integration test:** `just test <script>` — runs one shell test script with `gnome-shell-test-tool` (headless); requires `just package` first
+- **All integration tests:** `just test-all` — builds and runs all `tests/shell/aurora*.js` scripts, printing a pass/fail summary
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
 - **Clean:** `just clean` — removes `dist/`
@@ -46,6 +49,10 @@
   - `schemas/` — GSettings schema XML
   - `icons/` — SVG icons used in the project
   - `po/` — translation files
+- `tests/` — automated tests
+  - `unit/` — vitest unit tests (metadata, registry, schema)
+  - `shell/` — GNOME Shell integration test scripts (run via `gnome-shell-test-tool`)
+- `.github/workflows/ci.yml` — CI pipeline (lint + type-check → unit tests + build → integration tests)
 - `scripts/` — helper shell scripts (`create-toolbox.sh`, `run-gnome-shell.sh`, `bump-version.sh`)
 - `esbuild.ts` — esbuild bundler configuration
 - `sass.config.ts` — Sass compiler configuration
