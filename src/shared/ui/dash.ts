@@ -5,7 +5,6 @@ import Clutter from '@girs/clutter-17';
 import GObject from '@girs/gobject-2.0';
 import type St from '@girs/st-17';
 import * as Main from '@girs/gnome-shell/ui/main';
-import * as DND from '@girs/gnome-shell/ui/dnd';
 import { Dash } from '@girs/gnome-shell/ui/dash';
 
 export interface DashBounds {

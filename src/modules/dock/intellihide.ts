@@ -120,7 +120,11 @@ export class DockIntellihide extends GObject.Object {
 
     const checkWin = windows.length > 0 ? windows[windows.length - 1] : null;
     const overlap = checkWin ? this._doesOverlap(checkWin.get_frame_rect()) : false;
-    this._applyOverlap(overlap, windows.length === 0);
+    // Force-emit when CLEAR so the dock always receives blockAutoHide(true), even
+    // when focus is on another monitor and the status has not technically changed.
+    // Without force=true, _blockAutoHide can remain false, which
+    // lets the autohide timer fire and hide the dock while the cursor passes over it.
+    this._applyOverlap(overlap, !overlap || windows.length === 0);
   }
 
   private _isCandidateWindow(win: Meta.Window | null): win is Meta.Window {
