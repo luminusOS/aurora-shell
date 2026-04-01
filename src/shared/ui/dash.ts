@@ -56,6 +56,7 @@ export class AuroraDash extends Dash {
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
   private _isDestroyed = false;
+  private _flushMode = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
 
@@ -136,6 +137,37 @@ export class AuroraDash extends Dash {
   /** Force the dash to re-render its icon list. */
   refresh(): void {
     (this as any)._redisplay();
+  }
+
+  /**
+   * When true the dock sits flush at the physical screen edge with no
+   * margin-bottom gap, matching macOS dock behaviour.
+   */
+  setFlushMode(flush: boolean): void {
+    this._flushMode = flush;
+    if (flush) {
+      this.add_style_class_name('flush-mode');
+    } else {
+      this.remove_style_class_name('flush-mode');
+    }
+    this._syncLabelFlushMode();
+    this.ensure_style();
+    this._queueWorkAreaUpdate();
+  }
+
+  private _syncLabelFlushMode(): void {
+    const items: any[] = [
+      ...((this as any)._box?.get_children?.() ?? []),
+      (this as any)._showAppsIcon,
+    ];
+    for (const item of items) {
+      if (!item?.label) continue;
+      if (this._flushMode) {
+        item.label.add_style_class_name('flush-mode');
+      } else {
+        item.label.remove_style_class_name('flush-mode');
+      }
+    }
   }
 
   setTargetBoxListener(listener: TargetBoxListener | null): void {
@@ -397,6 +429,9 @@ export class AuroraDash extends Dash {
     // Update running-indicator dots for favorites: hide the dot when the
     // app has no windows on this monitor even if the app is globally running.
     this._updatePerMonitorRunningDots();
+
+    // Re-apply flush-mode class to labels, including any newly-added icons.
+    this._syncLabelFlushMode();
 
     // Patch icon activation so clicking an app with multiple windows on
     // this monitor raises all of them instead of only the most recent one.
@@ -691,6 +726,7 @@ export class AuroraDash extends Dash {
   }
 
   private _getMarginBottom(): number {
+    if (this._flushMode) return 0;
     try {
       return (this as unknown as St.Widget).get_theme_node().get_length('margin-bottom');
     } catch {

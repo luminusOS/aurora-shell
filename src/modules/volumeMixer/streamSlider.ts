@@ -7,6 +7,7 @@ import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 
 import { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
+import type { ExtensionContext } from "~/core/context.ts";
 
 const ALLOW_AMPLIFIED_VOLUME_KEY = 'allow-volume-above-100-percent';
 
@@ -21,15 +22,8 @@ const ALLOW_AMPLIFIED_VOLUME_KEY = 'allow-volume-above-100-percent';
   },
 })
 export class ApplicationStreamSlider extends QuickSlider {
-  constructor(
-    control: Gvc.MixerControl,
-    stream: Gvc.MixerStream | undefined,
-    showIcon: boolean,
-  ) {
-    super(control, stream, showIcon);
-  }
-
   _init(
+    context: ExtensionContext,
     control: Gvc.MixerControl,
     stream: Gvc.MixerStream | undefined,
     showIcon: boolean,
@@ -40,13 +34,10 @@ export class ApplicationStreamSlider extends QuickSlider {
     this._showIcon = showIcon;
     super._init();
 
-    this._soundSettings = new Gio.Settings({
-      schema_id: 'org.gnome.desktop.sound',
-    });
-    this._soundSettings.connectObject(
+    this._soundSettings = context.settings.getSchema('org.gnome.desktop.sound');
+    this._soundSettings.connect(
       `changed::${ALLOW_AMPLIFIED_VOLUME_KEY}`,
       () => this._updateAllowAmplified(),
-      this,
     );
     this._updateAllowAmplified();
 
@@ -186,7 +177,7 @@ export class ApplicationStreamSlider extends QuickSlider {
   }
 
   private _updateAllowAmplified(): void {
-    this._allowAmplified = this._soundSettings.get_boolean(
+    this._allowAmplified = this._soundSettings.getBoolean(
       ALLOW_AMPLIFIED_VOLUME_KEY,
     );
     const maxLevel = this._allowAmplified
@@ -206,7 +197,7 @@ export class ApplicationStreamSlider extends QuickSlider {
       this._volumeCancellable.cancel();
       this._volumeCancellable = null;
     }
-    this._soundSettings?.disconnectObject(this);
+    this._soundSettings?.disconnectObject?.(this);
     this._stream?.disconnectObject(this);
     super.destroy();
   }

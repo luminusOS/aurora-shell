@@ -6,10 +6,12 @@ import GLib from '@girs/glib-2.0';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
+import type { ExtensionContext } from "~/core/context.ts";
 import { Module } from '~/module.ts';
 import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
 import { DockHotArea } from '~/modules/dock/hotArea.ts';
 import { DockIntellihide, OverlapStatus } from '~/modules/dock/intellihide.ts';
+import { hasDefinedBottom } from '~/modules/dock/monitorTopology.ts';
 
 const HOT_AREA_REVEAL_DURATION = 1500;
 const HOT_AREA_STRIP_HEIGHT = 1;
@@ -18,8 +20,9 @@ type ManagedDockBinding = {
   monitorIndex: number;
   container: St.Bin;
   dash: AuroraDash;
-  intellihide: InstanceType<typeof DockIntellihide>;
+  intellihide: InstanceType<typeof DockIntellihide> | null;
   hotArea: InstanceType<typeof DockHotArea> | null;
+  strutActor: St.Widget | null;
   autoHideReleaseId: number;
   hotAreaActive: boolean;
 };
@@ -39,8 +42,17 @@ type ManagedDockBinding = {
 export class Dock extends Module {
   private _bindings = new Map<number, ManagedDockBinding>();
   private _pendingRebuild = false;
+  private _dockSettings: any = null;
+  private _alwaysShow = false;
+
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
 
   override enable(): void {
+    this._dockSettings = this.context.settings.getRawSettings();
+    this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
+
     Main.overview.dash.hide();
 
     this._rebuildBindings();
@@ -57,10 +69,20 @@ export class Dock extends Module {
       'hidden', () => this._setOverviewVisible(false),
       this
     );
+
+    this._dockSettings?.connectObject?.(
+      'changed::dock-always-show', () => {
+        this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
+        this._rebuildBindings();
+      },
+      this
+    );
   }
 
   override disable(): void {
     Main.overview.dash.show();
+    this._dockSettings?.disconnectObject?.(this);
+    this._dockSettings = null;
     Main.layoutManager.disconnectObject(this);
     global.display.disconnectObject(this);
     Main.sessionMode.disconnectObject(this);
@@ -83,7 +105,7 @@ export class Dock extends Module {
 
     const monitors: DashBounds[] = Main.layoutManager.monitors ?? [];
     monitors.forEach((monitor, index) => {
-      if (this._hasDefinedBottom(monitors, index)) {
+      if (hasDefinedBottom(monitors, index)) {
         const binding = this._createBinding(monitor, index);
         if (binding) this._bindings.set(index, binding);
       }
@@ -108,34 +130,69 @@ export class Dock extends Module {
     container.set_child(dash);
     dash.attachToContainer(container);
 
-    const intellihide = new DockIntellihide(monitorIndex);
-    dash.setTargetBoxListener((box) => intellihide.updateTargetBox(box));
-
     const binding: ManagedDockBinding = {
       monitorIndex,
       container,
       dash,
-      intellihide,
+      intellihide: null,
       hotArea: null,
+      strutActor: null,
       autoHideReleaseId: 0,
       hotAreaActive: false,
     };
 
-    binding.hotArea = this._createHotArea(binding, monitor);
+    if (this._alwaysShow) {
+      binding.strutActor = this._createStrutActor(monitorIndex);
+      dash.setFlushMode(true);
+      dash.blockAutoHide(true);
+      container.connectObject(
+        'notify::allocation', () => this._updateStrutFromContainer(binding),
+        this
+      );
+    } else {
+      const intellihide = new DockIntellihide(monitorIndex);
+      binding.intellihide = intellihide;
+      dash.setTargetBoxListener((box) => intellihide.updateTargetBox(box));
 
-    intellihide.connectObject('status-changed', () => {
-      if (binding.hotAreaActive) return;
+      binding.hotArea = this._createHotArea(binding, monitor);
 
-      if (intellihide.status === OverlapStatus.CLEAR) {
-        this._clearHotAreaReveal(binding);
-        dash.blockAutoHide(true);
-        dash.show(true);
-      } else if (intellihide.status === OverlapStatus.BLOCKED) {
-        dash.blockAutoHide(false);
-      }
-    }, this);
+      intellihide.connectObject('status-changed', () => {
+        if (binding.hotAreaActive) return;
+
+        if (intellihide.status === OverlapStatus.CLEAR) {
+          this._clearHotAreaReveal(binding);
+          dash.blockAutoHide(true);
+          dash.show(true);
+        } else if (intellihide.status === OverlapStatus.BLOCKED) {
+          dash.blockAutoHide(false);
+        }
+      }, this);
+    }
 
     return binding;
+  }
+
+  private _createStrutActor(monitorIndex: number): St.Widget {
+    const strut = new St.Widget({
+      name: `aurora-dock-strut-${monitorIndex}`,
+      reactive: false,
+      opacity: 0,
+    });
+    Main.layoutManager.addChrome(strut, {
+      trackFullscreen: false,
+      affectsStruts: true,
+    });
+    return strut;
+  }
+
+  private _updateStrutFromContainer(binding: ManagedDockBinding): void {
+    if (!binding.strutActor) return;
+    const h = binding.container.height;
+    if (h <= 0) return;
+    const monitor = Main.layoutManager.monitors?.[binding.monitorIndex];
+    if (!monitor) return;
+    binding.strutActor.set_size(monitor.width, h);
+    binding.strutActor.set_position(monitor.x, monitor.y + monitor.height - h);
   }
 
   private _createHotArea(binding: ManagedDockBinding, monitor: DashBounds): InstanceType<typeof DockHotArea> | null {
@@ -173,12 +230,27 @@ export class Dock extends Module {
       return;
     }
 
-    const bounds: DashBounds = {
-      x: workArea.x,
-      y: workArea.y,
-      width: workArea.width,
-      height: workArea.height,
-    };
+    let bounds: DashBounds;
+
+    if (this._alwaysShow) {
+      // Use physical monitor height instead of work-area height to avoid a
+      // feedback loop: our own strut shrinks the work area, which would push
+      // the dock upward on each workareas-changed signal.
+      const monitor = Main.layoutManager.monitors?.[binding.monitorIndex];
+      bounds = {
+        x: workArea.x,
+        y: monitor ? monitor.y : workArea.y,
+        width: workArea.width,
+        height: monitor ? monitor.height : workArea.height,
+      };
+    } else {
+      bounds = {
+        x: workArea.x,
+        y: workArea.y,
+        width: workArea.width,
+        height: workArea.height,
+      };
+    }
 
     binding.dash.refresh();
     binding.dash.applyWorkArea(bounds);
@@ -202,8 +274,9 @@ export class Dock extends Module {
       binding.autoHideReleaseId = 0;
     }
 
-    binding.intellihide.disconnectObject?.(this);
+    binding.intellihide?.disconnectObject?.(this);
     binding.hotArea?.disconnectObject?.(this);
+    binding.container.disconnectObject?.(this);
 
     if (binding.hotArea) {
       Main.layoutManager.removeChrome?.(binding.hotArea);
@@ -211,7 +284,13 @@ export class Dock extends Module {
       binding.hotArea = null;
     }
 
-    binding.intellihide.destroy();
+    if (binding.strutActor) {
+      Main.layoutManager.removeChrome?.(binding.strutActor);
+      binding.strutActor.destroy();
+      binding.strutActor = null;
+    }
+
+    binding.intellihide?.destroy();
     binding.dash.detachFromContainer();
     binding.dash.destroy();
 
@@ -261,7 +340,7 @@ export class Dock extends Module {
       binding.autoHideReleaseId = 0;
       binding.hotAreaActive = false;
 
-      if (binding.intellihide.status === OverlapStatus.CLEAR) {
+      if (binding.intellihide?.status === OverlapStatus.CLEAR) {
         binding.dash.blockAutoHide(true);
         binding.dash.show(true);
       } else {
@@ -295,7 +374,12 @@ export class Dock extends Module {
         binding.container.hide();
       } else {
         this._updateWorkArea(binding);
-        binding.intellihide.emit('status-changed');
+        if (this._alwaysShow) {
+          binding.dash.blockAutoHide(true);
+          binding.dash.show(true);
+        } else {
+          binding.intellihide?.emit('status-changed');
+        }
       }
     });
   }

@@ -1,7 +1,8 @@
 import '@girs/gjs';
 
-import Gio from "gi://Gio";
+import type { ExtensionContext } from "~/core/context.ts";
 import { Module } from '~/module.ts';
+import type { SettingsManager } from '~/core/settings.ts';
 
 /**
  * ThemeChanger Module
@@ -13,43 +14,47 @@ import { Module } from '~/module.ts';
  * This ensures consistent theming across GNOME Shell and applications.
  */
 export class ThemeChanger extends Module {
-  private _settings: any;
+  private _settings: SettingsManager | null = null;
   private _signalId: number | null = null;
 
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
+
   public enable(): void {
-    console.log('Initializing theme monitor');
+    this.context.logger.debug('Initializing theme monitor22222');
 
     try {
-      this._settings = new Gio.Settings({
-        schema_id: 'org.gnome.desktop.interface'
-      });
+      this._settings = this.context.settings.getSchema('org.gnome.desktop.interface');
 
-      const currentScheme = this._settings.get_string('color-scheme');
-      console.log(`Current color-scheme: ${currentScheme}`);
+      const currentScheme = this._settings.getString('color-scheme');
+      this.context.logger.debug(`Current color-scheme: ${currentScheme}`);
 
       this._signalId = this._settings.connect('changed::color-scheme', () => {
         this._onColorSchemeChanged();
       });
 
-      console.log('Theme monitor active');
+      this.context.logger.debug('Theme monitor active');
     } catch (error) {
-      console.error('Failed to initialize:', error);
+      this.context.logger.error('Failed to initialize:', error);
     }
   }
 
   private _onColorSchemeChanged(): void {
-    const scheme = this._settings.get_string('color-scheme');
-    console.log(`Color scheme changed to: ${scheme}`);
+    if (!this._settings) return;
+
+    const scheme = this._settings.getString('color-scheme');
+    this.context.logger.debug(`Color scheme changed to: ${scheme}`);
 
     if (scheme === 'default') {
-      console.warn('Detected "default", forcing to prefer-light');
-      this._settings.set_string('color-scheme', 'prefer-light');
+      this.context.logger.warn('Detected "default", forcing to prefer-light');
+      this._settings.setString('color-scheme', 'prefer-light');
       return;
     }
   }
 
   override disable(): void {
-    console.log('Disabling theme monitor');
+    this.context.logger.debug('Disabling theme monitor');
 
     if (this._signalId && this._settings) {
       this._settings.disconnect(this._signalId);

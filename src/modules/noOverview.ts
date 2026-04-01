@@ -1,5 +1,4 @@
-import * as Main from '@girs/gnome-shell/ui/main';
-
+import type { ExtensionContext } from "~/core/context.ts";
 import { Module } from '~/module.ts';
 
 /**
@@ -11,24 +10,29 @@ import { Module } from '~/module.ts';
  * so the overview remains accessible via hotkeys, gestures, and the Activities button.
  */
 export class NoOverview extends Module {
+  private _startupId: number | null = null;
+
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
+
   override enable(): void {
-    if (!Main.layoutManager._startingUp) return;
+    if (!this.context.shell.isStartingUp) return;
 
-    Main.sessionMode.hasOverview = false;
+    this.context.shell.hasOverview = false;
 
-    // @ts-ignore
-    Main.layoutManager.connectObject(
-      'startup-complete', () => {
-        Main.sessionMode.hasOverview = true;
-        Main.overview.hide();
-      },
-      this
-    );
+    this._startupId = this.context.shell.onStartupComplete(() => {
+      this.context.shell.hasOverview = true;
+      this.context.shell.hideOverview();
+      this._startupId = null;
+    });
   }
 
   override disable(): void {
-    Main.sessionMode.hasOverview = true;
-    // @ts-ignore
-    Main.layoutManager.disconnectObject(this);
+    this.context.shell.hasOverview = true;
+    if (this._startupId !== null) {
+      this.context.shell.disconnect(this._startupId);
+      this._startupId = null;
+    }
   }
 }

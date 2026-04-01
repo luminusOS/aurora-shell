@@ -1,13 +1,18 @@
+import type { ExtensionContext } from "~/core/context.ts";
 import { Module } from '../module.ts';
 import * as Main from '@girs/gnome-shell/ui/main';
-import Gio from '@girs/gio-2.0';
+import type { SettingsManager } from '~/core/settings.ts';
 
 const NOTIFICATIONS_SCHEMA = 'org.gnome.desktop.notifications';
 const SHOW_BANNERS_KEY = 'show-banners';
 
 export class DndOnShare extends Module {
-  private _notificationsSettings: Gio.Settings | null = null;
+  private _notificationsSettings: SettingsManager | null = null;
   private _savedShowBannersState: boolean | null = null;
+
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
 
   private _getSharingIndicator(): any | null {
     const statusArea = Main.panel.statusArea as any;
@@ -23,7 +28,7 @@ export class DndOnShare extends Module {
     const indicator = this._getSharingIndicator();
 
     if (indicator) {
-      this._notificationsSettings = new Gio.Settings({ schema_id: NOTIFICATIONS_SCHEMA });
+      this._notificationsSettings = this.context.settings.getSchema(NOTIFICATIONS_SCHEMA);
       
       (indicator as any).connectObject('notify::visible', () => {
         this._syncDndState(indicator.visible);
@@ -51,11 +56,11 @@ export class DndOnShare extends Module {
     if (!this._notificationsSettings) return;
 
     if (isSharing) {
-      const isCurrentlyShowingBanners = this._notificationsSettings.get_boolean(SHOW_BANNERS_KEY);
+      const isCurrentlyShowingBanners = this._notificationsSettings.getBoolean(SHOW_BANNERS_KEY);
       
       if (isCurrentlyShowingBanners) {
         this._savedShowBannersState = true;
-        this._notificationsSettings.set_boolean(SHOW_BANNERS_KEY, false);
+        this._notificationsSettings.setBoolean(SHOW_BANNERS_KEY, false);
       } else {
         this._savedShowBannersState = null;
       }
@@ -66,7 +71,7 @@ export class DndOnShare extends Module {
 
   private _restoreState(): void {
     if (this._notificationsSettings && this._savedShowBannersState !== null) {
-      this._notificationsSettings.set_boolean(SHOW_BANNERS_KEY, this._savedShowBannersState);
+      this._notificationsSettings.setBoolean(SHOW_BANNERS_KEY, this._savedShowBannersState);
       this._savedShowBannersState = null;
     }
   }

@@ -1,5 +1,6 @@
 import Meta from '@girs/meta-17';
 
+import type { ExtensionContext } from "~/core/context.ts";
 import { Module } from '~/module.ts';
 
 const PIP_TITLES = [
@@ -19,6 +20,10 @@ export class PipOnTop extends Module {
   private _lastWorkspace: any = null;
   private _windowAddedId = 0;
   private _windowRemovedId = 0;
+
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
 
   override enable(): void {
     // @ts-ignore
