@@ -8,6 +8,7 @@ import type Gvc from 'gi://Gvc';
 import Clutter from '@girs/clutter-17';
 
 import { ApplicationStreamSlider } from '~/modules/volumeMixer/streamSlider.ts';
+import type { ExtensionContext } from "~/core/context.ts";
 
 /**
  * A single item in the volume mixer list.
@@ -16,15 +17,8 @@ import { ApplicationStreamSlider } from '~/modules/volumeMixer/streamSlider.ts';
  */
 @GObject.registerClass
 export class VolumeMixerItem extends St.BoxLayout {
-  constructor(
-    control: Gvc.MixerControl,
-    stream: Gvc.MixerStream,
-    showIcon: boolean,
-  ) {
-    super(control, stream, showIcon);
-  }
-
   _init(
+    context: ExtensionContext,
     control: Gvc.MixerControl,
     stream: Gvc.MixerStream,
     showIcon: boolean,
@@ -56,7 +50,7 @@ export class VolumeMixerItem extends St.BoxLayout {
     headerBox.add_child(this._label);
     this.add_child(headerBox);
 
-    this._slider = new ApplicationStreamSlider(control, stream, showIcon);
+    this._slider = new ApplicationStreamSlider(context, control, stream, showIcon);
     this.add_child(this._slider);
 
     this._updateHeader();

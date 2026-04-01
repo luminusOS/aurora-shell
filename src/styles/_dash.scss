@@ -74,5 +74,25 @@
     width: 1px;
     margin-left: 4px;
     margin-right: 4px;
-    background-color: vars.$aurora-dash-separator-color; 
+    background-color: vars.$aurora-dash-separator-color;
+}
+
+#dash.flush-mode {
+  margin-bottom: 0;
+
+  .dash-background {
+    margin-bottom: 0;
+  }
+  
+  .dash-item-container {
+    margin-top: 12px;
+  }
+
+  .app-grid-running-dot {
+    offset-y: 0;
+  }
+}
+
+.dash-label.flush-mode {
+  -y-offset: 20px !important;
 }

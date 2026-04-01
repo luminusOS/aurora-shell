@@ -17,7 +17,7 @@ build: deps
     cp -r data/icons dist/ 2>/dev/null || true
     just compile-mo
 
-package: build
+package:
     mkdir -p dist/target
     cd dist && \
       zip -r "target/{{ uuid }}.zip" . \
@@ -43,19 +43,11 @@ uninstall:
     gnome-extensions uninstall {{ uuid }}
     @echo "Uninstalled."
 
-quick: build
-    mkdir -p {{ ext_dir }}
-    rsync -a --exclude='*.zip' dist/ {{ ext_dir }}/
-    glib-compile-schemas {{ ext_dir }}/schemas/
-    @echo "Files updated. Log out and back in to apply."
-
 logs:
     journalctl -b 0 /usr/bin/gnome-shell | grep "aurora"
 
 clean:
     rm -rf dist
-
-distclean: clean
     rm -rf node_modules
 
 # Translation workflow

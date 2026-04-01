@@ -37,10 +37,15 @@
 ## Repository Structure
 
 - `src/` — TypeScript source root
-  - `extension.ts` — entry point; loads and manages all modules via `MODULE_FACTORIES`
-  - `module.ts` — base `Module` class (`enable` / `disable` lifecycle)
-  - `registry.ts` — `MODULE_REGISTRY` metadata list (key, settingsKey, title, subtitle)
-  - `prefs.ts` — extension preferences UI
+  - `extension.ts` — entry point; loads and manages all modules
+  - `module.ts` — base `Module` class (accepts `ExtensionContext`)
+  - `registry.ts` — `MODULE_REGISTRY` metadata and option definitions
+  - `prefs.ts` — generic extension preferences UI driven by registry metadata
+  - `core/` — Clean Architecture core
+    - `context.ts` — `ExtensionContext` interface and implementation
+    - `logger.ts` — Abstracted logging
+    - `settings.ts` — `SettingsManager` abstraction for GSettings
+    - `adapters/` — Infrastructure adapters (e.g., `ShellEnvironment`)
   - `modules/` — one file (or subfolder) per feature module
   - `shared/` — shared utilities used across modules
   - `styles/` — SCSS stylesheets (compiled to light + dark CSS)
@@ -62,29 +67,40 @@
 
 ## Architecture
 
-1. `extension.ts` is the GNOME Shell extension entry point. It instantiates all modules from `MODULE_FACTORIES` on `enable()` and disposes them on `disable()`.
-2. Each module is an independent class that extends `Module` and implements `enable()` and `disable()`.
-3. `MODULE_REGISTRY` in `registry.ts` drives the preferences UI — every module needs an entry here.
-4. GSettings keys (in `schemas/`) control per-module toggles from the preferences panel.
-5. The build toolchain (esbuild + Sass) targets **GJS 1.73.2+ / Firefox 102** (ESM format).
+1. **Dependency Injection:** Modules **must not** access global variables (like `Main` or `Gio.Settings`) directly. Instead, they receive an `ExtensionContext` in their constructor.
+2. **Abstractions:** Use `this.context.settings` for configuration and `this.context.shell` for GNOME Shell environment interactions.
+3. **Layering:** Keep UI logic (Clutter/St) separated from pure domain logic. Complex algorithms should be extracted into pure TypeScript files (e.g., `src/modules/dock/monitorTopology.ts`).
+4. **Metadata-Driven UI:** The preferences window is generated dynamically from `src/registry.ts`. If a module needs options, define them in the `options` array of the `ModuleDefinition`.
 
 ## Adding a Module
 
 1. Create `src/modules/myModule.ts` extending `Module`:
 
 ```typescript
-import { Module } from './module.ts';
+import { ExtensionContext } from "~/core/context.ts";
+import { Module } from '~/module.ts';
 
 export class MyModule extends Module {
-  override enable(): void { /* setup */ }
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
+  override enable(): void { /* setup using this.context */ }
   override disable(): void { /* cleanup */ }
 }
 ```
 
-2. Register it in `MODULE_REGISTRY` (`src/registry.ts`):
+2. Register it in `getModuleRegistry` (`src/registry.ts`):
 
 ```typescript
-{ key: 'myModule', settingsKey: 'module-my-module', title: 'My Module', subtitle: 'Description' },
+{ 
+  key: 'myModule', 
+  settingsKey: 'module-my-module', 
+  title: _('My Module'), 
+  subtitle: _('Description'),
+  options: [
+    { key: 'my-option', title: _('Option'), subtitle: _('Desc'), type: 'switch' }
+  ]
+},
 ```
 
 3. Add its factory to `MODULE_FACTORIES` (`src/extension.ts`):
@@ -92,7 +108,7 @@ export class MyModule extends Module {
 ```typescript
 import { MyModule } from "./modules/myModule.ts";
 // inside MODULE_FACTORIES:
-myModule: () => new MyModule(),
+'myModule': (ctx) => new MyModule(ctx),
 ```
 
 4. Add a GSettings key (`schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`):
@@ -111,24 +127,30 @@ myModule: () => new MyModule(),
 - Classes: `PascalCase`
 - Private members: `_prefixed`
 - Constants: `UPPER_CASE`
-- Keep `enable()` and `disable()` symmetric — everything connected in `enable()` must be disconnected in `disable()`.
-- Avoid importing GJS global modules at the top level in code paths that run in multiple processes; use lazy / conditional imports where needed.
+- Keep `enable()` and `disable()` symmetric.
+- **Strictly follow Dependency Injection.** No direct imports of `gi://Shell`, `Main`, etc., inside module domain logic.
 
 ## Reading GNOME Shell Source
 
-GNOME Shell JS source is embedded in `libshell-XX.so` as a GResource archive. Use `gresource` to read it without needing the source checkout.
+GNOME Shell JS source is embedded in `libshell-XX.so` as a GResource archive. The stylesheet files is `gnome-shell-theme.gresource`. Use `gresource` to read it without needing the source checkout.
 
 List available resources:
 
 ```sh
 gresource list /usr/lib64/gnome-shell/libshell-18.so
+gresource list /usr/share/gnome-shell/gnome-shell-theme.gresource
 ```
 
 Extract a specific file:
 
 ```sh
 gresource extract /usr/lib64/gnome-shell/libshell-18.so /org/gnome/shell/ui/dash.js
+gresource extract /usr/share/gnome-shell/gnome-shell-theme.gresource /org/gnome/shell/theme/gnome-shell-dark.css
 ```
+
+Extract css file:
+
+
 
 Common files of interest:
 
@@ -136,3 +158,4 @@ Common files of interest:
 - `/org/gnome/shell/ui/appFavorites.js` — AppFavorites (reads/writes `favorite-apps` gsettings)
 - `/org/gnome/shell/ui/dnd.js` — drag-and-drop infrastructure (DragMotionResult, DragDropResult)
 - `/org/gnome/shell/ui/main.js` — global singletons (layoutManager, overview, etc.)
+- `/org/gnome/shell/theme/gnome-shell-dark.css` — stylesheets

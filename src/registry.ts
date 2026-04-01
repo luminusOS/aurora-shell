@@ -1,10 +1,18 @@
 import { gettext as _ } from 'gettext';
 
+export type ModuleOption = {
+  key: string;
+  title: string;
+  subtitle: string;
+  type: 'switch';
+};
+
 export type ModuleDefinition = {
   key: string;
   settingsKey: string;
   title: string;
   subtitle: string;
+  options?: ModuleOption[];
 };
 
 export function getModuleRegistry(): ModuleDefinition[] {
@@ -32,6 +40,14 @@ export function getModuleRegistry(): ModuleDefinition[] {
       settingsKey: 'module-dock',
       title: _('Dock'),
       subtitle: _('Custom dock with auto-hide and intellihide features'),
+      options: [
+        {
+          key: 'dock-always-show',
+          title: _('Always Show Dock'),
+          subtitle: _('Keep dock permanently visible and shrink windows so they never overlap it'),
+          type: 'switch',
+        },
+      ],
     },
     {
       key: 'volume-mixer',

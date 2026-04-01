@@ -7,6 +7,7 @@ import Gio from '@girs/gio-2.0';
 import type { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import type { ExtensionContext } from "~/core/context.ts";
 import { Module } from '~/module.ts';
 import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
 import { loadIcon } from '~/shared/icons.ts';
@@ -39,6 +40,10 @@ export class VolumeMixer extends Module {
   private _menuClosedId = 0;
   private _gridChildAddedId = 0;
   private _quickSettings: Main.QuickSettings | null = null;
+
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
 
   override enable(): void {
     this._quickSettings = Main.panel.statusArea.quickSettings;
@@ -119,7 +124,7 @@ export class VolumeMixer extends Module {
 
   private _attachToSlider(slider: QuickSlider): void {
     this._outputSlider = slider;
-    this._panel = new VolumeMixerPanel();
+    this._panel = new VolumeMixerPanel(this.context);
     this._menuSection = new PopupMenu.PopupMenuSection();
 
     this._menuSection.box.add_child(this._panel);

@@ -6,6 +6,11 @@ import { Extension } from "@girs/gnome-shell/extensions/extension";
 
 import type { Module } from "./module.ts";
 import { getModuleRegistry, type ModuleDefinition } from "./registry.ts";
+import type { ExtensionContext } from "~/core/context.ts";
+import { DefaultExtensionContext } from "~/core/context.ts";
+import { ConsoleLogger } from "~/core/logger.ts";
+import { GSettingsManager } from "~/core/settings.ts";
+import { GnomeShellAdapter } from "~/core/adapters/shell.ts";
 
 import { NoOverview } from "~/modules/noOverview.ts";
 import { PipOnTop } from "~/modules/pipOnTop.ts";
@@ -15,14 +20,14 @@ import { VolumeMixer } from "~/modules/volumeMixer/volumeMixer.ts";
 import { XwaylandIndicator } from "~/modules/xwaylandIndicator.ts";
 import { DndOnShare } from "~/modules/dndOnShare.ts";
 
-const MODULE_FACTORIES: Record<string, () => Module> = {
-  'no-overview': () => new NoOverview(),
-  'pip-on-top': () => new PipOnTop(),
-  'theme-changer': () => new ThemeChanger(),
-  'dock': () => new Dock(),
-  'volume-mixer': () => new VolumeMixer(),
-  'xwayland-indicator': () => new XwaylandIndicator(),
-  'dnd-on-share': () => new DndOnShare(),
+const MODULE_FACTORIES: Record<string, (context: ExtensionContext) => Module> = {
+  'no-overview': (ctx) => new NoOverview(ctx),
+  'pip-on-top': (ctx) => new PipOnTop(ctx),
+  'theme-changer': (ctx) => new ThemeChanger(ctx),
+  'dock': (ctx) => new Dock(ctx),
+  'volume-mixer': (ctx) => new VolumeMixer(ctx),
+  'xwayland-indicator': (ctx) => new XwaylandIndicator(ctx),
+  'dnd-on-share': (ctx) => new DndOnShare(ctx),
 };
 
 /**
@@ -34,11 +39,20 @@ const MODULE_FACTORIES: Record<string, () => Module> = {
 export default class AuroraShellExtension extends Extension {
   private _modules: Map<string, Module> = new Map();
   private _settings: Gio.Settings | null = null;
+  private _context: ExtensionContext | null = null;
 
   override enable(): void {
     console.log('Enabling extension');
 
     this._settings = this.getSettings();
+    this._context = new DefaultExtensionContext(
+      this.uuid,
+      this.path,
+      new ConsoleLogger('Aurora Shell'),
+      new GSettingsManager(this._settings),
+      new GnomeShellAdapter()
+    );
+
     this._initializeModules();
     this._enableAllModules();
     this._connectSettings();
@@ -48,7 +62,7 @@ export default class AuroraShellExtension extends Extension {
     for (const def of getModuleRegistry()) {
       if (this._settings?.get_boolean(def.settingsKey)) {
         // @ts-ignore
-        this._modules.set(def.key, MODULE_FACTORIES[def.key]());
+        this._modules.set(def.key, MODULE_FACTORIES[def.key](this._context!));
       }
     }
   }
@@ -86,7 +100,7 @@ export default class AuroraShellExtension extends Extension {
       console.log(`Aurora Shell: Enabling module ${def.key}`);
       try {
         // @ts-ignore
-        const module = MODULE_FACTORIES[def.key]();
+        const module = MODULE_FACTORIES[def.key](this._context!);
         module.enable();
         this._modules.set(def.key, module);
       } catch (e) {
@@ -119,5 +133,6 @@ export default class AuroraShellExtension extends Extension {
 
     this._modules.clear();
     this._settings = null;
+    this._context = null;
   }
 }

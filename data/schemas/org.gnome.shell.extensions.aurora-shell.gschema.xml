@@ -36,5 +36,10 @@
       <summary>Enable DND on Screen Share module</summary>
       <description>Automatically enables Do Not Disturb mode when screen sharing</description>
     </key>
+    <key name="dock-always-show" type="b">
+      <default>false</default>
+      <summary>Always show dock</summary>
+      <description>Keep the dock permanently visible and reserve screen space so windows never overlap it</description>
+    </key>
   </schema>
 </schemalist>

@@ -4,12 +4,17 @@ import St from '@girs/st-17';
 import Clutter from '@girs/clutter-17';
 import * as AltTab from '@girs/gnome-shell/ui/altTab';
 
+import type { ExtensionContext } from "~/core/context.ts";
 import { loadIcon } from '~/shared/icons.ts';
 import { Module } from '~/module.ts';
 
 export class XwaylandIndicator extends Module {
   private _origAppPopupInit: ((...args: unknown[]) => void) | null = null;
   private _origWinPopupInit: ((...args: unknown[]) => void) | null = null;
+
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
 
   override enable(): void {
     this._patchAppSwitcherPopup();

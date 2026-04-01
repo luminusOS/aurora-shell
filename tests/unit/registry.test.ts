@@ -30,7 +30,7 @@ function parseRegistryEntries(): { key: string; settingsKey: string }[] {
 
   // Each object literal in the array has the form:
   //   { key: 'foo', settingsKey: 'module-foo', … }
-  const blockRe = /\{\s*key:\s*'([^']+)'[\s\S]*?settingsKey:\s*'([^']+)'/g;
+  const blockRe = /\{\s*key:\s*'([^']+)',\s*settingsKey:\s*'([^']+)'/g;
   let m;
   while ((m = blockRe.exec(src)) !== null)
     entries.push({ key: m[1], settingsKey: m[2] });
@@ -48,7 +48,7 @@ function parseFactoryKeys(): string[] {
     throw new Error('Could not locate MODULE_FACTORIES in extension.ts');
 
   const body = factoriesMatch[1];
-  const keyRe = /'([^']+)':\s*\(\)/g;
+  const keyRe = /'([^']+)':\s*\([^)]*\)/g;
   const keys: string[] = [];
   let m;
   while ((m = keyRe.exec(body)) !== null)

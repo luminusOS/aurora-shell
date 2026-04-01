@@ -5,6 +5,7 @@ import St from '@girs/st-17';
 import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-17';
 
+import type { ExtensionContext } from "~/core/context.ts";
 import { VolumeMixerList } from '~/modules/volumeMixer/mixerList.ts';
 
 export const MAX_MIXER_HEIGHT = 300;
@@ -15,11 +16,7 @@ export const MAX_MIXER_HEIGHT = 300;
  */
 @GObject.registerClass
 export class VolumeMixerPanel extends St.BoxLayout {
-  constructor() {
-    super();
-  }
-
-  _init(): void {
+  _init(context: ExtensionContext): void {
     super._init({
       orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-volume-mixer',
@@ -48,7 +45,7 @@ export class VolumeMixerPanel extends St.BoxLayout {
       child: sections,
     });
 
-    this._list = new VolumeMixerList();
+    this._list = new VolumeMixerList(context);
     sections.add_child(this._list);
     this._scroll = scroll;
     this.add_child(scroll);

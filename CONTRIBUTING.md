@@ -8,55 +8,61 @@ Aurora Shell is designed to be highly modular. Each feature is an independent mo
 
 ```mermaid
 graph TD
-    classDef file fill:#f9f2f4,stroke:#e83e8c,stroke-width:2px,color:#c7254e;
+    classDef core fill:#f9f2f4,stroke:#e83e8c,stroke-width:2px,color:#c7254e;
+    classDef adapter fill:#e7f3ff,stroke:#007bff,stroke-width:2px;
     
-    A["extension.ts"]:::file -->|Reads toggles| B[(GSettings)]
-    A -->|Instantiates| C["MODULE_FACTORIES"]
+    A["extension.ts"] -->|Injects| B["ExtensionContext"]:::core
+    B -->|Provides| C["SettingsManager"]:::core
+    B -->|Provides| D["ShellEnvironment"]:::adapter
     
-    C --> D["Module A"]
-    C --> E["Module B"]
+    E["Module"]:::core -->|uses| B
     
-    D -.->|extends| F["module.ts"]:::file
-    E -.->|extends| F
-    
-    G["registry.ts"]:::file -->|MODULE_REGISTRY| H["prefs.ts (Preferences UI)"]:::file
-    H -->|Modifies toggles| B
+    F["registry.ts"]:::core -->|Metadata| G["prefs.ts (Generic UI)"]
 ```
 
-1. `extension.ts` is the GNOME Shell extension entry point. It instantiates all enabled modules from `MODULE_FACTORIES` on `enable()` and disposes them on `disable()`.
-2. Each feature is an independent class that extends `Module` and implements `enable()` and `disable()`.
-3. `MODULE_REGISTRY` in `registry.ts` drives the preferences UI — every module must be registered here.
-4. GSettings keys (in `schemas/`) control per-module toggles from the preferences panel.
-5. The build toolchain (esbuild + Sass) targets **GJS 1.73.2+ / Firefox 102** (ESM format).
+1.  **Dependency Injection:** `extension.ts` instantiates an `ExtensionContext` and injects it into every module. **Modules must never use GNOME Shell globals (like `Main`, `Gio.Settings`) directly.**
+2.  **Abstractions:** 
+    - Use `this.context.settings` to interact with GSettings.
+    - Use `this.context.shell` for Shell-wide status (e.g., startup check, overview).
+    - This allows for easier mocking during unit tests.
+3.  **Layering:** Separate UI orchestration (Clutter actors) from pure business logic. Complex logic should be extracted into standalone TypeScript functions or classes.
+4.  **Metadata-Driven Preferences:** The preferences UI is generated dynamically from `src/registry.ts`.
 
 ## Adding a Module
-
-Adding a module is quick. You wire it in once, and Aurora handles lifecycle + preferences automatically.
 
 1. Create your module file at `src/modules/myModule.ts` extending `Module`:
 
 ```typescript
-import { Module } from './module.ts';
+import { ExtensionContext } from "~/core/context.ts";
+import { Module } from '~/module.ts';
 
 export class MyModule extends Module {
+  constructor(context: ExtensionContext) {
+    super(context);
+  }
+
   override enable(): void { 
-    // setup (e.g. connect signals, add actors)
+    // setup using this.context (e.g., this.context.settings.getBoolean('...'))
   }
   
   override disable(): void { 
-    // cleanup (mirror enable - disconnect signals, destroy actors)
+    // cleanup
   }
 }
 ```
 
-2. Register the module in `MODULE_REGISTRY` (`src/registry.ts`) so it appears in Preferences:
+2. Register the module in `getModuleRegistry` (`src/registry.ts`):
 
 ```typescript
 { 
   key: 'my-module', 
   settingsKey: 'module-my-module', 
   title: _('My Module'), 
-  subtitle: _('Description of what this module does') 
+  subtitle: _('Description'),
+  options: [
+    // (Optional) add sub-settings here
+    { key: 'my-sub-key', title: _('Sub Setting'), subtitle: _('...'), type: 'switch' }
+  ]
 },
 ```
 
@@ -65,9 +71,9 @@ export class MyModule extends Module {
 ```typescript
 import { MyModule } from "./modules/myModule.ts";
 
-const MODULE_FACTORIES: Record<string, () => Module> = {
+const MODULE_FACTORIES: Record<string, (ctx: ExtensionContext) => Module> = {
   // ...
-  'my-module': () => new MyModule(),
+  'my-module': (ctx) => new MyModule(ctx),
 };
 ```
 
@@ -121,5 +127,5 @@ All jobs must pass before a PR can be merged.
 - **Classes:** `PascalCase`
 - **Private members:** `_prefixed`
 - **Constants:** `UPPER_CASE`
-- Keep `enable()` and `disable()` symmetric — everything connected or created in `enable()` **must** be disconnected or destroyed in `disable()`.
-- Avoid importing GJS global modules at the top level in code paths that run in multiple processes; use lazy / conditional imports where needed.
+- **Symmetry:** Everything connected in `enable()` **must** be disconnected or destroyed in `disable()`.
+- **Dependency Injection:** Strictly follow DI; do not reach out to globals.
