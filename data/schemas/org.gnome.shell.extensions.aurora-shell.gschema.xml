@@ -36,6 +36,11 @@
       <summary>Enable DND on Screen Share module</summary>
       <description>Automatically enables Do Not Disturb mode when screen sharing</description>
     </key>
+    <key name="module-icon-weave" type="b">
+      <default>true</default>
+      <summary>Enable Icon Weave module</summary>
+      <description>Automatically fixes missing app icons using an in-memory approach (no files written)</description>
+    </key>
     <key name="dock-always-show" type="b">
       <default>false</default>
       <summary>Always show dock</summary>

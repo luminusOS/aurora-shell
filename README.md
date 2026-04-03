@@ -19,6 +19,7 @@ Aurora is split into independent modules, so you can enable only what you want.
 | **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
 | **XWayland Indicator** | Adds an indicator to the app activities in Ctrl + Tab to indicate where XWayland is running |
 | **DND on Screen Share** | Automatically enables Do Not Disturb mode when screen sharing or recording is active |
+| **Icon Weave** | Automatically fixes missing app icons by matching untracked windows to their apps in-memory |
 
 All modules can be toggled independently from the extension preferences.
 

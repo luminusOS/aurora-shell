@@ -1,4 +1,5 @@
 export interface Logger {
+  log(msg: string, ...args: any[]): void;
   debug(msg: string, ...args: any[]): void;
   info(msg: string, ...args: any[]): void;
   warn(msg: string, ...args: any[]): void;
@@ -7,6 +8,10 @@ export interface Logger {
 
 export class ConsoleLogger implements Logger {
   constructor(private prefix: string = 'Aurora Shell') {}
+
+  log(msg: string, ...args: any[]): void {
+    this.info(msg, ...args);
+  }
 
   debug(msg: string, ...args: any[]): void {
     console.debug(`[${this.prefix}] ${msg}`, ...args);

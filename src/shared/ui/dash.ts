@@ -3,6 +3,7 @@ import '@girs/gjs';
 import GLib from '@girs/glib-2.0';
 import Clutter from '@girs/clutter-17';
 import GObject from '@girs/gobject-2.0';
+import Shell from '@girs/shell-17';
 import type St from '@girs/st-17';
 import * as Main from '@girs/gnome-shell/ui/main';
 import { Dash } from '@girs/gnome-shell/ui/dash';
@@ -411,6 +412,14 @@ export class AuroraDash extends Dash {
     const appSystem = dashAny._appSystem;
     const origGetRunning = appSystem?.get_running;
     if (appSystem && origGetRunning) {
+      // Track whether the instance already had its own property before we patch,
+      // so we can restore to the exact same state in the finally block.
+      // If there was no own property (prototype lookup was used), we must DELETE
+      // rather than reassign — otherwise a stale closure (e.g. from a previous
+      // iconWeave enable cycle) gets pinned as an own property on the instance
+      // and survives iconWeave.disable() restoring only the prototype, causing a
+      // null-dereference on the next enable cycle.
+      const hadOwnProp = Object.prototype.hasOwnProperty.call(appSystem, 'get_running');
       const isRelevant = (w: any) => this._isWindowRelevant(w);
       appSystem.get_running = function () {
         return origGetRunning.call(this).filter((app: any) =>
@@ -420,7 +429,11 @@ export class AuroraDash extends Dash {
       try {
         Dash.prototype._redisplay.call(this);
       } finally {
-        appSystem.get_running = origGetRunning;
+        if (hadOwnProp) {
+          appSystem.get_running = origGetRunning;
+        } else {
+          delete appSystem.get_running;
+        }
       }
     } else {
       Dash.prototype._redisplay.call(this);
@@ -515,6 +528,20 @@ export class AuroraDash extends Dash {
         }
 
         const windows = appIcon.app.get_windows().filter(isRelevant);
+
+        if (windows.length === 0 && appIcon.app.get_state() === Shell.AppState.RUNNING) {
+          this._cycleState = null;
+          const allWindows = appIcon.app.get_windows();
+          if (allWindows.length > 0) {
+            // App has windows on other monitors/workspaces — switch to the most recent one
+            const win = allWindows[0];
+            if (win.minimized) win.unminimize();
+            Main.activateWindow(win);
+          } else {
+            appIcon.app.open_new_window(-1);
+          }
+          return;
+        }
 
         if (windows.length <= 1) {
           this._cycleState = null;

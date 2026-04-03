@@ -1,12 +1,13 @@
 # AGENTS instructions
 
-## Environment Setup
+## Validation After Changes
 
-- Install dependencies: `yarn install` (or just run `just build` — it runs `yarn install` automatically)
-- Requires **Node.js 20+**, **Yarn 4+**, and **[just](https://github.com/casey/just)**.
-- For a full test environment, create a Fedora toolbox: `just toolbox create` (first time only).
-- To run GNOME Shell in devkit mode: `just run` (host) or `just toolbox run` (inside toolbox).
-- **Never run gnome-shell directly** — always use `just run` or `just toolbox run` to ensure the correct environment flags (`--wayland --devkit`) are set.
+After **any** code change, always run these two commands and fix any errors before considering the task done:
+
+1. `just validate` — type-checks the TypeScript source without emitting output
+2. `just test-all` — builds and runs all integration tests, printing a pass/fail summary
+
+Do not leave a task incomplete if either command reports errors or failures.
 
 ## Commands
 
