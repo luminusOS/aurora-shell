@@ -67,5 +67,11 @@ export function getModuleRegistry(): ModuleDefinition[] {
       title: _('DND on Screen Share'),
       subtitle: _('Automatically enables Do Not Disturb mode when screen sharing'),
     },
+    {
+      key: 'icon-weave',
+      settingsKey: 'module-icon-weave',
+      title: _('Icon Weave'),
+      subtitle: _('Automatically fixes missing app icons using an in-memory approach'),
+    },
   ];
 }

@@ -19,6 +19,7 @@ import { Dock } from "~/modules/dock/dock.ts";
 import { VolumeMixer } from "~/modules/volumeMixer/volumeMixer.ts";
 import { XwaylandIndicator } from "~/modules/xwaylandIndicator.ts";
 import { DndOnShare } from "~/modules/dndOnShare.ts";
+import { IconWeave } from "~/modules/iconWeave.ts";
 
 const MODULE_FACTORIES: Record<string, (context: ExtensionContext) => Module> = {
   'no-overview': (ctx) => new NoOverview(ctx),
@@ -28,6 +29,7 @@ const MODULE_FACTORIES: Record<string, (context: ExtensionContext) => Module> = 
   'volume-mixer': (ctx) => new VolumeMixer(ctx),
   'xwayland-indicator': (ctx) => new XwaylandIndicator(ctx),
   'dnd-on-share': (ctx) => new DndOnShare(ctx),
+  'icon-weave': (ctx) => new IconWeave(ctx),
 };
 
 /**
