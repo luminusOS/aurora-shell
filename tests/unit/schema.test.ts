@@ -30,6 +30,7 @@ const EXPECTED_MODULE_KEYS = [
   'module-volume-mixer',
   'module-xwayland-indicator',
   'module-dnd-on-share',
+  'module-app-search-tooltip',
 ] as const;
 
 const schemaXml = readFileSync(SCHEMA_FILE, 'utf-8');
