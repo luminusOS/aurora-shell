@@ -5,8 +5,34 @@
   background-color: vars.$aurora-panel-bg;
 }
 
+#panel .panel-button {
+  color: vars.$aurora-panel-fg;
+}
+
+#panel .panel-button .system-status-icon,
+#panel .panel-button .panel-status-indicators-box > .system-status-icon {
+  color: vars.$aurora-panel-fg;
+}
+
+#panel .panel-button#panelActivities .workspace-dot {
+  background-color: vars.$aurora-panel-fg;
+}
+
 #panel:overview,
 #panel.unlock-screen,
 #panel.login-screen {
   background-color: vars.$aurora-panel-bg;
+}
+
+#panel:overview .panel-button {
+  color: vars.$aurora-panel-fg;
+}
+
+#panel:overview .panel-button .system-status-icon,
+#panel:overview .panel-button .panel-status-indicators-box > .system-status-icon {
+  color: vars.$aurora-panel-fg;
+}
+
+#panel:overview .panel-button#panelActivities .workspace-dot {
+  background-color: vars.$aurora-panel-fg;
 }

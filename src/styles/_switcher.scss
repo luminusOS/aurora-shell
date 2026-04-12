@@ -1,0 +1,43 @@
+@use 'variables' as vars;
+
+/* App Switcher (Alt+Tab), Workspace Switcher, OSD, etc. */
+.switcher-list, .workspace-switcher, .resize-popup, .osd-window {
+  color: vars.$aurora-overview-fg !important;
+  background-color: vars.$aurora-overview-bg !important;
+  border-radius: 28px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.switcher-list {
+  .item-box {
+    color: vars.$aurora-overview-fg !important;
+    background-color: transparent !important;
+    border-radius: 12px;
+    
+    &:hover, &:selected, &:focus, &:active {
+      background-color: vars.$aurora-overview-hover-bg !important;
+      color: vars.$aurora-overview-fg !important;
+    }
+  }
+  
+  .separator {
+    background-color: vars.$aurora-dash-separator-color !important;
+  }
+  
+  .thumbnail-box {
+    background-color: transparent !important;
+  }
+  
+  .thumbnail {
+    border-radius: 12px;
+  }
+}
+
+.switcher-arrow {
+  color: vars.$aurora-overview-fg !important;
+  
+  &:highlighted {
+    color: vars.$aurora-overview-fg !important;
+  }
+}
