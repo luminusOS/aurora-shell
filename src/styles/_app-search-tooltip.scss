@@ -1,4 +1,12 @@
+@use 'variables' as *;
+
 .app-search-tooltip {
-  background-color: rgba(0, 0, 0, 0.75);
-  color: white;
+  background-color: $aurora-tooltip-bg;
+  color: $aurora-tooltip-fg;
+  border: $aurora-tooltip-border;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-weight: 500;
+  font-size: 11pt;
+  text-align: center;
 }
