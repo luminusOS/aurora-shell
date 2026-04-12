@@ -1,5 +1,9 @@
 # AGENTS instructions
 
+## Git Policy
+
+**Never create commits, pull requests, or push to any remote.** Do not run `git commit`, `git push`, `git pr`, or any equivalent. Leave all git operations to the user.
+
 ## Validation After Changes
 
 After **any** code change, always run these two commands and fix any errors before considering the task done:

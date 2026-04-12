@@ -27,6 +27,7 @@ package:
 
 validate:
     yarn validate
+    yarn lint
 
 lint:
     yarn lint

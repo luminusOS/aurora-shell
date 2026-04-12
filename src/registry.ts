@@ -73,5 +73,11 @@ export function getModuleRegistry(): ModuleDefinition[] {
       title: _('Icon Weave'),
       subtitle: _('Automatically fixes missing app icons using an in-memory approach'),
     },
+    {
+      key: 'app-search-tooltip',
+      settingsKey: 'module-app-search-tooltip',
+      title: _('App Search Tooltip'),
+      subtitle: _('Shows app name on hover in the overview search results'),
+    },
   ];
 }

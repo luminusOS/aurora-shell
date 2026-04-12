@@ -20,6 +20,7 @@ import { VolumeMixer } from "~/modules/volumeMixer/volumeMixer.ts";
 import { XwaylandIndicator } from "~/modules/xwaylandIndicator.ts";
 import { DndOnShare } from "~/modules/dndOnShare.ts";
 import { IconWeave } from "~/modules/iconWeave.ts";
+import { AppSearchTooltip } from "~/modules/appSearchTooltip.ts";
 
 const MODULE_FACTORIES: Record<string, (context: ExtensionContext) => Module> = {
   'no-overview': (ctx) => new NoOverview(ctx),
@@ -30,6 +31,7 @@ const MODULE_FACTORIES: Record<string, (context: ExtensionContext) => Module> = 
   'xwayland-indicator': (ctx) => new XwaylandIndicator(ctx),
   'dnd-on-share': (ctx) => new DndOnShare(ctx),
   'icon-weave': (ctx) => new IconWeave(ctx),
+  'app-search-tooltip': (ctx) => new AppSearchTooltip(ctx),
 };
 
 /**
