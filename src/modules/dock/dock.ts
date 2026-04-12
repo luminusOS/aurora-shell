@@ -77,12 +77,18 @@ export class Dock extends Module {
       },
       this
     );
+
+    this.context.signals.connectObject(
+      'icons-woven', () => this._refreshBindingsLayout(),
+      this
+    );
   }
 
   override disable(): void {
     Main.overview.dash.show();
     this._dockSettings?.disconnectObject?.(this);
     this._dockSettings = null;
+    this.context.signals.disconnectObject(this);
     Main.layoutManager.disconnectObject(this);
     global.display.disconnectObject(this);
     Main.sessionMode.disconnectObject(this);

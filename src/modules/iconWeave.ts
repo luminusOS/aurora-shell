@@ -1,12 +1,12 @@
 // @ts-nocheck
 import GLib from '@girs/glib-2.0';
-import Gio from '@girs/gio-2.0';
+import GioUnix from '@girs/giounix-2.0';
 import Shell from '@girs/shell-17';
 import Meta from '@girs/meta-17';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '../module.ts';
 
-const WINDOW_INSPECT_DELAY_MS = 1000;
+const WINDOW_INSPECT_DELAY_MS = 500;
 const MIN_MATCH_SCORE = 50;
 
 const BLACKLISTED_PREFIXES = [
@@ -34,6 +34,7 @@ export class IconWeave extends Module {
   private _displayConnectionId = 0;
   private _processed = new Set<string>();
   private _pendingConnections = new Map<any, number>();
+  private _actorConnections = new Map<any, number>();
   private _timeoutSources = new Set<TimeoutId>();
 
   // Maps a window to an app
@@ -178,6 +179,16 @@ export class IconWeave extends Module {
       }
     }
     this._pendingConnections.clear();
+
+    for (const [actor, id] of this._actorConnections) {
+      try {
+        actor.disconnect(id);
+      } catch (_e) {
+        // actor may already be gone
+      }
+    }
+    this._actorConnections.clear();
+
     this._processed.clear();
     this._windowAppMap.clear();
   }
@@ -191,6 +202,62 @@ export class IconWeave extends Module {
       this._windowAppMap.delete(win);
     });
 
+    // Try to hook into the window actor's first-frame signal so that inspection
+    // happens at the earliest moment the window is actually composited — before
+    // the user sees the generic icon — rather than after an arbitrary timeout.
+    const actor = win.get_compositor_private();
+    if (actor) {
+      this._attachFirstFrame(win, actor);
+    } else {
+      // Actor may not exist yet; wait one idle cycle and try again, then fall
+      // back to the timeout if the actor still isn't available.
+      const earlyId: TimeoutId = GLib.timeout_add(GLib.PRIORITY_HIGH, 0, () => {
+        this._timeoutSources.delete(earlyId);
+        const a = win.get_compositor_private();
+        if (a) {
+          this._attachFirstFrame(win, a);
+        } else {
+          this._addFallbackTimeout(win);
+        }
+        return GLib.SOURCE_REMOVE;
+      });
+      this._timeoutSources.add(earlyId);
+    }
+  }
+
+  private _attachFirstFrame(win: any, actor: any): void {
+    let done = false;
+
+    const frameId = actor.connect('first-frame', () => {
+      actor.disconnect(frameId);
+      this._actorConnections.delete(actor);
+      if (!done) {
+        done = true;
+        this._inspectWindow(win);
+      }
+    });
+    this._actorConnections.set(actor, frameId);
+
+    // Fallback: if first-frame never fires (e.g. override-redirect windows),
+    // inspect after the normal delay anyway.
+    const id: TimeoutId = GLib.timeout_add(
+      GLib.PRIORITY_DEFAULT_IDLE,
+      WINDOW_INSPECT_DELAY_MS,
+      () => {
+        this._timeoutSources.delete(id);
+        if (!done) {
+          done = true;
+          try { actor.disconnect(frameId); } catch (_e) { /* signal may already be disconnected */ }
+          this._actorConnections.delete(actor);
+          this._inspectWindow(win);
+        }
+        return GLib.SOURCE_REMOVE;
+      },
+    );
+    this._timeoutSources.add(id);
+  }
+
+  private _addFallbackTimeout(win: any): void {
     const id: TimeoutId = GLib.timeout_add(
       GLib.PRIORITY_DEFAULT_IDLE,
       WINDOW_INSPECT_DELAY_MS,
@@ -238,6 +305,9 @@ export class IconWeave extends Module {
         for (const [mappedWin, app] of this._windowAppMap.entries()) {
           if (mappedWin.get_wm_class() === wmClass || mappedWin.get_gtk_application_id() === appId) {
             this._windowAppMap.set(win, app);
+
+            this.context.signals.emit('icons-woven');
+
             // Notify shell that app might have changed
             tracker.emit('tracked-windows-changed');
             return;
@@ -252,6 +322,10 @@ export class IconWeave extends Module {
       if (candidate) {
         this.context.logger.log(`[IconWeave] match found: ${candidate.get_id()} — applying memory fix`);
         this._windowAppMap.set(win, candidate);
+
+        // Notify the bus that we found an icon, so other modules like Dock can refresh
+        this.context.signals.emit('icons-woven');
+
         // Force the window tracker to update its state
         tracker.emit('tracked-windows-changed');
         // Notify the app too
@@ -318,9 +392,14 @@ export class IconWeave extends Module {
     let bestApp: any = null;
     let bestScore = 0;
 
-    for (const app of appSystem.get_installed()) {
-      const info = Gio.DesktopAppInfo.new(app.get_id());
-      if (!info) continue;
+    // get_installed() returns AppInfo objects, not Shell.App — resolve each to a
+    // Shell.App via lookup_app so that the stored value supports get_windows(),
+    // create_icon_texture(), and the rest of the Shell.App API.
+    for (const appInfo of appSystem.get_installed()) {
+      const id = appInfo.get_id();
+      if (!id) continue;
+      const app = appSystem.lookup_app(id);
+      if (!app) continue;
 
       const score = this._scoreCandidate(app, wmClass, appId, title);
       if (score > bestScore) {
@@ -338,7 +417,7 @@ export class IconWeave extends Module {
   }
 
   private _isSteamGame(app: any, wmClass: string): boolean {
-    const info = Gio.DesktopAppInfo.new(app.get_id());
+    const info = GioUnix.DesktopAppInfo.new(app.get_id());
     const exec: string = info?.get_string('Exec') ?? '';
     const steamMatch = exec.match(/steam:\/\/rungameid\/(\d+)/);
     if (!steamMatch) return false;

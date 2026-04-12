@@ -531,15 +531,8 @@ export class AuroraDash extends Dash {
 
         if (windows.length === 0 && appIcon.app.get_state() === Shell.AppState.RUNNING) {
           this._cycleState = null;
-          const allWindows = appIcon.app.get_windows();
-          if (allWindows.length > 0) {
-            // App has windows on other monitors/workspaces — switch to the most recent one
-            const win = allWindows[0];
-            if (win.minimized) win.unminimize();
-            Main.activateWindow(win);
-          } else {
-            appIcon.app.open_new_window(-1);
-          }
+          // App has windows on other monitors/workspaces — open a new window in the current workspace
+          appIcon.app.open_new_window(-1);
           return;
         }
 
