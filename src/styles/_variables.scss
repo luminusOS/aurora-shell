@@ -6,6 +6,9 @@ $variant: 'light' !default;
 $contrast: 'normal' !default;
 
 $aurora-panel-bg: palette.$dark-1;
+$aurora-panel-fg: palette.$light-1;
+$aurora-panel-border: none;
+$aurora-overview-bg: palette.$dark-1;
 $aurora-dash-bg: palette.$dark-1;
 $aurora-dash-icon-color: palette.$light-1;
 $aurora-dash-separator-color: color.adjust(palette.$light-1, $alpha: -0.9);
@@ -16,18 +19,44 @@ $aurora-dash-checked-bg: st-lighten($aurora-dash-bg, 8%);
 $aurora-dash-checked-hover-bg: st-lighten($aurora-dash-bg, 8%);
 $aurora-dash-checked-active-bg: st-lighten($aurora-dash-bg, 9%);
 
+$aurora-overview-bg: palette.$dark-1;
+$aurora-overview-hover-bg: rgba(255, 255, 255, 0.1);
+$aurora-overview-active-bg: rgba(255, 255, 255, 0.15);
+$aurora-overview-selected-bg: rgba(255, 255, 255, 0.12);
+$aurora-overview-checked-bg: rgba(255, 255, 255, 0.18);
+$aurora-overview-folder-bg: rgba(255, 255, 255, 0.05);
+$aurora-overview-search-bg: rgba(255, 255, 255, 0.1);
+$aurora-overview-search-hover-bg: rgba(255, 255, 255, 0.15);
+$aurora-overview-search-focus-bg: rgba(255, 255, 255, 0.18);
+$aurora-overview-search-fg: palette.$light-1;
+$aurora-overview-fg: palette.$light-1;
+
 @if $variant == 'light' {
-	$aurora-panel-bg: palette.$light-1;
-	$aurora-dash-bg: palette.$light-1;
+	$aurora-panel-bg: palette.$light-0;
+	$aurora-panel-fg: palette.$dark-1;
+	$aurora-panel-border: inset 0 -1px 0 0 #d6d6d6;
+	$aurora-overview-bg: palette.$light-1;
+	$aurora-overview-hover-bg: rgba(0, 0, 0, 0.04);
+	$aurora-overview-active-bg: rgba(0, 0, 0, 0.08);
+	$aurora-overview-selected-bg: rgba(0, 0, 0, 0.06);
+	$aurora-overview-checked-bg: rgba(0, 0, 0, 0.1);
+	$aurora-overview-folder-bg: palette.$light-2;
+	$aurora-overview-search-bg: palette.$light-2;
+	$aurora-overview-search-hover-bg: st-darken(palette.$light-2, 3%);
+	$aurora-overview-search-focus-bg: st-darken(palette.$light-2, 5%);
+	$aurora-overview-search-fg: palette.$dark-1;
+	$aurora-overview-fg: palette.$dark-1;
+
+	$aurora-dash-bg: palette.$light-0;
 	$aurora-dash-icon-color: palette.$dark-1;
 	$aurora-dash-separator-color: color.adjust(palette.$dark-1, $alpha: -0.9);
-	$aurora-dash-hover-bg: st-darken($aurora-dash-bg, 7%);
-	$aurora-dash-active-bg: st-darken($aurora-dash-bg, 9%);
-	$aurora-dash-active-hover-bg: st-darken($aurora-dash-bg, 9%);
-	$aurora-dash-checked-bg: st-darken($aurora-dash-bg, 8%);
-	$aurora-dash-checked-hover-bg: st-darken($aurora-dash-bg, 8%);
-	$aurora-dash-checked-active-bg: st-darken($aurora-dash-bg, 9%);
-}
+	$aurora-dash-hover-bg: rgba(0, 0, 0, 0.05);
+	$aurora-dash-active-bg: rgba(0, 0, 0, 0.08);
+	$aurora-dash-active-hover-bg: rgba(0, 0, 0, 0.08);
+	$aurora-dash-checked-bg: rgba(0, 0, 0, 0.07);
+	$aurora-dash-checked-hover-bg: rgba(0, 0, 0, 0.07);
+	$aurora-dash-checked-active-bg: rgba(0, 0, 0, 0.08);
+	}
 
 $aurora-dash-focus-bg: st-mix(
 	st-mix(-st-accent-color, #ffffff, 60%),

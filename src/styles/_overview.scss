@@ -1,0 +1,269 @@
+@use 'sass:color';
+@use 'variables' as vars;
+
+#overviewGroup {
+  background-color: vars.$aurora-overview-bg;
+}
+
+// Search entry in overview
+.search-entry {
+  color: vars.$aurora-overview-search-fg;
+  background-color: vars.$aurora-overview-search-bg;
+  selection-background-color: #3584e4;
+  selected-color: #ffffff;
+
+  &:hover {
+    background-color: vars.$aurora-overview-search-hover-bg;
+  }
+
+  &:focus {
+    background-color: vars.$aurora-overview-search-focus-bg;
+    box-shadow: inset 0 0 0 2px rgba(53, 132, 228, 0.7);
+  }
+
+  &:insensitive {
+    color: color.adjust(vars.$aurora-overview-search-fg, $alpha: -0.5);
+    background-color: color.adjust(vars.$aurora-overview-search-bg, $alpha: -0.5);
+  }
+
+  StLabel.hint-text {
+    color: color.adjust(vars.$aurora-overview-search-fg, $alpha: -0.3);
+  }
+
+  StIcon.search-entry-icon {
+    color: color.adjust(vars.$aurora-overview-search-fg, $alpha: -0.5);
+  }
+}
+
+.search-section .search-section-separator {
+  background-color: transparent;
+}
+
+.search-section-content {
+  background-color: transparent;
+  color: vars.$aurora-overview-fg;
+}
+
+.list-search-result,
+.search-provider-icon {
+  color: vars.$aurora-overview-fg;
+  background-color: transparent;
+
+  &:hover,
+  &:focus,
+  &:selected {
+    background-color: vars.$aurora-overview-hover-bg;
+  }
+
+  &:active {
+    background-color: vars.$aurora-overview-active-bg;
+  }
+}
+
+.search-provider-icon .list-search-provider-content .list-search-provider-details {
+  color: vars.$aurora-overview-fg;
+}
+
+.list-search-result .list-search-result-description {
+  color: color.adjust(vars.$aurora-overview-fg, $alpha: -0.3);
+}
+
+.search-statustext {
+  color: color.adjust(vars.$aurora-overview-fg, $alpha: -0.2);
+}
+
+.app-well-app,
+.overview-tile,
+.grid-search-result {
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app .overview-icon,
+.overview-tile .overview-icon,
+.grid-search-result .overview-icon {
+  background-color: transparent;
+  color: vars.$aurora-overview-fg !important;
+}
+
+// Keep inner icon hover transparent to avoid double hover from nested actors
+.app-well-app .overview-icon:hover,
+.overview-tile .overview-icon:hover,
+.grid-search-result .overview-icon:hover {
+  background-color: transparent;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app:hover,
+.overview-tile:hover,
+.grid-search-result:hover {
+  background-color: vars.$aurora-overview-hover-bg;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app:selected,
+.overview-tile:selected,
+.grid-search-result:selected,
+.app-well-app:focus,
+.overview-tile:focus,
+.grid-search-result:focus {
+  background-color: vars.$aurora-overview-selected-bg;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app:selected:hover,
+.overview-tile:selected:hover,
+.grid-search-result:selected:hover,
+.app-well-app:focus:hover,
+.overview-tile:focus:hover,
+.grid-search-result:focus:hover {
+  background-color: vars.$aurora-overview-active-bg;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app:active,
+.overview-tile:active,
+.grid-search-result:active {
+  background-color: vars.$aurora-overview-active-bg;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app:outlined,
+.overview-tile:outlined,
+.grid-search-result:outlined,
+.app-well-app:checked,
+.overview-tile:checked,
+.grid-search-result:checked {
+  background-color: vars.$aurora-overview-checked-bg;
+  color: vars.$aurora-overview-fg !important;
+}
+
+#dash .app-well-app,
+#dash .overview-tile,
+#dash .grid-search-result {
+  background-color: transparent !important;
+}
+
+
+.app-well-app:outlined:active,
+.overview-tile:outlined:active,
+.grid-search-result:outlined:active,
+.app-well-app:checked:active,
+.overview-tile:checked:active,
+.grid-search-result:checked:active {
+  background-color: vars.$aurora-overview-checked-bg;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app:outlined:hover,
+.overview-tile:outlined:hover,
+.grid-search-result:outlined:hover,
+.app-well-app:checked:hover,
+.overview-tile:checked:hover,
+.grid-search-result:checked:hover {
+  background-color: vars.$aurora-overview-checked-bg;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app:drop .overview-icon,
+.overview-tile:drop .overview-icon,
+.grid-search-result:drop .overview-icon {
+  border: 2px solid rgba(53, 132, 228, 0.8);
+  background-color: rgba(53, 132, 228, 0.2);
+}
+
+.app-well-app .overview-icon,
+.overview-tile .overview-icon,
+.grid-search-result .overview-icon {
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app.app-folder,
+.overview-tile.app-folder,
+.app-folder.grid-search-result {
+  background-color: vars.$aurora-overview-folder-bg !important;
+  color: vars.$aurora-overview-fg !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.app-well-app.app-folder .overview-icon,
+.overview-tile.app-folder .overview-icon,
+.app-folder.grid-search-result .overview-icon {
+  background-color: transparent !important;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app.app-folder:hover,
+.overview-tile.app-folder:hover,
+.app-folder.grid-search-result:hover {
+  background-color: vars.$aurora-overview-hover-bg !important;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app.app-folder:active,
+.overview-tile.app-folder:active,
+.app-folder.grid-search-result:active {
+  background-color: vars.$aurora-overview-active-bg !important;
+  color: vars.$aurora-overview-fg !important;
+}
+
+.app-well-app.app-folder:hover .overview-icon,
+.overview-tile.app-folder:hover .overview-icon,
+.app-folder.grid-search-result:hover .overview-icon,
+.app-well-app.app-folder:active .overview-icon,
+.overview-tile.app-folder:active .overview-icon,
+.app-folder.grid-search-result:active .overview-icon {
+  background-color: transparent !important;
+}
+
+.app-folder-dialog {
+  background-color: #fafafb;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.app-well-app-running-dot {
+  background-color: vars.$aurora-overview-fg;
+}
+
+.page-indicator .page-indicator-icon {
+  background-color: vars.$aurora-overview-fg;
+  transition-duration: 400ms;
+}
+
+.apps-scroll-view {
+  padding: 0;
+}
+
+.page-navigation-arrow {
+  transition-duration: 100ms;
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.page-navigation-arrow > StIcon {
+  color: vars.$aurora-overview-fg;
+}
+
+.page-navigation-arrow:insensitive {
+  transition-duration: 100ms;
+  background-color: transparent;
+}
+
+.page-navigation-arrow:insensitive:insensitive {
+  transition-duration: 100ms;
+  color: color.adjust(vars.$aurora-overview-fg, $alpha: -0.6);
+  background-color: transparent;
+}
+
+.page-navigation-arrow:hover {
+  transition-duration: 100ms;
+  color: vars.$aurora-overview-fg;
+  background-color: vars.$aurora-overview-hover-bg;
+}
+
+.page-navigation-arrow:active {
+  transition-duration: 100ms;
+  color: vars.$aurora-overview-fg;
+  background-color: vars.$aurora-overview-active-bg;
+}
