@@ -5,7 +5,7 @@ import St from '@girs/st-17';
 import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-17';
 
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 import { VolumeMixerList } from '~/modules/volumeMixer/mixerList.ts';
 
 export const MAX_MIXER_HEIGHT = 300;
@@ -50,11 +50,7 @@ export class VolumeMixerPanel extends St.BoxLayout {
     this._scroll = scroll;
     this.add_child(scroll);
 
-    this._list.connectObject(
-      'notify::should-show',
-      () => this._sync(),
-      this,
-    );
+    this._list.connectObject('notify::should-show', () => this._sync(), this);
     this._sync();
   }
 
@@ -68,10 +64,7 @@ export class VolumeMixerPanel extends St.BoxLayout {
     if (!this.get_stage()) return [0, 0];
 
     if (!this._list.shouldShow) {
-      return this._emptyLabel.get_preferred_height(forWidth) as [
-        number,
-        number,
-      ];
+      return this._emptyLabel.get_preferred_height(forWidth) as [number, number];
     }
 
     const contentHeight = this._list.get_preferred_height(forWidth);

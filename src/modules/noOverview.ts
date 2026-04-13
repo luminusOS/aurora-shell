@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 
 /**

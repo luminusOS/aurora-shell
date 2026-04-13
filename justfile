@@ -28,6 +28,8 @@ package:
 validate:
     yarn validate
     yarn lint
+    yarn prettier:check
+    yarn stylelint
 
 lint:
     yarn lint
@@ -48,6 +50,9 @@ logs:
     journalctl -b 0 /usr/bin/gnome-shell | grep "aurora"
 
 clean:
+    rm -rf dist
+
+distclean:
     rm -rf dist
     rm -rf node_modules
 
@@ -98,6 +103,9 @@ all: clean build install
 
 unit-test:
     yarn test:unit
+
+coverage:
+    yarn test:unit:coverage
 
 # Run a single test script with gnome-shell-test-tool (headless).
 # Wrapped in dbus-run-session to avoid conflicting with any running GNOME session.

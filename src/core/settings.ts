@@ -1,4 +1,4 @@
-import Gio from "@girs/gio-2.0";
+import Gio from '@girs/gio-2.0';
 
 export interface SettingsManager {
   getBoolean(key: string): boolean;

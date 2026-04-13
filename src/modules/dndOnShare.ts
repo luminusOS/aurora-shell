@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '../module.ts';
 import * as Main from '@girs/gnome-shell/ui/main';
 import type { SettingsManager } from '~/core/settings.ts';
@@ -29,10 +29,14 @@ export class DndOnShare extends Module {
 
     if (indicator) {
       this._notificationsSettings = this.context.settings.getSchema(NOTIFICATIONS_SCHEMA);
-      
-      (indicator as any).connectObject('notify::visible', () => {
-        this._syncDndState(indicator.visible);
-      }, this);
+
+      (indicator as any).connectObject(
+        'notify::visible',
+        () => {
+          this._syncDndState(indicator.visible);
+        },
+        this,
+      );
 
       if (indicator.visible) {
         this._syncDndState(true);
@@ -47,7 +51,7 @@ export class DndOnShare extends Module {
     if (indicator) {
       (indicator as any).disconnectObject?.(this);
     }
-    
+
     this._restoreState();
     this._notificationsSettings = null;
   }
@@ -57,7 +61,7 @@ export class DndOnShare extends Module {
 
     if (isSharing) {
       const isCurrentlyShowingBanners = this._notificationsSettings.getBoolean(SHOW_BANNERS_KEY);
-      
+
       if (isCurrentlyShowingBanners) {
         this._savedShowBannersState = true;
         this._notificationsSettings.setBoolean(SHOW_BANNERS_KEY, false);

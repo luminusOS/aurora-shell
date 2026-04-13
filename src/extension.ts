@@ -1,32 +1,31 @@
-
 import '@girs/gjs';
 
-import type Gio from "@girs/gio-2.0";
-import { Extension } from "@girs/gnome-shell/extensions/extension";
+import type Gio from '@girs/gio-2.0';
+import { Extension } from '@girs/gnome-shell/extensions/extension';
 
-import type { Module } from "./module.ts";
-import { getModuleRegistry, type ModuleDefinition } from "./registry.ts";
-import type { ExtensionContext } from "~/core/context.ts";
-import { DefaultExtensionContext } from "~/core/context.ts";
-import { ConsoleLogger } from "~/core/logger.ts";
-import { GSettingsManager } from "~/core/settings.ts";
-import { GnomeShellAdapter } from "~/core/adapters/shell.ts";
+import type { Module } from './module.ts';
+import { getModuleRegistry, type ModuleDefinition } from './registry.ts';
+import type { ExtensionContext } from '~/core/context.ts';
+import { DefaultExtensionContext } from '~/core/context.ts';
+import { ConsoleLogger } from '~/core/logger.ts';
+import { GSettingsManager } from '~/core/settings.ts';
+import { GnomeShellAdapter } from '~/core/adapters/shell.ts';
 
-import { NoOverview } from "~/modules/noOverview.ts";
-import { PipOnTop } from "~/modules/pipOnTop.ts";
-import { ThemeChanger } from "~/modules/themeChanger.ts";
-import { Dock } from "~/modules/dock/dock.ts";
-import { VolumeMixer } from "~/modules/volumeMixer/volumeMixer.ts";
-import { XwaylandIndicator } from "~/modules/xwaylandIndicator.ts";
-import { DndOnShare } from "~/modules/dndOnShare.ts";
-import { IconWeave } from "~/modules/iconWeave.ts";
-import { AppSearchTooltip } from "~/modules/appSearchTooltip.ts";
+import { NoOverview } from '~/modules/noOverview.ts';
+import { PipOnTop } from '~/modules/pipOnTop.ts';
+import { ThemeChanger } from '~/modules/themeChanger.ts';
+import { Dock } from '~/modules/dock/dock.ts';
+import { VolumeMixer } from '~/modules/volumeMixer/volumeMixer.ts';
+import { XwaylandIndicator } from '~/modules/xwaylandIndicator.ts';
+import { DndOnShare } from '~/modules/dndOnShare.ts';
+import { IconWeave } from '~/modules/iconWeave.ts';
+import { AppSearchTooltip } from '~/modules/appSearchTooltip.ts';
 
 const MODULE_FACTORIES: Record<string, (context: ExtensionContext) => Module> = {
   'no-overview': (ctx) => new NoOverview(ctx),
   'pip-on-top': (ctx) => new PipOnTop(ctx),
   'theme-changer': (ctx) => new ThemeChanger(ctx),
-  'dock': (ctx) => new Dock(ctx),
+  dock: (ctx) => new Dock(ctx),
   'volume-mixer': (ctx) => new VolumeMixer(ctx),
   'xwayland-indicator': (ctx) => new XwaylandIndicator(ctx),
   'dnd-on-share': (ctx) => new DndOnShare(ctx),
@@ -54,7 +53,7 @@ export default class AuroraShellExtension extends Extension {
       this.path,
       new ConsoleLogger('Aurora Shell'),
       new GSettingsManager(this._settings),
-      new GnomeShellAdapter()
+      new GnomeShellAdapter(),
     );
 
     this._initializeModules();

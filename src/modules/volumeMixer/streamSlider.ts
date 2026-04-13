@@ -7,7 +7,7 @@ import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 
 import { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 
 const ALLOW_AMPLIFIED_VOLUME_KEY = 'allow-volume-above-100-percent';
 
@@ -35,9 +35,8 @@ export class ApplicationStreamSlider extends QuickSlider {
     super._init();
 
     this._soundSettings = context.settings.getSchema('org.gnome.desktop.sound');
-    this._soundSettings.connect(
-      `changed::${ALLOW_AMPLIFIED_VOLUME_KEY}`,
-      () => this._updateAllowAmplified(),
+    this._soundSettings.connect(`changed::${ALLOW_AMPLIFIED_VOLUME_KEY}`, () =>
+      this._updateAllowAmplified(),
     );
     this._updateAllowAmplified();
 
@@ -48,10 +47,7 @@ export class ApplicationStreamSlider extends QuickSlider {
     });
 
     this._inDrag = false;
-    this._sliderChangedId = this.slider.connect(
-      'notify::value',
-      () => this._sliderChanged(),
-    );
+    this._sliderChangedId = this.slider.connect('notify::value', () => this._sliderChanged());
     this.slider.connect('drag-begin', () => {
       this._inDrag = true;
     });
@@ -130,11 +126,7 @@ export class ApplicationStreamSlider extends QuickSlider {
     this._volumeCancellable = new Gio.Cancellable();
     global.display
       .get_sound_player()
-      .play_from_theme(
-        'audio-volume-change',
-        _('Volume changed'),
-        this._volumeCancellable,
-      );
+      .play_from_theme('audio-volume-change', _('Volume changed'), this._volumeCancellable);
   }
 
   private _updateSlider(): void {
@@ -164,25 +156,18 @@ export class ApplicationStreamSlider extends QuickSlider {
     this._stream.push_volume();
 
     if (volumeChanged && !this._notifyVolumeChangeId && !this._inDrag) {
-      this._notifyVolumeChangeId = GLib.timeout_add(
-        GLib.PRIORITY_DEFAULT,
-        30,
-        () => {
-          this._feedbackVolumeChange();
-          this._notifyVolumeChangeId = 0;
-          return GLib.SOURCE_REMOVE;
-        },
-      );
+      this._notifyVolumeChangeId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 30, () => {
+        this._feedbackVolumeChange();
+        this._notifyVolumeChangeId = 0;
+        return GLib.SOURCE_REMOVE;
+      });
     }
   }
 
   private _updateAllowAmplified(): void {
-    this._allowAmplified = this._soundSettings.getBoolean(
-      ALLOW_AMPLIFIED_VOLUME_KEY,
-    );
+    this._allowAmplified = this._soundSettings.getBoolean(ALLOW_AMPLIFIED_VOLUME_KEY);
     const maxLevel = this._allowAmplified
-      ? this._control.get_vol_max_amplified() /
-        this._control.get_vol_max_norm()
+      ? this._control.get_vol_max_amplified() / this._control.get_vol_max_norm()
       : 1;
     this.slider.maximumValue = maxLevel;
     if (this._stream) this._updateSlider();
@@ -203,9 +188,6 @@ export class ApplicationStreamSlider extends QuickSlider {
   }
 
   vfunc_get_preferred_height(forWidth: number): [number, number] {
-    return super.vfunc_get_preferred_height(forWidth).map(Math.floor) as [
-      number,
-      number,
-    ];
+    return super.vfunc_get_preferred_height(forWidth).map(Math.floor) as [number, number];
   }
 }

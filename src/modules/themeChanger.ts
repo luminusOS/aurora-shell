@@ -1,16 +1,16 @@
 import '@girs/gjs';
 
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
 
 /**
  * ThemeChanger Module
- * 
+ *
  * Monitors the Dark Style toggle and synchronizes it with GNOME's color-scheme setting.
  * - When Dark Style is enabled → sets 'prefer-dark'
  * - When Dark Style is disabled → 'default' → forces to 'prefer-light'
- * 
+ *
  * This ensures consistent theming across GNOME Shell and applications.
  */
 export class ThemeChanger extends Module {

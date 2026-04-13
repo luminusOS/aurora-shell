@@ -9,7 +9,7 @@ import Clutter from '@girs/clutter-17';
 import * as Volume from '@girs/gnome-shell/ui/status/volume';
 
 import { VolumeMixerItem } from '~/modules/volumeMixer/mixerItem.ts';
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 
 /**
  * Container that manages all per-application stream sliders.
@@ -71,8 +71,7 @@ export class VolumeMixerList extends St.BoxLayout {
 
     const stream = this._control.lookup_stream_id(id);
     if (!stream) return;
-    if (stream.is_event_stream || !(stream instanceof Gvc.MixerSinkInput))
-      return;
+    if (stream.is_event_stream || !(stream instanceof Gvc.MixerSinkInput)) return;
 
     const item = new VolumeMixerItem(this._context, this._control, stream, true);
     this._sliders.set(id, item);

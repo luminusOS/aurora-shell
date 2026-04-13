@@ -11,17 +11,15 @@ declare module '@girs/gobject-2.0' {
         [key: string]: any;
       };
     },
-  >(
-    options: {
-      GTypeName?: string;
-      GTypeFlags?: TypeFlags;
-      Properties?: Props;
-      Signals?: Sigs;
-      Implements?: Interfaces;
-      CssName?: string;
-      Template?: string;
-      Children?: string[];
-      InternalChildren?: string[];
-    }
-  ): (target: T, context?: any) => T | void;
+  >(options: {
+    GTypeName?: string;
+    GTypeFlags?: TypeFlags;
+    Properties?: Props;
+    Signals?: Sigs;
+    Implements?: Interfaces;
+    CssName?: string;
+    Template?: string;
+    Children?: string[];
+    InternalChildren?: string[];
+  }): (target: T, context?: any) => T | void;
 }

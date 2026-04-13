@@ -19,7 +19,11 @@ export interface DashBounds {
 const TARGET_BOX_PADDING = 8;
 
 type TargetBoxListener = (bounds: DashBounds | null) => void;
-type TimeoutProp = '_autohideTimeoutId' | '_delayEnsureAutoHideId' | '_blockAutoHideDelayId' | '_workAreaUpdateId';
+type TimeoutProp =
+  | '_autohideTimeoutId'
+  | '_delayEnsureAutoHideId'
+  | '_blockAutoHideDelayId'
+  | '_workAreaUpdateId';
 
 const AUTOHIDE_TIMEOUT = 100;
 const ANIMATION_TIME = 200;
@@ -47,7 +51,7 @@ interface AuroraDashParams {
  */
 @GObject.registerClass
 export class AuroraDash extends Dash {
-  private declare _monitorIndex: number;
+  declare private _monitorIndex: number;
   private _workArea: DashBounds | null = null;
   private _container: St.Bin | null = null;
   private _autohideTimeoutId = 0;
@@ -85,15 +89,18 @@ export class AuroraDash extends Dash {
 
     // Re-evaluate per-monitor app filtering when windows move between monitors
     global.display.connectObject(
-      'window-entered-monitor', () => this._queueRedisplay(),
-      'window-left-monitor', () => this._queueRedisplay(),
-      this
+      'window-entered-monitor',
+      () => this._queueRedisplay(),
+      'window-left-monitor',
+      () => this._queueRedisplay(),
+      this,
     );
 
     // Re-evaluate when the active workspace changes
     global.workspace_manager.connectObject(
-      'active-workspace-changed', () => this._queueRedisplay(),
-      this
+      'active-workspace-changed',
+      () => this._queueRedisplay(),
+      this,
     );
   }
 
@@ -183,11 +190,13 @@ export class AuroraDash extends Dash {
     this._container = container;
 
     (container as any).connectObject?.(
-      'notify::allocation', () => this._queueTargetBoxUpdate(),
-      'destroy', () => {
+      'notify::allocation',
+      () => this._queueTargetBoxUpdate(),
+      'destroy',
+      () => {
         if (this._container === container) this._container = null;
       },
-      this
+      this,
     );
 
     this._queueTargetBoxUpdate();
@@ -240,7 +249,7 @@ export class AuroraDash extends Dash {
         this._onHover();
         this._delayEnsureAutoHideId = 0;
         return GLib.SOURCE_REMOVE;
-      }
+      },
     );
   }
 
@@ -422,9 +431,7 @@ export class AuroraDash extends Dash {
       const hadOwnProp = Object.prototype.hasOwnProperty.call(appSystem, 'get_running');
       const isRelevant = (w: any) => this._isWindowRelevant(w);
       appSystem.get_running = function () {
-        return origGetRunning.call(this).filter((app: any) =>
-          app.get_windows().some(isRelevant)
-        );
+        return origGetRunning.call(this).filter((app: any) => app.get_windows().some(isRelevant));
       };
       try {
         Dash.prototype._redisplay.call(this);
@@ -466,9 +473,11 @@ export class AuroraDash extends Dash {
    * workspace. Windows stuck to all workspaces are always considered relevant.
    */
   private _isWindowRelevant(w: any): boolean {
-    return w.get_monitor() === this._monitorIndex
-      && (w.is_on_all_workspaces?.()
-        || w.get_workspace() === global.workspace_manager.get_active_workspace());
+    return (
+      w.get_monitor() === this._monitorIndex &&
+      (w.is_on_all_workspaces?.() ||
+        w.get_workspace() === global.workspace_manager.get_active_workspace())
+    );
   }
 
   /**
@@ -483,9 +492,7 @@ export class AuroraDash extends Dash {
       const icon = child.child?._delegate;
       if (!icon?.app) continue;
 
-      const hasWindowHere = icon.app.get_windows().some(
-        (w: any) => this._isWindowRelevant(w)
-      );
+      const hasWindowHere = icon.app.get_windows().some((w: any) => this._isWindowRelevant(w));
 
       const dot = icon._dot;
       if (dot) {
@@ -595,9 +602,10 @@ export class AuroraDash extends Dash {
     if (!this._workArea) return;
 
     const dashAny = this as any;
-    const iconChildren = dashAny._box
-      ?.get_children?.()
-      ?.filter((actor: any) => actor.child?._delegate?.icon && !actor.animatingOut) ?? [];
+    const iconChildren =
+      dashAny._box
+        ?.get_children?.()
+        ?.filter((actor: any) => actor.child?._delegate?.icon && !actor.animatingOut) ?? [];
 
     if (dashAny._showAppsIcon) {
       iconChildren.push(dashAny._showAppsIcon);
@@ -676,16 +684,17 @@ export class AuroraDash extends Dash {
   }
 
   private _isFullyShown(): boolean {
-    return this.visible
-      && this.translation_y === 0
-      && this.scale_x === 1
-      && this.scale_y === 1
-      && this.opacity === FULL_OPACITY;
+    return (
+      this.visible &&
+      this.translation_y === 0 &&
+      this.scale_x === 1 &&
+      this.scale_y === 1 &&
+      this.opacity === FULL_OPACITY
+    );
   }
 
   private _isFullyHidden(): boolean {
-    return !this.visible
-      && this.opacity === 0;
+    return !this.visible && this.opacity === 0;
   }
 
   /** Read the allocation box and return `{ width, height }`, or null if empty/missing. */
@@ -695,7 +704,7 @@ export class AuroraDash extends Dash {
 
     const width = Math.max(0, (alloc.x2 ?? 0) - (alloc.x1 ?? 0));
     const height = Math.max(0, (alloc.y2 ?? 0) - (alloc.y1 ?? 0));
-    return (width > 0 && height > 0) ? { width, height } : null;
+    return width > 0 && height > 0 ? { width, height } : null;
   }
 
   private _hasValidAllocation(): boolean {

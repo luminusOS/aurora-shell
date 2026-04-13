@@ -1,17 +1,13 @@
 import Meta from '@girs/meta-17';
 
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 
-const PIP_TITLES = [
-  'Picture-in-Picture',
-  'Picture in picture',
-  'Picture-in-picture',
-];
+const PIP_TITLES = ['Picture-in-Picture', 'Picture in picture', 'Picture-in-picture'];
 
 /**
  * PipOnTop Module
- * 
+ *
  * Automatically keeps Picture-in-Picture (PiP) windows above other windows.
  * It detects PiP windows based on their title and ensures they are always on top.
  * This enhances the user experience by preventing PiP windows from being accidentally hidden behind other windows.
@@ -27,10 +23,7 @@ export class PipOnTop extends Module {
 
   override enable(): void {
     // @ts-ignore
-    global.window_manager.connectObject(
-      'switch-workspace', () => this._onSwitchWorkspace(),
-      this
-    );
+    global.window_manager.connectObject('switch-workspace', () => this._onSwitchWorkspace(), this);
     this._onSwitchWorkspace();
   }
 
@@ -52,11 +45,11 @@ export class PipOnTop extends Module {
     const workspace = global.workspace_manager.get_active_workspace();
     this._lastWorkspace = workspace;
 
-    this._windowAddedId = workspace.connect(
-      'window-added', (_ws: any, window: any) => this._onWindowAdded(window)
+    this._windowAddedId = workspace.connect('window-added', (_ws: any, window: any) =>
+      this._onWindowAdded(window),
     );
-    this._windowRemovedId = workspace.connect(
-      'window-removed', (_ws: any, window: any) => this._onWindowRemoved(window)
+    this._windowRemovedId = workspace.connect('window-removed', (_ws: any, window: any) =>
+      this._onWindowRemoved(window),
     );
 
     const windows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
@@ -81,9 +74,7 @@ export class PipOnTop extends Module {
 
   private _onWindowAdded(window: any): void {
     if (!window._notifyPipTitleId) {
-      window._notifyPipTitleId = window.connect(
-        'notify::title', () => this._checkTitle(window)
-      );
+      window._notifyPipTitleId = window.connect('notify::title', () => this._checkTitle(window));
     }
     this._checkTitle(window);
   }
@@ -98,8 +89,7 @@ export class PipOnTop extends Module {
   private _checkTitle(window: any): void {
     if (!window.title) return;
 
-    const isPip = PIP_TITLES.some(t => window.title === t)
-      || window.title.endsWith(' - PiP');
+    const isPip = PIP_TITLES.some((t) => window.title === t) || window.title.endsWith(' - PiP');
 
     if (isPip) {
       window._isPipManaged = true;

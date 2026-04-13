@@ -4,7 +4,7 @@ import St from '@girs/st-17';
 import Clutter from '@girs/clutter-17';
 import * as AltTab from '@girs/gnome-shell/ui/altTab';
 
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 import { loadIcon } from '~/shared/icons.ts';
 import { Module } from '~/module.ts';
 
@@ -64,9 +64,7 @@ export class XwaylandIndicator extends Module {
 
       const isX11 = app
         .get_windows()
-        .some(
-          (w: any) => w.get_client_type?.() === Meta.WindowClientType.X11,
-        );
+        .some((w: any) => w.get_client_type?.() === Meta.WindowClientType.X11);
 
       if (isX11 && items[i]) {
         this._addBadge(items[i]);
@@ -80,10 +78,7 @@ export class XwaylandIndicator extends Module {
 
     windows.forEach((win: any, i: number) => {
       try {
-        if (
-          win.get_client_type?.() === Meta.WindowClientType.X11 &&
-          items[i]
-        ) {
+        if (win.get_client_type?.() === Meta.WindowClientType.X11 && items[i]) {
           this._addBadge(items[i]);
         }
       } catch {

@@ -8,7 +8,7 @@ import type Gvc from 'gi://Gvc';
 import Clutter from '@girs/clutter-17';
 
 import { ApplicationStreamSlider } from '~/modules/volumeMixer/streamSlider.ts';
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 
 /**
  * A single item in the volume mixer list.
@@ -61,25 +61,19 @@ export class VolumeMixerItem extends St.BoxLayout {
 
     const appId = this._stream.get_application_id();
     if (appId) {
-      const app =
-        appSystem.lookup_app(`${appId}.desktop`) ||
-        appSystem.lookup_app(appId);
+      const app = appSystem.lookup_app(`${appId}.desktop`) || appSystem.lookup_app(appId);
       if (app) return app;
     }
 
     const iconName = this._stream.get_icon_name();
     if (iconName) {
-      const app =
-        appSystem.lookup_app(`${iconName}.desktop`) ||
-        appSystem.lookup_app(iconName);
+      const app = appSystem.lookup_app(`${iconName}.desktop`) || appSystem.lookup_app(iconName);
       if (app) return app;
     }
 
     const name = this._stream.get_name();
     if (name) {
-      const app =
-        appSystem.lookup_desktop_wmclass(name) ||
-        appSystem.lookup_startup_wmclass(name);
+      const app = appSystem.lookup_desktop_wmclass(name) || appSystem.lookup_startup_wmclass(name);
       if (app) return app;
     }
 

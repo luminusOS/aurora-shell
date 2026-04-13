@@ -39,46 +39,64 @@ export class DockHotArea extends St.Widget {
     this._pressureBarrier = new Layout.PressureBarrier(
       HOT_AREA_TRIGGER_SPEED,
       HOT_AREA_TRIGGER_TIMEOUT,
-      Shell.ActionMode.ALL
+      Shell.ActionMode.ALL,
     );
 
-    this._pressureBarrier.connectObject('trigger', () => {
-      if (this._triggerAllowed) this.emit('triggered');
-    }, this);
+    this._pressureBarrier.connectObject(
+      'trigger',
+      () => {
+        if (this._triggerAllowed) this.emit('triggered');
+      },
+      this,
+    );
 
     // @ts-ignore
-    this.connectObject('enter-event', () => {
-      if (this._triggerAllowed) {
-        this._clearDebounceTimer();
+    this.connectObject(
+      'enter-event',
+      () => {
+        if (this._triggerAllowed) {
+          this._clearDebounceTimer();
 
-        this._pointerDwellTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_DEBOUNCE_TIMEOUT, () => {
-          this.emit('triggered');
+          this._pointerDwellTimeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            HOT_AREA_DEBOUNCE_TIMEOUT,
+            () => {
+              this.emit('triggered');
+              this._pointerDwellTimeoutId = 0;
+              return GLib.SOURCE_REMOVE;
+            },
+          );
+        }
+        return Clutter.EVENT_PROPAGATE;
+      },
+      this,
+    );
+
+    // @ts-ignore
+    this.connectObject(
+      'leave-event',
+      () => {
+        if (this._pointerDwellTimeoutId) {
+          GLib.source_remove(this._pointerDwellTimeoutId);
           this._pointerDwellTimeoutId = 0;
-          return GLib.SOURCE_REMOVE;
-        });
-      }
-      return Clutter.EVENT_PROPAGATE;
-    }, this);
-
-    // @ts-ignore
-    this.connectObject('leave-event', () => {
-      if (this._pointerDwellTimeoutId) {
-        GLib.source_remove(this._pointerDwellTimeoutId);
-        this._pointerDwellTimeoutId = 0;
-      }
-      return Clutter.EVENT_PROPAGATE;
-    }, this);
+        }
+        return Clutter.EVENT_PROPAGATE;
+      },
+      this,
+    );
 
     // Suppress triggers while the user is dragging a window
     // @ts-ignore
     global.display.connectObject(
-      'grab-op-begin', (_d: any, _w: any, op: Meta.GrabOp) => {
+      'grab-op-begin',
+      (_d: any, _w: any, op: Meta.GrabOp) => {
         if (op === Meta.GrabOp.MOVING) this._triggerAllowed = false;
       },
-      'grab-op-end', (_d: any, _w: any, op: Meta.GrabOp) => {
+      'grab-op-end',
+      (_d: any, _w: any, op: Meta.GrabOp) => {
         if (op === Meta.GrabOp.MOVING) this._triggerAllowed = true;
       },
-      this
+      this,
     );
   }
 

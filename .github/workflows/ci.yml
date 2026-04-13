@@ -29,11 +29,13 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Type-check
-        run: yarn validate
+      - name: Install just
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y just
 
-      - name: Lint
-        run: yarn lint
+      - name: Validate
+        run: just validate
 
   unit-tests:
     name: Unit & regression tests

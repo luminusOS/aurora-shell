@@ -6,7 +6,7 @@ import GLib from '@girs/glib-2.0';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
 import { DockHotArea } from '~/modules/dock/hotArea.ts';
@@ -57,31 +57,33 @@ export class Dock extends Module {
 
     this._rebuildBindings();
     Main.layoutManager.connectObject(
-      'monitors-changed', () => this._rebuildBindings(),
-      'hot-corners-changed', () => this._rebuildBindings(),
-      this
+      'monitors-changed',
+      () => this._rebuildBindings(),
+      'hot-corners-changed',
+      () => this._rebuildBindings(),
+      this,
     );
     global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this);
     Main.sessionMode.connectObject('updated', () => this._refreshBindingsLayout(), this);
 
     Main.overview.connectObject(
-      'showing', () => this._setOverviewVisible(true),
-      'hidden', () => this._setOverviewVisible(false),
-      this
+      'showing',
+      () => this._setOverviewVisible(true),
+      'hidden',
+      () => this._setOverviewVisible(false),
+      this,
     );
 
     this._dockSettings?.connectObject?.(
-      'changed::dock-always-show', () => {
+      'changed::dock-always-show',
+      () => {
         this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
         this._rebuildBindings();
       },
-      this
+      this,
     );
 
-    this.context.signals.connectObject(
-      'icons-woven', () => this._refreshBindingsLayout(),
-      this
-    );
+    this.context.signals.connectObject('icons-woven', () => this._refreshBindingsLayout(), this);
   }
 
   override disable(): void {
@@ -152,8 +154,9 @@ export class Dock extends Module {
       dash.setFlushMode(true);
       dash.blockAutoHide(true);
       container.connectObject(
-        'notify::allocation', () => this._updateStrutFromContainer(binding),
-        this
+        'notify::allocation',
+        () => this._updateStrutFromContainer(binding),
+        this,
       );
     } else {
       const intellihide = new DockIntellihide(monitorIndex);
@@ -162,17 +165,21 @@ export class Dock extends Module {
 
       binding.hotArea = this._createHotArea(binding, monitor);
 
-      intellihide.connectObject('status-changed', () => {
-        if (binding.hotAreaActive) return;
+      intellihide.connectObject(
+        'status-changed',
+        () => {
+          if (binding.hotAreaActive) return;
 
-        if (intellihide.status === OverlapStatus.CLEAR) {
-          this._clearHotAreaReveal(binding);
-          dash.blockAutoHide(true);
-          dash.show(true);
-        } else if (intellihide.status === OverlapStatus.BLOCKED) {
-          dash.blockAutoHide(false);
-        }
-      }, this);
+          if (intellihide.status === OverlapStatus.CLEAR) {
+            this._clearHotAreaReveal(binding);
+            dash.blockAutoHide(true);
+            dash.show(true);
+          } else if (intellihide.status === OverlapStatus.BLOCKED) {
+            dash.blockAutoHide(false);
+          }
+        },
+        this,
+      );
     }
 
     return binding;
@@ -201,7 +208,10 @@ export class Dock extends Module {
     binding.strutActor.set_position(monitor.x, monitor.y + monitor.height - h);
   }
 
-  private _createHotArea(binding: ManagedDockBinding, monitor: DashBounds): InstanceType<typeof DockHotArea> | null {
+  private _createHotArea(
+    binding: ManagedDockBinding,
+    monitor: DashBounds,
+  ): InstanceType<typeof DockHotArea> | null {
     if (monitor.width <= 0 || monitor.height <= 0) return null;
 
     const hotArea = new DockHotArea(monitor);
@@ -328,34 +338,40 @@ export class Dock extends Module {
     binding.dash.blockAutoHide(true);
     binding.dash.show(true);
 
-    binding.autoHideReleaseId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_REVEAL_DURATION, () => {
-      // Keep the dock visible while the cursor is in the dock area.
-      // This prevents a show/hide/re-trigger cycle when overlapping
-      // windows cause BLOCKED status but the user is still at the
-      // bottom of the screen trying to use the dock.
-      const dashBounds = binding.dash.targetBox;
-      if (dashBounds) {
-        const [cursorX, cursorY] = global.get_pointer();
-        if (cursorY >= dashBounds.y
-          && cursorX >= dashBounds.x
-          && cursorX <= dashBounds.x + dashBounds.width) {
-          return GLib.SOURCE_CONTINUE;
+    binding.autoHideReleaseId = GLib.timeout_add(
+      GLib.PRIORITY_DEFAULT,
+      HOT_AREA_REVEAL_DURATION,
+      () => {
+        // Keep the dock visible while the cursor is in the dock area.
+        // This prevents a show/hide/re-trigger cycle when overlapping
+        // windows cause BLOCKED status but the user is still at the
+        // bottom of the screen trying to use the dock.
+        const dashBounds = binding.dash.targetBox;
+        if (dashBounds) {
+          const [cursorX, cursorY] = global.get_pointer();
+          if (
+            cursorY >= dashBounds.y &&
+            cursorX >= dashBounds.x &&
+            cursorX <= dashBounds.x + dashBounds.width
+          ) {
+            return GLib.SOURCE_CONTINUE;
+          }
         }
-      }
 
-      binding.autoHideReleaseId = 0;
-      binding.hotAreaActive = false;
+        binding.autoHideReleaseId = 0;
+        binding.hotAreaActive = false;
 
-      if (binding.intellihide?.status === OverlapStatus.CLEAR) {
-        binding.dash.blockAutoHide(true);
-        binding.dash.show(true);
-      } else {
-        binding.dash.blockAutoHide(false);
-        binding.dash.ensureAutoHide();
-      }
+        if (binding.intellihide?.status === OverlapStatus.CLEAR) {
+          binding.dash.blockAutoHide(true);
+          binding.dash.show(true);
+        } else {
+          binding.dash.blockAutoHide(false);
+          binding.dash.ensureAutoHide();
+        }
 
-      return GLib.SOURCE_REMOVE;
-    });
+        return GLib.SOURCE_REMOVE;
+      },
+    );
   }
 
   private _clearHotAreaReveal(binding: ManagedDockBinding): void {
