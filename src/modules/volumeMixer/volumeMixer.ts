@@ -7,7 +7,7 @@ import Gio from '@girs/gio-2.0';
 import type { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
-import type { ExtensionContext } from "~/core/context.ts";
+import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
 import { loadIcon } from '~/shared/icons.ts';
@@ -32,10 +32,8 @@ import { loadIcon } from '~/shared/icons.ts';
 export class VolumeMixer extends Module {
   private _panel: InstanceType<typeof VolumeMixerPanel> | null = null;
   private _toggleButton: St.Button | null = null;
-  private _menuSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null =
-    null;
-  private _settingsSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null =
-    null;
+  private _menuSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null = null;
+  private _settingsSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null = null;
   private _outputSlider: QuickSlider | null = null;
   private _menuClosedId = 0;
   private _gridChildAddedId = 0;
@@ -132,15 +130,10 @@ export class VolumeMixer extends Module {
     this._menuSection.box.hide();
 
     this._settingsSection = new PopupMenu.PopupMenuSection();
-    const settingsItem = new PopupMenu.PopupMenuItem(
-      _('Sound Settings'),
-    );
+    const settingsItem = new PopupMenu.PopupMenuItem(_('Sound Settings'));
     settingsItem.connect('activate', () => {
       try {
-        Gio.Subprocess.new(
-          ['gnome-control-center', 'sound'],
-          Gio.SubprocessFlags.NONE,
-        );
+        Gio.Subprocess.new(['gnome-control-center', 'sound'], Gio.SubprocessFlags.NONE);
       } catch (e) {
         console.error(`Aurora Shell: Failed to open sound settings: ${e}`);
       }

@@ -1,0 +1,39 @@
+{
+  "extends": ["stylelint-config-recommended-scss"],
+  "rules": {
+    "no-empty-source": null,
+    "scss/no-global-function-names": null,
+    "property-no-unknown": [
+      true,
+      {
+        "ignoreProperties": [
+          "offset-y",
+          "selection-background-color",
+          "selected-color",
+          "spacing",
+          "icon-size",
+          "z-position",
+          "icon-shadow"
+        ]
+      }
+    ],
+    "selector-pseudo-class-no-unknown": [
+      true,
+      {
+        "ignorePseudoClasses": [
+          "insensitive",
+          "selected",
+          "outlined",
+          "overview",
+          "highlighted"
+        ]
+      }
+    ],
+    "selector-type-no-unknown": [
+      true,
+      {
+        "ignoreTypes": ["/^St/"]
+      }
+    ]
+  }
+}

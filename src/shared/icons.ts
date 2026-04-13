@@ -28,11 +28,7 @@ export class IconThemeLoader {
   }
 
   lookupIcon(name: string): Gio.Icon {
-    const icon = this.#theme.lookup_icon(
-      name,
-      16,
-      St.IconLookupFlags.FORCE_SVG,
-    );
+    const icon = this.#theme.lookup_icon(name, 16, St.IconLookupFlags.FORCE_SVG);
 
     if (!icon) {
       throw new Error(`Icon ${name} not found`);

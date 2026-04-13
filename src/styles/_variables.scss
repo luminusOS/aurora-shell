@@ -36,48 +36,44 @@ $aurora-tooltip-fg: palette.$light-1;
 $aurora-tooltip-border: 1px solid rgba(255, 255, 255, 0.1);
 
 @if $variant == 'light' {
-	$aurora-panel-bg: palette.$light-0;
-	$aurora-panel-fg: palette.$dark-1;
-	$aurora-panel-border: inset 0 -1px 0 0 #d6d6d6;
-	$aurora-overview-bg: palette.$light-1;
-	$aurora-overview-hover-bg: rgba(0, 0, 0, 0.04);
-	$aurora-overview-active-bg: rgba(0, 0, 0, 0.08);
-	$aurora-overview-selected-bg: rgba(0, 0, 0, 0.06);
-	$aurora-overview-checked-bg: rgba(0, 0, 0, 0.1);
-	$aurora-overview-folder-bg: palette.$light-2;
-	$aurora-overview-search-bg: palette.$light-2;
-	$aurora-overview-search-hover-bg: st-darken(palette.$light-2, 3%);
-	$aurora-overview-search-focus-bg: st-darken(palette.$light-2, 5%);
-	$aurora-overview-search-fg: palette.$dark-1;
-	$aurora-overview-fg: palette.$dark-1;
+  $aurora-panel-bg: palette.$light-0;
+  $aurora-panel-fg: palette.$dark-1;
+  $aurora-panel-border: inset 0 -1px 0 0 #d6d6d6;
+  $aurora-overview-bg: palette.$light-1;
+  $aurora-overview-hover-bg: rgba(0, 0, 0, 0.04);
+  $aurora-overview-active-bg: rgba(0, 0, 0, 0.08);
+  $aurora-overview-selected-bg: rgba(0, 0, 0, 0.06);
+  $aurora-overview-checked-bg: rgba(0, 0, 0, 0.1);
+  $aurora-overview-folder-bg: palette.$light-2;
+  $aurora-overview-search-bg: palette.$light-2;
+  $aurora-overview-search-hover-bg: st-darken(palette.$light-2, 3%);
+  $aurora-overview-search-focus-bg: st-darken(palette.$light-2, 5%);
+  $aurora-overview-search-fg: palette.$dark-1;
+  $aurora-overview-fg: palette.$dark-1;
 
-	$aurora-tooltip-bg: palette.$light-1;
-	$aurora-tooltip-fg: palette.$dark-1;
-	$aurora-tooltip-border: 1px solid rgba(0, 0, 0, 0.1);
+  $aurora-tooltip-bg: palette.$light-1;
+  $aurora-tooltip-fg: palette.$dark-1;
+  $aurora-tooltip-border: 1px solid rgba(0, 0, 0, 0.1);
 
-	$aurora-dash-bg: palette.$light-0;
-	$aurora-dash-icon-color: palette.$dark-1;
-	$aurora-dash-separator-color: color.adjust(palette.$dark-1, $alpha: -0.9);
-	$aurora-dash-hover-bg: rgba(0, 0, 0, 0.05);
-	$aurora-dash-active-bg: rgba(0, 0, 0, 0.08);
-	$aurora-dash-active-hover-bg: rgba(0, 0, 0, 0.08);
-	$aurora-dash-checked-bg: rgba(0, 0, 0, 0.07);
-	$aurora-dash-checked-hover-bg: rgba(0, 0, 0, 0.07);
-	$aurora-dash-checked-active-bg: rgba(0, 0, 0, 0.08);
-	}
+  $aurora-dash-bg: palette.$light-0;
+  $aurora-dash-icon-color: palette.$dark-1;
+  $aurora-dash-separator-color: color.adjust(palette.$dark-1, $alpha: -0.9);
+  $aurora-dash-hover-bg: rgba(0, 0, 0, 0.05);
+  $aurora-dash-active-bg: rgba(0, 0, 0, 0.08);
+  $aurora-dash-active-hover-bg: rgba(0, 0, 0, 0.08);
+  $aurora-dash-checked-bg: rgba(0, 0, 0, 0.07);
+  $aurora-dash-checked-hover-bg: rgba(0, 0, 0, 0.07);
+  $aurora-dash-checked-active-bg: rgba(0, 0, 0, 0.08);
+}
 
-$aurora-dash-focus-bg: st-mix(
-	st-mix(-st-accent-color, #ffffff, 60%),
-	#30303040,
-	5%
-);
+$aurora-dash-focus-bg: st-mix(st-mix(-st-accent-color, #ffffff, 60%), #30303040, 5%);
 $aurora-dash-focus-hover-bg: st-mix(
-	st-mix(-st-accent-color, #ffffff, 60%),
-	$aurora-dash-hover-bg,
-	5%
+  st-mix(-st-accent-color, #ffffff, 60%),
+  $aurora-dash-hover-bg,
+  5%
 );
 $aurora-dash-active-focus-bg: st-mix(
-	st-mix(-st-accent-color, #ffffff, 60%),
-	$aurora-dash-active-bg,
-	5%
+  st-mix(-st-accent-color, #ffffff, 60%),
+  $aurora-dash-active-bg,
+  5%
 );

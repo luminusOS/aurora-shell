@@ -36,8 +36,8 @@ export enum OverlapStatus {
   Signals: { 'status-changed': {} },
 })
 export class DockIntellihide extends GObject.Object {
-  private declare _monitorIndex: number;
-  private declare _tracker: Shell.WindowTracker | null;
+  declare private _monitorIndex: number;
+  declare private _tracker: Shell.WindowTracker | null;
   private _targetBox: DashBounds | null = null;
   private _status: OverlapStatus = OverlapStatus.CLEAR;
   private _focusActor: any = null;
@@ -48,20 +48,30 @@ export class DockIntellihide extends GObject.Object {
     this._tracker = Shell.WindowTracker.get_default() ?? null;
 
     global.display.connectObject(
-      'window-entered-monitor', () => this._checkOverlap(),
-      'window-left-monitor', () => this._checkOverlap(),
-      'restacked', () => this._checkOverlap(),
-      'notify::focus-window', () => this._checkOverlap(),
-      this
+      'window-entered-monitor',
+      () => this._checkOverlap(),
+      'window-left-monitor',
+      () => this._checkOverlap(),
+      'restacked',
+      () => this._checkOverlap(),
+      'notify::focus-window',
+      () => this._checkOverlap(),
+      this,
     );
 
     Main.layoutManager.connectObject('monitors-changed', () => this._checkOverlap(), this);
     this._tracker?.connectObject('notify::focus-app', () => this._checkOverlap(), this);
-    Main.keyboard.connectObject('visibility-changed', () => this._onKeyboardVisibilityChanged(), this);
+    Main.keyboard.connectObject(
+      'visibility-changed',
+      () => this._onKeyboardVisibilityChanged(),
+      this,
+    );
     Main.overview.connectObject(
-      'showing', () => this._applyOverlap(false, true),
-      'hidden', () => this._checkOverlap(),
-      this
+      'showing',
+      () => this._applyOverlap(false, true),
+      'hidden',
+      () => this._checkOverlap(),
+      this,
     );
   }
 
@@ -103,9 +113,13 @@ export class DockIntellihide extends GObject.Object {
       // Track the focused window's allocation to update overlap in real time
       this._focusActor = focusWin.get_compositor_private();
       if (this._focusActor) {
-        this._focusActor.connectObject('notify::allocation', () => {
-          this._applyOverlap(this._doesOverlap(focusWin.get_frame_rect()));
-        }, this);
+        this._focusActor.connectObject(
+          'notify::allocation',
+          () => {
+            this._applyOverlap(this._doesOverlap(focusWin.get_frame_rect()));
+          },
+          this,
+        );
       }
       return;
     }
@@ -114,7 +128,8 @@ export class DockIntellihide extends GObject.Object {
   }
 
   private _checkRemainingWindows(): void {
-    const windows = global.get_window_actors()
+    const windows = global
+      .get_window_actors()
       .map((actor: any) => actor.meta_window)
       .filter((win: Meta.Window) => this._isCandidateWindow(win));
 

@@ -70,15 +70,17 @@ export class IconWeave extends Module {
     this._originalAppGetWindows = appProto.get_windows;
     appProto.get_windows = function () {
       const windows = self._originalAppGetWindows.call(this);
+      const thisId = this.get_id();
+
       // Remove windows that have been re-mapped to a different app so that the
       // original window-backed app (window:XXXX) becomes empty and is dropped
       // from the dock, preventing a duplicate icon.
       const filtered = windows.filter((win: any) => {
         const mappedApp = self._windowAppMap.get(win);
-        return !mappedApp || mappedApp === this;
+        return !mappedApp || mappedApp.get_id() === thisId;
       });
       for (const [win, app] of self._windowAppMap.entries()) {
-        if (app === this && !filtered.includes(win)) {
+        if (app.get_id() === thisId && !filtered.includes(win)) {
           filtered.push(win);
         }
       }
@@ -90,8 +92,9 @@ export class IconWeave extends Module {
     appProto.get_state = function () {
       const state = self._originalAppGetState.call(this);
       if (state === Shell.AppState.STOPPED) {
+        const thisId = this.get_id();
         for (const app of self._windowAppMap.values()) {
-          if (app === this) return Shell.AppState.RUNNING;
+          if (app.get_id() === thisId) return Shell.AppState.RUNNING;
         }
       }
       return state;
@@ -104,8 +107,9 @@ export class IconWeave extends Module {
     this._originalActivate = appProto.activate;
     appProto.activate = function () {
       const mappedWindows: any[] = [];
+      const thisId = this.get_id();
       for (const [win, app] of self._windowAppMap.entries()) {
-        if (app === this) mappedWindows.push(win);
+        if (app.get_id() === thisId) mappedWindows.push(win);
       }
       if (mappedWindows.length > 0) {
         let best = mappedWindows[0];
@@ -123,9 +127,12 @@ export class IconWeave extends Module {
     this._originalGetRunning = systemProto.get_running;
     systemProto.get_running = function () {
       const running = self._originalGetRunning.call(this);
+      const runningIds = new Set(running.map((r: any) => r.get_id()));
       for (const app of self._windowAppMap.values()) {
-        if (!running.includes(app)) {
+        const appId = app.get_id();
+        if (!runningIds.has(appId)) {
           running.push(app);
+          runningIds.add(appId);
         }
       }
       return running;
@@ -247,7 +254,11 @@ export class IconWeave extends Module {
         this._timeoutSources.delete(id);
         if (!done) {
           done = true;
-          try { actor.disconnect(frameId); } catch (_e) { /* signal may already be disconnected */ }
+          try {
+            actor.disconnect(frameId);
+          } catch (_e) {
+            /* signal may already be disconnected */
+          }
           this._actorConnections.delete(actor);
           this._inspectWindow(win);
         }
@@ -303,7 +314,10 @@ export class IconWeave extends Module {
         // We already processed this class, but this is a new window.
         // Try to find if we have a mapped app for another window with same class
         for (const [mappedWin, app] of this._windowAppMap.entries()) {
-          if (mappedWin.get_wm_class() === wmClass || mappedWin.get_gtk_application_id() === appId) {
+          if (
+            mappedWin.get_wm_class() === wmClass ||
+            mappedWin.get_gtk_application_id() === appId
+          ) {
             this._windowAppMap.set(win, app);
 
             this.context.signals.emit('icons-woven');
@@ -316,11 +330,15 @@ export class IconWeave extends Module {
         return;
       }
 
-      this.context.logger.log(`[IconWeave] untracked window: title="${title}" wm_class="${wmClass}" app_id="${appId}"`);
+      this.context.logger.log(
+        `[IconWeave] untracked window: title="${title}" wm_class="${wmClass}" app_id="${appId}"`,
+      );
 
       const candidate = this._findBestCandidate(wmClass, appId, title);
       if (candidate) {
-        this.context.logger.log(`[IconWeave] match found: ${candidate.get_id()} — applying memory fix`);
+        this.context.logger.log(
+          `[IconWeave] match found: ${candidate.get_id()} — applying memory fix`,
+        );
         this._windowAppMap.set(win, candidate);
 
         // Notify the bus that we found an icon, so other modules like Dock can refresh
@@ -409,7 +427,9 @@ export class IconWeave extends Module {
     }
 
     if (bestScore >= MIN_MATCH_SCORE) {
-      this.context.logger.log(`[IconWeave] heuristic match score=${bestScore}: ${bestApp.get_id()}`);
+      this.context.logger.log(
+        `[IconWeave] heuristic match score=${bestScore}: ${bestApp.get_id()}`,
+      );
       return bestApp;
     }
 
@@ -429,8 +449,8 @@ export class IconWeave extends Module {
 
     // Check if wmClass matches the app name abbreviation (e.g. "cs2" for "Counter-Strike 2")
     const appName = (app.get_name() ?? '').toLowerCase();
-    const words = appName.split(/[^a-z0-9]/).filter(w => w.length > 0);
-    const abbreviation = words.map(w => w[0]).join('');
+    const words = appName.split(/[^a-z0-9]/).filter((w) => w.length > 0);
+    const abbreviation = words.map((w) => w[0]).join('');
     if (nWm === abbreviation && abbreviation.length >= 2) return true;
 
     return false;
@@ -442,17 +462,21 @@ export class IconWeave extends Module {
     const shortId = desktopId.split('.').pop() ?? desktopId;
 
     // Prevent subprocess IDs (e.g. steam_app_1234) matching a parent (steam.desktop)
-    if (wmClass && (
-      wmClass.startsWith(`${desktopId}_`) || wmClass.startsWith(`${shortId}_`) ||
-      wmClass.startsWith(`${desktopId}-`) || wmClass.startsWith(`${shortId}-`)
-    )) return 0;
+    if (
+      wmClass &&
+      (wmClass.startsWith(`${desktopId}_`) ||
+        wmClass.startsWith(`${shortId}_`) ||
+        wmClass.startsWith(`${desktopId}-`) ||
+        wmClass.startsWith(`${shortId}-`))
+    )
+      return 0;
 
     if (this._isSteamGame(app, wmClass)) return 99;
 
     let score = 0;
 
-    const words = appName.split(/[^a-z0-9]/).filter(w => w.length > 0);
-    const abbreviation = words.map(w => w[0]).join('');
+    const words = appName.split(/[^a-z0-9]/).filter((w) => w.length > 0);
+    const abbreviation = words.map((w) => w[0]).join('');
 
     const nWm = this._normalize(wmClass);
     const nAppName = this._normalize(appName);

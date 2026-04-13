@@ -48,7 +48,8 @@ function parseFactoryKeys(): string[] {
     throw new Error('Could not locate MODULE_FACTORIES in extension.ts');
 
   const body = factoriesMatch[1];
-  const keyRe = /'([^']+)':\s*\([^)]*\)/g;
+  // Match both quoted keys ('no-overview': () => ...) and unquoted keys (dock: () => ...)
+  const keyRe = /'?([^',\s:]+)'?\s*:\s*\([^)]*\)/g;
   const keys: string[] = [];
   let m;
   while ((m = keyRe.exec(body)) !== null)

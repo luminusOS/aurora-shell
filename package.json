@@ -12,8 +12,11 @@
     "build": "yarn clear && yarn build:css && yarn build:ts",
     "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",
     "validate": "tsc --noEmit",
+    "prettier:check": "prettier --check \"src/**/*.{ts,scss}\"",
+    "stylelint": "stylelint \"src/styles/**/*.scss\"",
     "watch:css": "tsx sass.config.ts --watch",
-    "test:unit": "node --import tsx/esm --test tests/unit/metadata.test.ts tests/unit/schema.test.ts tests/unit/registry.test.ts"
+    "test:unit": "node --import tsx/esm --test tests/unit/metadata.test.ts tests/unit/schema.test.ts tests/unit/registry.test.ts",
+    "test:unit:coverage": "node --import tsx/esm --experimental-test-coverage --test tests/unit/metadata.test.ts tests/unit/schema.test.ts tests/unit/registry.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -26,9 +29,12 @@
     "cross-env": "^10.1.0",
     "esbuild": "^0.25.11",
     "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
     "jiti": "^2.6.1",
     "prettier": "^3.8.1",
     "sass": "^1.93.2",
+    "stylelint": "^17.7.0",
+    "stylelint-config-recommended-scss": "^17.0.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.4"

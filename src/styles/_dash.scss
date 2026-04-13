@@ -48,13 +48,13 @@
 #dash .dash-item-container .overview-tile:active .overview-icon,
 #dash .dash-item-container .grid-search-result:active .overview-icon {
   color: vars.$aurora-dash-icon-color;
-  background-color: vars.$aurora-dash-active-bg; 
+  background-color: vars.$aurora-dash-active-bg;
 }
 
 #dash .dash-item-container .show-apps:active .overview-icon:hover,
 #dash .dash-item-container .overview-tile:active .overview-icon:hover,
 #dash .dash-item-container .grid-search-result:active .overview-icon:hover {
-  background-color: vars.$aurora-dash-active-hover-bg; 
+  background-color: vars.$aurora-dash-active-hover-bg;
 }
 
 #dash .dash-item-container .show-apps:active .overview-icon:focus,
@@ -67,35 +67,36 @@
 #dash .dash-item-container .overview-tile:checked .overview-icon,
 #dash .dash-item-container .grid-search-result:checked .overview-icon {
   color: vars.$aurora-dash-icon-color;
-  background-color: vars.$aurora-dash-checked-bg; 
+  background-color: vars.$aurora-dash-checked-bg;
 }
 
 #dash .dash-item-container .show-apps:checked .overview-icon:hover,
 #dash .dash-item-container .overview-tile:checked .overview-icon:hover,
 #dash .dash-item-container .grid-search-result:checked .overview-icon:hover {
-  background-color: vars.$aurora-dash-checked-hover-bg; 
+  background-color: vars.$aurora-dash-checked-hover-bg;
 }
 
 #dash .dash-item-container .show-apps:checked .overview-icon:active,
 #dash .dash-item-container .overview-tile:checked .overview-icon:active,
 #dash .dash-item-container .grid-search-result:checked .overview-icon:active {
-  background-color: vars.$aurora-dash-checked-active-bg; 
+  background-color: vars.$aurora-dash-checked-active-bg;
 }
 
 #dash .dash-separator {
-    width: 1px;
-    margin-left: 4px;
-    margin-right: 4px;
-    background-color: vars.$aurora-dash-separator-color;
+  width: 1px;
+  margin-left: 4px;
+  margin-right: 4px;
+  background-color: vars.$aurora-dash-separator-color;
 }
 
 #dash.flush-mode {
   margin-bottom: 0;
 
-  .dash-background, .dash-separator {
+  .dash-background,
+  .dash-separator {
     margin-bottom: 0;
   }
-  
+
   .dash-item-container {
     margin-top: 12px;
   }

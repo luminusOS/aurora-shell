@@ -1,7 +1,7 @@
 import '@girs/gjs';
 
-import Adw from "@girs/adw-1";
-import Gio from "@girs/gio-2.0";
+import Adw from '@girs/adw-1';
+import Gio from '@girs/gio-2.0';
 
 import { ExtensionPreferences, gettext as _ } from '@girs/gnome-shell/extensions/prefs';
 import { getModuleRegistry, type ModuleDefinition } from '~/registry.ts';

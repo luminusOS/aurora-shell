@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "./core/context.ts";
+import type { ExtensionContext } from './core/context.ts';
 
 /**
  * Abstract base class for Aurora Shell modules
