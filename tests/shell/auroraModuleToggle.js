@@ -29,7 +29,8 @@ const MODULE_SETTINGS_KEYS = [
   'module-dock',
   'module-volume-mixer',
   'module-xwayland-indicator',
-  'module-dnd-on-share',
+  'module-privacy',
+  'module-auto-theme-switcher',
 ];
 
 export var METRICS = {};

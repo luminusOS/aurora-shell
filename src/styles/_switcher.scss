@@ -1,3 +1,4 @@
+@use 'sass:color';
 @use 'variables' as vars;
 
 /* App Switcher (Alt+Tab), Workspace Switcher, OSD, etc. */
@@ -46,4 +47,17 @@
   &:highlighted {
     color: vars.$aurora-overview-fg !important;
   }
+}
+
+.ws-switcher-indicator {
+  background-color: color.adjust(vars.$aurora-overview-fg, $alpha: -0.5);
+
+  &:active {
+    background-color: vars.$aurora-overview-fg;
+  }
+}
+
+.osd-window .level {
+  -barlevel-background-color: color.adjust(vars.$aurora-overview-fg, $alpha: -0.8);
+  -barlevel-active-background-color: vars.$aurora-overview-fg;
 }

@@ -62,6 +62,12 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
         });
         settings.bind(option.key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
         expander.add_row(row);
+      } else if (option.type === 'entry') {
+        const row = new Adw.EntryRow({
+          title: option.title,
+        });
+        settings.bind(option.key, row, 'text', Gio.SettingsBindFlags.DEFAULT);
+        expander.add_row(row);
       }
     }
 

@@ -1,5 +1,5 @@
 import type { ExtensionContext } from '~/core/context.ts';
-import { Module } from '../module.ts';
+import { Module } from '~/module.ts';
 import * as Main from '@girs/gnome-shell/ui/main';
 import type { SettingsManager } from '~/core/settings.ts';
 

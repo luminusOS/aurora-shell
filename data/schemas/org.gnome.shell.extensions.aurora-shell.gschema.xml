@@ -31,9 +31,14 @@
       <summary>Enable XWayland Indicator module</summary>
       <description>Shows an X11 badge on XWayland apps in the Alt+Tab switcher</description>
     </key>
-    <key name="module-dnd-on-share" type="b">
+    <key name="module-privacy" type="b">
       <default>true</default>
-      <summary>Enable DND on Screen Share module</summary>
+      <summary>Enable Privacy module</summary>
+      <description>Enables screen sharing privacy features</description>
+    </key>
+    <key name="privacy-dnd-on-share" type="b">
+      <default>true</default>
+      <summary>Enable DND on Screen Share</summary>
       <description>Automatically enables Do Not Disturb mode when screen sharing</description>
     </key>
     <key name="module-icon-weave" type="b">
@@ -46,10 +51,30 @@
       <summary>Enable App Search Tooltip module</summary>
       <description>Shows app name tooltip on hover in the overview search results</description>
     </key>
+    <key name="privacy-panel" type="b">
+      <default>true</default>
+      <summary>Enable Privacy Panel</summary>
+      <description>Hides panel content during screen sharing; reveals on hover</description>
+    </key>
     <key name="dock-always-show" type="b">
       <default>false</default>
       <summary>Always show dock</summary>
       <description>Keep the dock permanently visible and reserve screen space so windows never overlap it</description>
+    </key>
+    <key name="module-auto-theme-switcher" type="b">
+      <default>true</default>
+      <summary>Enable Auto Theme Switcher module</summary>
+      <description>Automatically switches between light and dark theme based on configured times</description>
+    </key>
+    <key name="auto-theme-switcher-light-time" type="s">
+      <default>'06:00'</default>
+      <summary>Light theme time</summary>
+      <description>Time of day to switch to light theme (HH:MM, 24-hour format)</description>
+    </key>
+    <key name="auto-theme-switcher-dark-time" type="s">
+      <default>'20:00'</default>
+      <summary>Dark theme time</summary>
+      <description>Time of day to switch to dark theme (HH:MM, 24-hour format)</description>
     </key>
   </schema>
 </schemalist>

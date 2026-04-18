@@ -29,8 +29,10 @@ const EXPECTED_MODULE_KEYS = [
   'module-dock',
   'module-volume-mixer',
   'module-xwayland-indicator',
-  'module-dnd-on-share',
+  'module-icon-weave',
   'module-app-search-tooltip',
+  'module-privacy',
+  'module-auto-theme-switcher',
 ] as const;
 
 const schemaXml = readFileSync(SCHEMA_FILE, 'utf-8');
@@ -97,5 +99,21 @@ test('schema — every key has a non-empty summary', () => {
     const summaryMatch = block.match(/<summary>(.*?)<\/summary>/);
     assert.ok(summaryMatch, `Key "${keyName}" is missing a <summary>`);
     assert.ok(summaryMatch![1].trim().length > 0, `Key "${keyName}" has an empty <summary>`);
+  }
+});
+
+test('schema — auto-theme-switcher option keys exist with correct types and defaults', () => {
+  const optionKeys: Array<{ name: string; type: string; defaultValue: string }> = [
+    { name: 'auto-theme-switcher-light-time', type: 's', defaultValue: '06:00' },
+    { name: 'auto-theme-switcher-dark-time', type: 's', defaultValue: '20:00' },
+  ];
+
+  for (const { name, type, defaultValue } of optionKeys) {
+    assert.ok(schemaXml.includes(`name="${name}"`), `Schema missing key: "${name}"`);
+    const blockRe = new RegExp(`<key name="${name}"[^>]*>[\\s\\S]*?<\\/key>`);
+    const block = schemaXml.match(blockRe);
+    assert.ok(block, `Could not extract block for key "${name}"`);
+    assert.ok(block![0].includes(`type="${type}"`), `Key "${name}" must be type "${type}"`);
+    assert.ok(block![0].includes(`<default>'${defaultValue}'</default>`), `Key "${name}" must default to "${defaultValue}"`);
   }
 });

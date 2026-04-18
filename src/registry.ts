@@ -4,7 +4,7 @@ export type ModuleOption = {
   key: string;
   title: string;
   subtitle: string;
-  type: 'switch';
+  type: 'switch' | 'entry';
 };
 
 export type ModuleDefinition = {
@@ -62,10 +62,26 @@ export function getModuleRegistry(): ModuleDefinition[] {
       subtitle: _('Shows an X11 badge on XWayland apps in the Alt+Tab switcher'),
     },
     {
-      key: 'dnd-on-share',
-      settingsKey: 'module-dnd-on-share',
-      title: _('DND on Screen Share'),
-      subtitle: _('Automatically enables Do Not Disturb mode when screen sharing'),
+      key: 'privacy',
+      settingsKey: 'module-privacy',
+      title: _('Privacy'),
+      subtitle: _('Screen sharing privacy features'),
+      options: [
+        {
+          key: 'privacy-dnd-on-share',
+          title: _('DND on Screen Share'),
+          subtitle: _('Automatically enables Do Not Disturb mode when screen sharing'),
+          type: 'switch',
+        },
+        {
+          key: 'privacy-panel',
+          title: _('Privacy Panel'),
+          subtitle: _(
+            'Hides panel content during screen sharing; shows only the sharing indicator',
+          ),
+          type: 'switch',
+        },
+      ],
     },
     {
       key: 'icon-weave',
@@ -78,6 +94,26 @@ export function getModuleRegistry(): ModuleDefinition[] {
       settingsKey: 'module-app-search-tooltip',
       title: _('App Search Tooltip'),
       subtitle: _('Shows app name on hover in the overview search results'),
+    },
+    {
+      key: 'auto-theme-switcher',
+      settingsKey: 'module-auto-theme-switcher',
+      title: _('Auto Theme Switcher'),
+      subtitle: _('Automatically switches between light and dark theme based on time'),
+      options: [
+        {
+          key: 'auto-theme-switcher-light-time',
+          title: _('Light time'),
+          subtitle: _('Switch to light theme (HH:MM, 24-hour)'),
+          type: 'entry',
+        },
+        {
+          key: 'auto-theme-switcher-dark-time',
+          title: _('Dark time'),
+          subtitle: _('Switch to dark theme (HH:MM, 24-hour)'),
+          type: 'entry',
+        },
+      ],
     },
   ];
 }
