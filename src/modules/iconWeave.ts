@@ -35,6 +35,7 @@ export class IconWeave extends Module {
   private _processed = new Set<string>();
   private _pendingConnections = new Map<any, number>();
   private _actorConnections = new Map<any, number>();
+  private _actorDestroyConnections = new Map<any, number>();
   private _timeoutSources = new Set<TimeoutId>();
 
   // Maps a window to an app
@@ -196,6 +197,15 @@ export class IconWeave extends Module {
     }
     this._actorConnections.clear();
 
+    for (const [actor, id] of this._actorDestroyConnections) {
+      try {
+        actor.disconnect(id);
+      } catch (_e) {
+        // actor may already be gone
+      }
+    }
+    this._actorDestroyConnections.clear();
+
     this._processed.clear();
     this._windowAppMap.clear();
   }
@@ -234,38 +244,71 @@ export class IconWeave extends Module {
 
   private _attachFirstFrame(win: any, actor: any): void {
     let done = false;
+    let currentTimeoutId: TimeoutId = 0;
+    let destroyId = 0;
 
     const frameId = actor.connect('first-frame', () => {
-      actor.disconnect(frameId);
+      if (done) return;
+      done = true;
       this._actorConnections.delete(actor);
-      if (!done) {
-        done = true;
-        this._inspectWindow(win);
+      try {
+        actor.disconnect(destroyId);
+      } catch (_e) {
+        /* actor may already be gone */
       }
+      this._actorDestroyConnections.delete(actor);
+      if (currentTimeoutId) {
+        this._timeoutSources.delete(currentTimeoutId);
+        GLib.source_remove(currentTimeoutId);
+        currentTimeoutId = 0;
+      }
+      this._inspectWindow(win);
     });
     this._actorConnections.set(actor, frameId);
 
+    // When the actor is destroyed, cancel any pending timeout so we never
+    // attempt to disconnect a disposed actor.
+    destroyId = actor.connect('destroy', () => {
+      done = true;
+      this._actorConnections.delete(actor);
+      this._actorDestroyConnections.delete(actor);
+      if (currentTimeoutId) {
+        this._timeoutSources.delete(currentTimeoutId);
+        GLib.source_remove(currentTimeoutId);
+        currentTimeoutId = 0;
+      }
+    });
+    this._actorDestroyConnections.set(actor, destroyId);
+
     // Fallback: if first-frame never fires (e.g. override-redirect windows),
     // inspect after the normal delay anyway.
-    const id: TimeoutId = GLib.timeout_add(
+    const timeoutId: TimeoutId = GLib.timeout_add(
       GLib.PRIORITY_DEFAULT_IDLE,
       WINDOW_INSPECT_DELAY_MS,
       () => {
-        this._timeoutSources.delete(id);
+        currentTimeoutId = 0;
+        this._timeoutSources.delete(timeoutId);
         if (!done) {
           done = true;
           try {
             actor.disconnect(frameId);
           } catch (_e) {
-            /* signal may already be disconnected */
+            /* actor may already be gone */
+          }
+          try {
+            actor.disconnect(destroyId);
+          } catch (_e) {
+            /* actor may already be gone */
           }
           this._actorConnections.delete(actor);
+          this._actorDestroyConnections.delete(actor);
           this._inspectWindow(win);
         }
         return GLib.SOURCE_REMOVE;
       },
     );
-    this._timeoutSources.add(id);
+    currentTimeoutId = timeoutId;
+    this._timeoutSources.add(timeoutId);
   }
 
   private _addFallbackTimeout(win: any): void {
@@ -346,9 +389,7 @@ export class IconWeave extends Module {
 
         // Force the window tracker to update its state
         tracker.emit('tracked-windows-changed');
-        // Notify the app too
         candidate.emit('windows-changed');
-        candidate.notify('state');
       } else {
         this.context.logger.log(`[IconWeave] no candidate found for wm_class="${wmClass}"`);
       }
