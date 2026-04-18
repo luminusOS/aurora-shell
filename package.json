@@ -47,5 +47,5 @@
     "@girs/shell-17": "^17.0.0-4.0.0-beta.38",
     "@girs/st-17": "^17.0.0-4.0.0-beta.38"
   },
-  "packageManager": "yarn@4.13.0"
+  "packageManager": "yarn@4.14.1"
 }
