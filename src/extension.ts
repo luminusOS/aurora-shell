@@ -11,30 +11,6 @@ import { ConsoleLogger } from '~/core/logger.ts';
 import { GSettingsManager } from '~/core/settings.ts';
 import { GnomeShellAdapter } from '~/core/adapters/shell.ts';
 
-import { NoOverview } from '~/modules/noOverview.ts';
-import { PipOnTop } from '~/modules/pipOnTop.ts';
-import { ThemeChanger } from '~/modules/themeChanger.ts';
-import { Dock } from '~/modules/dock/dock.ts';
-import { VolumeMixer } from '~/modules/volumeMixer/volumeMixer.ts';
-import { XwaylandIndicator } from '~/modules/xwaylandIndicator.ts';
-import { IconWeave } from '~/modules/iconWeave.ts';
-import { AppSearchTooltip } from '~/modules/appSearchTooltip.ts';
-import { PrivacyModule } from '~/modules/privacy/index.ts';
-import { AutoThemeSwitcher } from '~/modules/autoThemeSwitcher.ts';
-
-const MODULE_FACTORIES: Record<string, (context: ExtensionContext) => Module> = {
-  'no-overview': (ctx) => new NoOverview(ctx),
-  'pip-on-top': (ctx) => new PipOnTop(ctx),
-  'theme-changer': (ctx) => new ThemeChanger(ctx),
-  dock: (ctx) => new Dock(ctx),
-  'volume-mixer': (ctx) => new VolumeMixer(ctx),
-  'xwayland-indicator': (ctx) => new XwaylandIndicator(ctx),
-  'icon-weave': (ctx) => new IconWeave(ctx),
-  'app-search-tooltip': (ctx) => new AppSearchTooltip(ctx),
-  privacy: (ctx) => new PrivacyModule(ctx),
-  'auto-theme-switcher': (ctx) => new AutoThemeSwitcher(ctx),
-};
-
 /**
  * Aurora Shell Extension
  *
@@ -66,8 +42,7 @@ export default class AuroraShellExtension extends Extension {
   private _initializeModules(): void {
     for (const def of getModuleRegistry()) {
       if (this._settings?.get_boolean(def.settingsKey)) {
-        // @ts-ignore
-        this._modules.set(def.key, MODULE_FACTORIES[def.key](this._context!));
+        this._modules.set(def.key, def.factory(this._context!));
       }
     }
   }
@@ -104,8 +79,7 @@ export default class AuroraShellExtension extends Extension {
     if (enabled && !existing) {
       console.log(`Aurora Shell: Enabling module ${def.key}`);
       try {
-        // @ts-ignore
-        const module = MODULE_FACTORIES[def.key](this._context!);
+        const module = def.factory(this._context!);
         module.enable();
         this._modules.set(def.key, module);
       } catch (e) {

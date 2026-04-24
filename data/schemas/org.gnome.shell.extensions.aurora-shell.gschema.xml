@@ -66,15 +66,39 @@
       <summary>Enable Auto Theme Switcher module</summary>
       <description>Automatically switches between light and dark theme based on configured times</description>
     </key>
-    <key name="auto-theme-switcher-light-time" type="s">
-      <default>'06:00'</default>
-      <summary>Light theme time</summary>
-      <description>Time of day to switch to light theme (HH:MM, 24-hour format)</description>
+    <key name="auto-theme-switcher-light-hours" type="i">
+      <range min="0" max="23"/>
+      <default>6</default>
+      <summary>Light theme hours</summary>
+      <description>Hour of day to switch to light theme (0-23)</description>
     </key>
-    <key name="auto-theme-switcher-dark-time" type="s">
-      <default>'20:00'</default>
-      <summary>Dark theme time</summary>
-      <description>Time of day to switch to dark theme (HH:MM, 24-hour format)</description>
+    <key name="auto-theme-switcher-light-minutes" type="i">
+      <range min="0" max="59"/>
+      <default>0</default>
+      <summary>Light theme minutes</summary>
+      <description>Minute of hour to switch to light theme (0-59)</description>
+    </key>
+    <key name="auto-theme-switcher-dark-hours" type="i">
+      <range min="0" max="23"/>
+      <default>20</default>
+      <summary>Dark theme hours</summary>
+      <description>Hour of day to switch to dark theme (0-23)</description>
+    </key>
+    <key name="auto-theme-switcher-dark-minutes" type="i">
+      <range min="0" max="59"/>
+      <default>0</default>
+      <summary>Dark theme minutes</summary>
+      <description>Minute of hour to switch to dark theme (0-59)</description>
+    </key>
+    <key name="module-workspace-thumbnails" type="b">
+      <default>true</default>
+      <summary>Enable Workspace Thumbnails DnD module</summary>
+      <description>Drag windows between workspaces from the overview side panel</description>
+    </key>
+    <key name="module-bluetooth-menu" type="b">
+      <default>true</default>
+      <summary>Enable Bluetooth Menu module</summary>
+      <description>Enhances the Bluetooth Quick Settings panel with battery levels and animated icons</description>
     </key>
   </schema>
 </schemalist>

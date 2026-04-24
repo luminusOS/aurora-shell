@@ -1,10 +1,12 @@
 // @ts-nocheck
+import { gettext as _ } from 'gettext';
 import GLib from '@girs/glib-2.0';
 import GioUnix from '@girs/giounix-2.0';
 import Shell from '@girs/shell-17';
 import Meta from '@girs/meta-17';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '../module.ts';
+import type { ModuleDefinition } from '../moduleDefinition.ts';
 
 const WINDOW_INSPECT_DELAY_MS = 500;
 const MIN_MATCH_SCORE = 50;
@@ -567,3 +569,11 @@ export class IconWeave extends Module {
     return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   }
 }
+
+export const definition: ModuleDefinition = {
+  key: 'icon-weave',
+  settingsKey: 'module-icon-weave',
+  title: _('Icon Weave'),
+  subtitle: _('Automatically fixes missing app icons using an in-memory approach'),
+  factory: (ctx) => new IconWeave(ctx),
+};

@@ -1,119 +1,35 @@
-import { gettext as _ } from 'gettext';
+import { definition as noOverview } from '~/modules/noOverview.ts';
+import { definition as pipOnTop } from '~/modules/pipOnTop.ts';
+import { definition as themeChanger } from '~/modules/themeChanger.ts';
+import { definition as dock } from '~/modules/dock/dock.ts';
+import { definition as volumeMixer } from '~/modules/volumeMixer/volumeMixer.ts';
+import { definition as xwaylandIndicator } from '~/modules/xwaylandIndicator.ts';
+import { definition as privacy } from '~/modules/privacy/index.ts';
+import { definition as iconWeave } from '~/modules/iconWeave.ts';
+import { definition as appSearchTooltip } from '~/modules/appSearchTooltip.ts';
+import { definition as autoThemeSwitcher } from '~/modules/autoThemeSwitcher.ts';
+import { definition as workspaceThumbnails } from '~/modules/workspaceThumbnails/index.ts';
+import { definition as bluetoothMenu } from '~/modules/bluetoothMenu/index.ts';
+import { definition as gdmSync } from '~/modules/gdmSync.ts';
 
-export type ModuleOption = {
-  key: string;
-  title: string;
-  subtitle: string;
-  type: 'switch' | 'entry';
-};
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 
-export type ModuleDefinition = {
-  key: string;
-  settingsKey: string;
-  title: string;
-  subtitle: string;
-  options?: ModuleOption[];
-};
+export type { ModuleOption, ModuleMetadata, ModuleDefinition } from '~/moduleDefinition.ts';
 
 export function getModuleRegistry(): ModuleDefinition[] {
   return [
-    {
-      key: 'no-overview',
-      settingsKey: 'module-no-overview',
-      title: _('No Overview'),
-      subtitle: _('Disables the overview at startup'),
-    },
-    {
-      key: 'pip-on-top',
-      settingsKey: 'module-pip-on-top',
-      title: _('Pip On Top'),
-      subtitle: _('Keeps Picture-in-Picture windows always on top'),
-    },
-    {
-      key: 'theme-changer',
-      settingsKey: 'module-theme-changer',
-      title: _('Theme Changer'),
-      subtitle: _('Monitors and synchronizes GNOME color scheme'),
-    },
-    {
-      key: 'dock',
-      settingsKey: 'module-dock',
-      title: _('Dock'),
-      subtitle: _('Custom dock with auto-hide and intellihide features'),
-      options: [
-        {
-          key: 'dock-always-show',
-          title: _('Always Show Dock'),
-          subtitle: _('Keep dock permanently visible and shrink windows so they never overlap it'),
-          type: 'switch',
-        },
-      ],
-    },
-    {
-      key: 'volume-mixer',
-      settingsKey: 'module-volume-mixer',
-      title: _('Volume Mixer'),
-      subtitle: _('Per-application volume control in Quick Settings'),
-    },
-    {
-      key: 'xwayland-indicator',
-      settingsKey: 'module-xwayland-indicator',
-      title: _('XWayland Indicator'),
-      subtitle: _('Shows an X11 badge on XWayland apps in the Alt+Tab switcher'),
-    },
-    {
-      key: 'privacy',
-      settingsKey: 'module-privacy',
-      title: _('Privacy'),
-      subtitle: _('Screen sharing privacy features'),
-      options: [
-        {
-          key: 'privacy-dnd-on-share',
-          title: _('DND on Screen Share'),
-          subtitle: _('Automatically enables Do Not Disturb mode when screen sharing'),
-          type: 'switch',
-        },
-        {
-          key: 'privacy-panel',
-          title: _('Privacy Panel'),
-          subtitle: _(
-            'Hides panel content during screen sharing; shows only the sharing indicator',
-          ),
-          type: 'switch',
-        },
-      ],
-    },
-    {
-      key: 'icon-weave',
-      settingsKey: 'module-icon-weave',
-      title: _('Icon Weave'),
-      subtitle: _('Automatically fixes missing app icons using an in-memory approach'),
-    },
-    {
-      key: 'app-search-tooltip',
-      settingsKey: 'module-app-search-tooltip',
-      title: _('App Search Tooltip'),
-      subtitle: _('Shows app name on hover in the overview search results'),
-    },
-    {
-      key: 'auto-theme-switcher',
-      settingsKey: 'module-auto-theme-switcher',
-      title: _('Auto Theme Switcher'),
-      subtitle: _('Automatically switches between light and dark theme based on time'),
-      options: [
-        {
-          key: 'auto-theme-switcher-light-time',
-          title: _('Light time'),
-          subtitle: _('Switch to light theme (HH:MM, 24-hour)'),
-          type: 'entry',
-        },
-        {
-          key: 'auto-theme-switcher-dark-time',
-          title: _('Dark time'),
-          subtitle: _('Switch to dark theme (HH:MM, 24-hour)'),
-          type: 'entry',
-        },
-      ],
-    },
+    noOverview,
+    pipOnTop,
+    themeChanger,
+    dock,
+    volumeMixer,
+    xwaylandIndicator,
+    privacy,
+    iconWeave,
+    appSearchTooltip,
+    autoThemeSwitcher,
+    workspaceThumbnails,
+    bluetoothMenu,
+    gdmSync,
   ];
 }

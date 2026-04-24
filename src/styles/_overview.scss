@@ -5,6 +5,11 @@
   background-color: vars.$aurora-overview-bg;
 }
 
+.workspace-thumbnails .workspace-thumbnail {
+  color: vars.$aurora-overview-fg;
+  background-color: vars.$aurora-workspace-thumbnail-bg;
+}
+
 // Search entry in overview
 .search-entry {
   color: vars.$aurora-overview-search-fg;

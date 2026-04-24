@@ -42,10 +42,12 @@ Do not leave a task incomplete if either command reports errors or failures.
 ## Repository Structure
 
 - `src/` — TypeScript source root
-  - `extension.ts` — entry point; loads and manages all modules
+  - `extension.ts` — entry point; iterates the registry and instantiates modules via each definition's `factory`
   - `module.ts` — base `Module` class (accepts `ExtensionContext`)
-  - `registry.ts` — `MODULE_REGISTRY` metadata and option definitions
-  - `prefs.ts` — generic extension preferences UI driven by registry metadata
+  - `moduleDefinition.ts` — shared `ModuleOption` / `ModuleMetadata` / `ModuleDefinition` types
+  - `registry.ts` — aggregator; imports each module's `definition` export and returns them in UI order (used by `extension.ts`)
+  - `prefsMetadata.ts` — pure metadata mirror for the prefs UI; cannot import modules because prefs runs in `gnome-extensions-app` (no `resource:///org/gnome/shell/*` available)
+  - `prefs.ts` — generic extension preferences UI driven by `prefsMetadata.ts`
   - `core/` — Clean Architecture core
     - `context.ts` — `ExtensionContext` interface and implementation
     - `logger.ts` — Abstracted logging
@@ -75,14 +77,18 @@ Do not leave a task incomplete if either command reports errors or failures.
 1. **Dependency Injection:** Modules **must not** access global variables (like `Main` or `Gio.Settings`) directly. Instead, they receive an `ExtensionContext` in their constructor.
 2. **Abstractions:** Use `this.context.settings` for configuration and `this.context.shell` for GNOME Shell environment interactions.
 3. **Layering:** Keep UI logic (Clutter/St) separated from pure domain logic. Complex algorithms should be extracted into pure TypeScript files (e.g., `src/modules/dock/monitorTopology.ts`).
-4. **Metadata-Driven UI:** The preferences window is generated dynamically from `src/registry.ts`. If a module needs options, define them in the `options` array of the `ModuleDefinition`.
+4. **Metadata-Driven UI:** The preferences window is generated dynamically from `src/prefsMetadata.ts` (a hand-maintained mirror of each module's metadata, kept in parity by `tests/unit/registry.test.ts`). If a module needs options, define them in the `options` array of its `ModuleDefinition` and mirror them into `prefsMetadata.ts`.
+5. **Self-Registering Modules:** Each module file exports a `definition: ModuleDefinition` co-located with its class. The factory that constructs the module lives on the definition itself — `src/registry.ts` is a pure aggregator and never references module classes directly.
 
 ## Adding a Module
 
-1. Create `src/modules/myModule.ts` extending `Module`:
+1. Create `src/modules/myModule.ts` with a `Module` subclass **and** a co-located `definition` export:
 
 ```typescript
-import { ExtensionContext } from "~/core/context.ts";
+import { gettext as _ } from 'gettext';
+
+import type { ExtensionContext } from '~/core/context.ts';
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 import { Module } from '~/module.ts';
 
 export class MyModule extends Module {
@@ -92,31 +98,42 @@ export class MyModule extends Module {
   override enable(): void { /* setup using this.context */ }
   override disable(): void { /* cleanup */ }
 }
-```
 
-2. Register it in `getModuleRegistry` (`src/registry.ts`):
-
-```typescript
-{ 
-  key: 'myModule', 
-  settingsKey: 'module-my-module', 
-  title: _('My Module'), 
+export const definition: ModuleDefinition = {
+  key: 'my-module',
+  settingsKey: 'module-my-module',
+  title: _('My Module'),
   subtitle: _('Description'),
   options: [
-    { key: 'my-option', title: _('Option'), subtitle: _('Desc'), type: 'switch' }
-  ]
+    { key: 'my-option', title: _('Option'), subtitle: _('Desc'), type: 'switch' },
+  ],
+  factory: (ctx) => new MyModule(ctx),
+};
+```
+
+2. Register the definition in `src/registry.ts` (one import + one array entry, preserving UI order):
+
+```typescript
+import { definition as myModule } from '~/modules/myModule.ts';
+// …inside getModuleRegistry():
+return [/* …, */ myModule];
+```
+
+3. Mirror the metadata into `src/prefsMetadata.ts` (prefs cannot import modules — see the file header):
+
+```typescript
+{
+  key: 'my-module',
+  settingsKey: 'module-my-module',
+  title: _('My Module'),
+  subtitle: _('Description'),
+  options: [
+    { key: 'my-option', title: _('Option'), subtitle: _('Desc'), type: 'switch' },
+  ],
 },
 ```
 
-3. Add its factory to `MODULE_FACTORIES` (`src/extension.ts`):
-
-```typescript
-import { MyModule } from "./modules/myModule.ts";
-// inside MODULE_FACTORIES:
-'myModule': (ctx) => new MyModule(ctx),
-```
-
-4. Add a GSettings key (`schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`):
+4. Add a GSettings key (`data/schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`):
 
 ```xml
 <key name="module-my-module" type="b">
@@ -125,6 +142,8 @@ import { MyModule } from "./modules/myModule.ts";
   <description>What this module does</description>
 </key>
 ```
+
+`tests/unit/registry.test.ts` enforces that step 2, step 3, and step 4 stay in parity — a half-finished addition will fail CI.
 
 ## Coding Standards
 

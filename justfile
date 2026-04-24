@@ -18,12 +18,22 @@ build: deps
     just compile-mo
 
 package:
+    #!/usr/bin/env bash
+    set -e
     mkdir -p dist/target
-    cd dist && \
-      zip -r "target/{{ uuid }}.zip" . \
-        -x "target/*" \
-        -x "*.zip" \
-        -x "data/schemas/gschemas.compiled"
+    cd dist
+    gnome-extensions pack . \
+        --force \
+        --out-dir=target \
+        $(find . -maxdepth 1 -name '*.js' ! -name 'extension.js' -printf '--extra-source=%f ') \
+        $(find . -maxdepth 1 -name '*.css' -printf '--extra-source=%f ') \
+        --extra-source=core \
+        --extra-source=modules \
+        --extra-source=shared \
+        --extra-source=icons \
+        --extra-source=locale \
+        --schema=schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml
+    echo "Packing Done!"
 
 validate:
     yarn validate
@@ -38,7 +48,7 @@ watch:
     yarn watch:css
 
 install: package
-    gnome-extensions install --force dist/target/{{ uuid }}.zip
+    gnome-extensions install --force dist/target/{{ uuid }}.shell-extension.zip
     glib-compile-schemas {{ ext_dir }}/schemas/
     @echo "Installed at: {{ ext_dir }}"
 
@@ -112,13 +122,13 @@ coverage:
 # Usage: just test tests/shell/auroraBasic.js
 test script: package
     dbus-run-session gnome-shell-test-tool --headless \
-        --extension dist/target/{{ uuid }}.zip \
+        --extension dist/target/{{ uuid }}.shell-extension.zip \
         {{ script }}
 
 test-all: package
     #!/usr/bin/env bash
     set -e
-    EXT="dist/target/{{ uuid }}.zip"
+    EXT="dist/target/{{ uuid }}.shell-extension.zip"
     PASS=0; FAIL=0
     for script in tests/shell/aurora*.js; do
         echo "==> Running $script"

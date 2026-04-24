@@ -1,5 +1,8 @@
+import { gettext as _ } from 'gettext';
+
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 
 /**
  * NoOverview Module
@@ -36,3 +39,11 @@ export class NoOverview extends Module {
     }
   }
 }
+
+export const definition: ModuleDefinition = {
+  key: 'no-overview',
+  settingsKey: 'module-no-overview',
+  title: _('No Overview'),
+  subtitle: _('Disables the overview at startup'),
+  factory: (ctx) => new NoOverview(ctx),
+};

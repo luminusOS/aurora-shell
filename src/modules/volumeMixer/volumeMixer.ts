@@ -1,5 +1,6 @@
 // @ts-nocheck
 import '@girs/gjs';
+import { gettext as _ } from 'gettext';
 
 import St from '@girs/st-17';
 import Gio from '@girs/gio-2.0';
@@ -9,6 +10,7 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
 import { loadIcon } from '~/shared/icons.ts';
 
@@ -175,3 +177,11 @@ export class VolumeMixer extends Module {
     });
   }
 }
+
+export const definition: ModuleDefinition = {
+  key: 'volume-mixer',
+  settingsKey: 'module-volume-mixer',
+  title: _('Volume Mixer'),
+  subtitle: _('Per-application volume control in Quick Settings'),
+  factory: (ctx) => new VolumeMixer(ctx),
+};

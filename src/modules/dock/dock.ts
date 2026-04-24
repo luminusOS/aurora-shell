@@ -1,5 +1,6 @@
 // @ts-nocheck
 import '@girs/gjs';
+import { gettext as _ } from 'gettext';
 
 import St from '@girs/st-17';
 import GLib from '@girs/glib-2.0';
@@ -8,6 +9,7 @@ import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
 import { DockHotArea } from '~/modules/dock/hotArea.ts';
 import { DockIntellihide, OverlapStatus } from '~/modules/dock/intellihide.ts';
@@ -406,3 +408,19 @@ export class Dock extends Module {
     });
   }
 }
+
+export const definition: ModuleDefinition = {
+  key: 'dock',
+  settingsKey: 'module-dock',
+  title: _('Dock'),
+  subtitle: _('Custom dock with auto-hide and intellihide features'),
+  options: [
+    {
+      key: 'dock-always-show',
+      title: _('Always Show Dock'),
+      subtitle: _('Keep dock permanently visible and shrink windows so they never overlap it'),
+      type: 'switch',
+    },
+  ],
+  factory: (ctx) => new Dock(ctx),
+};

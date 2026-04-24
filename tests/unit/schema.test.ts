@@ -33,7 +33,14 @@ const EXPECTED_MODULE_KEYS = [
   'module-app-search-tooltip',
   'module-privacy',
   'module-auto-theme-switcher',
+  'module-workspace-thumbnails',
+  'module-bluetooth-menu',
+  'module-gdm-sync',
 ] as const;
+
+// Modules that intentionally default to false because they require elevated privileges
+// or explicit user opt-in (e.g. pkexec/polkit prompts at runtime).
+const OPT_IN_MODULE_KEYS = new Set(['module-gdm-sync']);
 
 const schemaXml = readFileSync(SCHEMA_FILE, 'utf-8');
 
@@ -65,11 +72,14 @@ test('schema — every module key is boolean type', () => {
 
 test('schema — every module key defaults to true', () => {
   // Grab each <key name="module-*"> … </key> block and verify <default>true</default>.
+  // Opt-in modules (OPT_IN_MODULE_KEYS) are exempt — they default to false because
+  // they require elevated privileges or explicit user consent to activate.
   const blockRe = /<key name="(module-[^"]+)"[^>]*>[\s\S]*?<\/key>/g;
   let match;
   while ((match = blockRe.exec(schemaXml)) !== null) {
     const block = match[0];
     const keyName = match[1];
+    if (OPT_IN_MODULE_KEYS.has(keyName)) continue;
     const defaultMatch = block.match(/<default>(.*?)<\/default>/);
     assert.ok(defaultMatch, `Key "${keyName}" has no <default> element`);
     assert.strictEqual(
@@ -104,8 +114,10 @@ test('schema — every key has a non-empty summary', () => {
 
 test('schema — auto-theme-switcher option keys exist with correct types and defaults', () => {
   const optionKeys: Array<{ name: string; type: string; defaultValue: string }> = [
-    { name: 'auto-theme-switcher-light-time', type: 's', defaultValue: '06:00' },
-    { name: 'auto-theme-switcher-dark-time', type: 's', defaultValue: '20:00' },
+    { name: 'auto-theme-switcher-light-hours', type: 'i', defaultValue: '6' },
+    { name: 'auto-theme-switcher-light-minutes', type: 'i', defaultValue: '0' },
+    { name: 'auto-theme-switcher-dark-hours', type: 'i', defaultValue: '20' },
+    { name: 'auto-theme-switcher-dark-minutes', type: 'i', defaultValue: '0' },
   ];
 
   for (const { name, type, defaultValue } of optionKeys) {
@@ -114,6 +126,6 @@ test('schema — auto-theme-switcher option keys exist with correct types and de
     const block = schemaXml.match(blockRe);
     assert.ok(block, `Could not extract block for key "${name}"`);
     assert.ok(block![0].includes(`type="${type}"`), `Key "${name}" must be type "${type}"`);
-    assert.ok(block![0].includes(`<default>'${defaultValue}'</default>`), `Key "${name}" must default to "${defaultValue}"`);
+    assert.ok(block![0].includes(`<default>${defaultValue}</default>`), `Key "${name}" must default to ${defaultValue}`);
   }
 });

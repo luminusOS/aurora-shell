@@ -1,10 +1,12 @@
 // @ts-nocheck
+import { gettext as _ } from 'gettext';
 import St from '@girs/st-17';
 import GLib from '@girs/glib-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as Search from '@girs/gnome-shell/ui/search';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 
 const SHOW_DELAY_MS = 300;
 
@@ -168,3 +170,11 @@ export class AppSearchTooltip extends Module {
     return null;
   }
 }
+
+export const definition: ModuleDefinition = {
+  key: 'app-search-tooltip',
+  settingsKey: 'module-app-search-tooltip',
+  title: _('App Search Tooltip'),
+  subtitle: _('Shows app name on hover in the overview search results'),
+  factory: (ctx) => new AppSearchTooltip(ctx),
+};

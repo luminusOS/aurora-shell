@@ -1,8 +1,10 @@
 import '@girs/gjs';
+import { gettext as _ } from 'gettext';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 
 /**
  * ThemeChanger Module
@@ -64,3 +66,11 @@ export class ThemeChanger extends Module {
     this._settings = null;
   }
 }
+
+export const definition: ModuleDefinition = {
+  key: 'theme-changer',
+  settingsKey: 'module-theme-changer',
+  title: _('Theme Changer'),
+  subtitle: _('Monitors and synchronizes GNOME color scheme'),
+  factory: (ctx) => new ThemeChanger(ctx),
+};

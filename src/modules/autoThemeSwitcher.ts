@@ -1,10 +1,13 @@
+// @ts-nocheck
 import '@girs/gjs';
+import { gettext as _ } from 'gettext';
 import GLib from '@girs/glib-2.0';
 import Gio from '@girs/gio-2.0';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 
 /**
  * AutoThemeSwitcher Module
@@ -15,9 +18,17 @@ import type { SettingsManager } from '~/core/settings.ts';
  * GLib timer. Subscribes to PrepareForSleep to reset the timer after
  * system suspend, since GLib monotonic timers pause during sleep.
  */
+const TIME_KEYS = [
+  'auto-theme-switcher-light-hours',
+  'auto-theme-switcher-light-minutes',
+  'auto-theme-switcher-dark-hours',
+  'auto-theme-switcher-dark-minutes',
+] as const;
+
 export class AutoThemeSwitcher extends Module {
   private _sourceId: number | null = null;
   private _subscribeId: number | null = null;
+  private _settingsIds: number[] = [];
   private _desktopSettings: SettingsManager | null = null;
 
   constructor(context: ExtensionContext) {
@@ -27,6 +38,11 @@ export class AutoThemeSwitcher extends Module {
   override enable(): void {
     try {
       this._desktopSettings = this.context.settings.getSchema('org.gnome.desktop.interface');
+      for (const key of TIME_KEYS) {
+        this._settingsIds.push(
+          this.context.settings.connect(`changed::${key}`, () => this._tick()),
+        );
+      }
       this._subscribeId = Gio.DBus.system.signal_subscribe(
         'org.freedesktop.login1',
         'org.freedesktop.login1.Manager',
@@ -56,6 +72,10 @@ export class AutoThemeSwitcher extends Module {
       GLib.Source.remove(this._sourceId);
       this._sourceId = null;
     }
+    for (const id of this._settingsIds) {
+      this.context.settings.disconnect(id);
+    }
+    this._settingsIds = [];
     if (this._subscribeId !== null) {
       Gio.DBus.system.signal_unsubscribe(this._subscribeId);
       this._subscribeId = null;
@@ -72,19 +92,25 @@ export class AutoThemeSwitcher extends Module {
 
     const now = new Date();
     const current = now.getHours() * 60 + now.getMinutes();
-    const light = this._parseTime(
-      this.context.settings.getString('auto-theme-switcher-light-time'),
-    );
-    const dark = this._parseTime(this.context.settings.getString('auto-theme-switcher-dark-time'));
-
-    if (light === null || dark === null) return;
+    const light =
+      this.context.settings.getInt('auto-theme-switcher-light-hours') * 60 +
+      this.context.settings.getInt('auto-theme-switcher-light-minutes');
+    const dark =
+      this.context.settings.getInt('auto-theme-switcher-dark-hours') * 60 +
+      this.context.settings.getInt('auto-theme-switcher-dark-minutes');
 
     const isLight =
       light < dark ? current >= light && current < dark : current >= light || current < dark;
 
     const scheme = isLight ? 'prefer-light' : 'prefer-dark';
-    this._desktopSettings.setString('color-scheme', scheme);
-    this.context.logger.debug(`AutoThemeSwitcher: applied ${scheme}`);
+    const current_scheme = this._desktopSettings.getString('color-scheme');
+
+    if (current_scheme !== scheme) {
+      this._desktopSettings.setString('color-scheme', scheme);
+      this.context.logger.debug(`AutoThemeSwitcher: applied ${scheme}`);
+    } else {
+      this.context.logger.debug(`AutoThemeSwitcher: already on ${scheme}`);
+    }
 
     let next = isLight ? dark : light;
     if (next <= current) next += 1440;
@@ -95,19 +121,28 @@ export class AutoThemeSwitcher extends Module {
       return GLib.SOURCE_REMOVE;
     });
   }
-
-  private _parseTime(s: string): number | null {
-    const match = s.match(/^(\d{1,2}):(\d{2})$/);
-    if (!match || match[1] === undefined || match[2] === undefined) {
-      this.context.logger.warn(`AutoThemeSwitcher: invalid time "${s}", expected HH:MM`);
-      return null;
-    }
-    const h = parseInt(match[1], 10);
-    const m = parseInt(match[2], 10);
-    if (h > 23 || m > 59) {
-      this.context.logger.warn(`AutoThemeSwitcher: out-of-range time "${s}"`);
-      return null;
-    }
-    return h * 60 + m;
-  }
 }
+
+export const definition: ModuleDefinition = {
+  key: 'auto-theme-switcher',
+  settingsKey: 'module-auto-theme-switcher',
+  title: _('Auto Theme Switcher'),
+  subtitle: _('Automatically switches between light and dark theme based on time'),
+  options: [
+    {
+      hourKey: 'auto-theme-switcher-light-hours',
+      minuteKey: 'auto-theme-switcher-light-minutes',
+      title: _('Light Time'),
+      subtitle: _('Time to switch to light theme (HH:MM)'),
+      type: 'time',
+    },
+    {
+      hourKey: 'auto-theme-switcher-dark-hours',
+      minuteKey: 'auto-theme-switcher-dark-minutes',
+      title: _('Dark Time'),
+      subtitle: _('Time to switch to dark theme (HH:MM)'),
+      type: 'time',
+    },
+  ],
+  factory: (ctx) => new AutoThemeSwitcher(ctx),
+};

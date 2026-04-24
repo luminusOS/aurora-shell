@@ -31,6 +31,8 @@ $aurora-overview-search-focus-bg: rgba(255, 255, 255, 0.18);
 $aurora-overview-search-fg: palette.$light-1;
 $aurora-overview-fg: palette.$light-1;
 
+$aurora-workspace-thumbnail-bg: #46464e;
+
 $aurora-tooltip-bg: rgba(0, 0, 0, 0.9);
 $aurora-tooltip-fg: palette.$light-1;
 $aurora-tooltip-border: 1px solid rgba(255, 255, 255, 0.1);
@@ -50,6 +52,8 @@ $aurora-tooltip-border: 1px solid rgba(255, 255, 255, 0.1);
   $aurora-overview-search-focus-bg: st-darken(palette.$light-2, 5%);
   $aurora-overview-search-fg: palette.$dark-1;
   $aurora-overview-fg: palette.$dark-1;
+
+  $aurora-workspace-thumbnail-bg: palette.$light-3;
 
   $aurora-tooltip-bg: palette.$light-1;
   $aurora-tooltip-fg: palette.$dark-1;
