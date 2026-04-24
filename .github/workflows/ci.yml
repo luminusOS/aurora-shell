@@ -55,8 +55,13 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Install just
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y just
+
       - name: Run unit tests
-        run: yarn test:unit
+        run: just unit-test
 
   build:
     name: Build
@@ -68,7 +73,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y just gettext zip
+          sudo apt-get install -y just gettext zip gnome-shell
 
       - name: Enable Corepack
         run: corepack enable
@@ -89,7 +94,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: extension-zip
-          path: dist/target/aurora-shell@luminusos.github.io.zip
+          path: dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
           retention-days: 1
 
   integration-tests:
@@ -166,7 +171,7 @@ jobs:
                 GDK_DEBUG
               exec gnome-shell-test-tool \
                 --headless \
-                --extension dist/target/aurora-shell@luminusos.github.io.zip \
+                --extension dist/target/aurora-shell@luminusos.github.io.shell-extension.zip \
                 "$1"
             ' -- "$script"; then
               echo "    PASS"
