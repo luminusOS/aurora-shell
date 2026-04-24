@@ -10,7 +10,6 @@ import { definition as appSearchTooltip } from '~/modules/appSearchTooltip.ts';
 import { definition as autoThemeSwitcher } from '~/modules/autoThemeSwitcher.ts';
 import { definition as workspaceThumbnails } from '~/modules/workspaceThumbnails/index.ts';
 import { definition as bluetoothMenu } from '~/modules/bluetoothMenu/index.ts';
-import { definition as gdmSync } from '~/modules/gdmSync.ts';
 
 import type { ModuleDefinition } from '~/moduleDefinition.ts';
 
@@ -30,6 +29,5 @@ export function getModuleRegistry(): ModuleDefinition[] {
     autoThemeSwitcher,
     workspaceThumbnails,
     bluetoothMenu,
-    gdmSync,
   ];
 }

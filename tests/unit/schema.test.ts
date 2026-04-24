@@ -35,12 +35,7 @@ const EXPECTED_MODULE_KEYS = [
   'module-auto-theme-switcher',
   'module-workspace-thumbnails',
   'module-bluetooth-menu',
-  'module-gdm-sync',
 ] as const;
-
-// Modules that intentionally default to false because they require elevated privileges
-// or explicit user opt-in (e.g. pkexec/polkit prompts at runtime).
-const OPT_IN_MODULE_KEYS = new Set(['module-gdm-sync']);
 
 const schemaXml = readFileSync(SCHEMA_FILE, 'utf-8');
 
@@ -79,7 +74,6 @@ test('schema — every module key defaults to true', () => {
   while ((match = blockRe.exec(schemaXml)) !== null) {
     const block = match[0];
     const keyName = match[1];
-    if (OPT_IN_MODULE_KEYS.has(keyName)) continue;
     const defaultMatch = block.match(/<default>(.*?)<\/default>/);
     assert.ok(defaultMatch, `Key "${keyName}" has no <default> element`);
     assert.strictEqual(

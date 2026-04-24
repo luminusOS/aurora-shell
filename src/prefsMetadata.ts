@@ -130,11 +130,5 @@ export function getModuleMetadata(): ModuleMetadata[] {
       title: _('Bluetooth Menu'),
       subtitle: _('Shows battery level and animated icons in the Bluetooth Quick Settings panel'),
     },
-    {
-      key: 'gdm-sync',
-      settingsKey: 'module-gdm-sync',
-      title: _('GDM Sync'),
-      subtitle: _('Syncs the color scheme to the GDM login screen (requires admin authorization)'),
-    },
   ];
 }
