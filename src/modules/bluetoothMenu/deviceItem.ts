@@ -213,13 +213,13 @@ export class BluetoothDeviceItemPatcher {
     // Re-insert removed children at their original positions.
     // Original layout: [ornament] [icon] [label] [subtitle] [spinner]
     if (this._item._icon) {
-      this._item.insert_child_at(this._item._icon, 1);
+      this._item.insert_child_at_index(this._item._icon, 1);
     }
     if (this._item._subtitle) {
-      this._item.insert_child_at(this._item._subtitle, 3);
+      this._item.insert_child_at_index(this._item._subtitle, 3);
     }
     if (this._item._spinner) {
-      this._item.insert_child_at(this._item._spinner, 4);
+      this._item.insert_child_at_index(this._item._spinner, 4);
       this._item._spinner.opacity = 255;
       this._item._spinner.set_scale(1, 1);
     }
