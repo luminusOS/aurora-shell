@@ -219,11 +219,29 @@ export class IconWeave extends Module {
     const destroyId = win.connect('unmanaged', () => {
       win.disconnect(destroyId);
       this._windowAppMap.delete(win);
+
+      // Allow re-inspection when the same app reopens after fully closing.
+      // If _processed retains the key, _inspectWindow's fast-path returns
+      // early without re-applying the icon mapping.
+      const wmClass: string = win.get_wm_class() ?? '';
+      const appId: string = win.get_gtk_application_id() ?? '';
+      const dedupeKey = wmClass || appId;
+      if (dedupeKey) {
+        const stillHasWindow = [...this._windowAppMap.keys()].some(
+          (w) =>
+            (w.get_wm_class() ?? '') === wmClass || (w.get_gtk_application_id() ?? '') === appId,
+        );
+        if (!stillHasWindow) this._processed.delete(dedupeKey);
+      }
     });
 
-    // Try to hook into the window actor's first-frame signal so that inspection
-    // happens at the earliest moment the window is actually composited — before
-    // the user sees the generic icon — rather than after an arbitrary timeout.
+    // Attempt an immediate deterministic match — wmClass/appId are typically
+    // available at window-created time, before the compositor renders the first
+    // frame, so we can set the tracker mapping before the dock shows the icon.
+    this._inspectWindow(win);
+
+    // Also hook first-frame to catch apps where the deterministic match failed
+    // and the title-based heuristic is still pending.
     const actor = win.get_compositor_private();
     if (actor) {
       this._attachFirstFrame(win, actor);
@@ -328,9 +346,11 @@ export class IconWeave extends Module {
 
   private _inspectWindow(win: any): void {
     try {
-      const title: string = win.get_title() ?? '';
+      const wmClass: string = win.get_wm_class() ?? '';
+      const appId: string = win.get_gtk_application_id() ?? '';
 
-      if (!title) {
+      if (!wmClass && !appId) {
+        // No class info yet — wait for title which may arrive with more context
         if (!this._pendingConnections.has(win)) {
           const id = win.connect('notify::title', () => {
             win.disconnect(id);
@@ -347,11 +367,6 @@ export class IconWeave extends Module {
       const currentApp = this._originalGetWindowApp.call(tracker, win);
       if (this._isValidApp(currentApp) && !this._isGenericSteamApp(currentApp)) return;
 
-      const wmClass: string = win.get_wm_class() ?? '';
-      const appId: string = win.get_gtk_application_id() ?? '';
-
-      if (!wmClass && !appId) return;
-
       if (wmClass.toLowerCase() === appId.toLowerCase()) return;
 
       const dedupeKey = wmClass || appId;
@@ -364,10 +379,7 @@ export class IconWeave extends Module {
             mappedWin.get_gtk_application_id() === appId
           ) {
             this._windowAppMap.set(win, app);
-
             this.context.signals.emit('icons-woven');
-
-            // Notify shell that app might have changed
             tracker.emit('tracked-windows-changed');
             return;
           }
@@ -375,21 +387,50 @@ export class IconWeave extends Module {
         return;
       }
 
+      const title: string = win.get_title() ?? '';
+
       this.context.logger.log(
         `[IconWeave] untracked window: title="${title}" wm_class="${wmClass}" app_id="${appId}"`,
       );
 
-      const candidate = this._findBestCandidate(wmClass, appId, title);
+      const appSystem = Shell.AppSystem.get_default();
+
+      // Cheap deterministic match — works with just wmClass/appId, no title needed.
+      // Called immediately on window-created to set the mapping before the dock
+      // renders, eliminating the generic-icon flash for most apps.
+      const deterministic = this._deterministicMatch(appSystem, wmClass, appId, title);
+      if (deterministic) {
+        this.context.logger.log(
+          `[IconWeave] deterministic match found: ${deterministic.get_id()} — applying`,
+        );
+        this._windowAppMap.set(win, deterministic);
+        this.context.signals.emit('icons-woven');
+        tracker.emit('tracked-windows-changed');
+        deterministic.emit('windows-changed');
+        this._processed.add(dedupeKey);
+        return;
+      }
+
+      // Heuristic needs title for reliable scoring — defer until it's available.
+      if (!title) {
+        if (!this._pendingConnections.has(win)) {
+          const id = win.connect('notify::title', () => {
+            win.disconnect(id);
+            this._pendingConnections.delete(win);
+            this._inspectWindow(win);
+          });
+          this._pendingConnections.set(win, id);
+        }
+        return;
+      }
+
+      const candidate = this._heuristicMatch(appSystem, wmClass, appId, title);
       if (candidate) {
         this.context.logger.log(
-          `[IconWeave] match found: ${candidate.get_id()} — applying memory fix`,
+          `[IconWeave] heuristic match found: ${candidate.get_id()} — applying`,
         );
         this._windowAppMap.set(win, candidate);
-
-        // Notify the bus that we found an icon, so other modules like Dock can refresh
         this.context.signals.emit('icons-woven');
-
-        // Force the window tracker to update its state
         tracker.emit('tracked-windows-changed');
         candidate.emit('windows-changed');
       } else {
@@ -415,20 +456,11 @@ export class IconWeave extends Module {
     return lowerId === 'steam.desktop' || lowerId === 'com.valvesoftware.steam.desktop';
   }
 
-  private _findBestCandidate(wmClass: string, appId: string, title: string): any {
+  private _deterministicMatch(appSystem: any, wmClass: string, appId: string, title: string): any {
     for (const prefix of BLACKLISTED_PREFIXES) {
       if (wmClass.toLowerCase().startsWith(prefix)) return null;
     }
 
-    const appSystem = Shell.AppSystem.get_default();
-
-    const deterministic = this._deterministicMatch(appSystem, wmClass, appId, title);
-    if (deterministic) return deterministic;
-
-    return this._heuristicMatch(appSystem, wmClass, appId, title);
-  }
-
-  private _deterministicMatch(appSystem: any, wmClass: string, appId: string, title: string): any {
     const candidates: string[] = [];
 
     if (title) {
@@ -450,6 +482,10 @@ export class IconWeave extends Module {
   }
 
   private _heuristicMatch(appSystem: any, wmClass: string, appId: string, title: string): any {
+    for (const prefix of BLACKLISTED_PREFIXES) {
+      if (wmClass.toLowerCase().startsWith(prefix)) return null;
+    }
+
     let bestApp: any = null;
     let bestScore = 0;
 
