@@ -125,9 +125,16 @@ export class Dock extends Module {
   }
 
   private _createBinding(monitor: DashBounds, monitorIndex: number): ManagedDockBinding | null {
+    // In always-show mode the strutActor must be added to uiGroup BEFORE the
+    // container. Both are inserted via addChrome (→ uiGroup.add_child), so the
+    // one added first sits lower in Z-order. The DnD system uses PickMode.ALL
+    // which picks the topmost actor; if strutActor were above the container it
+    // would be picked instead of the AuroraDash, breaking drag-and-drop.
+    const strutActor = this._alwaysShow ? this._createStrutActor(monitorIndex) : null;
+
     const container = new St.Bin({
       name: `aurora-dock-container-${monitorIndex}`,
-      reactive: false,
+      reactive: true,
       visible: false,
     });
 
@@ -152,7 +159,7 @@ export class Dock extends Module {
     };
 
     if (this._alwaysShow) {
-      binding.strutActor = this._createStrutActor(monitorIndex);
+      binding.strutActor = strutActor;
       dash.setFlushMode(true);
       dash.blockAutoHide(true);
       container.connectObject(
@@ -272,7 +279,6 @@ export class Dock extends Module {
 
     binding.dash.refresh();
     binding.dash.applyWorkArea(bounds);
-    binding.container.show();
 
     if (binding.hotArea) {
       binding.hotArea.set_size(bounds.width, HOT_AREA_STRIP_HEIGHT);
@@ -314,24 +320,6 @@ export class Dock extends Module {
 
     Main.layoutManager.removeChrome?.(binding.container);
     binding.container.destroy();
-  }
-
-  /**
-   * Returns true if no other monitor sits directly below this one.
-   * Used to avoid placing a dock between vertically stacked monitors.
-   */
-  private _hasDefinedBottom(monitors: DashBounds[], index: number): boolean {
-    const monitor = monitors[index];
-    if (!monitor) return false;
-
-    const bottom = monitor.y + monitor.height;
-    const left = monitor.x;
-    const right = left + monitor.width;
-
-    return !monitors.some((other, i) => {
-      if (i === index) return false;
-      return other.y >= bottom && other.x < right && other.x + other.width > left;
-    });
   }
 
   private _revealDockFromHotArea(binding: ManagedDockBinding): void {

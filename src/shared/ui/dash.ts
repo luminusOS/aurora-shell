@@ -6,6 +6,7 @@ import GObject from '@girs/gobject-2.0';
 import Shell from '@girs/shell-17';
 import type St from '@girs/st-17';
 import * as Main from '@girs/gnome-shell/ui/main';
+import * as DND from '@girs/gnome-shell/ui/dnd';
 import { Dash } from '@girs/gnome-shell/ui/dash';
 
 export interface DashBounds {
@@ -87,6 +88,16 @@ export class AuroraDash extends Dash {
 
     this.connectObject?.('notify::allocation', () => this._queueTargetBoxUpdate(), this);
 
+    // Track _box allocation so the chrome container follows the dash's
+    // preferred width every frame. Critical during drag: the placeholder
+    // animates scale 0→1, so a one-shot resize would lock the container
+    // at the half-scaled width.
+    (this as any)._box?.connectObject?.(
+      'notify::allocation',
+      () => this._queueWorkAreaUpdate(),
+      this,
+    );
+
     // Re-evaluate per-monitor app filtering when windows move between monitors
     global.display.connectObject(
       'window-entered-monitor',
@@ -122,7 +133,22 @@ export class AuroraDash extends Dash {
     this._isDestroyed = true;
     this._clearAllTimeouts();
 
+    // Remove the global DND drag monitor so its captured `this` doesn't
+    // keep firing against a disposed AuroraDash if the dash is destroyed
+    // mid-drag (e.g. monitor or settings change). Stock _endItemDrag
+    // removes it on drag end but never on early disposal.
+    const dashAny = this as any;
+    if (dashAny._dragMonitor) {
+      try {
+        DND.removeDragMonitor(dashAny._dragMonitor);
+      } catch {
+        // Already removed by base _endItemDrag — ignore.
+      }
+      dashAny._dragMonitor = null;
+    }
+
     (this as any).showAppsButton?.disconnectObject?.(this);
+    (this as any)._box?.disconnectObject?.(this);
     this.disconnectObject?.(this);
     Main.overview.disconnectObject(this);
     global.display.disconnectObject(this);
@@ -369,39 +395,69 @@ export class AuroraDash extends Dash {
     this.set_scale(HIDE_SCALE, HIDE_SCALE);
   }
 
-  // Dash._init() connects these via bare connect() (not connectObject), so they keep firing after
-  // destroy(). Guard them so signals don't reach a disposed object.
+  // Stock Dash._init() connects item-drag-* / window-drag-* via bare
+  // connect() (no disconnect on destroy), so signals keep firing after the
+  // GObject is disposed. Each override is just a disposed-guard; resize is
+  // driven by the _box notify::allocation listener in _init.
+  private _guardedSuper(method: string, args: any[] = []): void {
+    if (this._isDestroyed) return;
+    (Dash.prototype as any)[method].call(this, ...args);
+  }
 
   override _onItemDragBegin(): void {
-    if (this._isDestroyed) return;
-    (Dash.prototype as any)._onItemDragBegin?.call(this);
+    this._guardedSuper('_onItemDragBegin');
   }
-
   override _onItemDragEnd(): void {
-    if (this._isDestroyed) return;
-    (Dash.prototype as any)._onItemDragEnd?.call(this);
+    this._guardedSuper('_onItemDragEnd');
   }
-
   override _onItemDragCancelled(): void {
-    if (this._isDestroyed) return;
-    (Dash.prototype as any)._onItemDragCancelled?.call(this);
+    this._guardedSuper('_onItemDragCancelled');
+  }
+  override _onWindowDragBegin(...a: any[]): void {
+    this._guardedSuper('_onWindowDragBegin', a);
+  }
+  override _onWindowDragEnd(...a: any[]): void {
+    this._guardedSuper('_onWindowDragEnd', a);
   }
 
-  override _onWindowDragBegin(...args: any[]): void {
+  override _syncLabel(item: any, appIcon: any): void {
     if (this._isDestroyed) return;
-    (Dash.prototype as any)._onWindowDragBegin?.call(this, ...args);
+
+    // Prevent crash in showLabel() if the timeout fires after the item is destroyed
+    if (item && !item._auroraShowLabelPatched) {
+      item._auroraShowLabelPatched = true;
+      const originalShowLabel = item.showLabel;
+      item.showLabel = function () {
+        if (!this.label) return;
+        originalShowLabel.call(this);
+      };
+    }
+
+    (Dash.prototype as any)._syncLabel?.call(this, item, appIcon);
   }
 
-  override _onWindowDragEnd(...args: any[]): void {
-    if (this._isDestroyed) return;
-    (Dash.prototype as any)._onWindowDragEnd?.call(this, ...args);
-  }
+  override _createAppItem(app: any): any {
+    const item = super._createAppItem(app);
 
-  override handleDragOver(...args: any[]): any {
-    if (this._isDestroyed) return (this as any).DragMotionResult?.CONTINUE ?? 1;
-    const result = (Dash.prototype as any).handleDragOver?.call(this, ...args);
-    this._queueWorkAreaUpdate();
-    return result;
+    // GNOME Shell's Dash._redisplay checks Main.overview.visible to decide
+    // whether to call animateOutAndDestroy() or destroy() directly on removed items.
+    // Since AuroraDash lives outside the overview, we must patch the item itself
+    // to always animate out when destroyed if the dock is currently visible.
+    const originalDestroy = item.destroy.bind(item);
+    item.destroy = () => {
+      if (
+        this.visible &&
+        this.opacity > 0 &&
+        !item.animatingOut &&
+        !Main.overview.animationInProgress
+      ) {
+        item.animateOutAndDestroy();
+      } else {
+        originalDestroy();
+      }
+    };
+
+    return item;
   }
 
   /**
@@ -414,6 +470,28 @@ export class AuroraDash extends Dash {
     if (this._isDestroyed) return;
     const dashAny = this as any;
     const oldIconSize = dashAny.iconSize;
+
+    const overview = Main.overview as any;
+    const shouldAnimate = this.visible && this.opacity > 0;
+
+    const runRedisplay = () => {
+      let patchedOverview = false;
+      if (shouldAnimate && !overview.visible) {
+        patchedOverview = true;
+        Object.defineProperty(overview, 'visible', {
+          value: true,
+          configurable: true,
+        });
+      }
+
+      try {
+        Dash.prototype._redisplay.call(this);
+      } finally {
+        if (patchedOverview) {
+          delete overview.visible;
+        }
+      }
+    };
 
     // Temporarily patch get_running() so the base Dash only sees apps with
     // windows on this monitor and active workspace. Non-favorite running apps
@@ -434,7 +512,7 @@ export class AuroraDash extends Dash {
         return origGetRunning.call(this).filter((app: any) => app.get_windows().some(isRelevant));
       };
       try {
-        Dash.prototype._redisplay.call(this);
+        runRedisplay();
       } finally {
         if (hadOwnProp) {
           appSystem.get_running = origGetRunning;
@@ -444,6 +522,17 @@ export class AuroraDash extends Dash {
       }
     } else {
       Dash.prototype._redisplay.call(this);
+    }
+
+    // Workaround for GNOME Shell's Dash._redisplay only animating items
+    // when Main.overview.visible is true. Since AuroraDash sits outside
+    // the overview, we must manually show() the newly added items so they
+    // animate in (or appear instantly if the dock is hidden).
+    const children = (this as any)._box?.get_children?.() ?? [];
+    for (const child of children) {
+      if (child.scale_x === 0 || child.opacity === 0) {
+        child.show(shouldAnimate);
+      }
     }
 
     // Update running-indicator dots for favorites: hide the dot when the
@@ -545,7 +634,21 @@ export class AuroraDash extends Dash {
 
         if (windows.length <= 1) {
           this._cycleState = null;
-          originalActivate(button);
+          if (windows.length === 1) {
+            // Activate the window directly to avoid DashIcon.activate() checking the
+            // C-level app.state. IconWeave-mapped apps have C-level state STOPPED
+            // (the process isn't natively tracked), so DashIcon.activate() would call
+            // animateLaunch() and show the "opening new instance" bounce animation
+            // even though we're just switching to an existing window.
+            const win = windows[0];
+            if (win.minimized) win.unminimize();
+            Main.activateWindow(win);
+          } else {
+            // No windows on this monitor/workspace and app is not "running" per our
+            // patched get_state() — treat as a stopped app and let the default
+            // DashIcon behavior launch it.
+            originalActivate(button);
+          }
           return;
         }
 
@@ -763,10 +866,15 @@ export class AuroraDash extends Dash {
     }
   }
 
-  /** Coalesce work-area resizes into a single deferred update. */
+  /**
+   * Coalesce work-area resizes into a single deferred update. Uses
+   * PRIORITY_DEFAULT (not PRIORITY_DEFAULT_IDLE): active drag motion floods
+   * the idle queue, so a low-priority idle source is starved and the
+   * container never resizes mid-drag while the placeholder is in/out.
+   */
   private _queueWorkAreaUpdate(): void {
     if (this._isDestroyed || this._workAreaUpdateId) return;
-    this._workAreaUpdateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+    this._workAreaUpdateId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
       this._workAreaUpdateId = 0;
       if (this._workArea) {
         this.applyWorkArea(this._workArea);
