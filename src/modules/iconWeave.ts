@@ -229,7 +229,8 @@ export class IconWeave extends Module {
       if (dedupeKey) {
         const stillHasWindow = [...this._windowAppMap.keys()].some(
           (w) =>
-            (w.get_wm_class() ?? '') === wmClass || (w.get_gtk_application_id() ?? '') === appId,
+            (wmClass && (w.get_wm_class() ?? '') === wmClass) ||
+            (appId && (w.get_gtk_application_id() ?? '') === appId),
         );
         if (!stillHasWindow) this._processed.delete(dedupeKey);
       }
@@ -375,8 +376,8 @@ export class IconWeave extends Module {
         // Try to find if we have a mapped app for another window with same class
         for (const [mappedWin, app] of this._windowAppMap.entries()) {
           if (
-            mappedWin.get_wm_class() === wmClass ||
-            mappedWin.get_gtk_application_id() === appId
+            (wmClass && mappedWin.get_wm_class() === wmClass) ||
+            (appId && mappedWin.get_gtk_application_id() === appId)
           ) {
             this._windowAppMap.set(win, app);
             this.context.signals.emit('icons-woven');
