@@ -24,7 +24,8 @@ type TimeoutProp =
   | '_autohideTimeoutId'
   | '_delayEnsureAutoHideId'
   | '_blockAutoHideDelayId'
-  | '_workAreaUpdateId';
+  | '_workAreaUpdateId'
+  | '_iconResizeTimeoutId';
 
 const AUTOHIDE_TIMEOUT = 100;
 const ANIMATION_TIME = 200;
@@ -59,12 +60,14 @@ export class AuroraDash extends Dash {
   private _delayEnsureAutoHideId = 0;
   private _blockAutoHideDelayId = 0;
   private _workAreaUpdateId = 0;
+  private _iconResizeTimeoutId = 0;
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
   private _isDestroyed = false;
   private _flushMode = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
+  private _unpinnedAppOrder: string[] = [];
 
   _init(params: AuroraDashParams = {}): void {
     super._init();
@@ -239,6 +242,10 @@ export class AuroraDash extends Dash {
   applyWorkArea(workArea: DashBounds): void {
     this._workArea = workArea;
     if (!this._container) return;
+
+    // Provide the dash with its maximum bounds so it can automatically
+    // shrink the iconSize when there are too many apps to fit.
+    this.setMaxSize(workArea.width, workArea.height);
 
     const [, prefW] = this.get_preferred_width(workArea.width);
     const width = Math.min(Math.max(prefW, 0), workArea.width);
@@ -508,8 +515,31 @@ export class AuroraDash extends Dash {
       // null-dereference on the next enable cycle.
       const hadOwnProp = Object.prototype.hasOwnProperty.call(appSystem, 'get_running');
       const isRelevant = (w: any) => this._isWindowRelevant(w);
-      appSystem.get_running = function () {
-        return origGetRunning.call(this).filter((app: any) => app.get_windows().some(isRelevant));
+      appSystem.get_running = () => {
+        const apps = origGetRunning
+          .call(appSystem)
+          .filter((app: any) => app.get_windows().some(isRelevant));
+
+        // Maintain a stable order of unpinned apps based on when they were first seen
+        const currentIds = new Set(apps.map((a: any) => a.get_id()));
+
+        // Remove apps that are no longer running
+        this._unpinnedAppOrder = this._unpinnedAppOrder.filter((id: string) => currentIds.has(id));
+
+        // Add new apps to the end of the order list
+        for (const app of apps) {
+          const id = app.get_id();
+          if (!this._unpinnedAppOrder.includes(id)) {
+            this._unpinnedAppOrder.push(id);
+          }
+        }
+
+        // Sort apps based on our maintained order
+        return apps.sort((a: any, b: any) => {
+          const indexA = this._unpinnedAppOrder.indexOf(a.get_id());
+          const indexB = this._unpinnedAppOrder.indexOf(b.get_id());
+          return indexA - indexB;
+        });
       };
       try {
         runRedisplay();
@@ -547,7 +577,14 @@ export class AuroraDash extends Dash {
     this._overrideIconActivation();
 
     if (dashAny.iconSize !== oldIconSize) {
-      this._animateIconResize();
+      // _adjustIconSize already started size animations; resize the container
+      // after those complete so the container never clips mid-animation icons.
+      this._clearTimeout('_iconResizeTimeoutId');
+      this._iconResizeTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ANIMATION_TIME, () => {
+        this._iconResizeTimeoutId = 0;
+        if (this._workArea) this.applyWorkArea(this._workArea);
+        return GLib.SOURCE_REMOVE;
+      });
     } else if (this._workArea) {
       // Defer the work-area resize so newly-added icon containers have
       // completed their initial layout pass and report accurate preferred
@@ -695,68 +732,6 @@ export class AuroraDash extends Dash {
     }
   }
 
-  /**
-   * Animate all dock icons to the current icon size after a size change.
-   * Re-applies the work area once all animations finish to resize the
-   * container to the final preferred width — NOT per-frame, to avoid a
-   * feedback loop where a shrinking container triggers further shrinking.
-   */
-  private _animateIconResize(): void {
-    if (!this._workArea) return;
-
-    const dashAny = this as any;
-    const iconChildren =
-      dashAny._box
-        ?.get_children?.()
-        ?.filter((actor: any) => actor.child?._delegate?.icon && !actor.animatingOut) ?? [];
-
-    if (dashAny._showAppsIcon) {
-      iconChildren.push(dashAny._showAppsIcon);
-    }
-
-    const isVisible = this.visible && this.opacity > 0;
-    let pendingAnimations = 0;
-
-    const onAnimationDone = () => {
-      pendingAnimations--;
-      if (this._isDestroyed) return;
-      if (pendingAnimations === 0 && this._workArea) {
-        this.applyWorkArea(this._workArea);
-      }
-    };
-
-    for (const child of iconChildren) {
-      const icon = child.child._delegate.icon;
-      icon.setIconSize(dashAny.iconSize);
-      const [targetWidth, targetHeight] = icon.icon.get_size();
-
-      if (!isVisible) {
-        icon.icon.set_size(targetWidth, targetHeight);
-        continue;
-      }
-
-      pendingAnimations++;
-      icon.icon.ease({
-        width: targetWidth,
-        height: targetHeight,
-        duration: ANIMATION_TIME,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onComplete: onAnimationDone,
-      });
-    }
-
-    dashAny._separator?.ease({
-      height: dashAny.iconSize,
-      duration: ANIMATION_TIME,
-      mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-    });
-
-    // If nothing animated (dock not visible), apply work area immediately
-    if (pendingAnimations === 0 && this._workArea) {
-      this.applyWorkArea(this._workArea);
-    }
-  }
-
   /** Start or restart the autohide timeout — hides the dock if not hovered/blocked. */
   private _onHover(): void {
     if (this._isDestroyed) return;
@@ -895,6 +870,7 @@ export class AuroraDash extends Dash {
     this._clearTimeout('_delayEnsureAutoHideId');
     this._clearTimeout('_blockAutoHideDelayId');
     this._clearTimeout('_workAreaUpdateId');
+    this._clearTimeout('_iconResizeTimeoutId');
   }
 
   private static _boundsEqual(a: DashBounds | null, b: DashBounds | null): boolean {
