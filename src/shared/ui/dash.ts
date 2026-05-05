@@ -25,9 +25,11 @@ type TimeoutProp =
   | '_delayEnsureAutoHideId'
   | '_blockAutoHideDelayId'
   | '_workAreaUpdateId'
-  | '_iconResizeTimeoutId';
+  | '_iconResizeTimeoutId'
+  | '_springLoadTimerId';
 
 const AUTOHIDE_TIMEOUT = 100;
+const SPRING_LOAD_DELAY = 400;
 const ANIMATION_TIME = 200;
 const VISIBILITY_ANIMATION_TIME = 200;
 const HIDE_SCALE = 0.98;
@@ -68,6 +70,9 @@ export class AuroraDash extends Dash {
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
   private _unpinnedAppOrder: string[] = [];
+  private _springLoadTimerId = 0;
+  private _springLoadTarget: any = null;
+  private _springLoadDragMonitor: { dragMotion: (e: any) => number } | null = null;
 
   _init(params: AuroraDashParams = {}): void {
     super._init();
@@ -116,6 +121,8 @@ export class AuroraDash extends Dash {
       () => this._queueRedisplay(),
       this,
     );
+
+    this._setupSpringLoadMonitor();
   }
 
   get monitorIndex(): number {
@@ -150,6 +157,16 @@ export class AuroraDash extends Dash {
       dashAny._dragMonitor = null;
     }
 
+    if (this._springLoadDragMonitor) {
+      try {
+        DND.removeDragMonitor(this._springLoadDragMonitor);
+      } catch (_e) {
+        /* already removed */
+      }
+      this._springLoadDragMonitor = null;
+    }
+    this._springLoadTarget = null;
+
     (this as any).showAppsButton?.disconnectObject?.(this);
     (this as any)._box?.disconnectObject?.(this);
     this.disconnectObject?.(this);
@@ -158,6 +175,7 @@ export class AuroraDash extends Dash {
     global.workspace_manager.disconnectObject(this);
     (this as any)._dashContainer?.disconnectObject?.(this);
     this._container?.disconnectObject?.(this);
+    (global.backend as any).get_dnd?.()?.disconnectObject?.(this);
 
     this._container = null;
     this._targetBox = null;
@@ -516,17 +534,16 @@ export class AuroraDash extends Dash {
       const hadOwnProp = Object.prototype.hasOwnProperty.call(appSystem, 'get_running');
       const isRelevant = (w: any) => this._isWindowRelevant(w);
       appSystem.get_running = () => {
-        const apps = origGetRunning
-          .call(appSystem)
-          .filter((app: any) => app.get_windows().some(isRelevant));
+        const allApps = origGetRunning.call(appSystem);
+        const apps = allApps.filter((app: any) => app.get_windows().some(isRelevant));
 
-        // Maintain a stable order of unpinned apps based on when they were first seen
-        const currentIds = new Set(apps.map((a: any) => a.get_id()));
+        // Prune only truly closed apps; preserve position when windows temporarily
+        // move to another monitor or workspace (app still running globally).
+        const allRunningIds = new Set(allApps.map((a: any) => a.get_id()));
+        this._unpinnedAppOrder = this._unpinnedAppOrder.filter((id: string) =>
+          allRunningIds.has(id),
+        );
 
-        // Remove apps that are no longer running
-        this._unpinnedAppOrder = this._unpinnedAppOrder.filter((id: string) => currentIds.has(id));
-
-        // Add new apps to the end of the order list
         for (const app of apps) {
           const id = app.get_id();
           if (!this._unpinnedAppOrder.includes(id)) {
@@ -534,7 +551,6 @@ export class AuroraDash extends Dash {
           }
         }
 
-        // Sort apps based on our maintained order
         return apps.sort((a: any, b: any) => {
           const indexA = this._unpinnedAppOrder.indexOf(a.get_id());
           const indexB = this._unpinnedAppOrder.indexOf(b.get_id());
@@ -732,6 +748,72 @@ export class AuroraDash extends Dash {
     }
   }
 
+  private _setupSpringLoadMonitor(): void {
+    this._springLoadDragMonitor = {
+      dragMotion: (dragEvent: any) => {
+        if (this._isDestroyed) return DND.DragMotionResult.CONTINUE;
+
+        // Internal dock icon drags (DashIcon source) have .app set; skip those.
+        if (dragEvent.source?.app) {
+          this._clearSpringLoad();
+          return DND.DragMotionResult.CONTINUE;
+        }
+
+        const { x, y } = dragEvent;
+        let actor = global.stage.get_actor_at_pos?.(Clutter.PickMode.REACTIVE, x, y);
+        const box = (this as any)._box;
+        let target: any = null;
+
+        while (actor) {
+          if (actor.get_parent?.() === box) {
+            target = actor;
+            break;
+          }
+          actor = actor.get_parent?.();
+        }
+
+        if (target !== this._springLoadTarget) {
+          this._clearSpringLoad();
+          this._springLoadTarget = target;
+
+          const appIcon = target?.child?._delegate;
+          if (appIcon?.app) {
+            const isRelevant = (w: any) => this._isWindowRelevant(w);
+            this._springLoadTimerId = GLib.timeout_add(
+              GLib.PRIORITY_DEFAULT,
+              SPRING_LOAD_DELAY,
+              () => {
+                this._springLoadTimerId = 0;
+                if (this._isDestroyed) return GLib.SOURCE_REMOVE;
+                const windows = appIcon.app?.get_windows?.()?.filter?.(isRelevant) ?? [];
+                if (windows.length > 0) {
+                  const win = windows[0];
+                  if (win?.minimized) win.unminimize();
+                  Main.activateWindow(win);
+                }
+                return GLib.SOURCE_REMOVE;
+              },
+            );
+          }
+        }
+
+        return DND.DragMotionResult.CONTINUE;
+      },
+    };
+
+    DND.addDragMonitor(this._springLoadDragMonitor);
+
+    // Clear spring-load state when an external (X11/Wayland) drag ends.
+    (global.backend as any)
+      .get_dnd?.()
+      ?.connectObject?.('dnd-leave', () => this._clearSpringLoad(), this);
+  }
+
+  private _clearSpringLoad(): void {
+    this._clearTimeout('_springLoadTimerId');
+    this._springLoadTarget = null;
+  }
+
   /** Start or restart the autohide timeout — hides the dock if not hovered/blocked. */
   private _onHover(): void {
     if (this._isDestroyed) return;
@@ -871,6 +953,7 @@ export class AuroraDash extends Dash {
     this._clearTimeout('_blockAutoHideDelayId');
     this._clearTimeout('_workAreaUpdateId');
     this._clearTimeout('_iconResizeTimeoutId');
+    this._clearTimeout('_springLoadTimerId');
   }
 
   private static _boundsEqual(a: DashBounds | null, b: DashBounds | null): boolean {

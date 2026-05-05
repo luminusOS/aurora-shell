@@ -34,3 +34,6 @@ Thumbs.db
 
 # Vagrant
 .vagrant/
+.docs/
+docs/
+.superpowers/
