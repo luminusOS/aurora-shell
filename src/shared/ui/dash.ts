@@ -69,7 +69,6 @@ export class AuroraDash extends Dash {
   private _flushMode = false;
   private _targetBoxListener: TargetBoxListener | null = null;
   private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
-  private _unpinnedAppOrder: string[] = [];
   private _springLoadTimerId = 0;
   private _springLoadTarget: any = null;
   private _springLoadDragMonitor: { dragMotion: (e: any) => number } | null = null;
@@ -463,14 +462,21 @@ export class AuroraDash extends Dash {
 
   override _createAppItem(app: any): any {
     const item = super._createAppItem(app);
+    const dashAny = this as any;
 
-    // GNOME Shell's Dash._redisplay checks Main.overview.visible to decide
-    // whether to call animateOutAndDestroy() or destroy() directly on removed items.
-    // Since AuroraDash lives outside the overview, we must patch the item itself
-    // to always animate out when destroyed if the dock is currently visible.
+    // Stock Dash._redisplay calls item.destroy() when removing icons. We intercept
+    // to animate out ONLY when the app actually closed (not when it was filtered
+    // out by the workspace/monitor check). _globallyRunningIds is set during
+    // _redisplay and contains all globally running app IDs at that moment.
     const originalDestroy = item.destroy.bind(item);
     item.destroy = () => {
+      const globalIds = dashAny._globallyRunningIds as Set<string> | undefined;
+      const appId = item.child?._delegate?.app?.get_id?.() as string | undefined;
+      const appActuallyClosed =
+        globalIds !== undefined && appId !== undefined && !globalIds.has(appId);
+
       if (
+        appActuallyClosed &&
         this.visible &&
         this.opacity > 0 &&
         !item.animatingOut &&
@@ -485,116 +491,97 @@ export class AuroraDash extends Dash {
     return item;
   }
 
-  /**
-   * Override Dash._redisplay to resize the container after icon list changes.
-   * If iconSize changed, animate icons to the new size (applyWorkArea runs
-   * after animation). Otherwise, re-apply the work area immediately so the
-   * container grows/shrinks to fit added or removed icons.
-   */
   override _redisplay(): void {
     if (this._isDestroyed) return;
     const dashAny = this as any;
     const oldIconSize = dashAny.iconSize;
-
-    const overview = Main.overview as any;
     const shouldAnimate = this.visible && this.opacity > 0;
 
-    const runRedisplay = () => {
-      let patchedOverview = false;
-      if (shouldAnimate && !overview.visible) {
-        patchedOverview = true;
-        Object.defineProperty(overview, 'visible', {
-          value: true,
-          configurable: true,
-        });
-      }
-
-      try {
-        Dash.prototype._redisplay.call(this);
-      } finally {
-        if (patchedOverview) {
-          delete overview.visible;
-        }
-      }
-    };
+    // Snapshot existing (non-animating-out) apps so we can detect newly added
+    // items after stock _redisplay and animate them in ourselves.
+    const isFirstDisplay = !dashAny._shownInitially;
+    const existingApps = new Set<any>(
+      ((this as any)._box?.get_children?.() ?? [])
+        .filter((c: any) => c.child?._delegate?.app && !c.animatingOut)
+        .map((c: any) => c.child._delegate.app),
+    );
 
     // Temporarily patch get_running() so the base Dash only sees apps with
-    // windows on this monitor and active workspace. Non-favorite running apps
-    // from other monitors or workspaces will not appear in this dock.
+    // windows on this monitor and active workspace. _globallyRunningIds is set
+    // so the _createAppItem.destroy patch can distinguish actual closes (animate
+    // out) from workspace-filter removals (instant destroy, no ghost icons).
     const appSystem = dashAny._appSystem;
     const origGetRunning = appSystem?.get_running;
     if (appSystem && origGetRunning) {
-      // Track whether the instance already had its own property before we patch,
-      // so we can restore to the exact same state in the finally block.
-      // If there was no own property (prototype lookup was used), we must DELETE
-      // rather than reassign — otherwise a stale closure (e.g. from a previous
-      // iconWeave enable cycle) gets pinned as an own property on the instance
-      // and survives iconWeave.disable() restoring only the prototype, causing a
-      // null-dereference on the next enable cycle.
       const hadOwnProp = Object.prototype.hasOwnProperty.call(appSystem, 'get_running');
+      const allApps: any[] = origGetRunning.call(appSystem);
+      dashAny._globallyRunningIds = new Set<string>(allApps.map((a: any) => a.get_id()));
+
       const isRelevant = (w: any) => this._isWindowRelevant(w);
       appSystem.get_running = () => {
-        const allApps = origGetRunning.call(appSystem);
-        const apps = allApps.filter((app: any) => app.get_windows().some(isRelevant));
-
-        // Prune only truly closed apps; preserve position when windows temporarily
-        // move to another monitor or workspace (app still running globally).
-        const allRunningIds = new Set(allApps.map((a: any) => a.get_id()));
-        this._unpinnedAppOrder = this._unpinnedAppOrder.filter((id: string) =>
-          allRunningIds.has(id),
-        );
-
-        for (const app of apps) {
-          const id = app.get_id();
-          if (!this._unpinnedAppOrder.includes(id)) {
-            this._unpinnedAppOrder.push(id);
-          }
-        }
+        const apps = allApps.filter((app: any) => {
+          // Always show apps that are still launching — they have no windows yet
+          // so isRelevant() would return false and the icon would be delayed
+          // until the window appears on the current workspace.
+          if (app.get_state?.() === Shell.AppState.STARTING) return true;
+          return app.get_windows().some(isRelevant);
+        });
 
         return apps.sort((a: any, b: any) => {
-          const indexA = this._unpinnedAppOrder.indexOf(a.get_id());
-          const indexB = this._unpinnedAppOrder.indexOf(b.get_id());
-          return indexA - indexB;
+          const minSeq = (app: any): number => {
+            const wins: any[] = app.get_windows();
+            if (wins.length === 0) return Number.MAX_SAFE_INTEGER;
+            return wins.reduce(
+              (m: number, w: any) => Math.min(m, (w.get_stable_sequence?.() ?? 0) as number),
+              Number.MAX_SAFE_INTEGER,
+            );
+          };
+          return minSeq(a) - minSeq(b);
         });
       };
+
       try {
-        runRedisplay();
+        Dash.prototype._redisplay.call(this);
       } finally {
         if (hadOwnProp) {
           appSystem.get_running = origGetRunning;
         } else {
           delete appSystem.get_running;
         }
+        delete dashAny._globallyRunningIds;
       }
     } else {
       Dash.prototype._redisplay.call(this);
     }
 
-    // Workaround for GNOME Shell's Dash._redisplay only animating items
-    // when Main.overview.visible is true. Since AuroraDash sits outside
-    // the overview, we must manually show() the newly added items so they
-    // animate in (or appear instantly if the dock is hidden).
-    const children = (this as any)._box?.get_children?.() ?? [];
-    for (const child of children) {
-      if (child.scale_x === 0 || child.opacity === 0) {
-        child.show(shouldAnimate);
+    // Animate newly-added items in. Stock Dash._redisplay calls item.show(false)
+    // (instant) when overview.visible is false, leaving new items at scale=1.
+    // We detect them via the pre-redisplay snapshot and replay the animation.
+    if (shouldAnimate && !isFirstDisplay) {
+      const children = (this as any)._box?.get_children?.() ?? [];
+      for (const child of children) {
+        const childApp = child.child?._delegate?.app;
+        if (childApp && !existingApps.has(childApp) && !child.animatingOut) {
+          child.remove_all_transitions();
+          child.scale_x = 0;
+          child.scale_y = 0;
+          child.opacity = 0;
+          child.ease({
+            scale_x: 1,
+            scale_y: 1,
+            opacity: 255,
+            duration: ANIMATION_TIME,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+          });
+        }
       }
     }
 
-    // Update running-indicator dots for favorites: hide the dot when the
-    // app has no windows on this monitor even if the app is globally running.
     this._updatePerMonitorRunningDots();
-
-    // Re-apply flush-mode class to labels, including any newly-added icons.
     this._syncLabelFlushMode();
-
-    // Patch icon activation so clicking an app with multiple windows on
-    // this monitor raises all of them instead of only the most recent one.
     this._overrideIconActivation();
 
     if (dashAny.iconSize !== oldIconSize) {
-      // _adjustIconSize already started size animations; resize the container
-      // after those complete so the container never clips mid-animation icons.
       this._clearTimeout('_iconResizeTimeoutId');
       this._iconResizeTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ANIMATION_TIME, () => {
         this._iconResizeTimeoutId = 0;
@@ -602,10 +589,6 @@ export class AuroraDash extends Dash {
         return GLib.SOURCE_REMOVE;
       });
     } else if (this._workArea) {
-      // Defer the work-area resize so newly-added icon containers have
-      // completed their initial layout pass and report accurate preferred
-      // sizes. Without this, the container can be sized too small and the
-      // last icon gets clipped.
       this._queueWorkAreaUpdate();
     }
   }
@@ -622,24 +605,14 @@ export class AuroraDash extends Dash {
     );
   }
 
-  /**
-   * Show the running-indicator dot only for apps that have at least one
-   * window on this dash's monitor and active workspace. This ensures
-   * favorites pinned across all docks only display activity where the
-   * app is actually open.
-   */
   private _updatePerMonitorRunningDots(): void {
     const children = (this as any)._box?.get_children?.() ?? [];
     for (const child of children) {
       const icon = child.child?._delegate;
       if (!icon?.app) continue;
-
       const hasWindowHere = icon.app.get_windows().some((w: any) => this._isWindowRelevant(w));
-
       const dot = icon._dot;
-      if (dot) {
-        dot.visible = hasWindowHere;
-      }
+      if (dot) dot.visible = hasWindowHere;
     }
   }
 
