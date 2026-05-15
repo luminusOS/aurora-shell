@@ -1,8 +1,8 @@
-# Aurora Shell
-
 <div align="center">
-  <img src="data/media/aurora-shell-logo.png" width="200" />
+  <img src="data/media/aurora-shell-logo.svg" width="200" />
 </div>
+
+# Aurora Shell
 
 A modular GNOME Shell extension that adds quality-of-life features missing in vanilla GNOME.
 
