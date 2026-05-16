@@ -90,11 +90,6 @@
       <summary>Dark theme minutes</summary>
       <description>Minute of hour to switch to dark theme (0-59)</description>
     </key>
-    <key name="module-workspace-thumbnails" type="b">
-      <default>true</default>
-      <summary>Enable Workspace Thumbnails DnD module</summary>
-      <description>Drag windows between workspaces from the overview side panel</description>
-    </key>
     <key name="module-bluetooth-menu" type="b">
       <default>true</default>
       <summary>Enable Bluetooth Menu module</summary>

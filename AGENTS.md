@@ -9,7 +9,7 @@
 After **any** code change, always run these two commands and fix any errors before considering the task done:
 
 1. `just validate` — type-checks the TypeScript source without emitting output
-2. `just test-all` — builds and runs all integration tests, printing a pass/fail summary
+2. `just toolbox test-all` — builds and runs all integration tests inside the Fedora toolbox, printing a pass/fail summary
 
 Do not leave a task incomplete if either command reports errors or failures.
 
@@ -27,7 +27,8 @@ Do not leave a task incomplete if either command reports errors or failures.
 - **Lint:** `just lint` — runs ESLint
 - **Unit tests:** `just unit-test` — runs unit tests via `yarn test:unit` (vitest)
 - **Single integration test:** `just test <script>` — runs one shell test script with `gnome-shell-test-tool` (headless); requires `just package` first
-- **All integration tests:** `just test-all` — builds and runs all `tests/shell/aurora*.js` scripts, printing a pass/fail summary
+- **All integration tests:** `just test-all` — builds and runs all `tests/shell/aurora*.js` scripts on the host, printing a pass/fail summary
+- **All integration tests (toolbox):** `just toolbox test-all` — same as above but runs inside the Fedora toolbox (preferred; use this instead of `just test-all`)
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
 - **Clean:** `just clean` — removes `dist/`
@@ -53,7 +54,7 @@ Do not leave a task incomplete if either command reports errors or failures.
     - `logger.ts` — Abstracted logging
     - `settings.ts` — `SettingsManager` abstraction for GSettings
     - `adapters/` — Infrastructure adapters (e.g., `ShellEnvironment`)
-  - `modules/` — one file (or subfolder) per feature module
+  - `modules/` — one **folder** per feature module, named after the module (e.g., `dock/dock.ts`); the main entry file shares the folder name
   - `shared/` — shared utilities used across modules
   - `styles/` — SCSS stylesheets (compiled to light + dark CSS)
   - `types/` — TypeScript type declarations (`@girs`, GJS, etc.)
@@ -82,7 +83,7 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 ## Adding a Module
 
-1. Create `src/modules/myModule.ts` with a `Module` subclass **and** a co-located `definition` export:
+1. Create `src/modules/myModule/myModule.ts` with a `Module` subclass **and** a co-located `definition` export. Every module **must** live in its own folder named after the module (e.g., `dock/dock.ts`, `panel/panel.ts`):
 
 ```typescript
 import { gettext as _ } from 'gettext';
@@ -114,7 +115,7 @@ export const definition: ModuleDefinition = {
 2. Register the definition in `src/registry.ts` (one import + one array entry, preserving UI order):
 
 ```typescript
-import { definition as myModule } from '~/modules/myModule.ts';
+import { definition as myModule } from '~/modules/myModule/myModule.ts';
 // …inside getModuleRegistry():
 return [/* …, */ myModule];
 ```

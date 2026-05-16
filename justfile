@@ -132,7 +132,7 @@ test-all: package
     PASS=0; FAIL=0
     for script in tests/shell/aurora*.js; do
         echo "==> Running $script"
-        if dbus-run-session gnome-shell-test-tool --headless --extension "$EXT" "$script"; then
+        if GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas dbus-run-session gnome-shell-test-tool --headless --extension "$EXT" "$script"; then
             echo "    PASS: $script"
             PASS=$((PASS + 1))
         else
@@ -165,9 +165,29 @@ toolbox action *args:
             toolbox rm --force {{ toolbox_name }}
             echo "Toolbox '{{ toolbox_name }}' removed."
             ;;
+        "test-all")
+            just package
+            EXT="dist/target/{{ uuid }}.shell-extension.zip"
+            PASS=0; FAIL=0
+            for script in tests/shell/aurora*.js; do
+                echo "==> Running $script"
+                if toolbox --container {{ toolbox_name }} run env GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas \
+                        dbus-run-session gnome-shell-test-tool \
+                        --headless --extension "$EXT" "$script"; then
+                    echo "    PASS: $script"
+                    PASS=$((PASS + 1))
+                else
+                    echo "    FAIL: $script"
+                    FAIL=$((FAIL + 1))
+                fi
+            done
+            echo ""
+            echo "Results: $PASS passed, $FAIL failed"
+            [ "$FAIL" -eq 0 ]
+            ;;
         *)
             echo "Unknown toolbox action: {{ action }}"
-            echo "Available: create, run, remove"
+            echo "Available: create, run, remove, test-all"
             exit 1
             ;;
     esac

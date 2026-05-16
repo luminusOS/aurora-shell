@@ -33,7 +33,6 @@ const EXPECTED_MODULE_KEYS = [
   'module-app-search-tooltip',
   'module-privacy',
   'module-auto-theme-switcher',
-  'module-workspace-thumbnails',
   'module-bluetooth-menu',
 ] as const;
 
