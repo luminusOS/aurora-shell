@@ -119,12 +119,6 @@ export function getModuleMetadata(): ModuleMetadata[] {
       ],
     },
     {
-      key: 'workspace-thumbnails',
-      settingsKey: 'module-workspace-thumbnails',
-      title: _('Workspace Thumbnails DnD'),
-      subtitle: _('Drag windows between workspaces from the overview side panel'),
-    },
-    {
       key: 'bluetooth-menu',
       settingsKey: 'module-bluetooth-menu',
       title: _('Bluetooth Menu'),

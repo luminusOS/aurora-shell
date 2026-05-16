@@ -5,8 +5,8 @@ import GioUnix from '@girs/giounix-2.0';
 import Shell from '@girs/shell-17';
 import Meta from '@girs/meta-17';
 import type { ExtensionContext } from '~/core/context.ts';
-import { Module } from '../module.ts';
-import type { ModuleDefinition } from '../moduleDefinition.ts';
+import { Module } from '~/module.ts';
+import type { ModuleDefinition } from '~/moduleDefinition.ts';
 
 const WINDOW_INSPECT_DELAY_MS = 500;
 const MIN_MATCH_SCORE = 50;
