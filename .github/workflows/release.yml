@@ -20,7 +20,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y just gettext zip
+          sudo apt-get install -y just gettext zip gnome-shell python3-gi gir1.2-glib-2.0
 
       - name: Enable Corepack
         run: corepack enable
@@ -44,7 +44,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
-          files: dist/target/aurora-shell@luminusos.github.io.zip
+          files: dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
           generate_release_notes: true
 
       - name: Create Release Branch
