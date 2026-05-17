@@ -1,4 +1,3 @@
-// @ts-nocheck
 import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 import GLib from '@girs/glib-2.0';
@@ -7,7 +6,7 @@ import Gio from '@girs/gio-2.0';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 
 /**
  * AutoThemeSwitcher Module

@@ -14,10 +14,11 @@ build: deps
     yarn build
     cp metadata.json dist/
     cp -r data/schemas dist/ 2>/dev/null || true
+    glib-compile-schemas dist/schemas/
     cp -r data/icons dist/ 2>/dev/null || true
     just compile-mo
 
-package:
+package: build
     #!/usr/bin/env bash
     set -e
     mkdir -p dist/target
@@ -165,6 +166,19 @@ toolbox action *args:
             toolbox rm --force {{ toolbox_name }}
             echo "Toolbox '{{ toolbox_name }}' removed."
             ;;
+        "test")
+            just package
+            EXT="dist/target/{{ uuid }}.shell-extension.zip"
+            SCRIPT="{{ args }}"
+            if [ -z "$SCRIPT" ]; then
+                echo "Usage: just toolbox test <script>"
+                echo "Example: just toolbox test tests/shell/auroraBasic.js"
+                exit 1
+            fi
+            toolbox --container {{ toolbox_name }} run env GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas \
+                dbus-run-session gnome-shell-test-tool \
+                --headless --extension "$EXT" "$SCRIPT"
+            ;;
         "test-all")
             just package
             EXT="dist/target/{{ uuid }}.shell-extension.zip"
@@ -187,7 +201,7 @@ toolbox action *args:
             ;;
         *)
             echo "Unknown toolbox action: {{ action }}"
-            echo "Available: create, run, remove, test-all"
+            echo "Available: create, run, remove, test <script>, test-all"
             exit 1
             ;;
     esac

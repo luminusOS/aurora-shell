@@ -1,12 +1,11 @@
-// @ts-nocheck
 import '@girs/gjs';
 
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
-import St from '@girs/st-17';
-import Clutter from '@girs/clutter-17';
+import St from '@girs/st-18';
+import Clutter from '@girs/clutter-18';
 
-import type { IconThemeLoader } from '~/shared/icons.ts';
+import { loadIcon } from '~/shared/icons.ts';
 
 const COLOR_DISCONNECTED = '#9a9a9a';
 const COLOR_CONNECTED = '#1c71d8';
@@ -14,7 +13,6 @@ const COLOR_ANIMATING = '#3584e4';
 
 export class BluetoothDeviceItemPatcher {
   private _item: any;
-  private _iconLoader: IconThemeLoader;
   private _stateIcon: St.Icon | null = null;
   private _batteryLabel: St.Label | null = null;
   private _spinnerNotifyId = 0;
@@ -25,13 +23,11 @@ export class BluetoothDeviceItemPatcher {
   private _animationFrame = 1;
   private _animatingState: 'connecting' | 'disconnecting' | null = null;
 
-  constructor(item: any, iconLoader: IconThemeLoader) {
+  constructor(item: any) {
     this._item = item;
-    this._iconLoader = iconLoader;
-    this._patch();
   }
 
-  private _patch(): void {
+  enable(): void {
     const item = this._item;
 
     // Override activate so clicking a device doesn't close the menu.
@@ -119,7 +115,7 @@ export class BluetoothDeviceItemPatcher {
 
   private _loadIcon(name: string): Gio.Icon {
     try {
-      return this._iconLoader.lookupIcon(name);
+      return loadIcon(name);
     } catch (_e) {
       return Gio.Icon.new_for_string('image-missing-symbolic');
     }
@@ -180,7 +176,7 @@ export class BluetoothDeviceItemPatcher {
     }
   }
 
-  restore(): void {
+  disable(): void {
     if (this._spinnerNotifyId) {
       this._item._spinner?.disconnect(this._spinnerNotifyId);
       this._spinnerNotifyId = 0;

@@ -1,10 +1,9 @@
-// @ts-nocheck
 import '@girs/gjs';
 
-import St from '@girs/st-17';
+import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
 import Gvc from 'gi://Gvc';
-import Clutter from '@girs/clutter-17';
+import Clutter from '@girs/clutter-18';
 
 import * as Volume from '@girs/gnome-shell/ui/status/volume';
 
@@ -31,7 +30,11 @@ export class VolumeMixerList extends St.BoxLayout {
   declare should_show: boolean;
   declare shouldShow: boolean;
 
-  _init(context: ExtensionContext): void {
+  declare private _context: ExtensionContext;
+  declare private _sliders: Map<number, VolumeMixerItem>;
+  declare private _control: Gvc.MixerControl;
+
+  override _init(context?: ExtensionContext | Partial<St.BoxLayout.ConstructorProps>): void {
     super._init({
       orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-volume-mixer-list',
@@ -39,7 +42,7 @@ export class VolumeMixerList extends St.BoxLayout {
       x_expand: true,
     });
 
-    this._context = context;
+    this._context = context as ExtensionContext;
     this._sliders = new Map();
     this._control = Volume.getMixerControl();
 
@@ -73,7 +76,12 @@ export class VolumeMixerList extends St.BoxLayout {
     if (!stream) return;
     if (stream.is_event_stream || !(stream instanceof Gvc.MixerSinkInput)) return;
 
-    const item = new VolumeMixerItem(this._context, this._control, stream, true);
+    const item = new (VolumeMixerItem as unknown as new (
+      ctx: ExtensionContext,
+      ctrl: Gvc.MixerControl,
+      s: Gvc.MixerStream,
+      icon: boolean,
+    ) => VolumeMixerItem)(this._context, this._control, stream, true);
     this._sliders.set(id, item);
     this.add_child(item);
     this._sync();

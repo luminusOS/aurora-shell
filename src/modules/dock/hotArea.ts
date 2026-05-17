@@ -1,12 +1,12 @@
 import '@girs/gjs';
 
-import St from '@girs/st-17';
-import Clutter from '@girs/clutter-17';
+import St from '@girs/st-18';
+import Clutter from '@girs/clutter-18';
 import GLib from '@girs/glib-2.0';
-import Meta from '@girs/meta-17';
-import Shell from '@girs/shell-17';
+import Meta from '@girs/meta-18';
+import Shell from '@girs/shell-18';
 
-import * as GObject from '@girs/gobject-2.0';
+import GObject from '@girs/gobject-2.0';
 import * as Layout from '@girs/gnome-shell/ui/layout';
 
 import type { DashBounds } from '~/shared/ui/dash.ts';
@@ -50,7 +50,6 @@ export class DockHotArea extends St.Widget {
       this,
     );
 
-    // @ts-ignore
     this.connectObject(
       'enter-event',
       () => {
@@ -72,7 +71,6 @@ export class DockHotArea extends St.Widget {
       this,
     );
 
-    // @ts-ignore
     this.connectObject(
       'leave-event',
       () => {
@@ -86,7 +84,6 @@ export class DockHotArea extends St.Widget {
     );
 
     // Suppress triggers while the user is dragging a window
-    // @ts-ignore
     global.display.connectObject(
       'grab-op-begin',
       (_d: any, _w: any, op: Meta.GrabOp) => {
@@ -106,7 +103,6 @@ export class DockHotArea extends St.Widget {
   }
 
   override destroy(): void {
-    // @ts-ignore
     global.display.disconnectObject(this);
     this._destroyBarrier();
     this._clearDebounceTimer();

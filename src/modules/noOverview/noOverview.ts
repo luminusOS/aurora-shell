@@ -2,7 +2,7 @@ import { gettext as _ } from 'gettext';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 
 /**
  * NoOverview Module

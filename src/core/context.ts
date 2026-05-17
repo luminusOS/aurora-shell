@@ -1,4 +1,3 @@
-// @ts-nocheck
 import GObject from '@girs/gobject-2.0';
 import type { Logger } from './logger.ts';
 import type { SettingsManager } from './settings.ts';

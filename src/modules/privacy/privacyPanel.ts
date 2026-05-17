@@ -1,5 +1,4 @@
-// @ts-nocheck
-import Clutter from '@girs/clutter-17';
+import Clutter from '@girs/clutter-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
@@ -71,7 +70,7 @@ export class PrivacyPanel extends Module {
   }
 
   private _getSharingIndicator(): any | null {
-    const statusArea = Main.panel.statusArea;
+    const statusArea = Main.panel.statusArea as any;
     if (statusArea.screenSharing) return statusArea.screenSharing;
     return statusArea.quickSettings?._remoteAccess ?? null;
   }
@@ -89,16 +88,17 @@ export class PrivacyPanel extends Module {
   private _onPanelLeave(): void {
     if (!this._isSharing) return;
     if (Main.overview.visible) return;
-    if (Main.panel.menuManager?.activeMenu) return;
+    if ((Main.panel.menuManager as any)?.activeMenu) return;
     this._fadeContent(0);
   }
 
   private _fadeContent(opacity: number): void {
+    const panelAny = Main.panel as any;
     for (const box of FULL_BOXES) {
-      Main.panel[box]?.ease({ opacity, duration: FADE_DURATION, mode: EASE_MODE });
+      panelAny[box]?.ease({ opacity, duration: FADE_DURATION, mode: EASE_MODE });
     }
 
-    for (const child of Main.panel._rightBox?.get_children() ?? []) {
+    for (const child of panelAny._rightBox?.get_children() ?? []) {
       child.ease({ opacity, duration: FADE_DURATION, mode: EASE_MODE });
     }
 
@@ -110,10 +110,11 @@ export class PrivacyPanel extends Module {
   }
 
   private _restoreAll(): void {
+    const panelAny = Main.panel as any;
     for (const box of FULL_BOXES) {
-      if (Main.panel[box]) Main.panel[box].opacity = 255;
+      if (panelAny[box]) panelAny[box].opacity = 255;
     }
-    for (const child of Main.panel._rightBox?.get_children() ?? []) {
+    for (const child of panelAny._rightBox?.get_children() ?? []) {
       child.opacity = 255;
     }
   }

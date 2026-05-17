@@ -1,4 +1,3 @@
-// @ts-nocheck
 import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
@@ -6,14 +5,13 @@ import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 import { BluetoothDeviceItemPatcher } from '~/modules/bluetoothMenu/deviceItem.ts';
-import { IconThemeLoader } from '~/shared/icons.ts';
 
 export class BluetoothMenu extends Module {
   private _toggle: any = null;
   private _patchers = new Map<any, BluetoothDeviceItemPatcher>();
-  private _iconLoader: IconThemeLoader | null = null;
+  private _destroyIds = new Map<any, number>();
   private _actorAddedId = 0;
   private _gridChildAddedId = 0;
 
@@ -22,7 +20,6 @@ export class BluetoothMenu extends Module {
   }
 
   override enable(): void {
-    this._iconLoader = new IconThemeLoader(null);
     const toggle = this._findBluetoothToggle();
     if (toggle) {
       this._attach(toggle);
@@ -57,8 +54,13 @@ export class BluetoothMenu extends Module {
       this._actorAddedId = 0;
     }
 
+    for (const [item, id] of this._destroyIds) {
+      item?.disconnect?.(id);
+    }
+    this._destroyIds.clear();
+
     for (const patcher of this._patchers.values()) {
-      patcher.restore();
+      patcher.disable();
     }
     this._patchers.clear();
 
@@ -66,8 +68,6 @@ export class BluetoothMenu extends Module {
       this._toggle.menu?.actor?.remove_style_class_name('aurora-bt-menu');
       this._toggle = null;
     }
-
-    this._iconLoader = null;
   }
 
   private _findBluetoothToggle(): any {
@@ -101,12 +101,15 @@ export class BluetoothMenu extends Module {
   private _patchItem(item: any): void {
     if (this._patchers.has(item) || item.__auroraBtPatched) return;
     item.__auroraBtPatched = true;
-    const patcher = new BluetoothDeviceItemPatcher(item, this._iconLoader!);
+    const patcher = new BluetoothDeviceItemPatcher(item);
+    patcher.enable();
     this._patchers.set(item, patcher);
 
-    item.connect('destroy', () => {
+    const id = item.connect('destroy', () => {
       this._patchers.delete(item);
+      this._destroyIds.delete(item);
     });
+    this._destroyIds.set(item, id);
   }
 }
 

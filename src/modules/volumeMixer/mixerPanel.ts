@@ -1,9 +1,8 @@
-// @ts-nocheck
 import '@girs/gjs';
 
-import St from '@girs/st-17';
+import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
-import Clutter from '@girs/clutter-17';
+import Clutter from '@girs/clutter-18';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { VolumeMixerList } from '~/modules/volumeMixer/mixerList.ts';
@@ -16,7 +15,11 @@ export const MAX_MIXER_HEIGHT = 300;
  */
 @GObject.registerClass
 export class VolumeMixerPanel extends St.BoxLayout {
-  _init(context: ExtensionContext): void {
+  declare private _emptyLabel: St.Label;
+  declare private _list: VolumeMixerList;
+  declare private _scroll: St.ScrollView | null;
+
+  override _init(context?: ExtensionContext | Partial<St.BoxLayout.ConstructorProps>): void {
     super._init({
       orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-volume-mixer',
@@ -45,7 +48,9 @@ export class VolumeMixerPanel extends St.BoxLayout {
       child: sections,
     });
 
-    this._list = new VolumeMixerList(context);
+    this._list = new (VolumeMixerList as unknown as new (ctx: ExtensionContext) => VolumeMixerList)(
+      context as ExtensionContext,
+    );
     sections.add_child(this._list);
     this._scroll = scroll;
     this.add_child(scroll);
@@ -56,11 +61,16 @@ export class VolumeMixerPanel extends St.BoxLayout {
 
   private _sync(): void {
     const hasStreams = this._list.shouldShow;
-    this._scroll.visible = hasStreams;
+    this._scroll!.visible = hasStreams;
     this._emptyLabel.visible = !hasStreams;
   }
 
-  vfunc_get_preferred_height(forWidth: number): [number, number] {
+  override vfunc_destroy(): void {
+    this._scroll = null;
+    super.vfunc_destroy();
+  }
+
+  override vfunc_get_preferred_height(forWidth: number): [number, number] {
     if (!this.get_stage()) return [0, 0];
 
     if (!this._list.shouldShow) {

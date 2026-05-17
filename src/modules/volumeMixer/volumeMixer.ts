@@ -1,16 +1,17 @@
-// @ts-nocheck
 import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
-import St from '@girs/st-17';
+import St from '@girs/st-18';
 import Gio from '@girs/gio-2.0';
 
 import type { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
+import type { QuickSettings } from '@girs/gnome-shell/ui/panel';
+import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
 import { loadIcon } from '~/shared/icons.ts';
 
@@ -38,8 +39,9 @@ export class VolumeMixer extends Module {
   private _settingsSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null = null;
   private _outputSlider: QuickSlider | null = null;
   private _menuClosedId = 0;
+  private _toggleClickedId = 0;
   private _gridChildAddedId = 0;
-  private _quickSettings: Main.QuickSettings | null = null;
+  private _quickSettings: QuickSettings | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -80,6 +82,11 @@ export class VolumeMixer extends Module {
     if (this._menuClosedId && this._outputSlider) {
       this._outputSlider.menu.disconnect(this._menuClosedId);
       this._menuClosedId = 0;
+    }
+
+    if (this._toggleClickedId && this._toggleButton) {
+      this._toggleButton.disconnect(this._toggleClickedId);
+      this._toggleClickedId = 0;
     }
 
     if (this._toggleButton) {
@@ -124,7 +131,9 @@ export class VolumeMixer extends Module {
 
   private _attachToSlider(slider: QuickSlider): void {
     this._outputSlider = slider;
-    this._panel = new VolumeMixerPanel(this.context);
+    this._panel = new (VolumeMixerPanel as unknown as new (
+      ctx: ExtensionContext,
+    ) => VolumeMixerPanel)(this.context);
     this._menuSection = new PopupMenu.PopupMenuSection();
 
     this._menuSection.box.add_child(this._panel);
@@ -139,7 +148,7 @@ export class VolumeMixer extends Module {
       } catch (e) {
         console.error(`Aurora Shell: Failed to open sound settings: ${e}`);
       }
-      this._quickSettings?.menu.close(true);
+      this._quickSettings?.menu.close(PopupAnimation.FULL);
     });
     this._settingsSection.addMenuItem(settingsItem);
     slider.menu.addMenuItem(this._settingsSection, 3);
@@ -156,24 +165,25 @@ export class VolumeMixer extends Module {
 
     slider.child.add_child(this._toggleButton);
 
-    this._toggleButton.connect('clicked', () => {
+    this._toggleClickedId = this._toggleButton.connect('clicked', () => {
       if (!this._panel || !this._menuSection || !this._settingsSection) return;
 
       this._menuSection.box.show();
       this._settingsSection.box.show();
-      slider._deviceSection?.box.hide();
+      (slider as any)._deviceSection?.box.hide();
       slider.menu._setSettingsVisibility?.(false);
       slider.menu.setHeader('audio-speakers-symbolic', _('Volume Mixer'));
-      slider.menu.open(true);
+      slider.menu.open(PopupAnimation.FULL);
     });
 
     this._menuClosedId = slider.menu.connect('menu-closed', () => {
-      if (!this._menuSection || !this._settingsSection) return;
+      if (!this._menuSection || !this._settingsSection) return undefined;
       this._menuSection.box.hide();
       this._settingsSection.box.hide();
-      slider._deviceSection?.box.show();
+      (slider as any)._deviceSection?.box.show();
       slider.menu._setSettingsVisibility?.(Main.sessionMode.allowSettings);
       slider.menu.setHeader('audio-headphones-symbolic', _('Sound Output'));
+      return undefined;
     });
   }
 }

@@ -8,7 +8,6 @@ import { ExtensionPreferences, gettext as _ } from '@girs/gnome-shell/extensions
 import { getModuleMetadata, type ModuleMetadata } from '~/prefsMetadata.ts';
 
 export default class AuroraShellPreferences extends ExtensionPreferences {
-  // @ts-ignore: Conflicting Adw version types from gnome-shell
   override fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {
     const settings = this.getSettings();
 
@@ -46,7 +45,6 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
   }
 
   private _buildExpanderRow(def: ModuleMetadata, settings: Gio.Settings): Adw.ExpanderRow {
-    // @ts-ignore: Adw.ExpanderRow constructor accepts title/subtitle/show_enable_switch
     const expander = new Adw.ExpanderRow({
       title: def.title,
       subtitle: def.subtitle,

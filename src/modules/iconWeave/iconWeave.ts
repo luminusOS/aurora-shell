@@ -1,12 +1,11 @@
-// @ts-nocheck
 import { gettext as _ } from 'gettext';
 import GLib from '@girs/glib-2.0';
 import GioUnix from '@girs/giounix-2.0';
-import Shell from '@girs/shell-17';
-import Meta from '@girs/meta-17';
+import Shell from '@girs/shell-18';
+import Meta from '@girs/meta-18';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 
 const WINDOW_INSPECT_DELAY_MS = 500;
 const MIN_MATCH_SCORE = 50;
@@ -528,9 +527,9 @@ export class IconWeave extends Module {
     if (nWm === `steamapp${gameId}`) return true;
 
     // Check if wmClass matches the app name abbreviation (e.g. "cs2" for "Counter-Strike 2")
-    const appName = (app.get_name() ?? '').toLowerCase();
-    const words = appName.split(/[^a-z0-9]/).filter((w) => w.length > 0);
-    const abbreviation = words.map((w) => w[0]).join('');
+    const appName = String(app.get_name() ?? '').toLowerCase();
+    const words = appName.split(/[^a-z0-9]/).filter((w: string) => w.length > 0);
+    const abbreviation = words.map((w: string) => w[0]).join('');
     if (nWm === abbreviation && abbreviation.length >= 2) return true;
 
     return false;
@@ -538,7 +537,7 @@ export class IconWeave extends Module {
 
   private _scoreCandidate(app: any, wmClass: string, appId: string, title: string): number {
     const desktopId = (app.get_id() ?? '').toLowerCase().replace(/\.desktop$/, '');
-    const appName = (app.get_name() ?? '').toLowerCase();
+    const appName = String(app.get_name() ?? '').toLowerCase();
     const shortId = desktopId.split('.').pop() ?? desktopId;
 
     // Prevent subprocess IDs (e.g. steam_app_1234) matching a parent (steam.desktop)
@@ -555,8 +554,8 @@ export class IconWeave extends Module {
 
     let score = 0;
 
-    const words = appName.split(/[^a-z0-9]/).filter((w) => w.length > 0);
-    const abbreviation = words.map((w) => w[0]).join('');
+    const words = appName.split(/[^a-z0-9]/).filter((w: string) => w.length > 0);
+    const abbreviation = words.map((w: string) => w[0]).join('');
 
     const nWm = this._normalize(wmClass);
     const nAppName = this._normalize(appName);

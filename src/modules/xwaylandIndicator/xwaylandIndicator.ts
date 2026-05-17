@@ -1,14 +1,13 @@
-// @ts-nocheck
 import { gettext as _ } from 'gettext';
-import Meta from '@girs/meta-17';
-import St from '@girs/st-17';
-import Clutter from '@girs/clutter-17';
+import Meta from '@girs/meta-18';
+import St from '@girs/st-18';
+import Clutter from '@girs/clutter-18';
 import * as AltTab from '@girs/gnome-shell/ui/altTab';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { loadIcon } from '~/shared/icons.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 
 export class XwaylandIndicator extends Module {
   private _origAppPopupInit: ((...args: unknown[]) => void) | null = null;
@@ -40,8 +39,8 @@ export class XwaylandIndicator extends Module {
     this._origAppPopupInit = origInit;
 
     AltTab.AppSwitcherPopup.prototype._init = function (...args: any[]) {
-      origInit.call(this, ...args);
-      decorate(this._switcherList);
+      origInit.apply(this, args as []);
+      decorate((this as any)._switcherList);
     };
   }
 
@@ -51,8 +50,8 @@ export class XwaylandIndicator extends Module {
     this._origWinPopupInit = origInit;
 
     AltTab.WindowSwitcherPopup.prototype._init = function (...args: any[]) {
-      origInit.call(this, ...args);
-      decorate(this._switcherList);
+      origInit.apply(this, args as []);
+      decorate((this as any)._switcherList);
     };
   }
 

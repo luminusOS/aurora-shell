@@ -1,9 +1,9 @@
 import { gettext as _ } from 'gettext';
-import Meta from '@girs/meta-17';
+import Meta from '@girs/meta-18';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 
 const PIP_TITLES = ['Picture-in-Picture', 'Picture in picture', 'Picture-in-picture'];
 
@@ -24,13 +24,11 @@ export class PipOnTop extends Module {
   }
 
   override enable(): void {
-    // @ts-ignore
     global.window_manager.connectObject('switch-workspace', () => this._onSwitchWorkspace(), this);
     this._onSwitchWorkspace();
   }
 
   override disable(): void {
-    // @ts-ignore
     global.window_manager.disconnectObject(this);
     this._disconnectWorkspace();
 

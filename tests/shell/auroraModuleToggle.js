@@ -13,13 +13,9 @@
  *     tests/shell/auroraModuleToggle.js
  */
 
-import Gio from 'gi://Gio';
-
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-
-const SCHEMA_ID = 'org.gnome.shell.extensions.aurora-shell';
-const EXTENSION_UUID = 'aurora-shell@luminusos.github.io';
+import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from './testUtils.js';
 
 // All registered module settings keys (mirrors registry.ts)
 const MODULE_SETTINGS_KEYS = [
@@ -30,7 +26,10 @@ const MODULE_SETTINGS_KEYS = [
   'module-volume-mixer',
   'module-xwayland-indicator',
   'module-privacy',
+  'module-icon-weave',
+  'module-app-search-tooltip',
   'module-auto-theme-switcher',
+  'module-bluetooth-menu',
 ];
 
 export var METRICS = {};
@@ -44,21 +43,9 @@ export function init() {
 export async function run() {
   // Resolve settings via the extension's own dir so the schema is found even
   // in an isolated test environment where system schemas are not compiled.
-  const ext = Main.extensionManager.lookup(EXTENSION_UUID);
-  if (!ext)
-    throw new Error(`Extension ${EXTENSION_UUID} not found`);
+  await waitForExtension(EXTENSION_UUID);
 
-  const schemaDir = ext.dir.get_child('schemas').get_path();
-  const schemaSource = Gio.SettingsSchemaSource.new_from_directory(
-    schemaDir,
-    Gio.SettingsSchemaSource.get_default(),
-    false
-  );
-  const schema = schemaSource.lookup(SCHEMA_ID, true);
-  if (!schema)
-    throw new Error(`Schema ${SCHEMA_ID} not found in ${schemaDir}`);
-
-  const settings = new Gio.Settings({ settings_schema: schema });
+  const settings = getAuroraSettings();
 
   // Save original values so we can restore them at the end.
   const original = {};

@@ -16,11 +16,7 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-
-const EXTENSION_UUID = 'aurora-shell@luminusos.github.io';
-
-// ExtensionState.ENABLED == 1 (from GNOME Shell internals)
-const EXTENSION_STATE_ENABLED = 1;
+import { EXTENSION_UUID, waitForExtension, ensureOverviewHidden } from './testUtils.js';
 
 export var METRICS = {};
 
@@ -34,12 +30,7 @@ export function init() {
 /** @returns {Promise<void>} */
 export async function run() {
   // --- 1. Verify the extension is loaded and enabled ---
-  const ext = Main.extensionManager.lookup(EXTENSION_UUID);
-  if (!ext)
-    throw new Error(`Extension ${EXTENSION_UUID} not found in ExtensionManager`);
-
-  if (ext.state !== EXTENSION_STATE_ENABLED)
-    throw new Error(`Extension state is ${ext.state} (expected ${EXTENSION_STATE_ENABLED} = ENABLED)`);
+  await waitForExtension(EXTENSION_UUID);
 
   Scripting.scriptEvent('extensionEnabled');
   await Scripting.sleep(500);
@@ -49,6 +40,10 @@ export async function run() {
     throw new Error('Top panel is not visible — extension may have broken it');
 
   // --- 3. Verify the overview still works ---
+  // The startup overview may be visible when the extension loads in GS50.
+  // Hide it first so overview.show() is not a no-op.
+  await ensureOverviewHidden();
+
   Main.overview.connect('shown', () => Scripting.scriptEvent('overviewShown'));
   Main.overview.connect('hidden', () => Scripting.scriptEvent('overviewHidden'));
 

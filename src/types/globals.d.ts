@@ -1,4 +1,5 @@
-import type Shell from '@girs/shell-17';
+import type Shell from '@girs/shell-18';
+import '@girs/gnome-shell/extensions/global';
 
 declare global {
   /**

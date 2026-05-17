@@ -21,6 +21,7 @@ import Gio from 'gi://Gio';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+import { EXTENSION_UUID, waitForExtension } from './testUtils.js';
 
 const NOTIFICATIONS_SCHEMA = 'org.gnome.desktop.notifications';
 const SHOW_BANNERS_KEY = 'show-banners';
@@ -36,6 +37,10 @@ export function init() {
 
 /** @returns {Promise<void>} */
 export async function run() {
+  await waitForExtension(EXTENSION_UUID);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(500);
+
   const notifSettings = new Gio.Settings({ schema_id: NOTIFICATIONS_SCHEMA });
 
   // Save original state so we can assert at finish() and never leave dirty state.
