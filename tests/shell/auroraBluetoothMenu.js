@@ -11,9 +11,7 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-
-const EXTENSION_UUID = 'aurora-shell@luminusos.github.io';
-const EXTENSION_STATE_ENABLED = 1;
+import { EXTENSION_UUID, waitForExtension } from './testUtils.js';
 
 export var METRICS = {};
 
@@ -26,16 +24,12 @@ export function init() {
 
 /** @returns {Promise<void>} */
 export async function run() {
-  const ext = Main.extensionManager.lookup(EXTENSION_UUID);
-  if (!ext)
-    throw new Error(`Extension ${EXTENSION_UUID} not found in ExtensionManager`);
-
-  if (ext.state !== EXTENSION_STATE_ENABLED)
-    throw new Error(`Extension state is ${ext.state} (expected ${EXTENSION_STATE_ENABLED} = ENABLED)`);
+  await waitForExtension(EXTENSION_UUID);
 
   Scripting.scriptEvent('extensionEnabled');
 
   await Scripting.waitLeisure();
+  await Scripting.sleep(600);
 
   const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
   if (!grid)

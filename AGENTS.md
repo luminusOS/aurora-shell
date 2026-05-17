@@ -11,6 +11,11 @@ After **any** code change, always run these two commands and fix any errors befo
 1. `just validate` — type-checks the TypeScript source without emitting output
 2. `just toolbox test-all` — builds and runs all integration tests inside the Fedora toolbox, printing a pass/fail summary
 
+To read only the relevant output from the test run (pass/fail summary):
+```sh
+just toolbox test-all 2>&1 | grep -E "PASS:|FAIL:|Results:"
+```
+
 Do not leave a task incomplete if either command reports errors or failures.
 
 ## Commands

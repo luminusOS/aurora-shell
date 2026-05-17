@@ -10,9 +10,9 @@ import { definition as appSearchTooltip } from '~/modules/appSearchTooltip/appSe
 import { definition as autoThemeSwitcher } from '~/modules/autoThemeSwitcher/autoThemeSwitcher.ts';
 import { definition as bluetoothMenu } from '~/modules/bluetoothMenu/bluetoothMenu.ts';
 
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 
-export type { ModuleOption, ModuleMetadata, ModuleDefinition } from '~/moduleDefinition.ts';
+export type { ModuleOption, ModuleMetadata, ModuleDefinition } from '~/module.ts';
 
 export function getModuleRegistry(): ModuleDefinition[] {
   return [

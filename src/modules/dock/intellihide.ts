@@ -1,9 +1,9 @@
-// @ts-nocheck
 import '@girs/gjs';
 
 import GObject from '@girs/gobject-2.0';
-import Meta from '@girs/meta-17';
-import Shell from '@girs/shell-17';
+import Meta from '@girs/meta-18';
+import type Mtk from '@girs/mtk-18';
+import Shell from '@girs/shell-18';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
@@ -42,7 +42,7 @@ export class DockIntellihide extends GObject.Object {
   private _status: OverlapStatus = OverlapStatus.CLEAR;
   private _focusActor: any = null;
 
-  _init(monitorIndex: number) {
+  override _init(monitorIndex: number) {
     super._init();
     this._monitorIndex = monitorIndex;
     this._tracker = Shell.WindowTracker.get_default() ?? null;
@@ -84,7 +84,7 @@ export class DockIntellihide extends GObject.Object {
     this._checkOverlap();
   }
 
-  override destroy(): void {
+  destroy(): void {
     this._disconnectFocusActor();
     global.display.disconnectObject(this);
     Main.layoutManager.disconnectObject(this);
@@ -154,7 +154,7 @@ export class DockIntellihide extends GObject.Object {
   }
 
   /** AABB overlap test between a window rectangle and the dock's target box. */
-  private _doesOverlap(rectangle: Meta.Rectangle): boolean {
+  private _doesOverlap(rectangle: Mtk.Rectangle): boolean {
     const target = this._targetBox;
     if (!target) {
       return false;

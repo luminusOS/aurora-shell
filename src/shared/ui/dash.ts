@@ -1,10 +1,9 @@
-// @ts-nocheck
 import '@girs/gjs';
 import GLib from '@girs/glib-2.0';
-import Clutter from '@girs/clutter-17';
+import Clutter from '@girs/clutter-18';
 import GObject from '@girs/gobject-2.0';
-import Shell from '@girs/shell-17';
-import type St from '@girs/st-17';
+import Shell from '@girs/shell-18';
+import type St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as DND from '@girs/gnome-shell/ui/dnd';
 import { Dash } from '@girs/gnome-shell/ui/dash';
@@ -68,12 +67,12 @@ export class AuroraDash extends Dash {
   private _isDestroyed = false;
   private _flushMode = false;
   private _targetBoxListener: TargetBoxListener | null = null;
-  private _pendingShow: { animate: boolean; onComplete?: () => void } | null = null;
+  private _pendingShow: { animate: boolean; onComplete: (() => void) | undefined } | null = null;
   private _springLoadTimerId = 0;
   private _springLoadTarget: any = null;
   private _springLoadDragMonitor: { dragMotion: (e: any) => number } | null = null;
 
-  _init(params: AuroraDashParams = {}): void {
+  override _init(params: AuroraDashParams = {}): void {
     super._init();
 
     this._monitorIndex = params.monitorIndex ?? Main.layoutManager.primaryIndex;
@@ -326,8 +325,8 @@ export class AuroraDash extends Dash {
 
     this.ease({
       opacity: 0,
-      scale_x: HIDE_SCALE,
-      scale_y: HIDE_SCALE,
+      scaleX: HIDE_SCALE,
+      scaleY: HIDE_SCALE,
       duration: VISIBILITY_ANIMATION_TIME * EASE_DURATION_FACTOR,
       mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
       onComplete: () => super.hide(),
@@ -392,11 +391,11 @@ export class AuroraDash extends Dash {
 
     this.ease({
       opacity: FULL_OPACITY,
-      scale_x: 1,
-      scale_y: 1,
+      scaleX: 1,
+      scaleY: 1,
       duration: VISIBILITY_ANIMATION_TIME,
       mode: Clutter.AnimationMode.EASE_IN_CUBIC,
-      onComplete,
+      ...(onComplete !== undefined ? { onComplete } : {}),
     });
 
     this.ease_property('translation-y', 0, {
@@ -471,7 +470,7 @@ export class AuroraDash extends Dash {
     const originalDestroy = item.destroy.bind(item);
     item.destroy = () => {
       const globalIds = dashAny._globallyRunningIds as Set<string> | undefined;
-      const appId = item.child?._delegate?.app?.get_id?.() as string | undefined;
+      const appId = (item.child as any)?._delegate?.app?.get_id?.() as string | undefined;
       const appActuallyClosed =
         globalIds !== undefined && appId !== undefined && !globalIds.has(appId);
 
@@ -733,7 +732,11 @@ export class AuroraDash extends Dash {
         }
 
         const { x, y } = dragEvent;
-        let actor = global.stage.get_actor_at_pos?.(Clutter.PickMode.REACTIVE, x, y);
+        let actor: Clutter.Actor | null | undefined = global.stage.get_actor_at_pos?.(
+          Clutter.PickMode.REACTIVE,
+          x,
+          y,
+        );
         const box = (this as any)._box;
         let target: any = null;
 

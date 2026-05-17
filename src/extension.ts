@@ -6,6 +6,7 @@ import { Extension } from '@girs/gnome-shell/extensions/extension';
 import type { Module } from './module.ts';
 import { getModuleRegistry, type ModuleDefinition } from './registry.ts';
 import type { ExtensionContext } from '~/core/context.ts';
+import { initIcons, cleanupIcons } from '~/shared/icons.ts';
 import { DefaultExtensionContext } from '~/core/context.ts';
 import { ConsoleLogger } from '~/core/logger.ts';
 import { GSettingsManager } from '~/core/settings.ts';
@@ -35,6 +36,7 @@ export default class AuroraShellExtension extends Extension {
       new GnomeShellAdapter(),
     );
 
+    initIcons(this.path);
     this._initializeModules();
     this._enableAllModules();
     this._connectSettings();
@@ -69,7 +71,6 @@ export default class AuroraShellExtension extends Extension {
     }
     args.push(this);
 
-    // @ts-ignore
     this._settings.connectObject(...args);
   }
 
@@ -100,7 +101,6 @@ export default class AuroraShellExtension extends Extension {
   override disable(): void {
     this._context!.logger.log('Disabling extension');
 
-    // @ts-ignore
     this._settings?.disconnectObject(this);
 
     for (const [name, module] of this._modules) {
@@ -114,5 +114,6 @@ export default class AuroraShellExtension extends Extension {
     this._modules.clear();
     this._settings = null;
     this._context = null;
+    cleanupIcons();
   }
 }

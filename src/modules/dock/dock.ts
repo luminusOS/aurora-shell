@@ -1,15 +1,14 @@
-// @ts-nocheck
 import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
-import St from '@girs/st-17';
+import St from '@girs/st-18';
 import GLib from '@girs/glib-2.0';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
 import { DockHotArea } from '~/modules/dock/hotArea.ts';
 import { DockIntellihide, OverlapStatus } from '~/modules/dock/intellihide.ts';
@@ -143,7 +142,9 @@ export class Dock extends Module {
       affectsStruts: false,
     });
 
-    const dash = new AuroraDash({ monitorIndex });
+    const dash = new (AuroraDash as unknown as new (p: { monitorIndex: number }) => AuroraDash)({
+      monitorIndex,
+    });
     container.set_child(dash);
     dash.attachToContainer(container);
 

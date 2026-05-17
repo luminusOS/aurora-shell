@@ -1,24 +1,22 @@
 import Gio from '@girs/gio-2.0';
-import { Extension } from '@girs/gnome-shell/extensions/extension';
-import St from '@girs/st-17';
+import St from '@girs/st-18';
 
 let defaultLoader: IconThemeLoader | null = null;
+
+export function initIcons(extensionPath: string): void {
+  const iconDir = Gio.File.new_for_path(extensionPath).get_child('icons') as Gio.File;
+  defaultLoader = new IconThemeLoader(iconDir);
+}
+
+export function cleanupIcons(): void {
+  defaultLoader = null;
+}
 
 export class IconThemeLoader {
   readonly #theme = St.IconTheme.new();
 
-  constructor(iconDirectory: Gio.File | null) {
-    if (!iconDirectory) {
-      // @ts-expect-error: Extension.lookupByURL is not properly typed in @girs/gnome-shell
-      const ext = Extension.lookupByURL(import.meta.url);
-
-      if (ext) {
-        // @ts-expect-error: Gio.File type mismatch between packages
-        iconDirectory = ext.dir.get_child('icons') as Gio.File;
-      }
-    }
-
-    const iconPath = iconDirectory?.get_path();
+  constructor(iconDirectory: Gio.File) {
+    const iconPath = iconDirectory.get_path();
 
     if (iconPath == null) {
       throw new Error('Failed to get path of icon directory');
@@ -62,7 +60,7 @@ export function loadIcon(nameOrPath: string): Gio.Icon {
   }
 
   try {
-    defaultLoader ??= new IconThemeLoader(null);
+    if (!defaultLoader) throw new Error('Icons not initialized');
     return defaultLoader.lookupIcon(nameOrPath);
   } catch (_e) {
     return Gio.Icon.new_for_string(nameOrPath);

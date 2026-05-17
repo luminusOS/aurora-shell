@@ -1,4 +1,3 @@
-// @ts-nocheck
 import '@girs/gjs';
 
 import GObject from '@girs/gobject-2.0';
@@ -22,21 +21,39 @@ const ALLOW_AMPLIFIED_VOLUME_KEY = 'allow-volume-above-100-percent';
   },
 })
 export class ApplicationStreamSlider extends QuickSlider {
-  _init(
-    context: ExtensionContext,
-    control: Gvc.MixerControl,
-    stream: Gvc.MixerStream | undefined,
-    showIcon: boolean,
+  declare private _control: Gvc.MixerControl;
+  declare private _notifyVolumeChangeId: number;
+  declare private _volumeCancellable: Gio.Cancellable | null;
+  declare private _showIcon: boolean;
+  declare private _dragBeginId: number;
+  declare private _dragEndId: number;
+  declare private _soundSettings: Gio.Settings;
+  declare private _stream: Gvc.MixerStream | null;
+  declare private _inDrag: boolean;
+  declare private _sliderChangedId: number;
+  declare private _allowAmplified: boolean;
+
+  override _init(
+    context?: ExtensionContext | Partial<QuickSlider.ConstructorProps>,
+    control?: Gvc.MixerControl,
+    stream?: Gvc.MixerStream,
+    showIcon?: boolean,
   ): void {
-    this._control = control;
+    this._control = control!;
     this._notifyVolumeChangeId = 0;
     this._volumeCancellable = null;
-    this._showIcon = showIcon;
+    this._showIcon = showIcon ?? false;
+    this._dragBeginId = 0;
+    this._dragEndId = 0;
     super._init();
 
-    this._soundSettings = context.settings.getSchema('org.gnome.desktop.sound');
-    this._soundSettings.connect(`changed::${ALLOW_AMPLIFIED_VOLUME_KEY}`, () =>
-      this._updateAllowAmplified(),
+    this._soundSettings = (context as ExtensionContext).settings
+      .getSchema('org.gnome.desktop.sound')
+      .getRawSettings();
+    this._soundSettings.connectObject(
+      `changed::${ALLOW_AMPLIFIED_VOLUME_KEY}`,
+      () => this._updateAllowAmplified(),
+      this,
     );
     this._updateAllowAmplified();
 
@@ -48,10 +65,10 @@ export class ApplicationStreamSlider extends QuickSlider {
 
     this._inDrag = false;
     this._sliderChangedId = this.slider.connect('notify::value', () => this._sliderChanged());
-    this.slider.connect('drag-begin', () => {
+    this._dragBeginId = this.slider.connect('drag-begin', () => {
       this._inDrag = true;
     });
-    this.slider.connect('drag-end', () => {
+    this._dragEndId = this.slider.connect('drag-end', () => {
       this._inDrag = false;
     });
 
@@ -121,7 +138,7 @@ export class ApplicationStreamSlider extends QuickSlider {
     if (this._volumeCancellable) this._volumeCancellable.cancel();
     this._volumeCancellable = null;
 
-    if (this._stream.state === Gvc.MixerStreamState.RUNNING) return;
+    if (this._stream!.state === Gvc.MixerStreamState.RUNNING) return;
 
     this._volumeCancellable = new Gio.Cancellable();
     global.display
@@ -131,9 +148,9 @@ export class ApplicationStreamSlider extends QuickSlider {
 
   private _updateSlider(): void {
     this.slider.block_signal_handler(this._sliderChangedId);
-    this.slider.value = this._stream.is_muted
+    this.slider.value = this._stream!.is_muted
       ? 0
-      : this._stream.volume / this._control.get_vol_max_norm();
+      : this._stream!.volume / this._control.get_vol_max_norm();
     this.slider.unblock_signal_handler(this._sliderChangedId);
     if (this._showIcon) this._updateVolumeIcon();
     this.emit('stream-updated');
@@ -165,7 +182,7 @@ export class ApplicationStreamSlider extends QuickSlider {
   }
 
   private _updateAllowAmplified(): void {
-    this._allowAmplified = this._soundSettings.getBoolean(ALLOW_AMPLIFIED_VOLUME_KEY);
+    this._allowAmplified = this._soundSettings.get_boolean(ALLOW_AMPLIFIED_VOLUME_KEY);
     const maxLevel = this._allowAmplified
       ? this._control.get_vol_max_amplified() / this._control.get_vol_max_norm()
       : 1;
@@ -173,7 +190,7 @@ export class ApplicationStreamSlider extends QuickSlider {
     if (this._stream) this._updateSlider();
   }
 
-  destroy(): void {
+  override destroy(): void {
     if (this._notifyVolumeChangeId) {
       GLib.Source.remove(this._notifyVolumeChangeId);
       this._notifyVolumeChangeId = 0;
@@ -182,12 +199,24 @@ export class ApplicationStreamSlider extends QuickSlider {
       this._volumeCancellable.cancel();
       this._volumeCancellable = null;
     }
+    if (this._sliderChangedId) {
+      this.slider.disconnect(this._sliderChangedId);
+      this._sliderChangedId = 0;
+    }
+    if (this._dragBeginId) {
+      this.slider.disconnect(this._dragBeginId);
+      this._dragBeginId = 0;
+    }
+    if (this._dragEndId) {
+      this.slider.disconnect(this._dragEndId);
+      this._dragEndId = 0;
+    }
     this._soundSettings?.disconnectObject?.(this);
     this._stream?.disconnectObject(this);
     super.destroy();
   }
 
-  vfunc_get_preferred_height(forWidth: number): [number, number] {
+  override vfunc_get_preferred_height(forWidth: number): [number, number] {
     return super.vfunc_get_preferred_height(forWidth).map(Math.floor) as [number, number];
   }
 }

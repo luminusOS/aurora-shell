@@ -1,12 +1,11 @@
-// @ts-nocheck
 import { gettext as _ } from 'gettext';
-import St from '@girs/st-17';
+import St from '@girs/st-18';
 import GLib from '@girs/glib-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as Search from '@girs/gnome-shell/ui/search';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 
 const SHOW_DELAY_MS = 300;
 

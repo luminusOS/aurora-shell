@@ -14,7 +14,6 @@ export interface ShellEnvironment {
 
 export class GnomeShellAdapter implements ShellEnvironment {
   get isStartingUp(): boolean {
-    // @ts-ignore
     return Main.layoutManager._startingUp;
   }
 
@@ -31,7 +30,6 @@ export class GnomeShellAdapter implements ShellEnvironment {
   }
 
   onStartupComplete(callback: () => void): number {
-    // @ts-ignore
     return Main.layoutManager.connect('startup-complete', callback);
   }
 

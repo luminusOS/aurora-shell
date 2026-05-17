@@ -1,8 +1,8 @@
 import { gettext as _ } from 'gettext';
 
-import type { ModuleMetadata } from '~/moduleDefinition.ts';
+import type { ModuleMetadata } from '~/module.ts';
 
-export type { ModuleOption, ModuleMetadata } from '~/moduleDefinition.ts';
+export type { ModuleOption, ModuleMetadata } from '~/module.ts';
 
 /**
  * Metadata mirror for the preferences UI.

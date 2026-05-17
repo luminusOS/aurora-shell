@@ -17,27 +17,11 @@
  *     tests/shell/auroraVolumeMixer.js
  */
 
-import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from './testUtils.js';
 
-const SCHEMA_ID = 'org.gnome.shell.extensions.aurora-shell';
-const EXTENSION_UUID = 'aurora-shell@luminusos.github.io';
-const EXTENSION_STATE_ENABLED = 1;
 const MIXER_CSS_CLASS = 'aurora-volume-mixer';
-
-function getAuroraSettings(ext) {
-  const schemaDir = ext.dir.get_child('schemas').get_path();
-  const source = Gio.SettingsSchemaSource.new_from_directory(
-    schemaDir,
-    Gio.SettingsSchemaSource.get_default(),
-    false,
-  );
-  const schema = source.lookup(SCHEMA_ID, true);
-  if (!schema)
-    throw new Error(`Schema ${SCHEMA_ID} not found in ${schemaDir}`);
-  return new Gio.Settings({ settings_schema: schema });
-}
 
 function findOutputSlider() {
   const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
@@ -69,13 +53,9 @@ export function init() {
 
 /** @returns {Promise<void>} */
 export async function run() {
-  const ext = Main.extensionManager.lookup(EXTENSION_UUID);
-  if (!ext)
-    throw new Error(`Extension ${EXTENSION_UUID} not found`);
-  if (ext.state !== EXTENSION_STATE_ENABLED)
-    throw new Error(`Extension state is ${ext.state}, expected ENABLED (1)`);
+  await waitForExtension(EXTENSION_UUID);
 
-  const auroraSettings = getAuroraSettings(ext);
+  const auroraSettings = getAuroraSettings();
 
   await Scripting.waitLeisure();
   await Scripting.sleep(500);

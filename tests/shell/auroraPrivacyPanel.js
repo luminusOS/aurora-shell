@@ -19,6 +19,7 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+import { EXTENSION_UUID, waitForExtension } from './testUtils.js';
 
 const CONTENT_BOXES = ['_leftBox', '_centerBox'];
 const ALL_BOXES = ['_leftBox', '_centerBox', '_rightBox'];
@@ -35,6 +36,10 @@ export function init() {
 
 /** @returns {Promise<void>} */
 export async function run() {
+  await waitForExtension(EXTENSION_UUID);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(500);
+
   const statusArea = Main.panel.statusArea;
   const indicator = statusArea.screenSharing ?? statusArea.quickSettings?._remoteAccess ?? null;
 

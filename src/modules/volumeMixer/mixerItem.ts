@@ -1,11 +1,10 @@
-// @ts-nocheck
 import '@girs/gjs';
 
-import St from '@girs/st-17';
+import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
-import Shell from '@girs/shell-17';
+import Shell from '@girs/shell-18';
 import type Gvc from 'gi://Gvc';
-import Clutter from '@girs/clutter-17';
+import Clutter from '@girs/clutter-18';
 
 import { ApplicationStreamSlider } from '~/modules/volumeMixer/streamSlider.ts';
 import type { ExtensionContext } from '~/core/context.ts';
@@ -17,17 +16,23 @@ import type { ExtensionContext } from '~/core/context.ts';
  */
 @GObject.registerClass
 export class VolumeMixerItem extends St.BoxLayout {
-  _init(
-    context: ExtensionContext,
-    control: Gvc.MixerControl,
-    stream: Gvc.MixerStream,
-    showIcon: boolean,
+  declare private _stream: Gvc.MixerStream;
+  declare private _icon: St.Icon;
+  declare private _label: St.Label;
+  declare private _slider: ApplicationStreamSlider;
+
+  override _init(
+    context?: ExtensionContext | Partial<St.BoxLayout.ConstructorProps>,
+    control?: Gvc.MixerControl,
+    stream?: Gvc.MixerStream,
+    showIcon?: boolean,
   ): void {
     super._init({
       orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-volume-mixer-item',
     });
-    this._stream = stream;
+
+    this._stream = stream!;
 
     const headerBox = new St.BoxLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
@@ -50,7 +55,12 @@ export class VolumeMixerItem extends St.BoxLayout {
     headerBox.add_child(this._label);
     this.add_child(headerBox);
 
-    this._slider = new ApplicationStreamSlider(context, control, stream, showIcon);
+    this._slider = new (ApplicationStreamSlider as unknown as new (
+      ctx: ExtensionContext,
+      ctrl: Gvc.MixerControl,
+      s: Gvc.MixerStream,
+      icon?: boolean,
+    ) => ApplicationStreamSlider)(context as ExtensionContext, control!, stream!, showIcon);
     this.add_child(this._slider);
 
     this._updateHeader();
