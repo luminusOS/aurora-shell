@@ -6,12 +6,17 @@
 
 ## Validation After Changes
 
-After **any** code change, always run these two commands and fix any errors before considering the task done:
+After **any** code change, always follow these rules to ensure quality while being efficient:
 
-1. `just validate` — type-checks the TypeScript source without emitting output
-2. `just toolbox test-all` — builds and runs all integration tests inside the Fedora toolbox, printing a pass/fail summary
+1.  **Always run `just validate`** — type-checks the source, lints, and checks formatting. Fix any reported errors.
+2.  **Run targeted integration tests:**
+    *   If you modified only **one module**, run only the integration test for that module (e.g., `just test tests/shell/auroraTrayIcons.js`).
+    *   If you made **formatting-only changes** (Prettier) and have already passed the tests in a previous turn, you only need to run `just validate`.
+    *   If you made **architectural or cross-cutting changes**, run `just toolbox test-all`.
 
-To read only the relevant output from the test run (pass/fail summary):
+**IMPORTANT:** Never execute the `test` command (or `test-all`) chained with another command using `&&`. Always run it as a separate standalone turn.
+
+To read only the relevant output from a `test-all` run (pass/fail summary):
 ```sh
 just toolbox test-all 2>&1 | grep -E "PASS:|FAIL:|Results:"
 ```
