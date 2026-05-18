@@ -9,6 +9,7 @@ import { definition as iconWeave } from '~/modules/iconWeave/iconWeave.ts';
 import { definition as appSearchTooltip } from '~/modules/appSearchTooltip/appSearchTooltip.ts';
 import { definition as autoThemeSwitcher } from '~/modules/autoThemeSwitcher/autoThemeSwitcher.ts';
 import { definition as bluetoothMenu } from '~/modules/bluetoothMenu/bluetoothMenu.ts';
+import { definition as trayIcons } from '~/modules/trayIcons/trayIcons.ts';
 
 import type { ModuleDefinition } from '~/module.ts';
 
@@ -27,5 +28,6 @@ export function getModuleRegistry(): ModuleDefinition[] {
     appSearchTooltip,
     autoThemeSwitcher,
     bluetoothMenu,
+    trayIcons,
   ];
 }

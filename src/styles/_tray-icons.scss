@@ -1,0 +1,70 @@
+@use 'variables' as vars;
+
+// Tray Icons
+.aurora-tray-container {
+  spacing: 2px;
+  min-width: 0;
+}
+
+.aurora-tray-chevron {
+  border-radius: 5px;
+  padding: 3px;
+  min-width: 0;
+
+  @if vars.$variant == 'light' {
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.08);
+    }
+  } @else {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+}
+
+.aurora-tray-icon-item {
+  border-radius: 6px;
+  padding: 3px;
+  min-width: 0;
+
+  @if vars.$variant == 'light' {
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.06);
+    }
+
+    &:active {
+      background-color: rgba(0, 0, 0, 0.12);
+    }
+  } @else {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    &:active {
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+  }
+}
+
+.aurora-tray-icon-row {
+  spacing: 3px;
+  min-width: 0;
+}
+
+.aurora-tray-menu {
+  min-width: 120px;
+}
+
+.aurora-tray-tooltip {
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.85em;
+
+  @if vars.$variant == 'light' {
+    background-color: rgba(0, 0, 0, 0.75);
+    color: #ffffff;
+  } @else {
+    background-color: rgba(30, 30, 30, 0.92);
+    color: #eeeeee;
+  }
+}

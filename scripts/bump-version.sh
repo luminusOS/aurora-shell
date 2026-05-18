@@ -29,11 +29,12 @@ node -e "
   const file = '$METADATA_FILE';
   const data = JSON.parse(fs.readFileSync(file, 'utf8'));
   
-  data.version = '$VERSION';
-  
+  data['version-name'] = '$VERSION';
+  delete data['version'];
+
   // Extract major version (e.g., 50.1 -> 50)
   const majorVersion = '$VERSION'.split('.')[0];
-  
+
   // Also optionally update the shell-version array if needed
   if (!data['shell-version'].includes(majorVersion)) {
       data['shell-version'].push(majorVersion);

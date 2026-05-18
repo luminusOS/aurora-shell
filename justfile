@@ -122,7 +122,7 @@ coverage:
 # Wrapped in dbus-run-session to avoid conflicting with any running GNOME session.
 # Usage: just test tests/shell/auroraBasic.js
 test script: package
-    dbus-run-session gnome-shell-test-tool --headless \
+    GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas dbus-run-session gnome-shell-test-tool --headless \
         --extension dist/target/{{ uuid }}.shell-extension.zip \
         {{ script }}
 
