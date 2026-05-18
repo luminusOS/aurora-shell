@@ -95,5 +95,38 @@
       <summary>Enable Bluetooth Menu module</summary>
       <description>Enhances the Bluetooth Quick Settings panel with battery levels and animated icons</description>
     </key>
+    <key name="module-tray-icons" type="b">
+      <default>true</default>
+      <summary>Enable Tray Icons module</summary>
+      <description>Shows SNI and background app icons in the panel</description>
+    </key>
+    <key name="tray-icons-limit" type="i">
+      <range min="1" max="20"/>
+      <default>4</default>
+      <summary>Max visible tray icons</summary>
+      <description>Number of icons shown before the expand chevron appears</description>
+    </key>
+    <key name="tray-icons-icon-size" type="i">
+      <range min="14" max="24"/>
+      <default>18</default>
+      <summary>Tray icon size in pixels</summary>
+      <description>Size of each tray icon (14–24 px)</description>
+    </key>
+    <key name="tray-icons-attention-timeout" type="i">
+      <range min="1" max="30"/>
+      <default>5</default>
+      <summary>Attention auto-collapse timeout (seconds)</summary>
+      <description>Seconds before auto-collapsing after a NeedsAttention notification</description>
+    </key>
+    <key name="tray-icons-dedup-bg-apps" type="b">
+      <default>true</default>
+      <summary>Hide background app when SNI icon is present</summary>
+      <description>When enabled, background app icons are removed from the tray if the same app has an SNI tray icon</description>
+    </key>
+    <key name="tray-icons-hide-bg-quick-settings" type="b">
+      <default>true</default>
+      <summary>Hide Background Apps from Quick Settings panel</summary>
+      <description>When enabled, the Background Apps section is hidden from the Quick Settings dropdown</description>
+    </key>
   </schema>
 </schemalist>

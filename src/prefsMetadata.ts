@@ -124,5 +124,49 @@ export function getModuleMetadata(): ModuleMetadata[] {
       title: _('Bluetooth Menu'),
       subtitle: _('Shows battery level and animated icons in the Bluetooth Quick Settings panel'),
     },
+    {
+      key: 'tray-icons',
+      settingsKey: 'module-tray-icons',
+      title: _('Tray Icons'),
+      subtitle: _('System tray with SNI and background app icons'),
+      options: [
+        {
+          key: 'tray-icons-limit',
+          title: _('Visible Icon Limit'),
+          subtitle: _('Maximum number of icons shown before the expand button appears'),
+          type: 'spin',
+          min: 1,
+          max: 20,
+        },
+        {
+          key: 'tray-icons-icon-size',
+          title: _('Icon Size'),
+          subtitle: _('Tray icon size in pixels (14–24)'),
+          type: 'spin',
+          min: 14,
+          max: 24,
+        },
+        {
+          key: 'tray-icons-attention-timeout',
+          title: _('Attention Auto-Collapse (seconds)'),
+          subtitle: _('Seconds before the tray collapses after a notification icon appears'),
+          type: 'spin',
+          min: 1,
+          max: 30,
+        },
+        {
+          key: 'tray-icons-dedup-bg-apps',
+          title: _('Hide Background App When Tray Icon Present'),
+          subtitle: _('Remove the background app icon when the same app has an SNI tray icon'),
+          type: 'switch',
+        },
+        {
+          key: 'tray-icons-hide-bg-quick-settings',
+          title: _('Hide Background Apps from Quick Settings'),
+          subtitle: _('Hide the Background Apps section from the Quick Settings dropdown'),
+          type: 'switch',
+        },
+      ],
+    },
   ];
 }

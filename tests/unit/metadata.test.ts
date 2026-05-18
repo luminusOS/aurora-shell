@@ -19,7 +19,7 @@ const meta = JSON.parse(readFileSync(resolve(root, 'metadata.json'), 'utf-8'));
 const EXPECTED_UUID = 'aurora-shell@luminusos.github.io';
 
 test('metadata.json — required fields are present', () => {
-  for (const field of ['uuid', 'name', 'description', 'version', 'shell-version', 'settings-schema', 'gettext-domain']) {
+  for (const field of ['uuid', 'name', 'description', 'version-name', 'shell-version', 'settings-schema', 'gettext-domain']) {
     assert.ok(field in meta, `Missing required field: ${field}`);
     assert.ok(meta[field] !== null && meta[field] !== undefined && meta[field] !== '',
       `Field "${field}" must not be empty`);
@@ -50,8 +50,8 @@ test('metadata.json — shell-version is a non-empty array of numeric strings', 
   }
 });
 
-test('metadata.json — version is a positive integer (or numeric string)', () => {
-  const v = Number(meta.version);
-  assert.ok(!Number.isNaN(v) && v > 0 && Number.isInteger(v),
-    `version "${meta.version}" must be a positive integer or numeric string`);
+test('metadata.json — version-name is a non-empty string', () => {
+  const v = meta['version-name'];
+  assert.ok(typeof v === 'string' && v.length > 0,
+    `version-name "${v}" must be a non-empty string`);
 });
