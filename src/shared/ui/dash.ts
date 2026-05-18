@@ -795,6 +795,10 @@ export class AuroraDash extends Dash {
     if (this._isDestroyed) return;
     this._clearTimeout('_autohideTimeoutId');
     this._autohideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTOHIDE_TIMEOUT, () => {
+      if (this._isDestroyed) {
+        this._autohideTimeoutId = 0;
+        return GLib.SOURCE_REMOVE;
+      }
       const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
 
       if (dashContainer?.get_hover?.() || this._blockAutoHide || this._isMenuOpen()) {
@@ -812,8 +816,10 @@ export class AuroraDash extends Dash {
     if (this._isDestroyed) return;
     this._clearTimeout('_blockAutoHideDelayId');
     this._blockAutoHideDelayId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-      const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
-      if (dashContainer?.get_hover?.()) this.show(false);
+      if (!this._isDestroyed) {
+        const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
+        if (dashContainer?.get_hover?.()) this.show(false);
+      }
       this._blockAutoHideDelayId = 0;
       return GLib.SOURCE_REMOVE;
     });
