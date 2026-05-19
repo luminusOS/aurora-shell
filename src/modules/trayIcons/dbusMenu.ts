@@ -107,11 +107,20 @@ export class DBusMenuClient {
         null,
       );
 
-      // res is GLib.Variant (u(ia{sv}av)): tuple of [revision, layout]
-      // Skip revision at index 0; layout is (ia{sv}av) = [id, props, children]
-      // Note: deep_unpack converts av to a JS Array but leaves each v-boxed child
-      // as a GLib.Variant — _parseNode handles that by calling deep_unpack itself.
-      const [, layout] = res.deep_unpack() as [number, unknown[]];
+      let layout: unknown;
+      if (res instanceof GLib.Variant) {
+        layout = (res.deep_unpack() as [number, unknown])[1];
+      } else if (Array.isArray(res)) {
+        const rawLayout = res[1];
+        layout = rawLayout instanceof GLib.Variant ? rawLayout.deep_unpack() : rawLayout;
+      } else {
+        throw new Error('Unexpected GetLayout response format');
+      }
+
+      if (!Array.isArray(layout)) {
+        throw new Error('Layout data is missing or not an array');
+      }
+
       const nodes = this._parseChildren(layout);
 
       menu.removeAll();
@@ -124,6 +133,7 @@ export class DBusMenuClient {
   }
 
   private _parseChildren(layout: unknown[]): MenuNode[] {
+    if (layout.length < 3) return [];
     const childArray = layout[2];
     if (!Array.isArray(childArray)) return [];
     return (childArray as unknown[])
@@ -132,7 +142,6 @@ export class DBusMenuClient {
   }
 
   private _parseNode(raw: unknown): MenuNode | null {
-    // Each child in av stays as a GLib.Variant after deep_unpack; unbox it here
     const data: unknown[] =
       raw instanceof GLib.Variant ? (raw.deep_unpack() as unknown[]) : (raw as unknown[]);
 
@@ -150,7 +159,7 @@ export class DBusMenuClient {
 
     return {
       id,
-      label: String(get('label', '')).replace(/_([^_])/g, '$1'),
+      label: String(get('label', '')),
       type: String(get('type', 'standard')),
       enabled: Boolean(get('enabled', true)),
       visible: Boolean(get('visible', true)),
@@ -170,8 +179,11 @@ export class DBusMenuClient {
       return;
     }
 
+    // Convert GTK mnemonics (e.g. "_File") to plain text
+    const cleanLabel = node.label.replace(/_([^ _])/g, '$1');
+
     if (node.children.length > 0) {
-      const sub = new PopupMenu.PopupSubMenuMenuItem(node.label);
+      const sub = new PopupMenu.PopupSubMenuMenuItem(cleanLabel);
       sub.setSensitive(node.enabled);
       target.addMenuItem(sub);
       for (const child of node.children) {
@@ -180,25 +192,27 @@ export class DBusMenuClient {
       return;
     }
 
-    const item = new PopupMenu.PopupMenuItem(node.label);
+    const item = new PopupMenu.PopupMenuItem(cleanLabel);
     item.setSensitive(node.enabled);
     item.connect('activate', () => this._sendEvent(node.id));
     target.addMenuItem(item);
   }
 
   private _sendEvent(id: number): void {
+    const timestamp = Date.now();
     this._proxy?.call(
       'Event',
-      new GLib.Variant('(isvu)', [
-        id,
-        'clicked',
-        new GLib.Variant('s', ''),
-        Math.round(Date.now() / 1000),
-      ]),
+      new GLib.Variant('(isvu)', [id, 'clicked', new GLib.Variant('s', ''), timestamp]),
       Gio.DBusCallFlags.NONE,
       -1,
       null,
-      null,
+      (p, res) => {
+        try {
+          (p as any).call_finish(res);
+        } catch (e) {
+          console.warn(`[aurora-tray] DBusMenu Event failed for id ${id}: ${e}`);
+        }
+      },
     );
   }
 
