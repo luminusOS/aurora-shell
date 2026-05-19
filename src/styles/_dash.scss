@@ -113,3 +113,7 @@
 .dash-label.flush-mode {
   -y-offset: 20px !important;
 }
+
+#dash .dash-item-container.aurora-drag-hover .overview-icon {
+  background-color: vars.$aurora-dash-hover-bg;
+}

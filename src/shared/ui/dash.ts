@@ -754,6 +754,7 @@ export class AuroraDash extends Dash {
 
           const appIcon = target?.child?._delegate;
           if (appIcon?.app) {
+            target.add_style_class_name?.('aurora-drag-hover');
             const isRelevant = (w: any) => this._isWindowRelevant(w);
             this._springLoadTimerId = GLib.timeout_add(
               GLib.PRIORITY_DEFAULT,
@@ -786,6 +787,7 @@ export class AuroraDash extends Dash {
   }
 
   private _clearSpringLoad(): void {
+    this._springLoadTarget?.remove_style_class_name?.('aurora-drag-hover');
     this._clearTimeout('_springLoadTimerId');
     this._springLoadTarget = null;
   }
