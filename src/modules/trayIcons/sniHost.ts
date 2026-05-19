@@ -151,7 +151,7 @@ export class SniHost {
     const iconThemePath =
       (proxy.get_cached_property('IconThemePath')?.unpack() as string | undefined) ?? '';
     if (iconName) {
-      const themedIcon = this._resolveThemedIcon(iconName, iconThemePath);
+      const themedIcon = this._resolveThemedIcon(iconName, iconThemePath, itemId, reason);
       if (themedIcon) {
         logger.log(
           `SNI icon ${itemId} reason=${reason} source=theme-path name=${iconName} path=${iconThemePath}`,
@@ -189,7 +189,12 @@ export class SniHost {
     }
   }
 
-  private _resolveThemedIcon(iconName: string, iconThemePath: string): Gio.Icon | null {
+  private _resolveThemedIcon(
+    iconName: string,
+    iconThemePath: string,
+    itemId: string,
+    reason: string,
+  ): Gio.Icon | GdkPixbuf.Pixbuf | null {
     if (!iconThemePath) return null;
 
     try {
@@ -199,13 +204,76 @@ export class SniHost {
       const filename = iconInfo?.get_filename();
       if (!filename) return null;
 
-      return new Gio.FileIcon({ file: Gio.File.new_for_path(filename) });
+      // SVGs go through GTK's symbolic pipeline via St.Icon; return as-is.
+      if (filename.toLowerCase().endsWith('.svg')) {
+        return new Gio.FileIcon({ file: Gio.File.new_for_path(filename) });
+      }
+
+      // Raster icons (PNG etc.) bypass GTK symbolic colorization — load and recolor manually.
+      const pixbuf = GdkPixbuf.Pixbuf.new_from_file(filename);
+      if (!pixbuf) return null;
+      return this._recolorFilePixbuf(pixbuf, itemId, reason);
     } catch (e) {
       logger.warn(`Failed to resolve themed SNI icon ${iconName} from ${iconThemePath}: ${e}`, {
         prefix: LOG_PREFIX,
       });
       return null;
     }
+  }
+
+  private _recolorFilePixbuf(
+    pixbuf: GdkPixbuf.Pixbuf,
+    itemId: string,
+    reason: string,
+  ): GdkPixbuf.Pixbuf {
+    if (!this._shouldRecolorSymbolicPixmaps() || pixbuf.get_n_channels() !== 4) return pixbuf;
+
+    const w = pixbuf.get_width();
+    const h = pixbuf.get_height();
+    const rowstride = pixbuf.get_rowstride();
+    const data = pixbuf.get_pixels();
+    if (!data) return pixbuf;
+
+    let opaquePixels = 0;
+    let monochromePixels = 0;
+    for (let row = 0; row < h; row++) {
+      const base = row * rowstride;
+      for (let col = 0; col < w; col++) {
+        const i = base + col * 4;
+        const a = data[i + 3]!;
+        if (a < 16) continue;
+        opaquePixels++;
+        const r = data[i]!;
+        const g = data[i + 1]!;
+        const b = data[i + 2]!;
+        if (Math.max(r, g, b) - Math.min(r, g, b) <= SYMBOLIC_CHANNEL_TOLERANCE) monochromePixels++;
+      }
+    }
+
+    if (opaquePixels === 0 || monochromePixels / opaquePixels < SYMBOLIC_REQUIRED_RATIO)
+      return pixbuf;
+
+    const [targetR, targetG, targetB] = this._panelIconColor();
+    const pixels = new Uint8Array(w * h * 4);
+    for (let row = 0; row < h; row++) {
+      const srcBase = row * rowstride;
+      const dstBase = row * w * 4;
+      for (let col = 0; col < w; col++) {
+        const si = srcBase + col * 4;
+        const di = dstBase + col * 4;
+        pixels[di] = targetR;
+        pixels[di + 1] = targetG;
+        pixels[di + 2] = targetB;
+        pixels[di + 3] = data[si + 3]!;
+      }
+    }
+
+    logger.log(
+      `Recolored symbolic theme-path icon ${itemId} reason=${reason} scheme=${this._getColorScheme()} size=${w}x${h}`,
+      { prefix: LOG_PREFIX },
+    );
+
+    return GdkPixbuf.Pixbuf.new_from_bytes(pixels, GdkPixbuf.Colorspace.RGB, true, 8, w, h, w * 4);
   }
 
   private _extractPixbuf(
