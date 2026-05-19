@@ -33,7 +33,7 @@ graph TD
 
 ## Adding a Module
 
-1. Create `src/modules/myModule.ts` with a `Module` subclass **and** a co-located `definition` export:
+1. Create `src/modules/myModule/myModule.ts` with a `Module` subclass **and** a co-located `definition` export. Every module **must** live in its own folder named after the module (e.g., `dock/dock.ts`, `trayIcons/trayIcons.ts`). For complex modules, split supporting logic into sibling files inside that folder (e.g., `trayIcons/sniHost.ts`, `trayIcons/trayContainer.ts`):
 
 ```typescript
 import { gettext as _ } from 'gettext';
@@ -72,7 +72,7 @@ export const definition: ModuleDefinition = {
 2. Register the definition in `src/registry.ts` — one import line plus one array entry (preserve UI order):
 
 ```typescript
-import { definition as myModule } from '~/modules/myModule.ts';
+import { definition as myModule } from '~/modules/myModule/myModule.ts';
 
 export function getModuleRegistry(): ModuleDefinition[] {
   return [

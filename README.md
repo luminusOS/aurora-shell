@@ -18,6 +18,7 @@ Aurora is split into independent modules, so you can enable only what you want.
 | **Dock** | Replaces the stock dash with a smart per-monitor dock with intellihide and edge reveal |
 | **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
 | **XWayland Indicator** | Adds an indicator to the app activities in Ctrl + Tab to indicate where XWayland is running |
+| **Tray Icons** | System tray in the panel that shows SNI app icons and GNOME background apps, with configurable icon limit, icon size, attention notifications, and smart SNI/background-app deduplication |
 | **DND on Screen Share** | Automatically enables Do Not Disturb mode when screen sharing or recording is active |
 | **Icon Weave** | Automatically fixes missing app icons by matching untracked windows to their apps in-memory |
 
