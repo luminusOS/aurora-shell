@@ -189,6 +189,7 @@ export class TrayContainer extends PanelMenu.Button {
   // which is the standard GJS GObject subclassing pattern when using custom constructor args.
   override _init(iconSize: number, limit: number): void {
     super._init(0.0, 'aurora-tray-icons', true); // dontCreateMenu = true
+    this.add_style_class_name('aurora-tray-button');
     this.track_hover = false; // highlight only individual icon items, not the whole button area
     this._state = createTrayState();
     this._iconSize = iconSize;
