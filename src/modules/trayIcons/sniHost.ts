@@ -4,6 +4,7 @@ import '@girs/gjs';
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 import GdkPixbuf from '@girs/gdkpixbuf-2.0';
+import St from '@girs/st-18';
 
 import type { TrayItem, TrayItemStatus } from './trayState.ts';
 import type { SniWatcher } from './sniWatcher.ts';
@@ -15,6 +16,7 @@ const SNI_ITEM_XML = `
     <property name="Id" type="s" access="read"/>
     <property name="Status" type="s" access="read"/>
     <property name="IconName" type="s" access="read"/>
+    <property name="IconThemePath" type="s" access="read"/>
     <property name="IconPixmap" type="a(iiay)" access="read"/>
     <property name="AttentionIconName" type="s" access="read"/>
     <property name="AttentionIconPixmap" type="a(iiay)" access="read"/>
@@ -33,6 +35,12 @@ const SNI_ITEM_XML = `
 </node>`;
 
 const SniItemInterfaceInfo = Gio.DBusInterfaceInfo.new_for_xml(SNI_ITEM_XML);
+const MIN_PIXMAP_SIZE = 8;
+const SYMBOLIC_CHANNEL_TOLERANCE = 18;
+const SYMBOLIC_REQUIRED_RATIO = 0.92;
+const LIGHT_PANEL_ICON = [48, 48, 48] as const;
+const DARK_PANEL_ICON = [250, 250, 251] as const;
+const LOG_PREFIX = 'AuroraTray';
 
 // @ts-ignore — _promisify is a GJS extension not reflected in .d.ts
 Gio._promisify(Gio.DBusProxy.prototype, 'init_async');
@@ -42,6 +50,11 @@ type HostCallbacks = {
   onItemRemoved(id: string): void;
   onStatusChanged(id: string, status: TrayItemStatus): void;
   onIconChanged(id: string): void;
+};
+
+type SniHostOptions = {
+  getColorScheme?: () => string;
+  shouldRecolorSymbolicPixmaps?: () => boolean;
 };
 
 type SniEntry = {
@@ -57,10 +70,14 @@ export class SniHost {
   private _entries = new Map<string, SniEntry>();
   private _callbacks: HostCallbacks;
   private _watcher: SniWatcher;
+  private _getColorScheme: () => string;
+  private _shouldRecolorSymbolicPixmaps: () => boolean;
 
-  constructor(watcher: SniWatcher, callbacks: HostCallbacks) {
+  constructor(watcher: SniWatcher, callbacks: HostCallbacks, options: SniHostOptions = {}) {
     this._watcher = watcher;
     this._callbacks = callbacks;
+    this._getColorScheme = options.getColorScheme ?? (() => 'prefer-dark');
+    this._shouldRecolorSymbolicPixmaps = options.shouldRecolorSymbolicPixmaps ?? (() => true);
   }
 
   async registerItem(busName: string, objectPath: string): Promise<void> {
@@ -81,7 +98,7 @@ export class SniHost {
       await proxy.init_async(GLib.PRIORITY_DEFAULT, cancellable);
     } catch (e) {
       if (!(e as any)?.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-        logger.warn(`[AuroraTray] Failed to create SNI proxy for ${id}: ${e}`);
+        logger.warn(`Failed to create SNI proxy for ${id}: ${e}`, { prefix: LOG_PREFIX });
       }
       return;
     }
@@ -91,7 +108,8 @@ export class SniHost {
 
     const menuPath = proxy.get_cached_property('Menu')?.unpack() as string | undefined;
     logger.log(
-      `[AuroraTray] Registered item ${id}. Id=${sniId || '(none)'}. Menu path: ${menuPath || 'none'}. Status: ${item.status}`,
+      `Registered item ${id}. Id=${sniId || '(none)'}. Menu path: ${menuPath || 'none'}. Status: ${item.status}`,
+      { prefix: LOG_PREFIX },
     );
 
     const signalId = proxy.connect('g-signal', (_proxy, _sender, signalName, params) => {
@@ -100,7 +118,7 @@ export class SniHost {
         item.status = newStatus as TrayItemStatus;
         this._callbacks.onStatusChanged(id, item.status);
       } else if (signalName === 'NewIcon' || signalName === 'NewAttentionIcon') {
-        item.icon = this._resolveIcon(proxy);
+        item.icon = this._resolveIcon(proxy, signalName);
         this._callbacks.onIconChanged(id);
       }
     });
@@ -121,26 +139,80 @@ export class SniHost {
     this._callbacks.onItemAdded(item);
   }
 
-  private _resolveIcon(proxy: Gio.DBusProxy): string | GdkPixbuf.Pixbuf {
+  private _resolveIcon(proxy: Gio.DBusProxy, reason = 'initial'): TrayItem['icon'] {
     const status = (proxy.get_cached_property('Status')?.unpack() as string) ?? 'Active';
     const useAttention = status === 'NeedsAttention';
+    const itemId = `${proxy.g_name}${proxy.g_object_path}`;
 
     const iconName =
       (proxy
         .get_cached_property(useAttention ? 'AttentionIconName' : 'IconName')
         ?.unpack() as string) ?? '';
-    if (iconName) return iconName;
+    const iconThemePath =
+      (proxy.get_cached_property('IconThemePath')?.unpack() as string | undefined) ?? '';
+    if (iconName) {
+      const themedIcon = this._resolveThemedIcon(iconName, iconThemePath);
+      if (themedIcon) {
+        logger.log(
+          `SNI icon ${itemId} reason=${reason} source=theme-path name=${iconName} path=${iconThemePath}`,
+          { prefix: LOG_PREFIX },
+        );
+        return themedIcon;
+      }
+      logger.log(
+        `SNI icon ${itemId} reason=${reason} source=icon-name name=${iconName} path=${iconThemePath || 'none'}`,
+        { prefix: LOG_PREFIX },
+      );
+      return iconName;
+    }
 
     const pixmaps = proxy.get_cached_property(useAttention ? 'AttentionIconPixmap' : 'IconPixmap');
     if (pixmaps) {
-      const pb = this._extractPixbuf(pixmaps);
-      if (pb) return pb;
+      const pb = this._extractPixbuf(pixmaps, itemId, reason);
+      if (pb) {
+        logger.log(
+          `SNI icon ${itemId} reason=${reason} source=pixmap size=${pb.get_width()}x${pb.get_height()}`,
+          { prefix: LOG_PREFIX },
+        );
+        return pb;
+      }
     }
 
+    logger.log(`SNI icon ${itemId} reason=${reason} source=fallback`, { prefix: LOG_PREFIX });
     return 'image-missing-symbolic';
   }
 
-  private _extractPixbuf(variant: GLib.Variant): GdkPixbuf.Pixbuf | null {
+  refreshIcons(reason = 'theme-change'): void {
+    for (const entry of this._entries.values()) {
+      entry.item.icon = this._resolveIcon(entry.proxy, reason);
+      this._callbacks.onIconChanged(entry.item.id);
+    }
+  }
+
+  private _resolveThemedIcon(iconName: string, iconThemePath: string): Gio.Icon | null {
+    if (!iconThemePath) return null;
+
+    try {
+      const theme = St.IconTheme.new();
+      theme.append_search_path(iconThemePath);
+      const iconInfo = theme.lookup_icon(iconName, 24, St.IconLookupFlags.FORCE_SIZE);
+      const filename = iconInfo?.get_filename();
+      if (!filename) return null;
+
+      return new Gio.FileIcon({ file: Gio.File.new_for_path(filename) });
+    } catch (e) {
+      logger.warn(`Failed to resolve themed SNI icon ${iconName} from ${iconThemePath}: ${e}`, {
+        prefix: LOG_PREFIX,
+      });
+      return null;
+    }
+  }
+
+  private _extractPixbuf(
+    variant: GLib.Variant,
+    itemId: string,
+    reason: string,
+  ): GdkPixbuf.Pixbuf | null {
     const n = variant.n_children();
     if (n === 0) return null;
 
@@ -160,6 +232,12 @@ export class SniHost {
     const data = bestChild.get_child_value(2).get_data_as_bytes(); // GLib.Bytes
 
     if (!data || w <= 0 || h <= 0) return null;
+    if (w < MIN_PIXMAP_SIZE || h < MIN_PIXMAP_SIZE) {
+      logger.log(`Ignoring tiny SNI pixmap ${itemId} reason=${reason} size=${w}x${h}`, {
+        prefix: LOG_PREFIX,
+      });
+      return null;
+    }
 
     // SNI IconPixmap is a(iiay): array of (width, height, ARGB data in network byte order)
     // GdkPixbuf expects RGBA. We must swap ARGB -> RGBA.
@@ -167,23 +245,49 @@ export class SniHost {
     if (!unpacked || unpacked.length < w * h * 4) return null;
 
     const pixels = new Uint8Array(unpacked.length);
+    const symbolic = this._shouldRecolorSymbolicPixmaps() && this._isSymbolicPixmap(unpacked, w, h);
+    const [targetR, targetG, targetB] = this._panelIconColor();
     for (let i = 0; i < unpacked.length; i += 4) {
-      pixels[i] = unpacked[i + 1]!; // R
-      pixels[i + 1] = unpacked[i + 2]!; // G
-      pixels[i + 2] = unpacked[i + 3]!; // B
+      pixels[i] = symbolic ? targetR : unpacked[i + 1]!; // R
+      pixels[i + 1] = symbolic ? targetG : unpacked[i + 2]!; // G
+      pixels[i + 2] = symbolic ? targetB : unpacked[i + 3]!; // B
       pixels[i + 3] = unpacked[i]!; // A
     }
 
-    return GdkPixbuf.Pixbuf.new_from_data(
-      pixels,
-      GdkPixbuf.Colorspace.RGB,
-      true,
-      8,
-      w,
-      h,
-      w * 4,
-      null,
-    );
+    if (symbolic) {
+      logger.log(
+        `Recolored symbolic SNI pixmap ${itemId} reason=${reason} scheme=${this._getColorScheme()} size=${w}x${h}`,
+        { prefix: LOG_PREFIX },
+      );
+    }
+
+    return GdkPixbuf.Pixbuf.new_from_bytes(pixels, GdkPixbuf.Colorspace.RGB, true, 8, w, h, w * 4);
+  }
+
+  private _panelIconColor(): readonly [number, number, number] {
+    return this._getColorScheme() === 'prefer-light' ? LIGHT_PANEL_ICON : DARK_PANEL_ICON;
+  }
+
+  private _isSymbolicPixmap(data: Uint8Array, width: number, height: number): boolean {
+    let opaquePixels = 0;
+    let monochromePixels = 0;
+    const expectedLength = width * height * 4;
+
+    for (let i = 0; i < expectedLength; i += 4) {
+      const a = data[i]!;
+      if (a < 16) continue;
+
+      opaquePixels++;
+      const r = data[i + 1]!;
+      const g = data[i + 2]!;
+      const b = data[i + 3]!;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      if (max - min <= SYMBOLIC_CHANNEL_TOLERANCE) monochromePixels++;
+    }
+
+    if (opaquePixels === 0) return false;
+    return monochromePixels / opaquePixels >= SYMBOLIC_REQUIRED_RATIO;
   }
 
   private _makeItem(id: string, proxy: Gio.DBusProxy): TrayItem {
@@ -221,7 +325,7 @@ export class SniHost {
             try {
               p?.call_finish(res);
             } catch (e) {
-              logger.warn(`[AuroraTray] Activate failed for ${id}: ${e}`);
+              logger.warn(`Activate failed for ${id}: ${e}`, { prefix: LOG_PREFIX });
             }
           },
         );
@@ -237,7 +341,7 @@ export class SniHost {
             try {
               p?.call_finish(res);
             } catch (e) {
-              logger.warn(`[AuroraTray] SecondaryActivate failed for ${id}: ${e}`);
+              logger.warn(`SecondaryActivate failed for ${id}: ${e}`, { prefix: LOG_PREFIX });
             }
           },
         );
@@ -253,7 +357,7 @@ export class SniHost {
             try {
               p?.call_finish(res);
             } catch (e) {
-              logger.warn(`[AuroraTray] ContextMenu failed for ${id}: ${e}`);
+              logger.warn(`ContextMenu failed for ${id}: ${e}`, { prefix: LOG_PREFIX });
             }
           },
         );

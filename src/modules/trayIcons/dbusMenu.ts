@@ -2,10 +2,12 @@
 import '@girs/gjs';
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
+import Clutter from '@girs/clutter-18';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import { logger } from '~/core/logger.ts';
 
 const DBUS_MENU_IFACE = 'com.canonical.dbusmenu';
+const LOG_PREFIX = 'AuroraTray';
 
 const DBUS_MENU_XML = `
 <node>
@@ -77,7 +79,7 @@ export class DBusMenuClient {
       this._proxy = proxy;
     } catch (e) {
       if (!this._cancellable.is_cancelled()) {
-        logger.warn(`[AuroraTray] DBusMenu init failed for ${this._busName}: ${e}`);
+        logger.warn(`DBusMenu init failed for ${this._busName}: ${e}`, { prefix: LOG_PREFIX });
       }
     }
   }
@@ -128,7 +130,7 @@ export class DBusMenuClient {
         this._renderNode(menu, node);
       }
     } catch (e) {
-      logger.warn(`[AuroraTray] GetLayout failed for ${this._busName}: ${e}`);
+      logger.warn(`GetLayout failed for ${this._busName}: ${e}`, { prefix: LOG_PREFIX });
     }
   }
 
@@ -194,26 +196,42 @@ export class DBusMenuClient {
 
     const item = new PopupMenu.PopupMenuItem(cleanLabel);
     item.setSensitive(node.enabled);
-    item.connect('activate', () => this._sendEvent(node.id));
+    item.connect('activate', (_item, event: Clutter.Event | null) =>
+      this._sendEvent(node.id, event),
+    );
     target.addMenuItem(item);
   }
 
-  private _sendEvent(id: number): void {
-    const timestamp = Date.now();
-    this._proxy?.call(
-      'Event',
-      new GLib.Variant('(isvu)', [id, 'clicked', new GLib.Variant('s', ''), timestamp]),
-      Gio.DBusCallFlags.NONE,
-      -1,
-      null,
-      (p, res) => {
-        try {
-          (p as any).call_finish(res);
-        } catch (e) {
-          console.warn(`[aurora-tray] DBusMenu Event failed for id ${id}: ${e}`);
-        }
-      },
-    );
+  private _sendEvent(id: number, event: Clutter.Event | null): void {
+    if (!this._proxy) return;
+
+    const timestamp = this._eventTimestamp(event);
+    try {
+      this._proxy.call(
+        'Event',
+        new GLib.Variant('(isvu)', [id, 'clicked', new GLib.Variant('i', 0), timestamp]),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        null,
+        (p, res) => {
+          try {
+            (p as any).call_finish(res);
+          } catch (e) {
+            logger.warn(`DBusMenu Event failed for id ${id}: ${e}`, { prefix: LOG_PREFIX });
+          }
+        },
+      );
+    } catch (e) {
+      logger.warn(`DBusMenu Event could not be sent for id ${id}: ${e}`, {
+        prefix: LOG_PREFIX,
+      });
+    }
+  }
+
+  private _eventTimestamp(event: Clutter.Event | null): number {
+    const timestamp = event?.get_time() ?? Clutter.get_current_event_time();
+    if (!Number.isFinite(timestamp) || timestamp < 0 || timestamp > 0xffffffff) return 0;
+    return Math.round(timestamp);
   }
 
   destroy(): void {

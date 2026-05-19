@@ -24,6 +24,7 @@ const TIME_KEYS = [
   'auto-theme-switcher-dark-hours',
   'auto-theme-switcher-dark-minutes',
 ] as const;
+const LOG_PREFIX = 'AutoThemeSwitcher';
 
 export class AutoThemeSwitcher extends Module {
   private _sourceId: number | null = null;
@@ -63,7 +64,7 @@ export class AutoThemeSwitcher extends Module {
       );
       this._tick();
     } catch (error) {
-      logger.error('AutoThemeSwitcher: Failed to enable:', error);
+      logger.error('Failed to enable:', { prefix: LOG_PREFIX }, error);
     }
   }
 
@@ -107,9 +108,9 @@ export class AutoThemeSwitcher extends Module {
 
     if (current_scheme !== scheme) {
       this._desktopSettings.setString('color-scheme', scheme);
-      logger.debug(`AutoThemeSwitcher: applied ${scheme}`);
+      logger.debug(`applied ${scheme}`, { prefix: LOG_PREFIX });
     } else {
-      logger.debug(`AutoThemeSwitcher: already on ${scheme}`);
+      logger.debug(`already on ${scheme}`, { prefix: LOG_PREFIX });
     }
 
     let next = isLight ? dark : light;

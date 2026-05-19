@@ -11,6 +11,7 @@ import { loadIcon } from '~/shared/icons.ts';
 const COLOR_DISCONNECTED = '#9a9a9a';
 const COLOR_CONNECTED = '#1c71d8';
 const COLOR_ANIMATING = '#3584e4';
+const LOG_PREFIX = 'BluetoothMenu';
 
 export class BluetoothDeviceItemPatcher {
   private _item: any;
@@ -37,7 +38,7 @@ export class BluetoothDeviceItemPatcher {
     item.activate = (_event: any) => {
       item
         ._toggleConnected()
-        .catch((e: Error) => logger.error(`[BluetoothMenu] toggleConnected failed: ${e}`));
+        .catch((e: Error) => logger.error(`toggleConnected failed: ${e}`, { prefix: LOG_PREFIX }));
     };
 
     // Remove icon, subtitle, and spinner from actor hierarchy entirely.

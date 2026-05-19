@@ -9,6 +9,8 @@ import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 import { BluetoothDeviceItemPatcher } from '~/modules/bluetoothMenu/deviceItem.ts';
 
+const LOG_PREFIX = 'BluetoothMenu';
+
 export class BluetoothMenu extends Module {
   private _toggle: any = null;
   private _patchers = new Map<any, BluetoothDeviceItemPatcher>();
@@ -29,7 +31,7 @@ export class BluetoothMenu extends Module {
 
     const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
     if (!grid) {
-      logger.error('[BluetoothMenu] Could not find quick settings grid');
+      logger.error('Could not find quick settings grid', { prefix: LOG_PREFIX });
       return;
     }
 

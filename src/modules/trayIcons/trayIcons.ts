@@ -14,6 +14,7 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
+import type { SettingsManager } from '~/core/settings.ts';
 
 import { TrayContainer } from './trayContainer.ts';
 import { BackgroundAppsSource } from './backgroundAppsSource.ts';
@@ -22,6 +23,7 @@ import { SniHost } from './sniHost.ts';
 import type { TrayItem, TrayItemStatus } from './trayState.ts';
 
 const PANEL_INDICATOR_ID = 'aurora-tray-icons';
+const LOG_PREFIX = 'AuroraTray';
 
 export class TrayIcons extends Module {
   private _container: TrayContainer | null = null;
@@ -33,6 +35,8 @@ export class TrayIcons extends Module {
   private _dedupBgApps = true;
   private _bgAppsToggle: any = null;
   private _bgAppsToggleVisibleId = 0;
+  private _desktopSettings: SettingsManager | null = null;
+  private _desktopSettingsChangedId = 0;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -40,6 +44,7 @@ export class TrayIcons extends Module {
 
   override enable(): void {
     const settings = this.context.settings.getRawSettings();
+    this._desktopSettings = this.context.settings.getSchema('org.gnome.desktop.interface');
     const iconSize = settings.get_int('tray-icons-icon-size');
     const limit = settings.get_int('tray-icons-limit');
     const attentionTimeout = settings.get_int('tray-icons-attention-timeout');
@@ -61,29 +66,70 @@ export class TrayIcons extends Module {
       'right',
     );
 
+    if (GLib.getenv('AURORA_TRAY_DEBUG')) {
+      const fakeIcons = [
+        'face-smile-symbolic',
+        'computer-symbolic',
+        'network-wireless-symbolic',
+        'audio-headphones-symbolic',
+        'bluetooth-symbolic',
+        'camera-symbolic',
+        'mail-unread-symbolic',
+        'printer-symbolic',
+      ];
+      for (let i = 0; i < fakeIcons.length; i++) {
+        const id = `debug-fake-${i}`;
+        this._container.addItem({
+          id,
+          icon: fakeIcons[i]!,
+          status: 'Active',
+          tooltip: `Fake Icon ${i + 1}`,
+          activate: () => {},
+          destroy: () => {},
+        });
+      }
+    }
+
     // SNI layer
     this._sniWatcher = new SniWatcher(
       (busName, objectPath) => {
         this._sniHost
           ?.registerItem(busName, objectPath)
-          ?.catch((e) => logger.warn(`[AuroraTray] registerItem failed: ${e}`));
+          ?.catch((e) => logger.warn(`registerItem failed: ${e}`, { prefix: LOG_PREFIX }));
       },
       (_busName, _objectPath) => {},
     );
-    this._sniHost = new SniHost(this._sniWatcher, {
-      onItemAdded: (item) => this._onSniItemAdded(item),
-      onItemRemoved: (id) => this._onItemRemoved(id),
-      onStatusChanged: (id, status) => this._onStatusChanged(id, status),
-      onIconChanged: (id) => this._container?.updateItemIcon(id),
-    });
+    this._sniHost = new SniHost(
+      this._sniWatcher,
+      {
+        onItemAdded: (item) => this._onSniItemAdded(item),
+        onItemRemoved: (id) => this._onItemRemoved(id),
+        onStatusChanged: (id, status) => this._onStatusChanged(id, status),
+        onIconChanged: (id) => this._container?.updateItemIcon(id),
+      },
+      {
+        getColorScheme: () => this._desktopSettings?.getString('color-scheme') ?? 'prefer-dark',
+        shouldRecolorSymbolicPixmaps: () =>
+          settings.get_boolean('tray-icons-recolor-symbolic-pixmaps'),
+      },
+    );
     this._sniWatcher.start();
+    this._desktopSettingsChangedId = this._desktopSettings.connect('changed::color-scheme', () => {
+      const scheme = this._desktopSettings?.getString('color-scheme') ?? 'unknown';
+      logger.log(`Color scheme changed to ${scheme}; refreshing SNI icons`, {
+        prefix: LOG_PREFIX,
+      });
+      this._sniHost?.refreshIcons('color-scheme');
+    });
 
     // Background Apps layer
     this._bgSource = new BackgroundAppsSource({
       onItemAdded: (item) => this._onBgItemAdded(item).catch(() => {}),
       onItemRemoved: (id) => this._onItemRemoved(id),
     });
-    this._bgSource.start().catch((e) => logger.warn(`[AuroraTray] bg source start failed: ${e}`));
+    this._bgSource
+      .start()
+      .catch((e) => logger.warn(`bg source start failed: ${e}`, { prefix: LOG_PREFIX }));
 
     // Settings change listeners
     this._settingsChangedIds.push(
@@ -118,30 +164,39 @@ export class TrayIcons extends Module {
           this._restoreBgAppsQuickSettings();
         }
       }),
+      settings.connect('changed::tray-icons-recolor-symbolic-pixmaps', () => {
+        logger.log(
+          `Recolor symbolic SNI pixmaps=${settings.get_boolean('tray-icons-recolor-symbolic-pixmaps')}; refreshing SNI icons`,
+          { prefix: LOG_PREFIX },
+        );
+        this._sniHost?.refreshIcons('recolor-setting');
+      }),
     );
   }
 
   private _onSniItemAdded(item: TrayItem): void {
-    logger.log(`[AuroraTray] SNI item added: ${item.id} (menuBus=${item.menuBusName ?? 'none'})`);
+    logger.log(`SNI item added: ${item.id} (menuBus=${item.menuBusName ?? 'none'})`, {
+      prefix: LOG_PREFIX,
+    });
     this._container?.addItem(item);
     if (this._dedupBgApps && item.menuBusName) {
       this._removeBgItemCoveredBy(item.menuBusName).catch((e) =>
-        logger.warn(`[AuroraTray] _removeBgItemCoveredBy failed: ${e}`),
+        logger.warn(`_removeBgItemCoveredBy failed: ${e}`, { prefix: LOG_PREFIX }),
       );
     }
   }
 
   private async _onBgItemAdded(item: TrayItem): Promise<void> {
     const appId = item.id.replace('bg:', '');
-    logger.log(`[AuroraTray] BG app detected: ${appId}`);
+    logger.log(`BG app detected: ${appId}`, { prefix: LOG_PREFIX });
     if (this._dedupBgApps && (await this._sniCoversApp(appId))) {
-      logger.log(`[AuroraTray] BG app ${appId} already covered by SNI, skipping`);
+      logger.log(`BG app ${appId} already covered by SNI, skipping`, { prefix: LOG_PREFIX });
       return;
     }
     if (!this._container) return;
     this._bgItemAppIds.set(appId, item.id);
     this._container.addItem(item);
-    logger.log(`[AuroraTray] BG app ${appId} added to tray`);
+    logger.log(`BG app ${appId} added to tray`, { prefix: LOG_PREFIX });
   }
 
   private async _getUniqueName(busName: string): Promise<string | null> {
@@ -167,13 +222,17 @@ export class TrayIcons extends Module {
     const owner = await this._getUniqueName(appId);
     if (owner) {
       const covered = this._sniHost?.hasItemForBus(owner) ?? false;
-      logger.log(`[AuroraTray] SNI covers ${appId}? owner=${owner} covered=${covered}`);
+      logger.log(`SNI covers ${appId}? owner=${owner} covered=${covered}`, {
+        prefix: LOG_PREFIX,
+      });
       return covered;
     }
     // Fallback: app doesn't own its expected D-Bus name (common for Flatpak Qt/SNI apps).
     // Match by the SNI item's Id property instead.
     const coveredById = this._sniHost?.hasSniForAppId(appId) ?? false;
-    logger.log(`[AuroraTray] SNI covers ${appId}? owner=none, Id-match=${coveredById}`);
+    logger.log(`SNI covers ${appId}? owner=none, Id-match=${coveredById}`, {
+      prefix: LOG_PREFIX,
+    });
     return coveredById;
   }
 
@@ -185,19 +244,20 @@ export class TrayIcons extends Module {
       : await this._getUniqueName(sniBusName);
 
     if (!sniUnique) {
-      logger.log(`[AuroraTray] Cannot resolve SNI bus ${sniBusName}, skip bg dedup`);
+      logger.log(`Cannot resolve SNI bus ${sniBusName}, skip bg dedup`, { prefix: LOG_PREFIX });
       return;
     }
 
     logger.log(
-      `[AuroraTray] Dedup: SNI ${sniBusName} (unique=${sniUnique}), bg items: [${[...this._bgItemAppIds.keys()].join(', ')}]`,
+      `Dedup: SNI ${sniBusName} (unique=${sniUnique}), bg items: [${[...this._bgItemAppIds.keys()].join(', ')}]`,
+      { prefix: LOG_PREFIX },
     );
 
     for (const [appId, itemId] of this._bgItemAppIds) {
       const owner = await this._getUniqueName(appId);
-      logger.log(`[AuroraTray] Dedup: bg ${appId} owner=${owner ?? 'none'}`);
+      logger.log(`Dedup: bg ${appId} owner=${owner ?? 'none'}`, { prefix: LOG_PREFIX });
       if (owner === sniUnique) {
-        logger.log(`[AuroraTray] Removing bg:${appId} covered by SNI ${sniBusName}`);
+        logger.log(`Removing bg:${appId} covered by SNI ${sniBusName}`, { prefix: LOG_PREFIX });
         this._bgItemAppIds.delete(appId);
         this._container?.removeItem(itemId);
         return;
@@ -252,6 +312,11 @@ export class TrayIcons extends Module {
       settings.disconnect(id);
     }
     this._settingsChangedIds = [];
+    if (this._desktopSettings && this._desktopSettingsChangedId > 0) {
+      this._desktopSettings.disconnect(this._desktopSettingsChangedId);
+      this._desktopSettingsChangedId = 0;
+    }
+    this._desktopSettings = null;
 
     this._restoreBgAppsQuickSettings();
 
@@ -311,6 +376,12 @@ export const definition: ModuleDefinition = {
       key: 'tray-icons-hide-bg-quick-settings',
       title: _('Hide Background Apps from Quick Settings'),
       subtitle: _('Hide the Background Apps section from the Quick Settings dropdown'),
+      type: 'switch',
+    },
+    {
+      key: 'tray-icons-recolor-symbolic-pixmaps',
+      title: _('Recolor Symbolic Tray Icons'),
+      subtitle: _('Automatically recolor monochrome SNI icons to match the panel theme'),
       type: 'switch',
     },
   ],

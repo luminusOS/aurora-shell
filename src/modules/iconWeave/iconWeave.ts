@@ -10,6 +10,7 @@ import type { ModuleDefinition } from '~/module.ts';
 
 const WINDOW_INSPECT_DELAY_MS = 500;
 const MIN_MATCH_SCORE = 50;
+const LOG_PREFIX = 'IconWeave';
 
 const BLACKLISTED_PREFIXES = [
   'org.gnome',
@@ -390,9 +391,9 @@ export class IconWeave extends Module {
 
       const title: string = win.get_title() ?? '';
 
-      logger.log(
-        `[IconWeave] untracked window: title="${title}" wm_class="${wmClass}" app_id="${appId}"`,
-      );
+      logger.log(`untracked window: title="${title}" wm_class="${wmClass}" app_id="${appId}"`, {
+        prefix: LOG_PREFIX,
+      });
 
       const appSystem = Shell.AppSystem.get_default();
 
@@ -401,7 +402,9 @@ export class IconWeave extends Module {
       // renders, eliminating the generic-icon flash for most apps.
       const deterministic = this._deterministicMatch(appSystem, wmClass, appId, title);
       if (deterministic) {
-        logger.log(`[IconWeave] deterministic match found: ${deterministic.get_id()} — applying`);
+        logger.log(`deterministic match found: ${deterministic.get_id()} — applying`, {
+          prefix: LOG_PREFIX,
+        });
         this._windowAppMap.set(win, deterministic);
         this.context.signals.emit('icons-woven');
         tracker.emit('tracked-windows-changed');
@@ -425,18 +428,20 @@ export class IconWeave extends Module {
 
       const candidate = this._heuristicMatch(appSystem, wmClass, appId, title);
       if (candidate) {
-        logger.log(`[IconWeave] heuristic match found: ${candidate.get_id()} — applying`);
+        logger.log(`heuristic match found: ${candidate.get_id()} — applying`, {
+          prefix: LOG_PREFIX,
+        });
         this._windowAppMap.set(win, candidate);
         this.context.signals.emit('icons-woven');
         tracker.emit('tracked-windows-changed');
         candidate.emit('windows-changed');
       } else {
-        logger.log(`[IconWeave] no candidate found for wm_class="${wmClass}"`);
+        logger.log(`no candidate found for wm_class="${wmClass}"`, { prefix: LOG_PREFIX });
       }
 
       this._processed.add(dedupeKey);
     } catch (e) {
-      logger.log(`[IconWeave] _inspectWindow error: ${e}`);
+      logger.log(`_inspectWindow error: ${e}`, { prefix: LOG_PREFIX });
     }
   }
 
@@ -503,7 +508,9 @@ export class IconWeave extends Module {
     }
 
     if (bestScore >= MIN_MATCH_SCORE) {
-      logger.log(`[IconWeave] heuristic match score=${bestScore}: ${bestApp.get_id()}`);
+      logger.log(`heuristic match score=${bestScore}: ${bestApp.get_id()}`, {
+        prefix: LOG_PREFIX,
+      });
       return bestApp;
     }
 

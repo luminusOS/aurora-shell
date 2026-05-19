@@ -6,6 +6,7 @@ import type { SettingsManager } from '~/core/settings.ts';
 
 const NOTIFICATIONS_SCHEMA = 'org.gnome.desktop.notifications';
 const SHOW_BANNERS_KEY = 'show-banners';
+const LOG_PREFIX = 'DndOnShare';
 
 export class DndOnShare extends Module {
   private _notificationsSettings: SettingsManager | null = null;
@@ -43,7 +44,7 @@ export class DndOnShare extends Module {
         this._syncDndState(true);
       }
     } else {
-      logger.warn('[DndOnShare] Screen sharing indicator not found');
+      logger.warn('Screen sharing indicator not found', { prefix: LOG_PREFIX });
     }
   }
 

@@ -10,6 +10,7 @@ export const SNI_WATCHER_BUS_NAME = 'org.kde.StatusNotifierWatcher';
 const SNI_WATCHER_OBJECT = '/StatusNotifierWatcher';
 const SNI_INTERFACE_NAME = 'org.kde.StatusNotifierWatcher';
 const SNI_DEFAULT_ITEM_PATH = '/StatusNotifierItem';
+const LOG_PREFIX = 'AuroraTray';
 
 const WATCHER_XML = `
 <node>
@@ -94,7 +95,7 @@ export class SniWatcher {
         null,
       );
     } catch (e) {
-      logger.warn(`[AuroraTray] Failed to register SNI watcher object: ${e}`);
+      logger.warn(`Failed to register SNI watcher object: ${e}`, { prefix: LOG_PREFIX });
       this._failed = true;
       return;
     }
@@ -104,12 +105,13 @@ export class SniWatcher {
       Gio.BusNameOwnerFlags.NONE,
       // GJS accepts plain functions here; types expect GObject.Closure
       (() => {
-        logger.info('[AuroraTray] Acquired org.kde.StatusNotifierWatcher');
+        logger.info('Acquired org.kde.StatusNotifierWatcher', { prefix: LOG_PREFIX });
         this._emitSignal('StatusNotifierHostRegistered', null);
       }) as unknown as never,
       (() => {
         logger.warn(
-          '[AuroraTray] org.kde.StatusNotifierWatcher already owned by another process. SNI icons disabled.',
+          'org.kde.StatusNotifierWatcher already owned by another process. SNI icons disabled.',
+          { prefix: LOG_PREFIX },
         );
         this._failed = true;
       }) as unknown as never,
@@ -126,7 +128,9 @@ export class SniWatcher {
       // Bare object path (e.g., Steam): sender is the bus name
       busName = sender;
       objectPath = service;
-      logger.log(`[AuroraTray] SNI bare-path registration from ${sender}: ${service}`);
+      logger.log(`SNI bare-path registration from ${sender}: ${service}`, {
+        prefix: LOG_PREFIX,
+      });
     } else if (service.includes('/')) {
       const slashIdx = service.indexOf('/');
       busName = service.substring(0, slashIdx);

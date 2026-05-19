@@ -16,6 +16,8 @@ import type { ModuleDefinition } from '~/module.ts';
 import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
 import { loadIcon } from '~/shared/icons.ts';
 
+const LOG_PREFIX = 'VolumeMixer';
+
 /**
  * Volume Mixer Module
  *
@@ -59,7 +61,7 @@ export class VolumeMixer extends Module {
 
     const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
     if (!grid) {
-      logger.error('[VolumeMixer] Could not find quick settings grid');
+      logger.error('Could not find quick settings grid', { prefix: LOG_PREFIX });
       return;
     }
 
@@ -117,7 +119,7 @@ export class VolumeMixer extends Module {
     const grid = this._quickSettings?.menu?._grid;
 
     if (!grid) {
-      logger.error('[VolumeMixer] Could not find quick settings grid');
+      logger.error('Could not find quick settings grid', { prefix: LOG_PREFIX });
       return null;
     }
 
@@ -147,7 +149,7 @@ export class VolumeMixer extends Module {
       try {
         Gio.Subprocess.new(['gnome-control-center', 'sound'], Gio.SubprocessFlags.NONE);
       } catch (e) {
-        logger.error(`[VolumeMixer] Failed to open sound settings: ${e}`);
+        logger.error(`Failed to open sound settings: ${e}`, { prefix: LOG_PREFIX });
       }
       this._quickSettings?.menu.close(PopupAnimation.FULL);
     });
