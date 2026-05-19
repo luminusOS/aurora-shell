@@ -7,7 +7,7 @@ import GdkPixbuf from '@girs/gdkpixbuf-2.0';
 
 import type { TrayItem, TrayItemStatus } from './trayState.ts';
 import type { SniWatcher } from './sniWatcher.ts';
-import type { Logger } from '~/core/logger.ts';
+import { logger } from '~/core/logger.ts';
 
 const SNI_ITEM_XML = `
 <node>
@@ -19,6 +19,7 @@ const SNI_ITEM_XML = `
     <property name="AttentionIconName" type="s" access="read"/>
     <property name="AttentionIconPixmap" type="a(iiay)" access="read"/>
     <property name="Title" type="s" access="read"/>
+    <property name="ToolTip" type="(sa(iiay)ss)" access="read"/>
     <property name="Menu" type="o" access="read"/>
     <method name="Activate"><arg name="x" type="i" direction="in"/><arg name="y" type="i" direction="in"/></method>
     <method name="SecondaryActivate"><arg name="x" type="i" direction="in"/><arg name="y" type="i" direction="in"/></method>
@@ -27,6 +28,7 @@ const SNI_ITEM_XML = `
     <signal name="NewIcon"/>
     <signal name="NewAttentionIcon"/>
     <signal name="NewTitle"/>
+    <signal name="NewToolTip"/>
   </interface>
 </node>`;
 
@@ -55,12 +57,10 @@ export class SniHost {
   private _entries = new Map<string, SniEntry>();
   private _callbacks: HostCallbacks;
   private _watcher: SniWatcher;
-  private _logger: Logger;
 
-  constructor(watcher: SniWatcher, callbacks: HostCallbacks, logger: Logger) {
+  constructor(watcher: SniWatcher, callbacks: HostCallbacks) {
     this._watcher = watcher;
     this._callbacks = callbacks;
-    this._logger = logger;
   }
 
   async registerItem(busName: string, objectPath: string): Promise<void> {
@@ -81,7 +81,7 @@ export class SniHost {
       await proxy.init_async(GLib.PRIORITY_DEFAULT, cancellable);
     } catch (e) {
       if (!(e as any)?.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-        this._logger.warn(`[aurora-tray] Failed to create SNI proxy for ${id}: ${e}`);
+        logger.warn(`[AuroraTray] Failed to create SNI proxy for ${id}: ${e}`);
       }
       return;
     }
@@ -90,8 +90,8 @@ export class SniHost {
     const sniId = (proxy.get_cached_property('Id')?.unpack() as string | undefined) ?? '';
 
     const menuPath = proxy.get_cached_property('Menu')?.unpack() as string | undefined;
-    this._logger.log(
-      `[aurora-tray] Registered item ${id}. Id=${sniId || '(none)'}. Menu path: ${menuPath || 'none'}. Status: ${item.status}`,
+    logger.log(
+      `[AuroraTray] Registered item ${id}. Id=${sniId || '(none)'}. Menu path: ${menuPath || 'none'}. Status: ${item.status}`,
     );
 
     const signalId = proxy.connect('g-signal', (_proxy, _sender, signalName, params) => {
@@ -190,8 +190,17 @@ export class SniHost {
     return {
       id,
       icon: this._resolveIcon(proxy),
-      get tooltip() {
-        return (proxy.get_cached_property('Title')?.unpack() as string) ?? '';
+      get tooltip(): string | undefined {
+        const raw = proxy.get_cached_property('ToolTip');
+        if (!raw) return undefined;
+        try {
+          const desc = raw.get_child_value(3).unpack() as string;
+          if (desc) return desc;
+          const title = raw.get_child_value(2).unpack() as string;
+          return title || undefined;
+        } catch {
+          return undefined;
+        }
       },
       get status(): TrayItemStatus {
         return (proxy.get_cached_property('Status')?.unpack() as TrayItemStatus) ?? 'Active';
@@ -212,7 +221,7 @@ export class SniHost {
             try {
               p?.call_finish(res);
             } catch (e) {
-              this._logger.warn(`[aurora-tray] Activate failed for ${id}: ${e}`);
+              logger.warn(`[AuroraTray] Activate failed for ${id}: ${e}`);
             }
           },
         );
@@ -228,7 +237,7 @@ export class SniHost {
             try {
               p?.call_finish(res);
             } catch (e) {
-              this._logger.warn(`[aurora-tray] SecondaryActivate failed for ${id}: ${e}`);
+              logger.warn(`[AuroraTray] SecondaryActivate failed for ${id}: ${e}`);
             }
           },
         );
@@ -244,7 +253,7 @@ export class SniHost {
             try {
               p?.call_finish(res);
             } catch (e) {
-              this._logger.warn(`[aurora-tray] ContextMenu failed for ${id}: ${e}`);
+              logger.warn(`[AuroraTray] ContextMenu failed for ${id}: ${e}`);
             }
           },
         );

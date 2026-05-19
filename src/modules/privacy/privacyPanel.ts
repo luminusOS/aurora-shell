@@ -2,6 +2,7 @@ import Clutter from '@girs/clutter-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 
 const FADE_DURATION = 200;
@@ -24,7 +25,7 @@ export class PrivacyPanel extends Module {
     const indicator = this._getSharingIndicator();
 
     if (!indicator) {
-      console.warn('[aurora-shell] Screen sharing indicator not found for PrivacyPanel module');
+      logger.warn('[PrivacyPanel] Screen sharing indicator not found');
       return;
     }
 

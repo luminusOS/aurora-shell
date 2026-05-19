@@ -1,4 +1,5 @@
 import type { ExtensionContext } from '~/core/context.ts';
+import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import * as Main from '@girs/gnome-shell/ui/main';
 import type { SettingsManager } from '~/core/settings.ts';
@@ -42,7 +43,7 @@ export class DndOnShare extends Module {
         this._syncDndState(true);
       }
     } else {
-      console.warn('[aurora-shell] Screen sharing indicator not found for DndOnShare module');
+      logger.warn('[DndOnShare] Screen sharing indicator not found');
     }
   }
 

@@ -4,6 +4,7 @@ import GLib from '@girs/glib-2.0';
 import Gio from '@girs/gio-2.0';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
 import type { ModuleDefinition } from '~/module.ts';
@@ -62,7 +63,7 @@ export class AutoThemeSwitcher extends Module {
       );
       this._tick();
     } catch (error) {
-      this.context.logger.error('AutoThemeSwitcher: Failed to enable:', error);
+      logger.error('AutoThemeSwitcher: Failed to enable:', error);
     }
   }
 
@@ -106,9 +107,9 @@ export class AutoThemeSwitcher extends Module {
 
     if (current_scheme !== scheme) {
       this._desktopSettings.setString('color-scheme', scheme);
-      this.context.logger.debug(`AutoThemeSwitcher: applied ${scheme}`);
+      logger.debug(`AutoThemeSwitcher: applied ${scheme}`);
     } else {
-      this.context.logger.debug(`AutoThemeSwitcher: already on ${scheme}`);
+      logger.debug(`AutoThemeSwitcher: already on ${scheme}`);
     }
 
     let next = isLight ? dark : light;

@@ -20,28 +20,10 @@ import { TrayIconItem, destroyTooltip } from './trayIconItem.ts';
 const SCROLL_STEP = 28;
 const ICON_GAP = 3;
 const ITEM_PADDING = 3; // Must match .aurora-tray-icon-item padding in SCSS
-
-// St.Bin (BinLayout) clamps child to MIN(natural, available) — icons shrink when
-// collapsed. OverflowClip overrides vfunc_allocate to give the child its full
-// natural width; clip_to_allocation handles the visual cropping.
-@GObject.registerClass({ GTypeName: 'AuroraTrayOverflowClip' })
-class OverflowClip extends St.Widget {
-  override vfunc_allocate(box: Clutter.ActorBox): void {
-    this.set_allocation(box);
-    const child = this.get_first_child();
-    if (!child) return;
-    const [, rawNatW] = child.get_preferred_width(-1);
-    const [, rawNatH] = child.get_preferred_height(rawNatW);
-    const natW = Number.isFinite(rawNatW) && rawNatW >= 0 ? rawNatW : 0;
-    const natH = Number.isFinite(rawNatH) && rawNatH >= 0 ? rawNatH : 0;
-    const childBox = new Clutter.ActorBox();
-    childBox.x1 = 0;
-    childBox.y1 = 0;
-    childBox.x2 = natW;
-    childBox.y2 = Math.max(natH, box.y2 - box.y1);
-    child.allocate(childBox);
-  }
-}
+const STAGGER_MS = 50;
+const ANIM_DURATION = 750;
+const ICON_EXPAND_DURATION = 480;
+const ICON_COLLAPSE_DURATION = 380;
 
 @GObject.registerClass
 export class TrayContainer extends PanelMenu.Button {
@@ -51,11 +33,14 @@ export class TrayContainer extends PanelMenu.Button {
   declare private _items: Map<string, TrayIconItem>;
   declare private _chevron: St.Button;
   declare private _chevronIcon: St.Icon;
-  declare private _clipArea: OverflowClip;
+  declare private _clipArea: Clutter.Actor;
   declare private _iconRow: St.BoxLayout;
   declare private _userInteracted: boolean;
   declare private _attentionTimeoutSeconds: number;
   declare private _autoCollapseTimeoutId: number;
+  declare private _opacityTargets: WeakMap<TrayIconItem, number>;
+  declare private _scrollTarget: number;
+  declare private _staggerTimeoutIds: number[];
 
   // @ts-expect-error Our _init signature differs from PanelMenu.Button._init overloads,
   // which is the standard GJS GObject subclassing pattern when using custom constructor args.
@@ -69,6 +54,9 @@ export class TrayContainer extends PanelMenu.Button {
     this._userInteracted = false;
     this._attentionTimeoutSeconds = 5;
     this._autoCollapseTimeoutId = 0;
+    this._opacityTargets = new WeakMap();
+    this._scrollTarget = 0;
+    this._staggerTimeoutIds = [];
 
     // Chevron button (collapse/expand toggle)
     this._chevronIcon = new St.Icon({
@@ -87,19 +75,21 @@ export class TrayContainer extends PanelMenu.Button {
     this._chevron.connect('clicked', () => {
       this._userInteracted = true;
       toggleCollapsed(this._state);
-      this._syncLayout();
+      this._syncLayout(true);
     });
 
-    // Clip area: OverflowClip allocates _iconRow at full natural width so icons
-    // never shrink when collapsed; clip_to_allocation handles visual cropping.
+    // Clip area: Clutter.Actor without a layout manager naturally allows the child
+    // (BoxLayout) to maintain its natural width while the container's width is
+    // animated/clipped, avoiding both the Mutter layout crashes and icon squishing.
     this._iconRow = new St.BoxLayout({
       style_class: 'aurora-tray-icon-row',
     });
     (this._iconRow.layout_manager as Clutter.BoxLayout).spacing = ICON_GAP;
-    this._clipArea = new (OverflowClip as unknown as new (params: object) => OverflowClip)({
-      x_expand: false,
-      y_expand: true,
+
+    this._clipArea = new Clutter.Actor({
       clip_to_allocation: true,
+      x_expand: false,
+      y_align: Clutter.ActorAlign.CENTER,
     });
     this._clipArea.add_child(this._iconRow);
 
@@ -133,8 +123,14 @@ export class TrayContainer extends PanelMenu.Button {
   }
 
   addItem(item: TrayItem): void {
-    // Prevent duplicates
-    this.removeItem(item.id);
+    // Immediate dedup removal — no pop-out animation to avoid _syncLayout conflicts
+    const oldWidget = this._items.get(item.id);
+    if (oldWidget) {
+      this._items.delete(item.id);
+      this._opacityTargets.delete(oldWidget);
+      this._iconRow.remove_child(oldWidget);
+      oldWidget.destroy();
+    }
 
     const widget = new (TrayIconItem as unknown as new (
       item: TrayItem,
@@ -142,27 +138,21 @@ export class TrayContainer extends PanelMenu.Button {
     ) => TrayIconItem)(item, this._iconSize);
     this._items.set(item.id, widget);
     this._iconRow.add_child(widget);
-    this._syncLayout();
 
-    // Pop-in: scale 0.5→1.1→1.0, opacity 0→255 (~380ms total)
-    widget.set_pivot_point(0.5, 0.5);
-    widget.set_scale(0.5, 0.5);
-    widget.opacity = 0;
-    widget.ease({
-      scaleX: 1.1,
-      scaleY: 1.1,
-      opacity: 255,
-      duration: 250,
-      mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-      onComplete: () => {
-        widget.ease({
-          scaleX: 1.0,
-          scaleY: 1.0,
-          duration: 130,
-          mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-        });
-      },
-    });
+    // Non-animated sync sets correct opacity immediately — no layout animation thrash.
+    this._syncLayout(false);
+
+    // Pop-in only for icons that ended up visible.
+    if (widget.opacity === 255) {
+      widget.set_pivot_point(0.5, 0.5);
+      widget.set_scale(0.5, 0.5);
+      widget.ease({
+        scaleX: 1.0,
+        scaleY: 1.0,
+        duration: 500,
+        mode: Clutter.AnimationMode.EASE_OUT_BACK,
+      });
+    }
   }
 
   updateItemIcon(id: string): void {
@@ -173,19 +163,20 @@ export class TrayContainer extends PanelMenu.Button {
     const widget = this._items.get(id);
     if (!widget) return;
     this._items.delete(id);
+    this._opacityTargets.delete(widget);
 
-    // Pop-out: scale→0.5, opacity→0, then remove from DOM and sync layout
+    // Pop-out: scale→0.5, opacity→0, then remove from DOM and sync layout.
     widget.set_pivot_point(0.5, 0.5);
     widget.ease({
       scaleX: 0.5,
       scaleY: 0.5,
       opacity: 0,
-      duration: 280,
+      duration: 400,
       mode: Clutter.AnimationMode.EASE_IN_QUAD,
       onComplete: () => {
         this._iconRow.remove_child(widget);
         widget.destroy();
-        this._syncLayout();
+        this._syncLayout(false);
       },
     });
   }
@@ -194,18 +185,15 @@ export class TrayContainer extends PanelMenu.Button {
     addAttention(this._state, id);
     const widget = this._items.get(id);
 
-    // Auto-expand if the item is not visible
-    const visibleIds = this._visibleIds();
-    const isHidden = !visibleIds.has(id);
+    // Auto-expand if the item is not visible.
+    const isHidden = !this._visibleIds().has(id);
     if (isHidden && this._state.collapsed) {
       this._state.collapsed = false;
-      this._syncLayout();
+      this._syncLayout(true);
     }
 
     widget?.showBadge();
     widget?.bounce();
-
-    // Auto-collapse after timeout (set by trayIcons.ts via setAttentionTimeout)
     this._scheduleAutoCollapse();
   }
 
@@ -216,7 +204,7 @@ export class TrayContainer extends PanelMenu.Button {
 
   setLimit(limit: number): void {
     this._limit = limit;
-    this._syncLayout();
+    this._syncLayout(false);
   }
 
   setIconSize(size: number): void {
@@ -224,7 +212,7 @@ export class TrayContainer extends PanelMenu.Button {
     for (const widget of this._items.values()) {
       widget.setIconSize(size);
     }
-    this._syncLayout();
+    this._syncLayout(false);
   }
 
   setAttentionTimeout(seconds: number): void {
@@ -243,7 +231,7 @@ export class TrayContainer extends PanelMenu.Button {
         this._autoCollapseTimeoutId = 0;
         if (!this._userInteracted && !this._state.collapsed) {
           this._state.collapsed = true;
-          this._syncLayout();
+          this._syncLayout(true);
         }
         this._userInteracted = false; // reset for next attention cycle
         return GLib.SOURCE_REMOVE;
@@ -256,36 +244,29 @@ export class TrayContainer extends PanelMenu.Button {
     return new Set(keys.slice(Math.max(0, keys.length - this._limit)));
   }
 
-  private _syncLayout(): void {
+  private _cancelStagger(): void {
+    for (const id of this._staggerTimeoutIds) GLib.Source.remove(id);
+    this._staggerTimeoutIds = [];
+  }
+
+  // animated=true  → stagger icons + ease clip (toggle / auto-expand / auto-collapse)
+  // animated=false → immediate opacity + immediate clip (addItem / removeItem / setLimit / setIconSize)
+  private _syncLayout(animated = false): void {
+    if (animated) this._cancelStagger();
     const count = this._items.size;
     this.visible = count > 0;
     const hasOverflow = count > this._limit;
     this._chevron.visible = hasOverflow;
 
-    // Chevron rotation: 0° = expanded (points right), 180° = collapsed (points left)
+    // Chevron rotation: 0° = expanded (points right), 180° = collapsed (points left).
     this._chevronIcon.ease({
       rotationAngleZ: this._state.collapsed ? 180 : 0,
-      duration: 350,
+      duration: ANIM_DURATION,
       mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
     });
 
-    // Collapsed: scroll to end so the newest (last) _limit icons are visible.
-    // Expanded: scroll back to origin.
-    if (this._state.collapsed) {
-      this._state.scrollOffset = this._maxScroll();
-    } else {
-      this._state.scrollOffset = 0;
-    }
-
-    const itemW = this._itemWidth();
-    const fullWidth = count > 0 ? count * itemW + (count - 1) * ICON_GAP : 0;
-    const collapsedWidth =
-      count > 0
-        ? Math.min(count, this._limit) * itemW + (Math.min(count, this._limit) - 1) * ICON_GAP
-        : 0;
-
-    const targetWidth = this._state.collapsed ? collapsedWidth : fullWidth;
-    const currentWidth = this._clipArea.get_width();
+    // Scroll offset: collapsed shows newest _limit icons; expanded shows all.
+    this._state.scrollOffset = this._state.collapsed ? this._maxScroll() : 0;
 
     if (count === 0) {
       this._clipArea.remove_all_transitions();
@@ -294,43 +275,63 @@ export class TrayContainer extends PanelMenu.Button {
       return;
     }
 
-    // Animate clip width on change; set immediately if already correct.
-    if (Math.abs(currentWidth - targetWidth) < 1) {
-      this._clipArea.set_width(targetWidth);
-    } else {
+    // Clip width
+    const itemW = this._itemWidth();
+    const visibleCount = Math.min(count, this._limit);
+    const collapsedWidth = visibleCount * itemW + (visibleCount - 1) * ICON_GAP;
+    const fullWidth = count * itemW + (count - 1) * ICON_GAP;
+    const targetWidth = Math.round(this._state.collapsed ? collapsedWidth : fullWidth);
+
+    if (animated) {
       this._clipArea.ease({
-        naturalWidth: targetWidth,
-        duration: 400,
+        width: targetWidth,
+        duration: ANIM_DURATION,
         mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
       });
+    } else {
+      this._clipArea.remove_all_transitions();
+      this._clipArea.set_width(targetWidth);
     }
 
-    // Fade/slide overflow icons: hidden ones fade out, newly visible ones slide in.
+    // Per-icon opacity: stagger on toggle, immediate on structural changes.
     const hiddenCount = Math.max(0, count - this._limit);
     const allWidgets = [...this._items.values()];
     for (let i = 0; i < allWidgets.length; i++) {
       const widget = allWidgets[i]!;
       const targetOpacity = i < hiddenCount && this._state.collapsed ? 0 : 255;
-      if (widget.opacity !== targetOpacity) {
-        if (targetOpacity === 255) {
-          // Appearing on expand: slide in from left with fade
-          widget.translationX = -10;
-          widget.ease({
-            opacity: 255,
-            translationX: 0,
-            duration: 400,
-            delay: 60,
-            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-          });
+      if (this._opacityTargets.get(widget) === targetOpacity) continue;
+      this._opacityTargets.set(widget, targetOpacity);
+
+      if (animated) {
+        const capturedWidget = widget;
+        const capturedTarget = targetOpacity;
+        // Pacman effect: reveal/hide one by one as they pass the chevron.
+        // Expand: icons enter from left next to chevron in order (hiddenCount-1) -> 0.
+        // Collapse: icons exit to left past chevron in order 0 -> (hiddenCount-1).
+        const delayMs =
+          targetOpacity === 255
+            ? Math.max(0, (hiddenCount - 1 - i) * STAGGER_MS)
+            : Math.max(0, i * STAGGER_MS);
+        const duration = targetOpacity === 255 ? ICON_EXPAND_DURATION : ICON_COLLAPSE_DURATION;
+        const mode =
+          targetOpacity === 255
+            ? Clutter.AnimationMode.EASE_OUT_CUBIC
+            : Clutter.AnimationMode.EASE_OUT_QUAD;
+
+        if (delayMs === 0) {
+          capturedWidget.ease({ opacity: capturedTarget, duration, mode });
         } else {
-          // Disappearing on collapse: fade out
-          widget.ease({
-            opacity: 0,
-            duration: 200,
-            delay: 60,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-          });
+          this._staggerTimeoutIds.push(
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {
+              // Guard: cancel may have won the race.
+              if (this._opacityTargets.get(capturedWidget) === capturedTarget)
+                capturedWidget.ease({ opacity: capturedTarget, duration, mode });
+              return GLib.SOURCE_REMOVE;
+            }),
+          );
         }
+      } else {
+        widget.opacity = targetOpacity;
       }
     }
 
@@ -338,14 +339,18 @@ export class TrayContainer extends PanelMenu.Button {
   }
 
   private _syncScrollPosition(): void {
+    const targetX = -this._state.scrollOffset;
+    if (this._scrollTarget === targetX) return;
+    this._scrollTarget = targetX;
     this._iconRow.ease({
-      translationX: -this._state.scrollOffset,
-      duration: 120,
+      translationX: targetX,
+      duration: ANIM_DURATION,
       mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
     });
   }
 
   override destroy(): void {
+    this._cancelStagger();
     if (this._autoCollapseTimeoutId) {
       GLib.Source.remove(this._autoCollapseTimeoutId);
       this._autoCollapseTimeoutId = 0;

@@ -4,10 +4,11 @@ import '@girs/gjs';
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 
-import type { Logger } from '~/core/logger.ts';
+import { logger } from '~/core/logger.ts';
 
 export const SNI_WATCHER_BUS_NAME = 'org.kde.StatusNotifierWatcher';
 const SNI_WATCHER_OBJECT = '/StatusNotifierWatcher';
+const SNI_INTERFACE_NAME = 'org.kde.StatusNotifierWatcher';
 const SNI_DEFAULT_ITEM_PATH = '/StatusNotifierItem';
 
 const WATCHER_XML = `
@@ -32,31 +33,68 @@ export type SniRegisteredCallback = (busName: string, objectPath: string) => voi
 export type SniUnregisteredCallback = (busName: string, objectPath: string) => void;
 
 export class SniWatcher {
-  private _dbusImpl: Gio.DBusExportedObject | null = null;
+  private _registrationId = 0;
   private _ownNameId = 0;
   private _failed = false;
   private _registeredItems: string[] = [];
   private _onItemRegistered: SniRegisteredCallback;
   private _onItemUnregistered: SniUnregisteredCallback;
-  private _logger: Logger;
 
   constructor(
-    logger: Logger,
     onItemRegistered: SniRegisteredCallback,
     onItemUnregistered: SniUnregisteredCallback,
   ) {
-    this._logger = logger;
     this._onItemRegistered = onItemRegistered;
     this._onItemUnregistered = onItemUnregistered;
   }
 
   start(): void {
-    this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(WATCHER_XML, this);
+    const ifaceInfo =
+      Gio.DBusNodeInfo.new_for_xml(WATCHER_XML).lookup_interface(SNI_INTERFACE_NAME)!;
 
     try {
-      this._dbusImpl.export(Gio.DBus.session, SNI_WATCHER_OBJECT);
+      this._registrationId = Gio.DBus.session.register_object(
+        SNI_WATCHER_OBJECT,
+        ifaceInfo,
+        (
+          _conn: Gio.DBusConnection,
+          sender: string,
+          _objPath: string,
+          _ifaceName: string,
+          methodName: string,
+          params: GLib.Variant,
+          invocation: Gio.DBusMethodInvocation,
+        ) => {
+          if (methodName === 'RegisterStatusNotifierItem') {
+            const service = params.get_child_value(0).unpack() as string;
+            this._handleRegisterItem(service, sender);
+          } else if (methodName === 'RegisterStatusNotifierHost') {
+            this._emitSignal('StatusNotifierHostRegistered', null);
+          }
+          invocation.return_value(null);
+        },
+        (
+          _conn: Gio.DBusConnection,
+          _sender: string,
+          _objPath: string,
+          _ifaceName: string,
+          propertyName: string,
+        ): GLib.Variant | null => {
+          switch (propertyName) {
+            case 'RegisteredStatusNotifierItems':
+              return new GLib.Variant('as', this._registeredItems);
+            case 'IsStatusNotifierHostRegistered':
+              return new GLib.Variant('b', !this._failed);
+            case 'ProtocolVersion':
+              return new GLib.Variant('i', 0);
+            default:
+              return null;
+          }
+        },
+        null,
+      );
     } catch (e) {
-      this._logger.warn(`[aurora-tray] Failed to export SNI watcher object: ${e}`);
+      logger.warn(`[AuroraTray] Failed to register SNI watcher object: ${e}`);
       this._failed = true;
       return;
     }
@@ -66,36 +104,29 @@ export class SniWatcher {
       Gio.BusNameOwnerFlags.NONE,
       // GJS accepts plain functions here; types expect GObject.Closure
       (() => {
-        this._logger.info('[aurora-tray] Acquired org.kde.StatusNotifierWatcher');
-        try {
-          this._dbusImpl?.emit_signal('StatusNotifierHostRegistered', new GLib.Variant('()', []));
-        } catch {
-          // signal emission may fail if unexported
-        }
+        logger.info('[AuroraTray] Acquired org.kde.StatusNotifierWatcher');
+        this._emitSignal('StatusNotifierHostRegistered', null);
       }) as unknown as never,
       (() => {
-        this._logger.warn(
-          '[aurora-tray] org.kde.StatusNotifierWatcher already owned by another process. SNI icons disabled.',
+        logger.warn(
+          '[AuroraTray] org.kde.StatusNotifierWatcher already owned by another process. SNI icons disabled.',
         );
         this._failed = true;
       }) as unknown as never,
     );
   }
 
-  // DBus method: called by SNI apps when they start
-  RegisterStatusNotifierItem(service: string): void {
+  private _handleRegisterItem(service: string, sender: string): void {
     if (this._failed) return;
 
     let busName: string;
     let objectPath: string;
 
     if (service.startsWith('/')) {
-      // Cannot resolve sender bus name from wrapJSObject — skip bare object path registrations.
-      // Modern SNI apps use "busName" or "busName/objectPath" format.
-      this._logger.warn(
-        `[aurora-tray] Ignoring SNI registration with bare object path: ${service}`,
-      );
-      return;
+      // Bare object path (e.g., Steam): sender is the bus name
+      busName = sender;
+      objectPath = service;
+      logger.log(`[AuroraTray] SNI bare-path registration from ${sender}: ${service}`);
     } else if (service.includes('/')) {
       const slashIdx = service.indexOf('/');
       busName = service.substring(0, slashIdx);
@@ -109,35 +140,22 @@ export class SniWatcher {
     if (this._registeredItems.includes(id)) return;
     this._registeredItems.push(id);
 
-    try {
-      this._dbusImpl?.emit_signal('StatusNotifierItemRegistered', new GLib.Variant('(s)', [id]));
-    } catch {
-      // signal emission may fail if unexported
-    }
-
+    this._emitSignal('StatusNotifierItemRegistered', new GLib.Variant('(s)', [id]));
     this._onItemRegistered(busName, objectPath);
   }
 
-  // DBus method: called by SNI hosts
-  RegisterStatusNotifierHost(_service: string): void {
+  private _emitSignal(signalName: string, params: GLib.Variant | null): void {
     try {
-      this._dbusImpl?.emit_signal('StatusNotifierHostRegistered', new GLib.Variant('()', []));
+      Gio.DBus.session.emit_signal(
+        null,
+        SNI_WATCHER_OBJECT,
+        SNI_INTERFACE_NAME,
+        signalName,
+        params,
+      );
     } catch {
-      // signal emission may fail if unexported
+      // signal emission may fail if unregistered
     }
-  }
-
-  // DBus property
-  get RegisteredStatusNotifierItems(): string[] {
-    return this._registeredItems;
-  }
-
-  get IsStatusNotifierHostRegistered(): boolean {
-    return !this._failed;
-  }
-
-  get ProtocolVersion(): number {
-    return 0;
   }
 
   unregisterItem(busName: string, objectPath: string): void {
@@ -145,11 +163,7 @@ export class SniWatcher {
     const idx = this._registeredItems.indexOf(id);
     if (idx === -1) return;
     this._registeredItems.splice(idx, 1);
-    try {
-      this._dbusImpl?.emit_signal('StatusNotifierItemUnregistered', new GLib.Variant('(s)', [id]));
-    } catch {
-      // signal emission may fail if unexported
-    }
+    this._emitSignal('StatusNotifierItemUnregistered', new GLib.Variant('(s)', [id]));
     this._onItemUnregistered(busName, objectPath);
   }
 
@@ -158,12 +172,14 @@ export class SniWatcher {
       Gio.DBus.session.unown_name(this._ownNameId);
       this._ownNameId = 0;
     }
-    try {
-      this._dbusImpl?.unexport();
-    } catch {
-      // unexport may throw if already unexported
+    if (this._registrationId) {
+      try {
+        Gio.DBus.session.unregister_object(this._registrationId);
+      } catch {
+        // may fail if already unregistered
+      }
+      this._registrationId = 0;
     }
-    this._dbusImpl = null;
     this._registeredItems = [];
   }
 }

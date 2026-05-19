@@ -10,6 +10,7 @@ import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import type { ExtensionContext } from '~/core/context.ts';
+import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
@@ -58,7 +59,7 @@ export class VolumeMixer extends Module {
 
     const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
     if (!grid) {
-      console.error('Aurora Shell: VolumeMixer could not find quick settings grid');
+      logger.error('[VolumeMixer] Could not find quick settings grid');
       return;
     }
 
@@ -116,7 +117,7 @@ export class VolumeMixer extends Module {
     const grid = this._quickSettings?.menu?._grid;
 
     if (!grid) {
-      console.error('Aurora Shell: VolumeMixer could not find quick settings grid');
+      logger.error('[VolumeMixer] Could not find quick settings grid');
       return null;
     }
 
@@ -146,7 +147,7 @@ export class VolumeMixer extends Module {
       try {
         Gio.Subprocess.new(['gnome-control-center', 'sound'], Gio.SubprocessFlags.NONE);
       } catch (e) {
-        console.error(`Aurora Shell: Failed to open sound settings: ${e}`);
+        logger.error(`[VolumeMixer] Failed to open sound settings: ${e}`);
       }
       this._quickSettings?.menu.close(PopupAnimation.FULL);
     });

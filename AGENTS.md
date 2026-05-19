@@ -165,6 +165,23 @@ return [/* …, */ myModule];
 - Keep `enable()` and `disable()` symmetric.
 - **Strictly follow Dependency Injection.** No direct imports of `gi://Shell`, `Main`, etc., inside module domain logic.
 
+## Logging Style
+
+Prefix every log message with the module name in `[PascalCase]` brackets. Use the global `logger` from `~/core/logger.ts` — never `console.log/warn` or `GLib.log_structured` directly from module code.
+
+```typescript
+import { logger } from '~/core/logger.ts';
+
+// Correct
+logger.log('[AuroraTray] Item added: ' + id);
+
+// Wrong
+logger.log('[Aurora Shell] [aurora-tray] Item added: ' + id);
+console.warn('[aurora-shell] Something failed');
+```
+
+The `[Aurora Shell]` prefix is redundant — SYSLOG_IDENTIFIER already routes journal output to the extension.
+
 ## Reading GNOME Shell Source
 
 GNOME Shell JS source is embedded in `libshell-XX.so` as a GResource archive. The stylesheet files is `gnome-shell-theme.gresource`. Use `gresource` to read it without needing the source checkout.

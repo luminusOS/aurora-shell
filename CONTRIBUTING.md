@@ -151,3 +151,21 @@ All jobs must pass before a PR can be merged.
 - **Constants:** `UPPER_CASE`
 - **Symmetry:** Everything connected in `enable()` **must** be disconnected or destroyed in `disable()`.
 - **Dependency Injection:** Strictly follow DI; do not reach out to globals.
+
+## Logging Style
+
+Always prefix log messages with the module name in `[PascalCase]` brackets. Use the global `logger` from `~/core/logger.ts` for all logging — do not call `console.log/warn` or `GLib.log_structured` directly from module code.
+
+```typescript
+import { logger } from '~/core/logger.ts';
+
+// Correct
+logger.log('[AuroraTray] Item added: ' + id);
+logger.warn('[IconWeave] No match found for ' + wmClass);
+
+// Wrong — redundant prefix, wrong casing, or bypasses logger
+logger.log('[Aurora Shell] [aurora-tray] Item added: ' + id);
+console.warn('[aurora-shell] Something failed');
+```
+
+The `[Aurora Shell]` prefix is redundant: the SYSLOG_IDENTIFIER in structured logs already routes output to the right extension in the journal.

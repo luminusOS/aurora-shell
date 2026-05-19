@@ -3,6 +3,7 @@ import '@girs/gjs';
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import { logger } from '~/core/logger.ts';
 
 const DBUS_MENU_IFACE = 'com.canonical.dbusmenu';
 
@@ -76,10 +77,7 @@ export class DBusMenuClient {
       this._proxy = proxy;
     } catch (e) {
       if (!this._cancellable.is_cancelled()) {
-        GLib.log_structured('Aurora Shell', GLib.LogLevelFlags.LEVEL_WARNING, {
-          SYSLOG_IDENTIFIER: 'aurora-shell@luminusos.github.io',
-          MESSAGE: `[aurora-tray] DBusMenu init failed for ${this._busName}: ${e}`,
-        });
+        logger.warn(`[AuroraTray] DBusMenu init failed for ${this._busName}: ${e}`);
       }
     }
   }
@@ -121,10 +119,7 @@ export class DBusMenuClient {
         this._renderNode(menu, node);
       }
     } catch (e) {
-      GLib.log_structured('Aurora Shell', GLib.LogLevelFlags.LEVEL_WARNING, {
-        SYSLOG_IDENTIFIER: 'aurora-shell@luminusos.github.io',
-        MESSAGE: `[aurora-tray] GetLayout failed for ${this._busName}: ${e}`,
-      });
+      logger.warn(`[AuroraTray] GetLayout failed for ${this._busName}: ${e}`);
     }
   }
 

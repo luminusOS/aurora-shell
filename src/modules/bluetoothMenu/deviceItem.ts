@@ -5,6 +5,7 @@ import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import Clutter from '@girs/clutter-18';
 
+import { logger } from '~/core/logger.ts';
 import { loadIcon } from '~/shared/icons.ts';
 
 const COLOR_DISCONNECTED = '#9a9a9a';
@@ -34,7 +35,9 @@ export class BluetoothDeviceItemPatcher {
     // The parent PopupMenuBase listens to 'activate' and calls menu.close();
     // calling _toggleConnected() directly bypasses that signal path.
     item.activate = (_event: any) => {
-      item._toggleConnected().catch(console.error);
+      item
+        ._toggleConnected()
+        .catch((e: Error) => logger.error(`[BluetoothMenu] toggleConnected failed: ${e}`));
     };
 
     // Remove icon, subtitle, and spinner from actor hierarchy entirely.

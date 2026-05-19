@@ -11,6 +11,7 @@ import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 
@@ -62,37 +63,27 @@ export class TrayIcons extends Module {
 
     // SNI layer
     this._sniWatcher = new SniWatcher(
-      this.context.logger,
       (busName, objectPath) => {
         this._sniHost
           ?.registerItem(busName, objectPath)
-          ?.catch((e) => this.context.logger.warn(`[aurora-tray] registerItem failed: ${e}`));
+          ?.catch((e) => logger.warn(`[AuroraTray] registerItem failed: ${e}`));
       },
       (_busName, _objectPath) => {},
     );
-    this._sniHost = new SniHost(
-      this._sniWatcher,
-      {
-        onItemAdded: (item) => this._onSniItemAdded(item),
-        onItemRemoved: (id) => this._onItemRemoved(id),
-        onStatusChanged: (id, status) => this._onStatusChanged(id, status),
-        onIconChanged: (id) => this._container?.updateItemIcon(id),
-      },
-      this.context.logger,
-    );
+    this._sniHost = new SniHost(this._sniWatcher, {
+      onItemAdded: (item) => this._onSniItemAdded(item),
+      onItemRemoved: (id) => this._onItemRemoved(id),
+      onStatusChanged: (id, status) => this._onStatusChanged(id, status),
+      onIconChanged: (id) => this._container?.updateItemIcon(id),
+    });
     this._sniWatcher.start();
 
     // Background Apps layer
-    this._bgSource = new BackgroundAppsSource(
-      {
-        onItemAdded: (item) => this._onBgItemAdded(item).catch(() => {}),
-        onItemRemoved: (id) => this._onItemRemoved(id),
-      },
-      this.context.logger,
-    );
-    this._bgSource
-      .start()
-      .catch((e) => this.context.logger.warn(`[aurora-tray] bg source start failed: ${e}`));
+    this._bgSource = new BackgroundAppsSource({
+      onItemAdded: (item) => this._onBgItemAdded(item).catch(() => {}),
+      onItemRemoved: (id) => this._onItemRemoved(id),
+    });
+    this._bgSource.start().catch((e) => logger.warn(`[AuroraTray] bg source start failed: ${e}`));
 
     // Settings change listeners
     this._settingsChangedIds.push(
@@ -131,28 +122,26 @@ export class TrayIcons extends Module {
   }
 
   private _onSniItemAdded(item: TrayItem): void {
-    this.context.logger.log(
-      `[aurora-tray] SNI item added: ${item.id} (menuBus=${item.menuBusName ?? 'none'})`,
-    );
+    logger.log(`[AuroraTray] SNI item added: ${item.id} (menuBus=${item.menuBusName ?? 'none'})`);
     this._container?.addItem(item);
     if (this._dedupBgApps && item.menuBusName) {
       this._removeBgItemCoveredBy(item.menuBusName).catch((e) =>
-        this.context.logger.warn(`[aurora-tray] _removeBgItemCoveredBy failed: ${e}`),
+        logger.warn(`[AuroraTray] _removeBgItemCoveredBy failed: ${e}`),
       );
     }
   }
 
   private async _onBgItemAdded(item: TrayItem): Promise<void> {
     const appId = item.id.replace('bg:', '');
-    this.context.logger.log(`[aurora-tray] BG app detected: ${appId}`);
+    logger.log(`[AuroraTray] BG app detected: ${appId}`);
     if (this._dedupBgApps && (await this._sniCoversApp(appId))) {
-      this.context.logger.log(`[aurora-tray] BG app ${appId} already covered by SNI, skipping`);
+      logger.log(`[AuroraTray] BG app ${appId} already covered by SNI, skipping`);
       return;
     }
     if (!this._container) return;
     this._bgItemAppIds.set(appId, item.id);
     this._container.addItem(item);
-    this.context.logger.log(`[aurora-tray] BG app ${appId} added to tray`);
+    logger.log(`[AuroraTray] BG app ${appId} added to tray`);
   }
 
   private async _getUniqueName(busName: string): Promise<string | null> {
@@ -178,17 +167,13 @@ export class TrayIcons extends Module {
     const owner = await this._getUniqueName(appId);
     if (owner) {
       const covered = this._sniHost?.hasItemForBus(owner) ?? false;
-      this.context.logger.log(
-        `[aurora-tray] SNI covers ${appId}? owner=${owner} covered=${covered}`,
-      );
+      logger.log(`[AuroraTray] SNI covers ${appId}? owner=${owner} covered=${covered}`);
       return covered;
     }
     // Fallback: app doesn't own its expected D-Bus name (common for Flatpak Qt/SNI apps).
     // Match by the SNI item's Id property instead.
     const coveredById = this._sniHost?.hasSniForAppId(appId) ?? false;
-    this.context.logger.log(
-      `[aurora-tray] SNI covers ${appId}? owner=none, Id-match=${coveredById}`,
-    );
+    logger.log(`[AuroraTray] SNI covers ${appId}? owner=none, Id-match=${coveredById}`);
     return coveredById;
   }
 
@@ -200,19 +185,19 @@ export class TrayIcons extends Module {
       : await this._getUniqueName(sniBusName);
 
     if (!sniUnique) {
-      this.context.logger.log(`[aurora-tray] Cannot resolve SNI bus ${sniBusName}, skip bg dedup`);
+      logger.log(`[AuroraTray] Cannot resolve SNI bus ${sniBusName}, skip bg dedup`);
       return;
     }
 
-    this.context.logger.log(
-      `[aurora-tray] Dedup: SNI ${sniBusName} (unique=${sniUnique}), bg items: [${[...this._bgItemAppIds.keys()].join(', ')}]`,
+    logger.log(
+      `[AuroraTray] Dedup: SNI ${sniBusName} (unique=${sniUnique}), bg items: [${[...this._bgItemAppIds.keys()].join(', ')}]`,
     );
 
     for (const [appId, itemId] of this._bgItemAppIds) {
       const owner = await this._getUniqueName(appId);
-      this.context.logger.log(`[aurora-tray] Dedup: bg ${appId} owner=${owner ?? 'none'}`);
+      logger.log(`[AuroraTray] Dedup: bg ${appId} owner=${owner ?? 'none'}`);
       if (owner === sniUnique) {
-        this.context.logger.log(`[aurora-tray] Removing bg:${appId} covered by SNI ${sniBusName}`);
+        logger.log(`[AuroraTray] Removing bg:${appId} covered by SNI ${sniBusName}`);
         this._bgItemAppIds.delete(appId);
         this._container?.removeItem(itemId);
         return;

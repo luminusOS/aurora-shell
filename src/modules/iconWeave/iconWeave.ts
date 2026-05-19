@@ -4,6 +4,7 @@ import GioUnix from '@girs/giounix-2.0';
 import Shell from '@girs/shell-18';
 import Meta from '@girs/meta-18';
 import type { ExtensionContext } from '~/core/context.ts';
+import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 
@@ -389,7 +390,7 @@ export class IconWeave extends Module {
 
       const title: string = win.get_title() ?? '';
 
-      this.context.logger.log(
+      logger.log(
         `[IconWeave] untracked window: title="${title}" wm_class="${wmClass}" app_id="${appId}"`,
       );
 
@@ -400,9 +401,7 @@ export class IconWeave extends Module {
       // renders, eliminating the generic-icon flash for most apps.
       const deterministic = this._deterministicMatch(appSystem, wmClass, appId, title);
       if (deterministic) {
-        this.context.logger.log(
-          `[IconWeave] deterministic match found: ${deterministic.get_id()} — applying`,
-        );
+        logger.log(`[IconWeave] deterministic match found: ${deterministic.get_id()} — applying`);
         this._windowAppMap.set(win, deterministic);
         this.context.signals.emit('icons-woven');
         tracker.emit('tracked-windows-changed');
@@ -426,20 +425,18 @@ export class IconWeave extends Module {
 
       const candidate = this._heuristicMatch(appSystem, wmClass, appId, title);
       if (candidate) {
-        this.context.logger.log(
-          `[IconWeave] heuristic match found: ${candidate.get_id()} — applying`,
-        );
+        logger.log(`[IconWeave] heuristic match found: ${candidate.get_id()} — applying`);
         this._windowAppMap.set(win, candidate);
         this.context.signals.emit('icons-woven');
         tracker.emit('tracked-windows-changed');
         candidate.emit('windows-changed');
       } else {
-        this.context.logger.log(`[IconWeave] no candidate found for wm_class="${wmClass}"`);
+        logger.log(`[IconWeave] no candidate found for wm_class="${wmClass}"`);
       }
 
       this._processed.add(dedupeKey);
     } catch (e) {
-      this.context.logger.log(`[IconWeave] _inspectWindow error: ${e}`);
+      logger.log(`[IconWeave] _inspectWindow error: ${e}`);
     }
   }
 
@@ -506,9 +503,7 @@ export class IconWeave extends Module {
     }
 
     if (bestScore >= MIN_MATCH_SCORE) {
-      this.context.logger.log(
-        `[IconWeave] heuristic match score=${bestScore}: ${bestApp.get_id()}`,
-      );
+      logger.log(`[IconWeave] heuristic match score=${bestScore}: ${bestApp.get_id()}`);
       return bestApp;
     }
 
