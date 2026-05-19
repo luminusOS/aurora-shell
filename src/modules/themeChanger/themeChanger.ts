@@ -7,6 +7,8 @@ import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
 import type { ModuleDefinition } from '~/module.ts';
 
+const LOG_PREFIX = 'ThemeChanger';
+
 /**
  * ThemeChanger Module
  *
@@ -25,21 +27,21 @@ export class ThemeChanger extends Module {
   }
 
   public enable(): void {
-    logger.debug('Initializing theme monitor22222');
+    logger.debug('Initializing theme monitor22222', { prefix: LOG_PREFIX });
 
     try {
       this._settings = this.context.settings.getSchema('org.gnome.desktop.interface');
 
       const currentScheme = this._settings.getString('color-scheme');
-      logger.debug(`Current color-scheme: ${currentScheme}`);
+      logger.debug(`Current color-scheme: ${currentScheme}`, { prefix: LOG_PREFIX });
 
       this._signalId = this._settings.connect('changed::color-scheme', () => {
         this._onColorSchemeChanged();
       });
 
-      logger.debug('Theme monitor active');
+      logger.debug('Theme monitor active', { prefix: LOG_PREFIX });
     } catch (error) {
-      logger.error('Failed to initialize:', error);
+      logger.error('Failed to initialize:', { prefix: LOG_PREFIX }, error);
     }
   }
 
@@ -47,17 +49,17 @@ export class ThemeChanger extends Module {
     if (!this._settings) return;
 
     const scheme = this._settings.getString('color-scheme');
-    logger.debug(`Color scheme changed to: ${scheme}`);
+    logger.debug(`Color scheme changed to: ${scheme}`, { prefix: LOG_PREFIX });
 
     if (scheme === 'default') {
-      logger.warn('Detected "default", forcing to prefer-light');
+      logger.warn('Detected "default", forcing to prefer-light', { prefix: LOG_PREFIX });
       this._settings.setString('color-scheme', 'prefer-light');
       return;
     }
   }
 
   override disable(): void {
-    logger.debug('Disabling theme monitor');
+    logger.debug('Disabling theme monitor', { prefix: LOG_PREFIX });
 
     if (this._signalId && this._settings) {
       this._settings.disconnect(this._signalId);

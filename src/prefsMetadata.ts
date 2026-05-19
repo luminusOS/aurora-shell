@@ -166,6 +166,12 @@ export function getModuleMetadata(): ModuleMetadata[] {
           subtitle: _('Hide the Background Apps section from the Quick Settings dropdown'),
           type: 'switch',
         },
+        {
+          key: 'tray-icons-recolor-symbolic-pixmaps',
+          title: _('Recolor Symbolic Tray Icons'),
+          subtitle: _('Automatically recolor monochrome SNI icons to match the panel theme'),
+          type: 'switch',
+        },
       ],
     },
   ];

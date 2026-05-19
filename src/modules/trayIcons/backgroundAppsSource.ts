@@ -11,6 +11,7 @@ import { logger } from '~/core/logger.ts';
 
 const DBUS_NAME = 'org.freedesktop.background.Monitor';
 const DBUS_OBJECT = '/org/freedesktop/background/monitor';
+const LOG_PREFIX = 'AuroraTray';
 
 const BACKGROUND_MONITOR_XML = `
 <node>
@@ -56,7 +57,7 @@ export class BackgroundAppsSource {
       this._sync();
     } catch (e) {
       if (!(e as any)?.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-        logger.warn(`[AuroraTray] BackgroundApps proxy unavailable: ${e}`);
+        logger.warn(`BackgroundApps proxy unavailable: ${e}`, { prefix: LOG_PREFIX });
       }
       this._proxy = null;
     }
@@ -104,7 +105,7 @@ export class BackgroundAppsSource {
     // Remove gone apps
     for (const [id] of this._knownIds) {
       if (!currentApps.has(id)) {
-        logger.log(`[AuroraTray] BG app removed from monitor: ${id}`);
+        logger.log(`BG app removed from monitor: ${id}`, { prefix: LOG_PREFIX });
         this._knownIds.delete(id);
         this._callbacks.onItemRemoved(`bg:${id}`);
       }
@@ -113,7 +114,7 @@ export class BackgroundAppsSource {
     // Add new apps
     for (const [appId, { app, message }] of currentApps) {
       if (!this._knownIds.has(appId)) {
-        logger.log(`[AuroraTray] BG app found in monitor: ${appId}`);
+        logger.log(`BG app found in monitor: ${appId}`, { prefix: LOG_PREFIX });
         const item = this._makeItem(appId, app, message);
         this._knownIds.set(appId, item);
         this._callbacks.onItemAdded(item);

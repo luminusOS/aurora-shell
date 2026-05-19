@@ -1,10 +1,19 @@
 import GLib from '@girs/glib-2.0';
 
+export type LogOptions = {
+  prefix?: string;
+};
+
 export interface Logger {
+  log(msg: string, options: LogOptions, ...args: any[]): void;
   log(msg: string, ...args: any[]): void;
+  debug(msg: string, options: LogOptions, ...args: any[]): void;
   debug(msg: string, ...args: any[]): void;
+  info(msg: string, options: LogOptions, ...args: any[]): void;
   info(msg: string, ...args: any[]): void;
+  warn(msg: string, options: LogOptions, ...args: any[]): void;
   warn(msg: string, ...args: any[]): void;
+  error(msg: string, options: LogOptions, ...args: any[]): void;
   error(msg: string, ...args: any[]): void;
 }
 
@@ -17,9 +26,25 @@ export class ConsoleLogger implements Logger {
     this._uuid = uuid;
   }
 
-  private _fmt(msg: string, args: any[]): string {
+  private _splitArgs(args: any[]): { options: LogOptions; args: any[] } {
+    const [first, ...rest] = args;
+    if (this._isLogOptions(first)) return { options: first, args: rest };
+    return { options: {}, args };
+  }
+
+  private _isLogOptions(value: unknown): value is LogOptions {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'prefix' in value &&
+      (value as LogOptions).prefix !== undefined
+    );
+  }
+
+  private _fmt(msg: string, args: any[], options: LogOptions): string {
     const suffix = args.length ? ` ${args.map((a) => String(a)).join(' ')}` : '';
-    return `${msg}${suffix}`;
+    const body = `${msg}${suffix}`;
+    return options.prefix ? `[${options.prefix}] ${body}` : body;
   }
 
   private _emit(level: GLib.LogLevelFlags, msg: string): void {
@@ -30,23 +55,28 @@ export class ConsoleLogger implements Logger {
   }
 
   log(msg: string, ...args: any[]): void {
-    this._emit(GLib.LogLevelFlags.LEVEL_MESSAGE, this._fmt(msg, args));
+    const { options, args: rest } = this._splitArgs(args);
+    this._emit(GLib.LogLevelFlags.LEVEL_MESSAGE, this._fmt(msg, rest, options));
   }
 
   debug(msg: string, ...args: any[]): void {
-    this._emit(GLib.LogLevelFlags.LEVEL_DEBUG, this._fmt(msg, args));
+    const { options, args: rest } = this._splitArgs(args);
+    this._emit(GLib.LogLevelFlags.LEVEL_DEBUG, this._fmt(msg, rest, options));
   }
 
   info(msg: string, ...args: any[]): void {
-    this._emit(GLib.LogLevelFlags.LEVEL_MESSAGE, this._fmt(msg, args));
+    const { options, args: rest } = this._splitArgs(args);
+    this._emit(GLib.LogLevelFlags.LEVEL_MESSAGE, this._fmt(msg, rest, options));
   }
 
   warn(msg: string, ...args: any[]): void {
-    this._emit(GLib.LogLevelFlags.LEVEL_WARNING, this._fmt(msg, args));
+    const { options, args: rest } = this._splitArgs(args);
+    this._emit(GLib.LogLevelFlags.LEVEL_WARNING, this._fmt(msg, rest, options));
   }
 
   error(msg: string, ...args: any[]): void {
-    this._emit(GLib.LogLevelFlags.LEVEL_CRITICAL, this._fmt(msg, args));
+    const { options, args: rest } = this._splitArgs(args);
+    this._emit(GLib.LogLevelFlags.LEVEL_CRITICAL, this._fmt(msg, rest, options));
   }
 }
 

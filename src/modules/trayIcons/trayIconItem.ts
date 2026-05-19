@@ -16,6 +16,7 @@ import { DBusMenuClient } from './dbusMenu.ts';
 
 const BADGE_SIZE = 6;
 const BOUNCE_DURATION = 1400;
+const LOG_PREFIX = 'AuroraTray';
 
 // Module-level tooltip shared by all TrayIconItems to avoid allocating one per icon.
 let _tooltipLabel: St.Label | null = null;
@@ -190,7 +191,7 @@ export class TrayIconItem extends St.Button {
       await this._dbusMenuClient.updateMenu(this._menu);
       this._menu.open(PopupAnimation.FULL);
     } catch (e) {
-      logger.warn(`[AuroraTray] _showDbusMenu failed: ${e}`);
+      logger.warn(`_showDbusMenu failed: ${e}`, { prefix: LOG_PREFIX });
     }
   }
 

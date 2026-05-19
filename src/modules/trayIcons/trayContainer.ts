@@ -22,7 +22,8 @@ import { TrayIconItem, destroyTooltip } from './trayIconItem.ts';
 const SCROLL_STEP = 28;
 const ICON_GAP = 3;
 const ITEM_PADDING = 3; // Must match .aurora-tray-icon-item padding in SCSS
-const ANIM_DURATION = 750;
+const ANIM_DURATION = 600;
+const LOG_PREFIX = 'AuroraTray';
 
 @GObject.registerClass
 class TrayClipArea extends Clutter.Actor {
@@ -216,7 +217,7 @@ export class TrayContainer extends PanelMenu.Button {
     this._chevron.connect('clicked', () => {
       this._userInteracted = true;
       toggleCollapsed(this._state);
-      logger.log(`[AuroraTray] Chevron toggled collapsed=${this._state.collapsed}`);
+      logger.log(`Chevron toggled collapsed=${this._state.collapsed}`, { prefix: LOG_PREFIX });
       this._syncLayout(true);
     });
 
@@ -408,7 +409,8 @@ export class TrayContainer extends PanelMenu.Button {
 
     if (animated) {
       logger.log(
-        `[AuroraTray] Viewport animation collapsed=${this._state.collapsed} count=${count} limit=${this._limit} visible=${visibleCount} fullWidth=${fullWidth} hiddenWidth=${hiddenWidth} fromViewport=${startViewportWidth} toViewport=${targetViewportWidth} fromClipStart=${startClipStart} toClipStart=${targetClipStart} scrollOffset=${this._state.scrollOffset} chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+        `Viewport animation collapsed=${this._state.collapsed} count=${count} limit=${this._limit} visible=${visibleCount} fullWidth=${fullWidth} hiddenWidth=${hiddenWidth} fromViewport=${startViewportWidth} toViewport=${targetViewportWidth} fromClipStart=${startClipStart} toClipStart=${targetClipStart} scrollOffset=${this._state.scrollOffset} chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+        { prefix: LOG_PREFIX },
       );
     }
 
@@ -451,13 +453,15 @@ export class TrayContainer extends PanelMenu.Button {
         () => {
           this._applyIconOpacity();
           logger.log(
-            `[AuroraTray] Viewport animation complete chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+            `Viewport animation complete chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+            { prefix: LOG_PREFIX },
           );
         },
       );
       GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
         logger.log(
-          `[AuroraTray] Viewport post-allocate chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+          `Viewport post-allocate chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+          { prefix: LOG_PREFIX },
         );
         return GLib.SOURCE_REMOVE;
       });
@@ -501,7 +505,8 @@ export class TrayContainer extends PanelMenu.Button {
     this._scrollTarget = targetX;
     if (duration > 0) {
       logger.log(
-        `[AuroraTray] Scroll animation collapsed=${this._state.collapsed} targetX=${targetX} maxScroll=${this._maxScroll()} offset=${this._state.scrollOffset} duration=${duration}`,
+        `Scroll animation collapsed=${this._state.collapsed} targetX=${targetX} maxScroll=${this._maxScroll()} offset=${this._state.scrollOffset} duration=${duration}`,
+        { prefix: LOG_PREFIX },
       );
     }
 

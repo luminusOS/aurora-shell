@@ -9,6 +9,7 @@ const FADE_DURATION = 200;
 const EASE_MODE = Clutter.AnimationMode.EASE_OUT_QUAD;
 // _rightBox is handled per-child; indicator restored explicitly after fade
 const FULL_BOXES = ['_leftBox', '_centerBox'] as const;
+const LOG_PREFIX = 'PrivacyPanel';
 
 export class PrivacyPanel extends Module {
   private _isSharing = false;
@@ -25,7 +26,7 @@ export class PrivacyPanel extends Module {
     const indicator = this._getSharingIndicator();
 
     if (!indicator) {
-      logger.warn('[PrivacyPanel] Screen sharing indicator not found');
+      logger.warn('Screen sharing indicator not found', { prefix: LOG_PREFIX });
       return;
     }
 

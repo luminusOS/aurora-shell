@@ -128,5 +128,10 @@
       <summary>Hide Background Apps from Quick Settings panel</summary>
       <description>When enabled, the Background Apps section is hidden from the Quick Settings dropdown</description>
     </key>
+    <key name="tray-icons-recolor-symbolic-pixmaps" type="b">
+      <default>true</default>
+      <summary>Recolor symbolic SNI pixmaps</summary>
+      <description>Automatically recolor monochrome SNI tray pixmaps to match the current panel theme</description>
+    </key>
   </schema>
 </schemalist>
