@@ -52,7 +52,7 @@ export class ThemeChanger extends Module {
     logger.debug(`Color scheme changed to: ${scheme}`, { prefix: LOG_PREFIX });
 
     if (scheme === 'default') {
-      logger.warn('Detected "default", forcing to prefer-light', { prefix: LOG_PREFIX });
+      logger.log('Detected "default", forcing to prefer-light', { prefix: LOG_PREFIX });
       this._settings.setString('color-scheme', 'prefer-light');
       return;
     }
