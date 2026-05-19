@@ -19,7 +19,7 @@ export class ConsoleLogger implements Logger {
 
   private _fmt(msg: string, args: any[]): string {
     const suffix = args.length ? ` ${args.map((a) => String(a)).join(' ')}` : '';
-    return `[${this._prefix}] ${msg}${suffix}`;
+    return `${msg}${suffix}`;
   }
 
   private _emit(level: GLib.LogLevelFlags, msg: string): void {
@@ -48,4 +48,18 @@ export class ConsoleLogger implements Logger {
   error(msg: string, ...args: any[]): void {
     this._emit(GLib.LogLevelFlags.LEVEL_CRITICAL, this._fmt(msg, args));
   }
+}
+
+let _activeLogger: Logger = new ConsoleLogger();
+
+export const logger: Logger = {
+  log: (...args) => _activeLogger.log(...args),
+  debug: (...args) => _activeLogger.debug(...args),
+  info: (...args) => _activeLogger.info(...args),
+  warn: (...args) => _activeLogger.warn(...args),
+  error: (...args) => _activeLogger.error(...args),
+};
+
+export function setGlobalLogger(l: Logger): void {
+  _activeLogger = l;
 }

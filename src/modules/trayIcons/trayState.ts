@@ -11,7 +11,7 @@ export type TrayMenuItem = { label: string; action: () => void };
 export interface TrayItem {
   readonly id: string;
   icon: Gio.Icon | GdkPixbuf.Pixbuf | string;
-  tooltip?: string;
+  tooltip?: string | undefined;
   status: TrayItemStatus;
   menuBusName?: string;
   menuObjectPath?: string | undefined;

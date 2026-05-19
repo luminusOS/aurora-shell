@@ -8,7 +8,7 @@ import { getModuleRegistry, type ModuleDefinition } from './registry.ts';
 import type { ExtensionContext } from '~/core/context.ts';
 import { initIcons, cleanupIcons } from '~/shared/icons.ts';
 import { DefaultExtensionContext } from '~/core/context.ts';
-import { ConsoleLogger } from '~/core/logger.ts';
+import { ConsoleLogger, setGlobalLogger, logger } from '~/core/logger.ts';
 import { GSettingsManager } from '~/core/settings.ts';
 import { GnomeShellAdapter } from '~/core/adapters/shell.ts';
 
@@ -24,14 +24,14 @@ export default class AuroraShellExtension extends Extension {
   private _context: ExtensionContext | null = null;
 
   override enable(): void {
-    const logger = new ConsoleLogger('Aurora Shell', this.uuid);
-    logger.log('Enabling extension');
+    const consoleLogger = new ConsoleLogger('Aurora Shell', this.uuid);
+    setGlobalLogger(consoleLogger);
+    consoleLogger.log('Enabling extension');
 
     this._settings = this.getSettings();
     this._context = new DefaultExtensionContext(
       this.uuid,
       this.path,
-      logger,
       new GSettingsManager(this._settings),
       new GnomeShellAdapter(),
     );
@@ -55,7 +55,7 @@ export default class AuroraShellExtension extends Extension {
       try {
         module.enable();
       } catch (e) {
-        this._context!.logger.error(`Failed to enable module ${name}: ${e}`);
+        logger.error(`Failed to enable module ${name}: ${e}`);
       }
     }
   }
@@ -79,27 +79,27 @@ export default class AuroraShellExtension extends Extension {
     const existing = this._modules.get(def.key);
 
     if (enabled && !existing) {
-      this._context!.logger.log(`Enabling module ${def.key}`);
+      logger.log(`Enabling module ${def.key}`);
       try {
         const module = def.factory(this._context!);
         module.enable();
         this._modules.set(def.key, module);
       } catch (e) {
-        this._context!.logger.error(`Failed to enable module ${def.key}: ${e}`);
+        logger.error(`Failed to enable module ${def.key}: ${e}`);
       }
     } else if (!enabled && existing) {
-      this._context!.logger.log(`Disabling module ${def.key}`);
+      logger.log(`Disabling module ${def.key}`);
       try {
         existing.disable();
         this._modules.delete(def.key);
       } catch (e) {
-        this._context!.logger.error(`Failed to disable module ${def.key}: ${e}`);
+        logger.error(`Failed to disable module ${def.key}: ${e}`);
       }
     }
   }
 
   override disable(): void {
-    this._context!.logger.log('Disabling extension');
+    logger.log('Disabling extension');
 
     this._settings?.disconnectObject(this);
 
@@ -107,7 +107,7 @@ export default class AuroraShellExtension extends Extension {
       try {
         module.disable();
       } catch (e) {
-        this._context!.logger.error(`Failed to disable module ${name}: ${e}`);
+        logger.error(`Failed to disable module ${name}: ${e}`);
       }
     }
 

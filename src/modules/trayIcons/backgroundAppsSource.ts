@@ -7,7 +7,7 @@ import GLib from '@girs/glib-2.0';
 import Shell from '@girs/shell-18';
 
 import type { TrayItem, TrayItemStatus } from './trayState.ts';
-import type { Logger } from '~/core/logger.ts';
+import { logger } from '~/core/logger.ts';
 
 const DBUS_NAME = 'org.freedesktop.background.Monitor';
 const DBUS_OBJECT = '/org/freedesktop/background/monitor';
@@ -37,12 +37,9 @@ export class BackgroundAppsSource {
   private _proxyChangedId = 0;
   private _callbacks: Callbacks;
   private _appSystem: Shell.AppSystem;
-  private _logger: Logger;
-
-  constructor(callbacks: Callbacks, logger: Logger) {
+  constructor(callbacks: Callbacks) {
     this._callbacks = callbacks;
     this._appSystem = Shell.AppSystem.get_default();
-    this._logger = logger;
   }
 
   async start(): Promise<void> {
@@ -59,7 +56,7 @@ export class BackgroundAppsSource {
       this._sync();
     } catch (e) {
       if (!(e as any)?.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-        this._logger.warn(`[aurora-tray] BackgroundApps proxy unavailable: ${e}`);
+        logger.warn(`[AuroraTray] BackgroundApps proxy unavailable: ${e}`);
       }
       this._proxy = null;
     }
@@ -107,7 +104,7 @@ export class BackgroundAppsSource {
     // Remove gone apps
     for (const [id] of this._knownIds) {
       if (!currentApps.has(id)) {
-        this._logger.log(`[aurora-tray] BG app removed from monitor: ${id}`);
+        logger.log(`[AuroraTray] BG app removed from monitor: ${id}`);
         this._knownIds.delete(id);
         this._callbacks.onItemRemoved(`bg:${id}`);
       }
@@ -116,7 +113,7 @@ export class BackgroundAppsSource {
     // Add new apps
     for (const [appId, { app, message }] of currentApps) {
       if (!this._knownIds.has(appId)) {
-        this._logger.log(`[aurora-tray] BG app found in monitor: ${appId}`);
+        logger.log(`[AuroraTray] BG app found in monitor: ${appId}`);
         const item = this._makeItem(appId, app, message);
         this._knownIds.set(appId, item);
         this._callbacks.onItemAdded(item);

@@ -4,6 +4,7 @@ import { gettext as _ } from 'gettext';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 import { BluetoothDeviceItemPatcher } from '~/modules/bluetoothMenu/deviceItem.ts';
@@ -28,7 +29,7 @@ export class BluetoothMenu extends Module {
 
     const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
     if (!grid) {
-      console.error('Aurora Shell: BluetoothMenu could not find quick settings grid');
+      logger.error('[BluetoothMenu] Could not find quick settings grid');
       return;
     }
 

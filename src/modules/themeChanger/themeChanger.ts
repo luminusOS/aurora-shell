@@ -2,6 +2,7 @@ import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
 import type { ModuleDefinition } from '~/module.ts';
@@ -24,21 +25,21 @@ export class ThemeChanger extends Module {
   }
 
   public enable(): void {
-    this.context.logger.debug('Initializing theme monitor22222');
+    logger.debug('Initializing theme monitor22222');
 
     try {
       this._settings = this.context.settings.getSchema('org.gnome.desktop.interface');
 
       const currentScheme = this._settings.getString('color-scheme');
-      this.context.logger.debug(`Current color-scheme: ${currentScheme}`);
+      logger.debug(`Current color-scheme: ${currentScheme}`);
 
       this._signalId = this._settings.connect('changed::color-scheme', () => {
         this._onColorSchemeChanged();
       });
 
-      this.context.logger.debug('Theme monitor active');
+      logger.debug('Theme monitor active');
     } catch (error) {
-      this.context.logger.error('Failed to initialize:', error);
+      logger.error('Failed to initialize:', error);
     }
   }
 
@@ -46,17 +47,17 @@ export class ThemeChanger extends Module {
     if (!this._settings) return;
 
     const scheme = this._settings.getString('color-scheme');
-    this.context.logger.debug(`Color scheme changed to: ${scheme}`);
+    logger.debug(`Color scheme changed to: ${scheme}`);
 
     if (scheme === 'default') {
-      this.context.logger.warn('Detected "default", forcing to prefer-light');
+      logger.warn('Detected "default", forcing to prefer-light');
       this._settings.setString('color-scheme', 'prefer-light');
       return;
     }
   }
 
   override disable(): void {
-    this.context.logger.debug('Disabling theme monitor');
+    logger.debug('Disabling theme monitor');
 
     if (this._signalId && this._settings) {
       this._settings.disconnect(this._signalId);

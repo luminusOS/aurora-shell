@@ -4,18 +4,18 @@ import '@girs/gjs';
 import St from '@girs/st-18';
 import Clutter from '@girs/clutter-18';
 import GObject from '@girs/gobject-2.0';
-import GLib from '@girs/glib-2.0';
 import type Gio from '@girs/gio-2.0';
 import GdkPixbuf from '@girs/gdkpixbuf-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
+import { logger } from '~/core/logger.ts';
 
 import type { TrayItem } from './trayState.ts';
 import { DBusMenuClient } from './dbusMenu.ts';
 
 const BADGE_SIZE = 6;
-const BOUNCE_DURATION = 900;
+const BOUNCE_DURATION = 1400;
 
 // Module-level tooltip shared by all TrayIconItems to avoid allocating one per icon.
 let _tooltipLabel: St.Label | null = null;
@@ -190,10 +190,7 @@ export class TrayIconItem extends St.Button {
       await this._dbusMenuClient.updateMenu(this._menu);
       this._menu.open(PopupAnimation.FULL);
     } catch (e) {
-      GLib.log_structured('Aurora Shell', GLib.LogLevelFlags.LEVEL_WARNING, {
-        SYSLOG_IDENTIFIER: 'aurora-shell@luminusos.github.io',
-        MESSAGE: `[aurora-tray] _showDbusMenu failed: ${e}`,
-      });
+      logger.warn(`[AuroraTray] _showDbusMenu failed: ${e}`);
     }
   }
 
@@ -228,19 +225,11 @@ export class TrayIconItem extends St.Button {
     this._badge.opacity = 0;
     this._badge.visible = true;
     this._badge.ease({
-      scaleX: 1.2,
-      scaleY: 1.2,
+      scaleX: 1.0,
+      scaleY: 1.0,
       opacity: 255,
-      duration: 220,
+      duration: 450,
       mode: Clutter.AnimationMode.EASE_OUT_BACK,
-      onComplete: () => {
-        this._badge.ease({
-          scaleX: 1.0,
-          scaleY: 1.0,
-          duration: 150,
-          mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-        });
-      },
     });
   }
 
@@ -250,7 +239,7 @@ export class TrayIconItem extends St.Button {
       scaleX: 0,
       scaleY: 0,
       opacity: 0,
-      duration: 200,
+      duration: 300,
       mode: Clutter.AnimationMode.EASE_IN_QUAD,
       onComplete: () => {
         this._badge.visible = false;
