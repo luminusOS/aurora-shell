@@ -1,6 +1,7 @@
 import '@girs/gjs';
 
 import type Gio from '@girs/gio-2.0';
+import GLib from '@girs/glib-2.0';
 import { Extension } from '@girs/gnome-shell/extensions/extension';
 
 import type { Module } from './module.ts';
@@ -11,6 +12,7 @@ import { DefaultExtensionContext } from '~/core/context.ts';
 import { ConsoleLogger, setGlobalLogger, logger } from '~/core/logger.ts';
 import { GSettingsManager } from '~/core/settings.ts';
 import { GnomeShellAdapter } from '~/core/adapters/shell.ts';
+import { DevTool } from '~/modules/devTool/devTool.ts';
 
 const LOG_PREFIX = 'AuroraShell';
 
@@ -22,6 +24,7 @@ const LOG_PREFIX = 'AuroraShell';
  */
 export default class AuroraShellExtension extends Extension {
   private _modules: Map<string, Module> = new Map();
+  private _devTool: DevTool | null = null;
   private _settings: Gio.Settings | null = null;
   private _context: ExtensionContext | null = null;
 
@@ -41,6 +44,7 @@ export default class AuroraShellExtension extends Extension {
     initIcons(this.path);
     this._initializeModules();
     this._enableAllModules();
+    this._enableDevTool();
     this._connectSettings();
   }
 
@@ -59,6 +63,30 @@ export default class AuroraShellExtension extends Extension {
       } catch (e) {
         logger.error(`Failed to enable module ${name}: ${e}`, { prefix: LOG_PREFIX });
       }
+    }
+  }
+
+  private _enableDevTool(): void {
+    if (GLib.getenv('AURORA_DEVTOOLS') !== '1' || !this._context) return;
+
+    try {
+      this._devTool = new DevTool(this._context);
+      this._devTool.enable();
+    } catch (e) {
+      logger.error(`Failed to enable DevTool: ${e}`, { prefix: LOG_PREFIX });
+      this._devTool = null;
+    }
+  }
+
+  private _disableDevTool(): void {
+    if (!this._devTool) return;
+
+    try {
+      this._devTool.disable();
+    } catch (e) {
+      logger.error(`Failed to disable DevTool: ${e}`, { prefix: LOG_PREFIX });
+    } finally {
+      this._devTool = null;
     }
   }
 
@@ -104,6 +132,7 @@ export default class AuroraShellExtension extends Extension {
     logger.log('Disabling extension', { prefix: LOG_PREFIX });
 
     this._settings?.disconnectObject(this);
+    this._disableDevTool();
 
     for (const [name, module] of this._modules) {
       try {

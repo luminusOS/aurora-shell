@@ -66,30 +66,6 @@ export class TrayIcons extends Module {
       'right',
     );
 
-    if (GLib.getenv('AURORA_TRAY_DEBUG')) {
-      const fakeIcons = [
-        'face-smile-symbolic',
-        'computer-symbolic',
-        'network-wireless-symbolic',
-        'audio-headphones-symbolic',
-        'bluetooth-symbolic',
-        'camera-symbolic',
-        'mail-unread-symbolic',
-        'printer-symbolic',
-      ];
-      for (let i = 0; i < fakeIcons.length; i++) {
-        const id = `debug-fake-${i}`;
-        this._container.addItem({
-          id,
-          icon: fakeIcons[i]!,
-          status: 'Active',
-          tooltip: `Fake Icon ${i + 1}`,
-          activate: () => {},
-          destroy: () => {},
-        });
-      }
-    }
-
     // SNI layer
     this._sniWatcher = new SniWatcher(
       (busName, objectPath) => {
