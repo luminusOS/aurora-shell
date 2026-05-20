@@ -266,7 +266,11 @@ export class TrayIconItem extends St.Button {
     _hideTooltip();
     this._dbusMenuClient?.destroy();
     this._menu?.destroy();
+    this._menu = null;
+    this._menuManager = null;
     this._localMenu?.destroy();
+    this._localMenu = null;
+    this._localMenuManager = null;
     this._trayItem.destroy();
     super.destroy();
   }

@@ -163,6 +163,7 @@ export class TrayContainer extends PanelMenu.Button {
   declare private _userInteracted: boolean;
   declare private _attentionTimeoutSeconds: number;
   declare private _autoCollapseTimeoutId: number;
+  declare private _debugPostAllocateId: number;
   declare private _opacityTargets: WeakMap<TrayIconItem, number>;
   declare private _scrollTarget: number;
   declare private _smoothScrollAccumulator: number;
@@ -206,6 +207,7 @@ export class TrayContainer extends PanelMenu.Button {
     this._opacityTargets = new WeakMap();
     this._scrollTarget = 0;
     this._smoothScrollAccumulator = 0;
+    this._debugPostAllocateId = 0;
 
     // Chevron button (collapse/expand toggle)
     this._chevronIcon = new St.Icon({
@@ -569,7 +571,9 @@ export class TrayContainer extends PanelMenu.Button {
           );
         },
       );
-      GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+      if (this._debugPostAllocateId > 0) GLib.Source.remove(this._debugPostAllocateId);
+      this._debugPostAllocateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        this._debugPostAllocateId = 0;
         logger.log(
           `Viewport post-allocate chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
           { prefix: LOG_PREFIX },
@@ -637,6 +641,10 @@ export class TrayContainer extends PanelMenu.Button {
     if (this._autoCollapseTimeoutId > 0) {
       GLib.Source.remove(this._autoCollapseTimeoutId);
       this._autoCollapseTimeoutId = 0;
+    }
+    if (this._debugPostAllocateId > 0) {
+      GLib.Source.remove(this._debugPostAllocateId);
+      this._debugPostAllocateId = 0;
     }
     destroyTooltip();
     for (const widget of this._items.values()) widget.destroy();
