@@ -1,0 +1,79 @@
+.aurora-devtool-panel {
+  width: 360px;
+  padding: 10px;
+  spacing: 10px;
+}
+
+.aurora-devtool-header {
+  spacing: 8px;
+  padding: 2px 2px 0;
+}
+
+.aurora-devtool-title {
+  font-size: 1.05em;
+  font-weight: 700;
+}
+
+.aurora-devtool-tabs {
+  spacing: 6px;
+}
+
+.aurora-devtool-tab {
+  border-radius: 8px;
+  padding: 7px 10px;
+  background-color: rgba(127, 127, 127, 0.12);
+
+  &:hover {
+    background-color: rgba(127, 127, 127, 0.2);
+  }
+
+  &:active,
+  &.active {
+    background-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.18), 28%);
+  }
+}
+
+.aurora-devtool-tab-content {
+  spacing: 7px;
+}
+
+.aurora-devtool-module-panel {
+  spacing: 8px;
+}
+
+.aurora-devtool-summary {
+  spacing: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: rgba(127, 127, 127, 0.1);
+}
+
+.aurora-devtool-summary-label {
+  font-weight: 600;
+}
+
+.aurora-devtool-action-row {
+  spacing: 8px;
+}
+
+.aurora-devtool-action-button {
+  border-radius: 8px;
+  padding: 9px 10px;
+  background-color: rgba(127, 127, 127, 0.13);
+
+  &:hover {
+    background-color: rgba(127, 127, 127, 0.22);
+  }
+
+  &:active {
+    background-color: rgba(127, 127, 127, 0.28);
+  }
+
+  &.active {
+    background-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.18), 34%);
+  }
+}
+
+.aurora-devtool-action-content {
+  spacing: 7px;
+}
