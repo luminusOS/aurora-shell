@@ -117,31 +117,88 @@ just unit-test
 
 After these steps, your module appears in Preferences and respects the runtime enable/disable toggles.
 
+## Branching & Release Model
+
+Aurora Shell follows a branching model aligned with GNOME Shell's own release cycle.
+
+### Branches
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Active development targeting the next GNOME release |
+| `release/v50.x` | Maintenance branch for GNOME 50 |
+| `release/v51.x` | Maintenance branch for GNOME 51 |
+
+Maintenance branches are created automatically when the first tag for a new major version is pushed.
+
+### New features
+
+New features land on `main` and are released alongside a new major GNOME Shell version. **Do not add new features to maintenance branches** — they are strictly for bug fixes.
+
+### Bug fixes
+
+Bug fixes should target `main` first via a normal PR. If the fix is relevant to a maintenance release, open a **separate PR targeting that branch**:
+
+```bash
+git checkout release/v50.x
+git cherry-pick <commit-sha>
+# open a PR targeting release/v50.x
+```
+
+Maintainers decide which fixes are worth backporting. Not every fix needs to land in every maintenance branch.
+
+### Release candidates
+
+Release candidates are published alongside GNOME Shell RCs. Tags follow the pattern `v50-rc1`, `v50-rc2`, etc. RC releases are automatically marked as **pre-releases** on GitHub.
+
+### Stable releases
+
+Stable releases use tags like `v50.1`, `v50.2`, matching the GNOME Shell major version they target.
+
+To publish a release, create an annotated tag and push it:
+
+```bash
+git tag -a v50.1 -m "Release v50.1"
+git push origin v50.1
+```
+
+The CI pipeline runs all tests and, if they pass, publishes the GitHub Release automatically.
+
 ## Build System & Commands
 
-- **Build:** `just build` — installs deps, compiles TypeScript and SCSS, copies metadata/schemas, compiles `.mo` files
-- **Install:** `just install` — builds + packages as `.zip` + installs to GNOME Shell
-- **Quick update:** `just quick` — rebuild + rsync files to extension dir (skips full install)
-- **Run (host):** `just run` — build + install + launch a devkit GNOME Shell session
-- **Type-check:** `just validate` — runs `tsc` without emitting output
-- **Lint:** `just lint` — runs ESLint
+- **Install deps:** `just deps` — runs `yarn install`; use once or when updating packages
+- **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, compiles `.mo` files
+- **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
+- **Install:** `just install` — installs the already-packaged `.zip` to GNOME Shell (requires `just package` first)
+- **Full install:** `just full-install` — packages + installs in one step
+- **All:** `just all` — clean + full-install
+- **Uninstall:** `just uninstall` — disables and removes the extension
+- **Run (host):** `just run` — launches a devkit GNOME Shell session (headless, Wayland)
+- **Validate:** `just validate` — runs tsc, ESLint, Prettier check, and Stylelint
+- **Lint:** `just lint` — runs ESLint only
 - **Unit tests:** `just unit-test` — runs unit tests via vitest (no GNOME Shell required)
-- **Single integration test:** `just test <script>` — runs one shell test headlessly with `gnome-shell-test-tool`
-- **All integration tests:** `just test-all` — builds and runs all shell tests, printing a pass/fail summary
+- **Coverage:** `just coverage` — runs unit tests with coverage report
+- **Single integration test:** `just test <script>` — packages and runs one shell test headlessly
+- **All integration tests:** `just test-all` — packages and runs all shell tests on the host, printing a pass/fail summary
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
+- **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
+- **Clean:** `just clean` — removes `dist/`
+- **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
 
-*Note: For a full test environment, you can create a Fedora toolbox via `just toolbox create` and run session testing inside it using `just toolbox run`.*
+*For a full test environment, create a Fedora toolbox via `just toolbox create` and run tests inside it using `just toolbox test-all` (preferred over `just test-all`).*
 
 ## CI
 
-Every push and pull request runs the CI pipeline defined in `.github/workflows/ci.yml`. It has four jobs:
+Every push to `main` and every pull request runs the CI pipeline defined in `.github/workflows/ci.yml`. It has four jobs:
 
-1. **Lint & type-check** — runs `yarn validate` and `yarn lint`
+1. **Validate** — runs tsc, ESLint, Prettier check, and Stylelint via `just validate`
 2. **Unit & regression tests** — runs `yarn test:unit` (vitest, no GNOME Shell needed)
 3. **Build** — runs `just package` and uploads the extension `.zip` as an artifact (depends on lint)
 4. **Integration tests** — runs all `tests/shell/aurora*.js` scripts against a headless GNOME Shell inside a Fedora container (depends on build + unit tests)
 
 All jobs must pass before a PR can be merged.
+
+When a version tag (`v50.1`, `v50-rc1`, etc.) is pushed, `.github/workflows/release.yml` calls the CI pipeline and, if all jobs pass, publishes the GitHub Release automatically.
 
 ## Coding Standards
 

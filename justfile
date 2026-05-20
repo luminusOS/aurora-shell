@@ -10,7 +10,7 @@ default:
 deps:
     yarn install
 
-build: deps
+build:
     yarn build
     cp metadata.json dist/
     cp -r data/schemas dist/ 2>/dev/null || true
@@ -48,10 +48,12 @@ lint:
 watch:
     yarn watch:css
 
-install: package
+install:
     gnome-extensions install --force dist/target/{{ uuid }}.shell-extension.zip
     glib-compile-schemas {{ ext_dir }}/schemas/
     @echo "Installed at: {{ ext_dir }}"
+
+full-install: package install
 
 uninstall:
     gnome-extensions uninstall {{ uuid }}
@@ -109,7 +111,7 @@ compile-mo:
         echo "Compiled $po -> $outdir/$DOMAIN.mo"
     done
 
-all: clean build install
+all: clean full-install
     @echo "Complete installation finished."
 
 unit-test:
