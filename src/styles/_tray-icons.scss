@@ -62,6 +62,12 @@
   min-width: 0;
 }
 
+.aurora-tray-attention-badge {
+  z-position: 1;
+  border-radius: 999px;
+  background-color: #3584e4;
+}
+
 .aurora-tray-menu {
   min-width: 120px;
 }

@@ -13,6 +13,8 @@ import { EXTENSION_UUID, waitForExtension } from './testUtils.js';
 
 export var METRICS = {};
 
+const ITEM_COUNT = 24;
+
 export function init() {
   Scripting.defineScriptEvent('extensionEnabled', 'Extension enabled');
   Scripting.defineScriptEvent('stressTestPassed', 'Stress test completed without crash');
@@ -24,21 +26,18 @@ export async function run() {
   await Scripting.sleep(500);
 
   const extension = Main.extensionManager.lookup(EXTENSION_UUID);
-  if (!extension || !extension.stateObj)
-    throw new Error('Extension state object not found');
+  if (!extension || !extension.stateObj) throw new Error('Extension state object not found');
 
   const trayIconsModule = extension.stateObj._modules.get('tray-icons');
-  if (!trayIconsModule)
-    throw new Error('Tray icons module not found');
+  if (!trayIconsModule) throw new Error('Tray icons module not found');
 
   const trayContainer = trayIconsModule._container;
-  if (!trayContainer)
-    throw new Error('Tray container not found');
+  if (!trayContainer) throw new Error('Tray container not found');
 
   console.log('[aurora-tray-stability] Starting stress test...');
 
   // --- 1. Add multiple fake items ---
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < ITEM_COUNT; i++) {
     const id = `fake-item-${i}`;
     console.log(`[aurora-tray-stability] Adding item ${id}`);
     trayContainer.addItem({
@@ -46,12 +45,29 @@ export async function run() {
       icon: 'face-smile-symbolic',
       status: 'Active',
       activate: () => {},
-      destroy: () => {}
+      destroy: () => {},
     });
     await Scripting.sleep(50);
   }
 
   await Scripting.sleep(500);
+
+  const availableClipWidth = trayContainer._availableClipWidth(true);
+  const reservedWidth = trayContainer._clipArea.reservedWidth;
+  if (availableClipWidth !== null && reservedWidth > availableClipWidth)
+    throw new Error(
+      `Tray reserved width ${reservedWidth} exceeded available clip width ${availableClipWidth}`,
+    );
+
+  trayContainer._state.collapsed = false;
+  trayContainer._syncLayout(false);
+  if (trayContainer._maxExpandedScroll() <= 0)
+    throw new Error('Expanded tray did not report scrollable overflow');
+
+  trayContainer._scrollByItems(-1);
+  await Scripting.sleep(250);
+  if (trayContainer._state.scrollOffset <= 0)
+    throw new Error('Expanded tray scroll did not advance through hidden icons');
 
   // --- 2. Toggle collapse state multiple times ---
   for (let i = 0; i < 5; i++) {
@@ -68,9 +84,9 @@ export async function run() {
   const state = trayContainer._state;
   state.collapsed = false;
   trayContainer._syncLayout(true);
-  
+
   await Scripting.sleep(200);
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < ITEM_COUNT; i++) {
     trayContainer.removeItem(`fake-item-${i}`);
     await Scripting.sleep(100);
   }
@@ -82,12 +98,14 @@ export async function run() {
 let _extensionEnabled = false;
 let _stressTestPassed = false;
 
-export function script_extensionEnabled() { _extensionEnabled = true; }
-export function script_stressTestPassed() { _stressTestPassed = true; }
+export function script_extensionEnabled() {
+  _extensionEnabled = true;
+}
+export function script_stressTestPassed() {
+  _stressTestPassed = true;
+}
 
 export function finish() {
-  if (!_extensionEnabled)
-    throw new Error('Extension was not found or not enabled');
-  if (!_stressTestPassed)
-    throw new Error('Stress test did not complete');
+  if (!_extensionEnabled) throw new Error('Extension was not found or not enabled');
+  if (!_stressTestPassed) throw new Error('Stress test did not complete');
 }
