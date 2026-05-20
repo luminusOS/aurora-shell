@@ -123,15 +123,12 @@ export class TrayIconItem extends St.Button {
     this._applyIcon();
 
     this._badge = new St.Widget({
-      style: `
-        width: ${BADGE_SIZE}px;
-        height: ${BADGE_SIZE}px;
-        border-radius: ${BADGE_SIZE / 2}px;
-        background-color: #3584e4;
-        border: 1.5px solid rgba(0,0,0,0.35);
-      `,
+      style: `width: ${BADGE_SIZE}px; height: ${BADGE_SIZE}px;`,
+      style_class: 'aurora-tray-attention-badge',
       visible: false,
       reactive: false,
+      x_expand: true,
+      y_expand: true,
       x_align: Clutter.ActorAlign.END,
       y_align: Clutter.ActorAlign.START,
     });
