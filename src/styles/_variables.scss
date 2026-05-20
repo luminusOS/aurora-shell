@@ -37,6 +37,23 @@ $aurora-tooltip-bg: rgba(0, 0, 0, 0.9);
 $aurora-tooltip-fg: palette.$light-1;
 $aurora-tooltip-border: 1px solid rgba(255, 255, 255, 0.1);
 
+// GNOME Blue accent (used where -st-accent-color CSS custom property is unavailable)
+$aurora-accent: #3584e4;
+$aurora-accent-focus-ring: rgba(53, 132, 228, 0.7);
+$aurora-accent-drop-border: rgba(53, 132, 228, 0.8);
+$aurora-accent-drop-bg: rgba(53, 132, 228, 0.2);
+
+// Shared surface decoration
+$aurora-surface-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+$aurora-surface-border: 1px solid rgba(0, 0, 0, 0.05);
+
+// Tray (dark defaults)
+$aurora-tray-chevron-hover-bg: rgba(255, 255, 255, 0.1);
+$aurora-tray-icon-hover-bg: rgba(255, 255, 255, 0.08);
+$aurora-tray-icon-active-bg: rgba(255, 255, 255, 0.15);
+$aurora-tray-tooltip-bg: rgba(30, 30, 30, 0.92);
+$aurora-tray-tooltip-fg: #eeeeee;
+
 @if $variant == 'light' {
   $aurora-panel-bg: palette.$light-0;
   $aurora-panel-fg: palette.$dark-1;
@@ -58,6 +75,12 @@ $aurora-tooltip-border: 1px solid rgba(255, 255, 255, 0.1);
   $aurora-tooltip-bg: palette.$light-1;
   $aurora-tooltip-fg: palette.$dark-1;
   $aurora-tooltip-border: 1px solid rgba(0, 0, 0, 0.1);
+
+  $aurora-tray-chevron-hover-bg: rgba(0, 0, 0, 0.08);
+  $aurora-tray-icon-hover-bg: rgba(0, 0, 0, 0.06);
+  $aurora-tray-icon-active-bg: rgba(0, 0, 0, 0.12);
+  $aurora-tray-tooltip-bg: rgba(0, 0, 0, 0.75);
+  $aurora-tray-tooltip-fg: #ffffff;
 
   $aurora-dash-bg: palette.$light-0;
   $aurora-dash-icon-color: palette.$dark-1;
