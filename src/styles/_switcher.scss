@@ -9,8 +9,8 @@
   color: vars.$aurora-overview-fg !important;
   background-color: vars.$aurora-overview-bg !important;
   border-radius: 28px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: vars.$aurora-surface-shadow;
+  border: vars.$aurora-surface-border;
 }
 
 .switcher-list {
