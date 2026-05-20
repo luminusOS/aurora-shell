@@ -37,7 +37,7 @@ export class BackgroundAppsSource {
   private _knownIds = new Map<string, TrayItem>();
   private _proxyChangedId = 0;
   private _callbacks: Callbacks;
-  private _appSystem: Shell.AppSystem;
+  private _appSystem: Shell.AppSystem | null;
   constructor(callbacks: Callbacks) {
     this._callbacks = callbacks;
     this._appSystem = Shell.AppSystem.get_default();
@@ -64,7 +64,7 @@ export class BackgroundAppsSource {
   }
 
   private _sync(): void {
-    if (!this._proxy) return;
+    if (!this._proxy || !this._appSystem) return;
 
     const backgroundApps = (this._proxy as any).BackgroundApps;
     const currentApps = new Map<string, { app: Shell.App; message: string | null }>();
@@ -153,6 +153,7 @@ export class BackgroundAppsSource {
       this._proxyChangedId = 0;
     }
     this._proxy = null;
+    this._appSystem = null;
     this._knownIds.clear();
   }
 }
