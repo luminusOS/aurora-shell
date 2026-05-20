@@ -44,6 +44,8 @@ const LOG_PREFIX = 'AuroraTray';
 
 // @ts-ignore — _promisify is a GJS extension not reflected in .d.ts
 Gio._promisify(Gio.DBusProxy.prototype, 'init_async');
+// @ts-ignore
+Gio._promisify(Gio.DBusProxy.prototype, 'call', 'call_finish');
 
 type HostCallbacks = {
   onItemAdded(item: TrayItem): void;
@@ -118,8 +120,17 @@ export class SniHost {
         item.status = newStatus as TrayItemStatus;
         this._callbacks.onStatusChanged(id, item.status);
       } else if (signalName === 'NewIcon' || signalName === 'NewAttentionIcon') {
-        item.icon = this._resolveIcon(proxy, signalName);
-        this._callbacks.onIconChanged(id);
+        // Electron/Discord emits NewIcon without PropertiesChanged, leaving the
+        // proxy cache stale. Re-fetch icon properties before resolving.
+        this._refetchIconProperties(proxy)
+          .then(() => {
+            if (!this._entries.has(id)) return;
+            item.icon = this._resolveIcon(proxy, signalName);
+            this._callbacks.onIconChanged(id);
+          })
+          .catch((e) =>
+            logger.warn(`Icon property refresh failed for ${id}: ${e}`, { prefix: LOG_PREFIX }),
+          );
       }
     });
 
@@ -137,6 +148,32 @@ export class SniHost {
 
     this._entries.set(id, { proxy, item, sniId, signalId, nameWatchId, cancellable });
     this._callbacks.onItemAdded(item);
+  }
+
+  private async _refetchIconProperties(proxy: Gio.DBusProxy): Promise<void> {
+    const props = [
+      'IconName',
+      'IconThemePath',
+      'IconPixmap',
+      'AttentionIconName',
+      'AttentionIconPixmap',
+    ];
+    await Promise.allSettled(
+      props.map(async (prop) => {
+        try {
+          const result = await (proxy as any).call(
+            'org.freedesktop.DBus.Properties.Get',
+            new GLib.Variant('(ss)', ['org.kde.StatusNotifierItem', prop]),
+            Gio.DBusCallFlags.NONE,
+            -1,
+            null,
+          );
+          proxy.set_cached_property(prop, result.get_child_value(0).get_variant());
+        } catch {
+          // property may not be supported by this item
+        }
+      }),
+    );
   }
 
   private _resolveIcon(proxy: Gio.DBusProxy, reason = 'initial'): TrayItem['icon'] {
@@ -159,11 +196,6 @@ export class SniHost {
         );
         return themedIcon;
       }
-      logger.log(
-        `SNI icon ${itemId} reason=${reason} source=icon-name name=${iconName} path=${iconThemePath || 'none'}`,
-        { prefix: LOG_PREFIX },
-      );
-      return iconName;
     }
 
     const pixmaps = proxy.get_cached_property(useAttention ? 'AttentionIconPixmap' : 'IconPixmap');
@@ -176,6 +208,14 @@ export class SniHost {
         );
         return pb;
       }
+    }
+
+    if (iconName) {
+      logger.log(
+        `SNI icon ${itemId} reason=${reason} source=icon-name name=${iconName} path=${iconThemePath || 'none'}`,
+        { prefix: LOG_PREFIX },
+      );
+      return iconName;
     }
 
     logger.log(`SNI icon ${itemId} reason=${reason} source=fallback`, { prefix: LOG_PREFIX });
@@ -201,7 +241,8 @@ export class SniHost {
       const theme = St.IconTheme.new();
       theme.append_search_path(iconThemePath);
       const iconInfo = theme.lookup_icon(iconName, 24, St.IconLookupFlags.FORCE_SIZE);
-      const filename = iconInfo?.get_filename();
+      const filename =
+        iconInfo?.get_filename() ?? this._findIconThemePathFile(iconThemePath, iconName);
       if (!filename) return null;
 
       // SVGs go through GTK's symbolic pipeline via St.Icon; return as-is.
@@ -219,6 +260,24 @@ export class SniHost {
       });
       return null;
     }
+  }
+
+  private _findIconThemePathFile(iconThemePath: string, iconName: string): string | null {
+    if (!iconThemePath) return null;
+    if (iconName.startsWith('/'))
+      return Gio.File.new_for_path(iconName).query_exists(null) ? iconName : null;
+
+    const extensions = ['', '.svg', '.png', '.xpm'];
+    const subdirs = ['', 'icons', 'hicolor/16x16/apps', 'hicolor/24x24/apps', 'hicolor/32x32/apps'];
+    for (const subdir of subdirs) {
+      const dir = subdir ? GLib.build_filenamev([iconThemePath, subdir]) : iconThemePath;
+      for (const ext of extensions) {
+        const filename = GLib.build_filenamev([dir, `${iconName}${ext}`]);
+        if (Gio.File.new_for_path(filename).query_exists(null)) return filename;
+      }
+    }
+
+    return null;
   }
 
   private _recolorFilePixbuf(
