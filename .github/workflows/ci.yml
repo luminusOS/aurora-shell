@@ -3,8 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
-    tags-ignore: ['**']   # release.yml handles tags
   pull_request:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint & type-check
+    name: Validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,13 +55,8 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Install just
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y just
-
       - name: Run unit tests
-        run: just unit-test
+        run: yarn test:unit
 
   build:
     name: Build
@@ -88,7 +83,7 @@ jobs:
         run: yarn install --immutable
 
       - name: Build & package
-        run: just build && just package
+        run: just package
 
       - name: Upload extension zip
         uses: actions/upload-artifact@v4

@@ -25,28 +25,34 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 ## Commands
 
-- **Build:** `just build` — installs deps, compiles TypeScript and SCSS, copies metadata/schemas, compiles `.mo` files
-- **Install:** `just install` — builds + packages as `.zip` + installs to GNOME Shell
-- **Quick update:** `just quick` — rebuild + rsync files to extension dir (skips full install)
+- **Install deps:** `just deps` — runs `yarn install`; use once or when updating packages
+- **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, compiles `.mo` files
+- **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
+- **Install:** `just install` — installs the already-packaged `.zip` to GNOME Shell (requires `just package` first)
+- **Full install:** `just full-install` — packages + installs in one step
+- **All:** `just all` — clean + full-install
 - **Uninstall:** `just uninstall` — disables and removes the extension
-- **Run (host):** `just run` — build + install + launch a devkit GNOME Shell session
+- **Run (host):** `just run` — launches a devkit GNOME Shell session (headless, Wayland)
 - **Run (toolbox):** `just toolbox run` — same as above, but inside the Fedora toolbox
-- **Create toolbox:** `just toolbox create` — create the `gnome-shell-devel` Fedora toolbox
+- **Create toolbox:** `just toolbox create` — create the `aurora-shell-devel` Fedora toolbox
 - **Remove toolbox:** `just toolbox remove` — delete the toolbox
-- **Type-check:** `just validate` — runs `tsc` without emitting output
-- **Lint:** `just lint` — runs ESLint
-- **Unit tests:** `just unit-test` — runs unit tests via `yarn test:unit` (vitest)
-- **Single integration test:** `just test <script>` — runs one shell test script with `gnome-shell-test-tool` (headless); requires `just package` first
-- **All integration tests:** `just test-all` — builds and runs all `tests/shell/aurora*.js` scripts on the host, printing a pass/fail summary
-- **All integration tests (toolbox):** `just toolbox test-all` — same as above but runs inside the Fedora toolbox (preferred; use this instead of `just test-all`)
+- **Validate:** `just validate` — runs tsc, ESLint, Prettier check, and Stylelint
+- **Lint:** `just lint` — runs ESLint only
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
 - **Clean:** `just clean` — removes `dist/`
 - **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
+- **Unit tests:** `just unit-test` — runs unit tests via `yarn test:unit` (vitest)
+- **Coverage:** `just coverage` — runs unit tests with coverage report
+- **Single integration test:** `just test <script>` — packages and runs one shell test script headlessly (e.g., `just test tests/shell/auroraTrayIcons.js`)
+- **All integration tests:** `just test-all` — packages and runs all `tests/shell/aurora*.js` on the host, printing a pass/fail summary
+- **All integration tests (toolbox):** `just toolbox test-all` — same as above but inside the Fedora toolbox (preferred; use this instead of `just test-all`)
+- **Single integration test (toolbox):** `just toolbox test <script>` — packages and runs one test inside the toolbox
+- **Vagrant VM:** `just vagrant create|run|ssh|remove` — Vagrant-based devkit VM (mirrors `toolbox` but uses a full Fedora VM via Vagrant)
 
 ### Translation commands
 
-- **Regenerate POT template:** `just pot` — scans compiled JS (`dist/`) and rewrites `po/aurora-shell@luminusos.github.io.pot` with all `_()` strings. Run this whenever translatable strings are added or removed.
+- **Regenerate POT template:** `just pot` — builds then scans compiled JS (`dist/`) and rewrites the `.pot` file with all `_()` strings. Run this whenever translatable strings are added or removed.
 - **Merge new strings into .po files:** `just update-po` — runs `msgmerge` on every `po/*.po` file against the current `.pot`. Run after `just pot`.
 - **Compile .mo binaries:** `just compile-mo` — compiles each `po/*.po` into `dist/locale/<lang>/LC_MESSAGES/*.mo`. Called automatically by `just build`.
 
@@ -76,7 +82,7 @@ Do not leave a task incomplete if either command reports errors or failures.
   - `unit/` — vitest unit tests (metadata, registry, schema)
   - `shell/` — GNOME Shell integration test scripts (run via `gnome-shell-test-tool`)
 - `.github/workflows/ci.yml` — CI pipeline (lint + type-check → unit tests + build → integration tests)
-- `scripts/` — helper shell scripts (`create-toolbox.sh`, `run-gnome-shell.sh`, `bump-version.sh`)
+- `scripts/` — helper shell scripts (`create-toolbox.sh`, `run-gnome-shell.sh`, `run-vagrant-gnome-shell.sh`)
 - `esbuild.ts` — esbuild bundler configuration
 - `sass.config.ts` — Sass compiler configuration
 - `justfile` — all project commands
