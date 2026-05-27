@@ -1,0 +1,102 @@
+@use 'variables' as vars;
+
+.aurora-clipboard-panel {
+  background-color: vars.$aurora-overview-bg;
+  color: vars.$aurora-overview-fg;
+  border-radius: 16px;
+  box-shadow: vars.$aurora-surface-shadow;
+  border: vars.$aurora-surface-border;
+  padding: 8px 0;
+  min-width: 500px;
+  min-height: 400px;
+}
+
+.aurora-clipboard-header {
+  padding: 10px 12px 6px;
+  spacing: 4px;
+}
+
+.aurora-clipboard-title {
+  font-size: 0.95em;
+  font-weight: 600;
+}
+
+.aurora-clipboard-close-btn {
+  border-radius: 6px;
+  padding: 4px;
+
+  &:hover {
+    background-color: vars.$aurora-overview-hover-bg;
+  }
+
+  &:active {
+    background-color: vars.$aurora-overview-active-bg;
+  }
+}
+
+.aurora-clipboard-search {
+  margin: 12px 12px 6px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background-color: vars.$aurora-overview-search-bg;
+  color: vars.$aurora-overview-fg;
+
+  &:focus {
+    background-color: vars.$aurora-overview-search-focus-bg;
+  }
+
+  StLabel.hint-text {
+    color: vars.$aurora-overview-fg;
+    opacity: 0.5;
+  }
+}
+
+.aurora-clipboard-section-header {
+  font-size: 0.78em;
+  font-weight: 600;
+  opacity: 0.55;
+  padding: 10px 16px 3px;
+  letter-spacing: 0.06em;
+}
+
+.aurora-clipboard-list {
+  padding: 0 6px 8px;
+}
+
+.aurora-clipboard-item {
+  border-radius: 8px;
+  padding: 7px 12px;
+  text-align: left;
+
+  &:hover {
+    background-color: vars.$aurora-overview-hover-bg;
+  }
+
+  &:active {
+    background-color: vars.$aurora-overview-active-bg;
+  }
+
+  &:selected {
+    background-color: vars.$aurora-overview-selected-bg;
+  }
+
+  &:focus {
+    background-color: vars.$aurora-overview-selected-bg;
+  }
+}
+
+.aurora-clipboard-item-label {
+  font-size: 0.93em;
+  font-family: monospace;
+}
+
+.aurora-clipboard-pin-icon {
+  margin-left: 8px;
+  opacity: 0.65;
+}
+
+.aurora-clipboard-empty {
+  font-size: 0.9em;
+  opacity: 0.5;
+  padding: 32px 16px;
+}

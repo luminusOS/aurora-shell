@@ -15,3 +15,16 @@ declare global {
 interface ImportMeta {
   url: string;
 }
+
+declare global {
+  // TextDecoder and TextEncoder are available in GJS (SpiderMonkey) but absent from ESNext lib
+  class TextDecoder {
+    constructor(encoding?: string);
+    decode(input?: ArrayBuffer | ArrayBufferView): string;
+  }
+
+  class TextEncoder {
+    constructor();
+    encode(input?: string): Uint8Array;
+  }
+}

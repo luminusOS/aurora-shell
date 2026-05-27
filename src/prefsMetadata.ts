@@ -174,5 +174,29 @@ export function getModuleMetadata(): ModuleMetadata[] {
         },
       ],
     },
+    {
+      key: 'clipboard-history',
+      settingsKey: 'module-clipboard-history',
+      title: _('Clipboard History'),
+      subtitle: _('Searchable clipboard history with pinning and keyboard navigation'),
+      options: [
+        {
+          key: 'clipboard-history-max-items',
+          title: _('Max History Items'),
+          subtitle: _('Number of non-pinned entries to retain'),
+          type: 'spin',
+          min: 10,
+          max: 200,
+        },
+        {
+          key: 'clipboard-history-poll-interval',
+          title: _('Poll Interval (ms)'),
+          subtitle: _('How often to check the clipboard for changes'),
+          type: 'spin',
+          min: 250,
+          max: 5000,
+        },
+      ],
+    },
   ];
 }
