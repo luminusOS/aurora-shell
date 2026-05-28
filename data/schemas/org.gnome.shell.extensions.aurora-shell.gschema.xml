@@ -133,5 +133,27 @@
       <summary>Recolor symbolic SNI pixmaps</summary>
       <description>Automatically recolor monochrome SNI tray pixmaps to match the current panel theme</description>
     </key>
+    <key name="module-clipboard-history" type="b">
+      <default>true</default>
+      <summary>Enable Clipboard History module</summary>
+      <description>Searchable clipboard history with pinning and keyboard navigation</description>
+    </key>
+    <key name="clipboard-history-shortcut" type="as">
+      <default>['&lt;Super&gt;&lt;Shift&gt;v']</default>
+      <summary>Clipboard History shortcut</summary>
+      <description>Keyboard shortcut to open the clipboard history panel</description>
+    </key>
+    <key name="clipboard-history-max-items" type="i">
+      <range min="10" max="200"/>
+      <default>50</default>
+      <summary>Maximum clipboard history items</summary>
+      <description>Number of non-pinned entries to retain (oldest are dropped when the limit is reached)</description>
+    </key>
+    <key name="clipboard-history-poll-interval" type="i">
+      <range min="250" max="5000"/>
+      <default>1000</default>
+      <summary>Clipboard poll interval (ms)</summary>
+      <description>How often to check the clipboard for new content in milliseconds</description>
+    </key>
   </schema>
 </schemalist>
