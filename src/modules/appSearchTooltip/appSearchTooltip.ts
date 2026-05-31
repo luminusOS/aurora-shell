@@ -173,6 +173,7 @@ export class AppSearchTooltip extends Module {
 export const definition: ModuleDefinition = {
   key: 'app-search-tooltip',
   settingsKey: 'module-app-search-tooltip',
+  section: 'appearance',
   title: _('App Search Tooltip'),
   subtitle: _('Shows app name on hover in the overview search results'),
   factory: (ctx) => new AppSearchTooltip(ctx),

@@ -401,6 +401,7 @@ export class Dock extends Module {
 export const definition: ModuleDefinition = {
   key: 'dock',
   settingsKey: 'module-dock',
+  section: 'dock-panel',
   title: _('Dock'),
   subtitle: _('Custom dock with auto-hide and intellihide features'),
   options: [

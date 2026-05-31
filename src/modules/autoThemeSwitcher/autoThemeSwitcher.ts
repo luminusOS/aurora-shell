@@ -55,7 +55,7 @@ export class AutoThemeSwitcher extends Module {
           const [sleeping] = params.deep_unpack() as [boolean];
           if (!sleeping) {
             if (this._sourceId !== null) {
-              GLib.Source.remove(this._sourceId);
+              GLib.source_remove(this._sourceId);
               this._sourceId = null;
             }
             this._tick();
@@ -70,7 +70,7 @@ export class AutoThemeSwitcher extends Module {
 
   override disable(): void {
     if (this._sourceId !== null) {
-      GLib.Source.remove(this._sourceId);
+      GLib.source_remove(this._sourceId);
       this._sourceId = null;
     }
     for (const id of this._settingsIds) {
@@ -86,7 +86,7 @@ export class AutoThemeSwitcher extends Module {
 
   private _tick(): void {
     if (this._sourceId !== null) {
-      GLib.Source.remove(this._sourceId);
+      GLib.source_remove(this._sourceId);
       this._sourceId = null;
     }
     if (!this._desktopSettings) return;
@@ -127,6 +127,7 @@ export class AutoThemeSwitcher extends Module {
 export const definition: ModuleDefinition = {
   key: 'auto-theme-switcher',
   settingsKey: 'module-auto-theme-switcher',
+  section: 'appearance',
   title: _('Auto Theme Switcher'),
   subtitle: _('Automatically switches between light and dark theme based on time'),
   options: [

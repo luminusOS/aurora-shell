@@ -1,8 +1,8 @@
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import * as Main from '@girs/gnome-shell/ui/main';
 import type { SettingsManager } from '~/core/settings.ts';
+import { getSharingIndicator } from '~/modules/privacy/sharingIndicator.ts';
 
 const NOTIFICATIONS_SCHEMA = 'org.gnome.desktop.notifications';
 const SHOW_BANNERS_KEY = 'show-banners';
@@ -16,18 +16,8 @@ export class DndOnShare extends Module {
     super(context);
   }
 
-  private _getSharingIndicator(): any | null {
-    const statusArea = Main.panel.statusArea as any;
-
-    // GNOME Shell 49+: dedicated panel indicator for screen sharing.
-    if (statusArea.screenSharing) return statusArea.screenSharing;
-
-    // Backward-compatible fallback for older shells/extensions.
-    return statusArea.quickSettings?._remoteAccess ?? null;
-  }
-
   override enable(): void {
-    const indicator = this._getSharingIndicator();
+    const indicator = getSharingIndicator();
 
     if (indicator) {
       this._notificationsSettings = this.context.settings.getSchema(NOTIFICATIONS_SCHEMA);
@@ -49,7 +39,7 @@ export class DndOnShare extends Module {
   }
 
   override disable(): void {
-    const indicator = this._getSharingIndicator();
+    const indicator = getSharingIndicator();
     if (indicator) {
       (indicator as any).disconnectObject?.(this);
     }

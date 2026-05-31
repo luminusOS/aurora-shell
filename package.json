@@ -15,8 +15,8 @@
     "prettier:check": "prettier --check \"src/**/*.{ts,scss}\"",
     "stylelint": "stylelint \"src/styles/**/*.scss\"",
     "watch:css": "tsx sass.config.ts --watch",
-    "test:unit": "node --import tsx/esm --test tests/unit/metadata.test.ts tests/unit/schema.test.ts tests/unit/registry.test.ts tests/unit/monitorTopology.test.ts tests/unit/trayState.test.ts",
-    "test:unit:coverage": "node --import tsx/esm --experimental-test-coverage --test tests/unit/metadata.test.ts tests/unit/schema.test.ts tests/unit/registry.test.ts tests/unit/monitorTopology.test.ts tests/unit/trayState.test.ts"
+    "test:unit": "node --import tsx/esm --test tests/unit/*.test.ts",
+    "test:unit:coverage": "node --import tsx/esm --experimental-test-coverage --test tests/unit/*.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

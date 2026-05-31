@@ -34,6 +34,45 @@ function parseEntriesFromSource(src: string): { key: string; settingsKey: string
   return entries;
 }
 
+/** Extract { key, section } pairs from any source file. */
+function parseSectionsFromSource(src: string): { key: string; section: string }[] {
+  const entries: { key: string; section: string }[] = [];
+  const blockRe = /key:\s*'([^']+)',\s*settingsKey:\s*'[^']+',\s*section:\s*'([^']+)'/g;
+  let m;
+  while ((m = blockRe.exec(src)) !== null) entries.push({ key: m[1], section: m[2] });
+  return entries;
+}
+
+/** Collect { key, section } pairs from every module definition. */
+function collectSectionsFromModuleFiles(): { key: string; section: string }[] {
+  const modulesDir = resolve(root, 'src/modules');
+  const out: { key: string; section: string }[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && entry.name.endsWith('.ts')) {
+        const src = readFileSync(full, 'utf-8');
+        if (src.includes('export const definition')) out.push(...parseSectionsFromSource(src));
+      }
+    }
+  };
+  walk(modulesDir);
+  return out;
+}
+
+/** Parse the section ids declared in prefsMetadata.ts `getSections()`. */
+function parseKnownSectionIds(): string[] {
+  const src = readFileSync(resolve(root, 'src/prefsMetadata.ts'), 'utf-8');
+  const block = src.match(/getSections\(\)[\s\S]*?return\s*\[([\s\S]*?)\];/);
+  if (!block) throw new Error('Could not locate getSections() return array');
+  const ids: string[] = [];
+  const idRe = /id:\s*'([^']+)'/g;
+  let m;
+  while ((m = idRe.exec(block[1])) !== null) ids.push(m[1]);
+  return ids;
+}
+
 /** Parse the module entries from registry.ts (full ModuleDefinition, includes factory). */
 function parseRegistryEntries(): { key: string; settingsKey: string }[] {
   // registry.ts aggregates via imports; parse each module file's `definition`
@@ -191,6 +230,27 @@ test('registry ↔ prefsMetadata — presentation order is identical', () => {
     regOrderKeys,
     'prefsMetadata order must match registry.ts import/return order',
   );
+});
+
+test('registry — every module declares a section known to getSections()', () => {
+  const known = new Set(parseKnownSectionIds());
+  assert.ok(known.size > 0, 'getSections() returned no sections');
+  for (const { key, section } of collectSectionsFromModuleFiles()) {
+    assert.ok(section, `Module "${key}" is missing a section`);
+    assert.ok(known.has(section), `Module "${key}" references unknown section "${section}"`);
+  }
+});
+
+test('registry ↔ prefsMetadata — section matches for the same module key', () => {
+  const regSections = new Map(collectSectionsFromModuleFiles().map((e) => [e.key, e.section]));
+  const prefsSrc = readFileSync(resolve(root, 'src/prefsMetadata.ts'), 'utf-8');
+  for (const { key, section } of parseSectionsFromSource(prefsSrc)) {
+    assert.strictEqual(
+      regSections.get(key),
+      section,
+      `prefsMetadata key "${key}" has section "${section}" but registry has "${regSections.get(key)}"`,
+    );
+  }
 });
 
 test('registry ↔ schema — every settingsKey is declared in the schema XML', () => {

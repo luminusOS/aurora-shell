@@ -6,6 +6,10 @@
 
 A modular GNOME Shell extension that adds quality-of-life features missing in vanilla GNOME.
 
+> **Project goal:** Aurora Shell is a proving ground. Over time, the aim is for some of its
+> features to mature and make their way upstream into GNOME Shell itself. Modules here are
+> meant to be useful on their own today, and good candidates for upstream tomorrow.
+
 ## Modules
 
 Aurora is split into independent modules, so you can enable only what you want.
@@ -63,3 +67,12 @@ just toolbox-run
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for information on project architecture, code style, and step-by-step instructions on how to add a new module.
+
+## Credits & Acknowledgements
+
+Aurora Shell builds on the work of the wider GNOME community. Special thanks to:
+
+- [**maniacx/Bluetooth-Battery-Meter**](https://github.com/maniacx/Bluetooth-Battery-Meter) the animated Bluetooth icons used by the Bluetooth Menu module come from this project.
+- [**swsnr/gnome-shell-extension-xwayland-indicator**](https://codeberg.org/swsnr/gnome-shell-extension-xwayland-indicator/) the inspiration behind the XWayland Indicator module.
+
+See [CREDITS.md](CREDITS.md) for the full list of attributed work.

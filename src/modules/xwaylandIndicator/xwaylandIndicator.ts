@@ -115,6 +115,7 @@ export class XwaylandIndicator extends Module {
 export const definition: ModuleDefinition = {
   key: 'xwayland-indicator',
   settingsKey: 'module-xwayland-indicator',
+  section: 'behavior',
   title: _('XWayland Indicator'),
   subtitle: _('Shows an X11 badge on XWayland apps in the Alt+Tab switcher'),
   factory: (ctx) => new XwaylandIndicator(ctx),

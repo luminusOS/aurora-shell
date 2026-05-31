@@ -4,6 +4,7 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
+import { getSharingIndicator } from '~/modules/privacy/sharingIndicator.ts';
 
 const FADE_DURATION = 200;
 const EASE_MODE = Clutter.AnimationMode.EASE_OUT_QUAD;
@@ -23,7 +24,7 @@ export class PrivacyPanel extends Module {
   override enable(): void {
     this.disable();
 
-    const indicator = this._getSharingIndicator();
+    const indicator = getSharingIndicator();
 
     if (!indicator) {
       logger.warn('Screen sharing indicator not found', { prefix: LOG_PREFIX });
@@ -43,10 +44,10 @@ export class PrivacyPanel extends Module {
     );
 
     if (indicator.visible) {
-      if (this.context.shell.isStartingUp) {
+      if (Main.layoutManager._startingUp) {
         // Defer until startup animation completes — the panel reveal animation
         // re-eases boxes to opacity 255 and would override an immediate fade.
-        this._startupCompleteId = this.context.shell.onStartupComplete(() => {
+        this._startupCompleteId = Main.layoutManager.connect('startup-complete', () => {
           this._startupCompleteId = null;
           if (this._indicator) this._onSharingChanged();
         });
@@ -58,7 +59,7 @@ export class PrivacyPanel extends Module {
 
   override disable(): void {
     if (this._startupCompleteId !== null) {
-      this.context.shell.disconnect(this._startupCompleteId);
+      Main.layoutManager.disconnect(this._startupCompleteId);
       this._startupCompleteId = null;
     }
 
@@ -69,12 +70,6 @@ export class PrivacyPanel extends Module {
 
     this._restoreAll();
     this._isSharing = false;
-  }
-
-  private _getSharingIndicator(): any | null {
-    const statusArea = Main.panel.statusArea as any;
-    if (statusArea.screenSharing) return statusArea.screenSharing;
-    return statusArea.quickSettings?._remoteAccess ?? null;
   }
 
   private _onSharingChanged(): void {

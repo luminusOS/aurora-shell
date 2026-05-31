@@ -7,6 +7,7 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
+import { attachToQuickSettings } from '~/shared/quickSettings.ts';
 import { BluetoothDeviceItemPatcher } from '~/modules/bluetoothMenu/deviceItem.ts';
 
 const LOG_PREFIX = 'BluetoothMenu';
@@ -16,41 +17,25 @@ export class BluetoothMenu extends Module {
   private _patchers = new Map<any, BluetoothDeviceItemPatcher>();
   private _destroyIds = new Map<any, number>();
   private _actorAddedId = 0;
-  private _gridChildAddedId = 0;
+  private _detachQuickSettings: (() => void) | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
   }
 
   override enable(): void {
-    const toggle = this._findBluetoothToggle();
-    if (toggle) {
-      this._attach(toggle);
-      return;
-    }
-
-    const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
-    if (!grid) {
+    this._detachQuickSettings = attachToQuickSettings(
+      () => this._findBluetoothToggle(),
+      (toggle) => this._attach(toggle),
+    );
+    if (!this._detachQuickSettings) {
       logger.error('Could not find quick settings grid', { prefix: LOG_PREFIX });
-      return;
     }
-
-    this._gridChildAddedId = grid.connect('child-added', () => {
-      if (this._toggle) return;
-      const t = this._findBluetoothToggle();
-      if (t) {
-        grid.disconnect(this._gridChildAddedId);
-        this._gridChildAddedId = 0;
-        this._attach(t);
-      }
-    });
   }
 
   override disable(): void {
-    if (this._gridChildAddedId) {
-      Main.panel.statusArea.quickSettings?.menu?._grid?.disconnect(this._gridChildAddedId);
-      this._gridChildAddedId = 0;
-    }
+    this._detachQuickSettings?.();
+    this._detachQuickSettings = null;
 
     if (this._actorAddedId && this._toggle) {
       this._toggle._deviceSection?.actor?.disconnect(this._actorAddedId);
@@ -119,6 +104,7 @@ export class BluetoothMenu extends Module {
 export const definition: ModuleDefinition = {
   key: 'bluetooth-menu',
   settingsKey: 'module-bluetooth-menu',
+  section: 'dock-panel',
   title: _('Bluetooth Menu'),
   subtitle: _('Shows battery level and animated icons in the Bluetooth Quick Settings panel'),
   factory: (ctx) => new BluetoothMenu(ctx),

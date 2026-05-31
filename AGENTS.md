@@ -52,26 +52,25 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 ### Translation commands
 
-- **Regenerate POT template:** `just pot` — builds then scans compiled JS (`dist/`) and rewrites the `.pot` file with all `_()` strings. Run this whenever translatable strings are added or removed.
-- **Merge new strings into .po files:** `just update-po` — runs `msgmerge` on every `po/*.po` file against the current `.pot`. Run after `just pot`.
+- **Regenerate POT template:** `just pot` — builds then scans compiled JS (`dist/`) and writes the `.pot` into `dist/` (a build artifact, **not** committed — avoids `POT-Creation-Date` churn). Run this whenever translatable strings are added or removed.
+- **Merge new strings into .po files:** `just update-po` — depends on `pot`; regenerates the template into `dist/` then runs `msgmerge` on every `data/po/*.po` against it. The hand-translated `data/po/*.po` files are the committed source of truth.
 - **Compile .mo binaries:** `just compile-mo` — compiles each `po/*.po` into `dist/locale/<lang>/LC_MESSAGES/*.mo`. Called automatically by `just build`.
 
 ## Repository Structure
 
 - `src/` — TypeScript source root
   - `extension.ts` — entry point; iterates the registry and instantiates modules via each definition's `factory`
-  - `module.ts` — base `Module` class (accepts `ExtensionContext`)
-  - `moduleDefinition.ts` — shared `ModuleOption` / `ModuleMetadata` / `ModuleDefinition` types
+  - `module.ts` — base `Module` class plus the shared `ModuleOption` / `ModuleMetadata` / `ModuleDefinition` types
   - `registry.ts` — aggregator; imports each module's `definition` export and returns them in UI order (used by `extension.ts`)
-  - `prefsMetadata.ts` — pure metadata mirror for the prefs UI; cannot import modules because prefs runs in `gnome-extensions-app` (no `resource:///org/gnome/shell/*` available)
-  - `prefs.ts` — generic extension preferences UI driven by `prefsMetadata.ts`
+  - `prefsMetadata.ts` — pure metadata mirror for the prefs UI; cannot import modules because prefs runs in `gnome-extensions-app` (no `resource:///org/gnome/shell/*` available). Also exports `getSections()` (the ordered list of prefs sections)
+  - `prefs.ts` — generic extension preferences UI driven by `prefsMetadata.ts`; renders one `Adw.PreferencesGroup` per section
   - `core/` — Clean Architecture core
     - `context.ts` — `ExtensionContext` interface and implementation
     - `logger.ts` — Abstracted logging
     - `settings.ts` — `SettingsManager` abstraction for GSettings
-    - `adapters/` — Infrastructure adapters (e.g., `ShellEnvironment`)
   - `modules/` — one **folder** per feature module, named after the module (e.g., `dock/dock.ts`); the main entry file shares the folder name
-  - `shared/` — shared utilities used across modules
+  - `dev/` — developer-only tooling (e.g., `devTool.ts`), gated behind the `AURORA_DEVTOOLS=1` env var. **Not** a feature module: it is not in the registry, prefs, or gschema, and is instantiated directly by `extension.ts`
+  - `shared/` — shared utilities used across modules (e.g., `quickSettings.ts`)
   - `styles/` — SCSS stylesheets (compiled to light + dark CSS)
   - `types/` — TypeScript type declarations (`@girs`, GJS, etc.)
 - `data/` — resources files
@@ -79,8 +78,8 @@ Do not leave a task incomplete if either command reports errors or failures.
   - `icons/` — SVG icons used in the project
   - `po/` — translation files
 - `tests/` — automated tests
-  - `unit/` — vitest unit tests (metadata, registry, schema)
-  - `shell/` — GNOME Shell integration test scripts (run via `gnome-shell-test-tool`)
+  - `unit/` — Node test-runner unit tests (`node --test` via `tsx`), auto-discovered by the `tests/unit/*.test.ts` glob — just drop a new `*.test.ts` file in here, no `package.json` edit needed. For pure logic that does not import shell internals.
+  - `shell/` — GNOME Shell integration test scripts (run via `gnome-shell-test-tool`) — exercise modules against a real headless GNOME Shell
 - `.github/workflows/ci.yml` — CI pipeline (lint + type-check → unit tests + build → integration tests)
 - `scripts/` — helper shell scripts (`create-toolbox.sh`, `run-gnome-shell.sh`, `run-vagrant-gnome-shell.sh`)
 - `esbuild.ts` — esbuild bundler configuration
@@ -91,9 +90,9 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 ## Architecture
 
-1. **Dependency Injection:** Modules **must not** access global variables (like `Main` or `Gio.Settings`) directly. Instead, they receive an `ExtensionContext` in their constructor.
-2. **Abstractions:** Use `this.context.settings` for configuration and `this.context.shell` for GNOME Shell environment interactions.
-3. **Layering:** Keep UI logic (Clutter/St) separated from pure domain logic. Complex algorithms should be extracted into pure TypeScript files (e.g., `src/modules/dock/monitorTopology.ts`).
+1. **Settings via context:** Modules receive an `ExtensionContext` in their constructor and read configuration through `this.context.settings` (the `SettingsManager` abstraction) rather than touching `Gio.Settings` directly.
+2. **`Main` is fair game:** Importing `Main` (`resource:///org/gnome/shell/ui/main.js`) directly is the idiomatic GNOME-extension way and is expected — there is no shell adapter. Confidence in shell interactions comes from the `tests/shell/` integration suite running a real headless GNOME Shell, not from mocking `Main`.
+3. **Layering & testability:** Keep UI logic (Clutter/St) separated from pure domain logic. Extract complex algorithms into pure TypeScript files with no shell imports (e.g., `src/modules/dock/monitorTopology.ts`, `src/modules/trayIcons/trayState.ts`) so they can be unit-tested with `node --test`. UI/shell glue is covered by integration tests instead.
 4. **Metadata-Driven UI:** The preferences window is generated dynamically from `src/prefsMetadata.ts` (a hand-maintained mirror of each module's metadata, kept in parity by `tests/unit/registry.test.ts`). If a module needs options, define them in the `options` array of its `ModuleDefinition` and mirror them into `prefsMetadata.ts`.
 5. **Self-Registering Modules:** Each module file exports a `definition: ModuleDefinition` co-located with its class. The factory that constructs the module lives on the definition itself — `src/registry.ts` is a pure aggregator and never references module classes directly.
 
@@ -105,7 +104,7 @@ Do not leave a task incomplete if either command reports errors or failures.
 import { gettext as _ } from 'gettext';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 import { Module } from '~/module.ts';
 
 export class MyModule extends Module {
@@ -119,6 +118,7 @@ export class MyModule extends Module {
 export const definition: ModuleDefinition = {
   key: 'my-module',
   settingsKey: 'module-my-module',
+  section: 'behavior', // must match an id from getSections() in prefsMetadata.ts
   title: _('My Module'),
   subtitle: _('Description'),
   options: [
@@ -136,12 +136,13 @@ import { definition as myModule } from '~/modules/myModule/myModule.ts';
 return [/* …, */ myModule];
 ```
 
-3. Mirror the metadata into `src/prefsMetadata.ts` (prefs cannot import modules — see the file header):
+3. Mirror the metadata into `src/prefsMetadata.ts` (prefs cannot import modules — see the file header). Include the same `section`:
 
 ```typescript
 {
   key: 'my-module',
   settingsKey: 'module-my-module',
+  section: 'behavior',
   title: _('My Module'),
   subtitle: _('Description'),
   options: [
@@ -160,7 +161,26 @@ return [/* …, */ myModule];
 </key>
 ```
 
-`tests/unit/registry.test.ts` enforces that step 2, step 3, and step 4 stay in parity — a half-finished addition will fail CI.
+`tests/unit/registry.test.ts` enforces that step 2, step 3, and step 4 stay in parity — including that every module's `section` is a known section id and matches between the registry and `prefsMetadata.ts`. A half-finished addition will fail CI.
+
+### Prefs sections
+
+The prefs window groups modules by `section`. The ordered section list lives in `getSections()` in `src/prefsMetadata.ts`:
+
+```typescript
+export function getSections(): ModuleSection[] {
+  return [
+    { id: 'dock-panel', title: _('Dock & Panel') },
+    // …
+  ];
+}
+```
+
+To add a new section, append a `{ id, title }` entry here (the array order is the on-screen group order), then reference its `id` from a module's `section`. A module whose `section` matches no known id falls into a defensive "Other" group at the bottom.
+
+### Clipboard shortcuts
+
+Per the GNOME review guidelines, clipboard-related keyboard shortcuts must not ship with a default. The Clipboard History `clipboard-history-shortcut` key defaults to `[]`; users assign it via the `type: 'shortcut'` row in prefs. Keep any future clipboard shortcuts unset by default.
 
 ## Coding Standards
 
@@ -169,7 +189,7 @@ return [/* …, */ myModule];
 - Private members: `_prefixed`
 - Constants: `UPPER_CASE`
 - Keep `enable()` and `disable()` symmetric.
-- **Strictly follow Dependency Injection.** No direct imports of `gi://Shell`, `Main`, etc., inside module domain logic.
+- Read settings through `this.context.settings`. Importing `Main`/`Shell`/`St` directly is fine — keep heavy algorithms in shell-free pure files so they stay unit-testable.
 
 ## Logging Style
 

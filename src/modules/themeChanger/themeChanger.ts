@@ -27,7 +27,7 @@ export class ThemeChanger extends Module {
   }
 
   public enable(): void {
-    logger.debug('Initializing theme monitor22222', { prefix: LOG_PREFIX });
+    logger.debug('Initializing theme monitor', { prefix: LOG_PREFIX });
 
     try {
       this._settings = this.context.settings.getSchema('org.gnome.desktop.interface');
@@ -73,6 +73,7 @@ export class ThemeChanger extends Module {
 export const definition: ModuleDefinition = {
   key: 'theme-changer',
   settingsKey: 'module-theme-changer',
+  section: 'appearance',
   title: _('Theme Changer'),
   subtitle: _('Monitors and synchronizes GNOME color scheme'),
   factory: (ctx) => new ThemeChanger(ctx),

@@ -1,11 +1,14 @@
 import '@girs/gjs';
 
 import Adw from '@girs/adw-1';
+import Gdk from '@girs/gdk-4.0';
 import Gio from '@girs/gio-2.0';
 import Gtk from '@girs/gtk-4.0';
 
 import { ExtensionPreferences, gettext as _ } from '@girs/gnome-shell/extensions/prefs';
-import { getModuleMetadata, type ModuleMetadata } from '~/prefsMetadata.ts';
+import { getModuleMetadata, getSections, type ModuleMetadata } from '~/prefsMetadata.ts';
+
+const OTHER_SECTION_ID = '__other__';
 
 export default class AuroraShellPreferences extends ExtensionPreferences {
   override fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {
@@ -16,16 +19,23 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
       icon_name: 'dialog-information-symbolic',
     });
 
-    const group = new Adw.PreferencesGroup({
-      title: _('Modules'),
-      description: _('Enable or disable extension modules'),
-    });
+    const modules = getModuleMetadata();
+    const sections = [...getSections(), { id: OTHER_SECTION_ID, title: _('Other') }];
+    const knownIds = new Set(getSections().map((s) => s.id));
 
-    for (const def of getModuleMetadata()) {
-      group.add(this._buildModuleRow(def, settings));
+    for (const section of sections) {
+      const members = modules.filter((def) =>
+        section.id === OTHER_SECTION_ID ? !knownIds.has(def.section) : def.section === section.id,
+      );
+      if (members.length === 0) continue;
+
+      const group = new Adw.PreferencesGroup({ title: section.title });
+      for (const def of members) {
+        group.add(this._buildModuleRow(def, settings));
+      }
+      page.add(group);
     }
 
-    page.add(group);
     window.add(page);
 
     return Promise.resolve();
@@ -132,9 +142,91 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
 
         row.add_suffix(timeBox);
         expander.add_row(row);
+      } else if (option.type === 'shortcut') {
+        expander.add_row(
+          this._buildShortcutRow(option.key!, option.title, option.subtitle, settings),
+        );
       }
     }
 
     return expander;
+  }
+
+  private _buildShortcutRow(
+    key: string,
+    title: string,
+    subtitle: string,
+    settings: Gio.Settings,
+  ): Adw.ActionRow {
+    const row = new Adw.ActionRow({ title, subtitle });
+
+    const label = new Gtk.ShortcutLabel({
+      valign: Gtk.Align.CENTER,
+      disabled_text: _('Disabled'),
+    });
+    const button = new Gtk.Button({
+      child: label,
+      valign: Gtk.Align.CENTER,
+      has_frame: true,
+    });
+
+    const syncLabel = () => {
+      label.accelerator = settings.get_strv(key)[0] ?? '';
+    };
+    syncLabel();
+
+    const controller = new Gtk.EventControllerKey();
+    button.add_controller(controller);
+
+    let capturing = false;
+    const stopCapturing = () => {
+      capturing = false;
+      button.remove_css_class('accent');
+      syncLabel();
+    };
+
+    button.connect('clicked', () => {
+      if (capturing) {
+        stopCapturing();
+        return;
+      }
+      capturing = true;
+      button.add_css_class('accent');
+      label.accelerator = '';
+      label.disabled_text = _('Press a shortcut…');
+    });
+
+    controller.connect('key-pressed', (_c, keyval, _keycode, state) => {
+      if (!capturing) return false;
+
+      // Escape cancels; Backspace/Delete clears the binding.
+      if (keyval === Gdk.KEY_Escape) {
+        label.disabled_text = _('Disabled');
+        stopCapturing();
+        return true;
+      }
+      if (keyval === Gdk.KEY_BackSpace || keyval === Gdk.KEY_Delete) {
+        settings.set_strv(key, []);
+        label.disabled_text = _('Disabled');
+        stopCapturing();
+        return true;
+      }
+
+      const mask = state & Gtk.accelerator_get_default_mod_mask();
+      if (mask === 0) return true; // require a modifier
+      if (!Gtk.accelerator_valid(keyval, mask)) return true;
+
+      const accel = Gtk.accelerator_name(keyval, mask);
+      settings.set_strv(key, [accel]);
+      label.disabled_text = _('Disabled');
+      stopCapturing();
+      return true;
+    });
+
+    settings.connect(`changed::${key}`, syncLabel);
+
+    row.add_suffix(button);
+    row.activatable_widget = button;
+    return row;
   }
 }

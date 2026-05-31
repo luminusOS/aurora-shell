@@ -6,7 +6,7 @@ export type ModuleOption = {
   minuteKey?: string;
   title: string;
   subtitle: string;
-  type: 'switch' | 'entry' | 'spin' | 'time';
+  type: 'switch' | 'entry' | 'spin' | 'time' | 'shortcut';
   min?: number;
   max?: number;
 };
@@ -14,6 +14,7 @@ export type ModuleOption = {
 export type ModuleMetadata = {
   key: string;
   settingsKey: string;
+  section: string;
   title: string;
   subtitle: string;
   options?: ModuleOption[];
