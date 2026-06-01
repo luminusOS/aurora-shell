@@ -30,6 +30,7 @@ package: build
         $(find . -maxdepth 1 -name '*.css' -printf '--extra-source=%f ') \
         --extra-source=core \
         --extra-source=modules \
+        --extra-source=dev \
         --extra-source=shared \
         --extra-source=icons \
         --extra-source=locale \
@@ -78,25 +79,28 @@ pot: build
     #!/usr/bin/env bash
     set -e
     JS_FILES=$(find dist -name '*.js' | sort)
+    POT="dist/aurora-shell@luminusos.github.io.pot"
     xgettext \
         --from-code=UTF-8 \
         --language=JavaScript \
         --keyword=_ \
         --keyword=ngettext:1,2 \
         --keyword=pgettext:1c,2 \
-        --output=po/aurora-shell@luminusos.github.io.pot \
+        --package-name=aurora-shell \
+        --msgid-bugs-address=https://github.com/luminusOS/aurora-shell/issues \
+        --output="$POT" \
         $JS_FILES
-    @echo "POT file regenerated: po/aurora-shell@luminusos.github.io.pot"
+    echo "POT file regenerated: $POT"
 
-update-po:
+update-po: pot
     #!/usr/bin/env bash
     set -e
-    POT="po/aurora-shell@luminusos.github.io.pot"
+    POT="dist/aurora-shell@luminusos.github.io.pot"
     for po in data/po/*.po; do
         echo "Merging $po..."
         msgmerge --update --backup=none "$po" "$POT"
     done
-    @echo "All .po files updated."
+    echo "All .po files updated."
 
 compile-mo:
     #!/usr/bin/env bash

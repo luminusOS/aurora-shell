@@ -5,6 +5,26 @@ import type { ModuleMetadata } from '~/module.ts';
 export type { ModuleOption, ModuleMetadata } from '~/module.ts';
 
 /**
+ * Preferences sections, in display order.
+ *
+ * Each module declares a `section` id matching one of these; `prefs.ts` renders
+ * one `Adw.PreferencesGroup` per section and places modules under it. To add a
+ * new section, append an entry here and reference its `id` from a module's
+ * `definition` (and this file's mirror). `tests/unit/registry.test.ts` enforces
+ * that every module's `section` is a known id.
+ */
+export type ModuleSection = { id: string; title: string };
+
+export function getSections(): ModuleSection[] {
+  return [
+    { id: 'dock-panel', title: _('Dock &amp; Panel') },
+    { id: 'appearance', title: _('Appearance') },
+    { id: 'behavior', title: _('Behavior') },
+    { id: 'privacy-clipboard', title: _('Privacy &amp; Clipboard') },
+  ];
+}
+
+/**
  * Metadata mirror for the preferences UI.
  *
  * Prefs runs in `gnome-extensions-app` (GTK/Adw) — NOT inside gnome-shell — so
@@ -21,24 +41,28 @@ export function getModuleMetadata(): ModuleMetadata[] {
     {
       key: 'no-overview',
       settingsKey: 'module-no-overview',
+      section: 'behavior',
       title: _('No Overview'),
       subtitle: _('Disables the overview at startup'),
     },
     {
       key: 'pip-on-top',
       settingsKey: 'module-pip-on-top',
+      section: 'behavior',
       title: _('Pip On Top'),
       subtitle: _('Keeps Picture-in-Picture windows always on top'),
     },
     {
       key: 'theme-changer',
       settingsKey: 'module-theme-changer',
+      section: 'appearance',
       title: _('Theme Changer'),
       subtitle: _('Monitors and synchronizes GNOME color scheme'),
     },
     {
       key: 'dock',
       settingsKey: 'module-dock',
+      section: 'dock-panel',
       title: _('Dock'),
       subtitle: _('Custom dock with auto-hide and intellihide features'),
       options: [
@@ -53,18 +77,21 @@ export function getModuleMetadata(): ModuleMetadata[] {
     {
       key: 'volume-mixer',
       settingsKey: 'module-volume-mixer',
+      section: 'dock-panel',
       title: _('Volume Mixer'),
       subtitle: _('Per-application volume control in Quick Settings'),
     },
     {
       key: 'xwayland-indicator',
       settingsKey: 'module-xwayland-indicator',
+      section: 'behavior',
       title: _('XWayland Indicator'),
       subtitle: _('Shows an X11 badge on XWayland apps in the Alt+Tab switcher'),
     },
     {
       key: 'privacy',
       settingsKey: 'module-privacy',
+      section: 'privacy-clipboard',
       title: _('Privacy'),
       subtitle: _('Screen sharing privacy features'),
       options: [
@@ -87,18 +114,21 @@ export function getModuleMetadata(): ModuleMetadata[] {
     {
       key: 'icon-weave',
       settingsKey: 'module-icon-weave',
+      section: 'appearance',
       title: _('Icon Weave'),
       subtitle: _('Automatically fixes missing app icons using an in-memory approach'),
     },
     {
       key: 'app-search-tooltip',
       settingsKey: 'module-app-search-tooltip',
+      section: 'appearance',
       title: _('App Search Tooltip'),
       subtitle: _('Shows app name on hover in the overview search results'),
     },
     {
       key: 'auto-theme-switcher',
       settingsKey: 'module-auto-theme-switcher',
+      section: 'appearance',
       title: _('Auto Theme Switcher'),
       subtitle: _('Automatically switches between light and dark theme based on time'),
       options: [
@@ -121,12 +151,14 @@ export function getModuleMetadata(): ModuleMetadata[] {
     {
       key: 'bluetooth-menu',
       settingsKey: 'module-bluetooth-menu',
+      section: 'dock-panel',
       title: _('Bluetooth Menu'),
       subtitle: _('Shows battery level and animated icons in the Bluetooth Quick Settings panel'),
     },
     {
       key: 'tray-icons',
       settingsKey: 'module-tray-icons',
+      section: 'dock-panel',
       title: _('Tray Icons'),
       subtitle: _('System tray with SNI and background app icons'),
       options: [
@@ -177,9 +209,16 @@ export function getModuleMetadata(): ModuleMetadata[] {
     {
       key: 'clipboard-history',
       settingsKey: 'module-clipboard-history',
+      section: 'privacy-clipboard',
       title: _('Clipboard History'),
       subtitle: _('Searchable clipboard history with pinning and keyboard navigation'),
       options: [
+        {
+          key: 'clipboard-history-shortcut',
+          title: _('Open Shortcut'),
+          subtitle: _('Keyboard shortcut to open the clipboard history panel'),
+          type: 'shortcut',
+        },
         {
           key: 'clipboard-history-max-items',
           title: _('Max History Items'),

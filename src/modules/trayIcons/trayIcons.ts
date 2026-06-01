@@ -1,10 +1,10 @@
-// src/modules/trayIcons/trayIcons.ts
 import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
+import Shell from '@girs/shell-18';
 import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 
 // @ts-ignore
@@ -25,13 +25,18 @@ import type { TrayItem, TrayItemStatus } from './trayState.ts';
 const PANEL_INDICATOR_ID = 'aurora-tray-icons';
 const LOG_PREFIX = 'AuroraTray';
 
+type BgTrayEntry = {
+  itemId: string;
+  app: Shell.App;
+};
+
 export class TrayIcons extends Module {
   private _container: TrayContainer | null = null;
   private _sniWatcher: SniWatcher | null = null;
   private _sniHost: SniHost | null = null;
   private _bgSource: BackgroundAppsSource | null = null;
   private _settingsChangedIds: number[] = [];
-  private _bgItemAppIds = new Map<string, string>(); // appId → item.id
+  private _bgItemAppIds = new Map<string, BgTrayEntry>(); // appId -> tray entry
   private _dedupBgApps = true;
   private _bgAppsToggle: any = null;
   private _bgAppsToggleVisibleId = 0;
@@ -100,7 +105,7 @@ export class TrayIcons extends Module {
 
     // Background Apps layer
     this._bgSource = new BackgroundAppsSource({
-      onItemAdded: (item) => this._onBgItemAdded(item).catch(() => {}),
+      onItemAdded: (item, appId, app) => this._onBgItemAdded(item, appId, app).catch(() => {}),
       onItemRemoved: (id) => this._onItemRemoved(id),
     });
     this._bgSource
@@ -121,12 +126,12 @@ export class TrayIcons extends Module {
       settings.connect('changed::tray-icons-dedup-bg-apps', () => {
         this._dedupBgApps = settings.get_boolean('tray-icons-dedup-bg-apps');
         if (this._dedupBgApps) {
-          for (const [appId, itemId] of [...this._bgItemAppIds]) {
-            this._sniCoversApp(appId)
+          for (const [appId, entry] of [...this._bgItemAppIds]) {
+            this._sniCoversApp(appId, entry.app)
               .then((covered) => {
                 if (covered) {
                   this._bgItemAppIds.delete(appId);
-                  this._container?.removeItem(itemId);
+                  this._container?.removeItem(entry.itemId);
                 }
               })
               .catch(() => {});
@@ -155,22 +160,21 @@ export class TrayIcons extends Module {
       prefix: LOG_PREFIX,
     });
     this._container?.addItem(item);
-    if (this._dedupBgApps && item.menuBusName) {
-      this._removeBgItemCoveredBy(item.menuBusName).catch((e) =>
-        logger.warn(`_removeBgItemCoveredBy failed: ${e}`, { prefix: LOG_PREFIX }),
+    if (this._dedupBgApps) {
+      this._removeBgItemsCoveredBySni().catch((e) =>
+        logger.warn(`_removeBgItemsCoveredBySni failed: ${e}`, { prefix: LOG_PREFIX }),
       );
     }
   }
 
-  private async _onBgItemAdded(item: TrayItem): Promise<void> {
-    const appId = item.id.replace('bg:', '');
+  private async _onBgItemAdded(item: TrayItem, appId: string, app: Shell.App): Promise<void> {
     logger.log(`BG app detected: ${appId}`, { prefix: LOG_PREFIX });
-    if (this._dedupBgApps && (await this._sniCoversApp(appId))) {
+    if (this._dedupBgApps && (await this._sniCoversApp(appId, app))) {
       logger.log(`BG app ${appId} already covered by SNI, skipping`, { prefix: LOG_PREFIX });
       return;
     }
     if (!this._container) return;
-    this._bgItemAppIds.set(appId, item.id);
+    this._bgItemAppIds.set(appId, { itemId: item.id, app });
     this._container.addItem(item);
     logger.log(`BG app ${appId} added to tray`, { prefix: LOG_PREFIX });
   }
@@ -194,49 +198,165 @@ export class TrayIcons extends Module {
     }
   }
 
-  private async _sniCoversApp(appId: string): Promise<boolean> {
+  private async _getConnectionPid(busName: string): Promise<number | null> {
+    try {
+      const res = await (Gio.DBus.session as any).call(
+        'org.freedesktop.DBus',
+        '/org/freedesktop/DBus',
+        'org.freedesktop.DBus',
+        'GetConnectionUnixProcessID',
+        GLib.Variant.new('(s)', [busName]),
+        new GLib.VariantType('(u)'),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        null,
+      );
+      return res.get_child_value(0).unpack() as number;
+    } catch {
+      return null;
+    }
+  }
+
+  private async _sniCoversApp(appId: string, app: Shell.App): Promise<boolean> {
     const owner = await this._getUniqueName(appId);
     if (owner) {
       const covered = this._sniHost?.hasItemForBus(owner) ?? false;
       logger.log(`SNI covers ${appId}? owner=${owner} covered=${covered}`, {
         prefix: LOG_PREFIX,
       });
-      return covered;
+      if (covered) return true;
     }
+
+    const appIdCandidates = this._appIdCandidates(appId, app);
+    for (const candidate of appIdCandidates) {
+      if (candidate === appId) continue;
+      const candidateOwner = await this._getUniqueName(candidate);
+      if (!candidateOwner) continue;
+      const covered = this._sniHost?.hasItemForBus(candidateOwner) ?? false;
+      logger.log(
+        `SNI covers ${appId}? candidate=${candidate} owner=${candidateOwner} covered=${covered}`,
+        {
+          prefix: LOG_PREFIX,
+        },
+      );
+      if (covered) return true;
+    }
+
+    const coveredByPid = await this._sniCoversAppPid(appId, app);
+    if (coveredByPid) return true;
+
     // Fallback: app doesn't own its expected D-Bus name (common for Flatpak Qt/SNI apps).
-    // Match by the SNI item's Id property instead.
-    const coveredById = this._sniHost?.hasSniForAppId(appId) ?? false;
-    logger.log(`SNI covers ${appId}? owner=none, Id-match=${coveredById}`, {
+    // Match by SNI metadata such as DesktopEntry or Id instead.
+    const coveredByMetadata =
+      [...appIdCandidates].some((candidate) => this._sniHost?.hasSniForAppId(candidate)) ?? false;
+    logger.log(`SNI covers ${appId}? owner=none, metadata-match=${coveredByMetadata}`, {
       prefix: LOG_PREFIX,
     });
-    return coveredById;
+    return coveredByMetadata;
   }
 
-  private async _removeBgItemCoveredBy(sniBusName: string): Promise<void> {
-    // Resolve to unique name so comparison works regardless of whether
-    // the SNI app registered with a well-known or unique bus name.
-    const sniUnique = sniBusName.startsWith(':')
-      ? sniBusName
-      : await this._getUniqueName(sniBusName);
-
-    if (!sniUnique) {
-      logger.log(`Cannot resolve SNI bus ${sniBusName}, skip bg dedup`, { prefix: LOG_PREFIX });
-      return;
+  private async _sniCoversAppPid(appId: string, app: Shell.App): Promise<boolean> {
+    const appIdCandidates = this._appIdCandidates(appId, app);
+    const appPids = app.get_pids?.() ?? [];
+    if (appPids.length === 0) {
+      logger.log(`SNI covers ${appId}? pid-match=false app-pids=[]`, { prefix: LOG_PREFIX });
     }
 
-    logger.log(
-      `Dedup: SNI ${sniBusName} (unique=${sniUnique}), bg items: [${[...this._bgItemAppIds.keys()].join(', ')}]`,
-      { prefix: LOG_PREFIX },
-    );
+    const appPidSet = new Set(appPids);
+    for (const busName of this._sniHost?.getBusNames() ?? []) {
+      const sniPid = await this._getConnectionPid(busName);
+      if (!sniPid) continue;
 
-    for (const [appId, itemId] of this._bgItemAppIds) {
-      const owner = await this._getUniqueName(appId);
-      logger.log(`Dedup: bg ${appId} owner=${owner ?? 'none'}`, { prefix: LOG_PREFIX });
-      if (owner === sniUnique) {
-        logger.log(`Removing bg:${appId} covered by SNI ${sniBusName}`, { prefix: LOG_PREFIX });
+      const directMatch = appPidSet.has(sniPid);
+      const ancestorMatch = directMatch ? true : this._pidHasAncestor(sniPid, appPidSet);
+      const trackerMatch = this._trackedPidMatchesApp(sniPid, appId, app);
+      const flatpakAppId = this._getFlatpakAppId(sniPid);
+      const flatpakMatch = flatpakAppId ? appIdCandidates.has(flatpakAppId.toLowerCase()) : false;
+      const covered = ancestorMatch || trackerMatch || flatpakMatch;
+      logger.log(
+        `SNI covers ${appId}? sni-bus=${busName} sni-pid=${sniPid} flatpak=${flatpakAppId ?? 'none'} app-pids=[${appPids.join(', ')}] pid-match=${covered}`,
+        { prefix: LOG_PREFIX },
+      );
+      if (covered) return true;
+    }
+
+    return false;
+  }
+
+  private _getFlatpakAppId(pid: number): string | null {
+    try {
+      const [ok, bytes] = GLib.file_get_contents(`/proc/${pid}/root/.flatpak-info`);
+      if (!ok) return null;
+      const text = new TextDecoder().decode(bytes);
+      const match = /^name=(.+)$/m.exec(text);
+      return match?.[1]?.trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private _trackedPidMatchesApp(pid: number, appId: string, app: Shell.App): boolean {
+    try {
+      const trackedApp = Shell.WindowTracker.get_default().get_app_from_pid(pid);
+      if (!trackedApp) return false;
+      const trackedId = trackedApp.get_id();
+      return this._appIdCandidates(appId, app).has(trackedId.toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+
+  private _pidHasAncestor(pid: number, candidateAncestors: Set<number>): boolean {
+    let currentPid = pid;
+    const seen = new Set<number>();
+
+    while (currentPid > 1 && !seen.has(currentPid)) {
+      seen.add(currentPid);
+      const parentPid = this._getParentPid(currentPid);
+      if (!parentPid) return false;
+      if (candidateAncestors.has(parentPid)) return true;
+      currentPid = parentPid;
+    }
+
+    return false;
+  }
+
+  private _getParentPid(pid: number): number | null {
+    try {
+      const [ok, bytes] = GLib.file_get_contents(`/proc/${pid}/status`);
+      if (!ok) return null;
+      const text = new TextDecoder().decode(bytes);
+      const match = /^PPid:\s+(\d+)$/m.exec(text);
+      if (!match) return null;
+      return Number.parseInt(match[1]!, 10);
+    } catch {
+      return null;
+    }
+  }
+
+  private _appIdCandidates(appId: string, app: Shell.App): Set<string> {
+    const candidates = new Set<string>();
+    for (const rawCandidate of [appId, app.get_id()]) {
+      let candidate = rawCandidate.toLowerCase();
+      while (candidate) {
+        candidates.add(candidate);
+        if (!candidate.endsWith('.desktop')) break;
+        candidate = candidate.slice(0, -'.desktop'.length);
+      }
+    }
+    return candidates;
+  }
+
+  private async _removeBgItemsCoveredBySni(): Promise<void> {
+    logger.log(`Dedup: bg items: [${[...this._bgItemAppIds.keys()].join(', ')}]`, {
+      prefix: LOG_PREFIX,
+    });
+
+    for (const [appId, entry] of [...this._bgItemAppIds]) {
+      if (await this._sniCoversApp(appId, entry.app)) {
+        logger.log(`Removing bg:${appId} covered by SNI`, { prefix: LOG_PREFIX });
         this._bgItemAppIds.delete(appId);
-        this._container?.removeItem(itemId);
-        return;
+        this._container?.removeItem(entry.itemId);
       }
     }
   }
@@ -315,6 +435,7 @@ export class TrayIcons extends Module {
 export const definition: ModuleDefinition = {
   key: 'tray-icons',
   settingsKey: 'module-tray-icons',
+  section: 'dock-panel',
   title: _('Tray Icons'),
   subtitle: _('System tray with SNI and background app icons'),
   options: [

@@ -611,6 +611,7 @@ export class IconWeave extends Module {
 export const definition: ModuleDefinition = {
   key: 'icon-weave',
   settingsKey: 'module-icon-weave',
+  section: 'appearance',
   title: _('Icon Weave'),
   subtitle: _('Automatically fixes missing app icons using an in-memory approach'),
   factory: (ctx) => new IconWeave(ctx),

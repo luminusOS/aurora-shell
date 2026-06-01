@@ -139,7 +139,7 @@
       <description>Searchable clipboard history with pinning and keyboard navigation</description>
     </key>
     <key name="clipboard-history-shortcut" type="as">
-      <default>['&lt;Super&gt;&lt;Shift&gt;v']</default>
+      <default>[]</default>
       <summary>Clipboard History shortcut</summary>
       <description>Keyboard shortcut to open the clipboard history panel</description>
     </key>

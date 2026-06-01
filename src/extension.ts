@@ -11,8 +11,7 @@ import { initIcons, cleanupIcons } from '~/shared/icons.ts';
 import { DefaultExtensionContext } from '~/core/context.ts';
 import { ConsoleLogger, setGlobalLogger, logger } from '~/core/logger.ts';
 import { GSettingsManager } from '~/core/settings.ts';
-import { GnomeShellAdapter } from '~/core/adapters/shell.ts';
-import { DevTool } from '~/modules/devTool/devTool.ts';
+import { DevTool } from '~/dev/devTool.ts';
 
 const LOG_PREFIX = 'AuroraShell';
 
@@ -31,14 +30,13 @@ export default class AuroraShellExtension extends Extension {
   override enable(): void {
     const consoleLogger = new ConsoleLogger('Aurora Shell', this.uuid);
     setGlobalLogger(consoleLogger);
-    consoleLogger.log('Enabling extension', { prefix: LOG_PREFIX });
+    consoleLogger.debug('Enabling extension', { prefix: LOG_PREFIX });
 
     this._settings = this.getSettings();
     this._context = new DefaultExtensionContext(
       this.uuid,
       this.path,
       new GSettingsManager(this._settings),
-      new GnomeShellAdapter(),
     );
 
     initIcons(this.path);
@@ -70,7 +68,10 @@ export default class AuroraShellExtension extends Extension {
     if (GLib.getenv('AURORA_DEVTOOLS') !== '1' || !this._context) return;
 
     try {
-      this._devTool = new DevTool(this._context);
+      this._devTool = new DevTool(this._context, {
+        getModule: (key) => this._modules.get(key) ?? null,
+        openPreferences: () => this.openPreferences(),
+      });
       this._devTool.enable();
     } catch (e) {
       logger.error(`Failed to enable DevTool: ${e}`, { prefix: LOG_PREFIX });
@@ -93,7 +94,7 @@ export default class AuroraShellExtension extends Extension {
   private _connectSettings(): void {
     if (!this._settings) return;
 
-    const args: any[] = [];
+    const args: unknown[] = [];
     for (const def of getModuleRegistry()) {
       args.push(`changed::${def.settingsKey}`, () => {
         this._toggleModule(def);
@@ -109,7 +110,7 @@ export default class AuroraShellExtension extends Extension {
     const existing = this._modules.get(def.key);
 
     if (enabled && !existing) {
-      logger.log(`Enabling module ${def.key}`, { prefix: LOG_PREFIX });
+      logger.debug(`Enabling module ${def.key}`, { prefix: LOG_PREFIX });
       try {
         const module = def.factory(this._context!);
         module.enable();
@@ -118,7 +119,7 @@ export default class AuroraShellExtension extends Extension {
         logger.error(`Failed to enable module ${def.key}: ${e}`, { prefix: LOG_PREFIX });
       }
     } else if (!enabled && existing) {
-      logger.log(`Disabling module ${def.key}`, { prefix: LOG_PREFIX });
+      logger.debug(`Disabling module ${def.key}`, { prefix: LOG_PREFIX });
       try {
         existing.disable();
         this._modules.delete(def.key);
@@ -129,7 +130,7 @@ export default class AuroraShellExtension extends Extension {
   }
 
   override disable(): void {
-    logger.log('Disabling extension', { prefix: LOG_PREFIX });
+    logger.debug('Disabling extension', { prefix: LOG_PREFIX });
 
     this._settings?.disconnectObject(this);
     this._disableDevTool();

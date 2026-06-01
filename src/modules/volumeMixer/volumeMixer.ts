@@ -13,6 +13,7 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
+import { attachToQuickSettings } from '~/shared/quickSettings.ts';
 import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
 import { loadIcon } from '~/shared/icons.ts';
 
@@ -43,7 +44,7 @@ export class VolumeMixer extends Module {
   private _outputSlider: QuickSlider | null = null;
   private _menuClosedId = 0;
   private _toggleClickedId = 0;
-  private _gridChildAddedId = 0;
+  private _detachQuickSettings: (() => void) | null = null;
   private _quickSettings: QuickSettings | null = null;
 
   constructor(context: ExtensionContext) {
@@ -53,34 +54,18 @@ export class VolumeMixer extends Module {
   override enable(): void {
     this._quickSettings = Main.panel.statusArea.quickSettings;
 
-    const outputSlider = this._findOutputSlider();
-    if (outputSlider) {
-      this._attachToSlider(outputSlider);
-      return;
-    }
-
-    const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
-    if (!grid) {
+    this._detachQuickSettings = attachToQuickSettings(
+      () => this._findOutputSlider(),
+      (slider) => this._attachToSlider(slider),
+    );
+    if (!this._detachQuickSettings) {
       logger.error('Could not find quick settings grid', { prefix: LOG_PREFIX });
-      return;
     }
-
-    this._gridChildAddedId = grid.connect('child-added', () => {
-      if (this._outputSlider) return;
-      const slider = this._findOutputSlider();
-      if (slider) {
-        grid.disconnect(this._gridChildAddedId);
-        this._gridChildAddedId = 0;
-        this._attachToSlider(slider);
-      }
-    });
   }
 
   override disable(): void {
-    if (this._gridChildAddedId) {
-      Main.panel.statusArea.quickSettings?.menu?._grid?.disconnect(this._gridChildAddedId);
-      this._gridChildAddedId = 0;
-    }
+    this._detachQuickSettings?.();
+    this._detachQuickSettings = null;
 
     if (this._menuClosedId && this._outputSlider) {
       this._outputSlider.menu.disconnect(this._menuClosedId);
@@ -117,11 +102,7 @@ export class VolumeMixer extends Module {
 
   private _findOutputSlider(): QuickSlider | null {
     const grid = this._quickSettings?.menu?._grid;
-
-    if (!grid) {
-      logger.error('Could not find quick settings grid', { prefix: LOG_PREFIX });
-      return null;
-    }
+    if (!grid) return null;
 
     for (const child of grid.get_children()) {
       if (child.constructor.name === 'OutputStreamSlider') {
@@ -194,6 +175,7 @@ export class VolumeMixer extends Module {
 export const definition: ModuleDefinition = {
   key: 'volume-mixer',
   settingsKey: 'module-volume-mixer',
+  section: 'dock-panel',
   title: _('Volume Mixer'),
   subtitle: _('Per-application volume control in Quick Settings'),
   factory: (ctx) => new VolumeMixer(ctx),

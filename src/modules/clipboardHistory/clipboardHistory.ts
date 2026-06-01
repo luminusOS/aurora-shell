@@ -54,9 +54,7 @@ export class ClipboardHistory extends Module {
       onTogglePin: (id) => this._onTogglePin(id),
     });
 
-    this._monitor = new ClipboardMonitor(pollMs, (text) => {
-      this._store?.addText(text);
-    });
+    this._monitor = new ClipboardMonitor(pollMs, (text) => this.addText(text));
 
     this._startupIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
       this._startupIdleId = 0;
@@ -70,7 +68,7 @@ export class ClipboardHistory extends Module {
         rawSettings,
         Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
         Shell.ActionMode.ALL,
-        () => this._togglePanel(),
+        () => this.togglePanel(),
       );
     } catch (e) {
       logger.error('Failed to register keybinding:', { prefix: LOG_PREFIX }, e as Error);
@@ -115,17 +113,39 @@ export class ClipboardHistory extends Module {
     this._settingsIds = [];
   }
 
-  private _togglePanel(): void {
-    if (this._panel?.isOpen) {
-      this._panel.close();
-    } else {
-      this._panel?.open();
-    }
+  openPanel(): boolean {
+    if (!this._panel) return false;
+    this._panel.open();
+    return true;
+  }
+
+  closePanel(): boolean {
+    if (!this._panel) return false;
+    this._panel.close();
+    return true;
+  }
+
+  togglePanel(): boolean {
+    return this.isPanelOpen ? this.closePanel() : this.openPanel();
+  }
+
+  addText(text: string): boolean {
+    const added = this._store?.addText(text) ?? false;
+    if (added) this._panel?.refresh();
+    return added;
+  }
+
+  get entryCount(): number {
+    return (this._store?.getPinned().length ?? 0) + (this._store?.getHistory().length ?? 0);
+  }
+
+  get isPanelOpen(): boolean {
+    return this._panel?.isOpen ?? false;
   }
 
   private _onActivate(entry: ClipboardEntry): void {
     St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, entry.text);
-    this._panel?.close();
+    this.closePanel();
     logger.debug(`Restored clipboard entry: ${entry.text.slice(0, 40)}`, { prefix: LOG_PREFIX });
   }
 
@@ -149,9 +169,16 @@ export class ClipboardHistory extends Module {
 export const definition: ModuleDefinition = {
   key: 'clipboard-history',
   settingsKey: 'module-clipboard-history',
+  section: 'privacy-clipboard',
   title: _('Clipboard History'),
   subtitle: _('Searchable clipboard history with pinning and keyboard navigation'),
   options: [
+    {
+      key: 'clipboard-history-shortcut',
+      title: _('Open Shortcut'),
+      subtitle: _('Keyboard shortcut to open the clipboard history panel'),
+      type: 'shortcut',
+    },
     {
       key: 'clipboard-history-max-items',
       title: _('Max History Items'),

@@ -1,4 +1,3 @@
-// src/modules/trayIcons/sniWatcher.ts
 import '@girs/gjs';
 
 import Gio from '@girs/gio-2.0';

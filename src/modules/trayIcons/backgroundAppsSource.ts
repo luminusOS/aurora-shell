@@ -1,4 +1,3 @@
-// src/modules/trayIcons/backgroundAppsSource.ts
 import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
@@ -27,7 +26,7 @@ const BackgroundMonitorProxy = Gio.DBusProxy.makeProxyWrapper(BACKGROUND_MONITOR
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
 
 type Callbacks = {
-  onItemAdded(item: TrayItem): void;
+  onItemAdded(item: TrayItem, appId: string, app: Shell.App): void;
   onItemRemoved(id: string): void;
 };
 
@@ -117,7 +116,7 @@ export class BackgroundAppsSource {
         logger.log(`BG app found in monitor: ${appId}`, { prefix: LOG_PREFIX });
         const item = this._makeItem(appId, app, message);
         this._knownIds.set(appId, item);
-        this._callbacks.onItemAdded(item);
+        this._callbacks.onItemAdded(item, appId, app);
       }
     }
   }
@@ -139,10 +138,35 @@ export class BackgroundAppsSource {
       },
       menuItems: [
         { label: _('Open'), action: () => app.activate() },
-        { label: _('Quit'), action: () => app.request_quit() },
+        {
+          label: _('Quit'),
+          action: () => {
+            this._quitBackgroundApp(appId, app).catch((e) =>
+              logger.warn(`Failed to quit background app ${appId}: ${e}`, { prefix: LOG_PREFIX }),
+            );
+          },
+        },
       ],
       destroy() {},
     };
+  }
+
+  private async _quitBackgroundApp(appId: string, app: Shell.App): Promise<void> {
+    try {
+      await app.activate_action('quit', null, 0, -1, null);
+      return;
+    } catch (e) {
+      logger.warn(`quit action failed for background app ${appId}: ${e}`, { prefix: LOG_PREFIX });
+    }
+
+    const flatpakAppId = app.get_id().replace(/\.desktop$/, '');
+    GLib.spawn_async(
+      null,
+      ['flatpak', 'kill', flatpakAppId],
+      null,
+      GLib.SpawnFlags.SEARCH_PATH,
+      null,
+    );
   }
 
   destroy(): void {

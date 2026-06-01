@@ -1,6 +1,5 @@
 import GObject from '@girs/gobject-2.0';
 import type { SettingsManager } from './settings.ts';
-import type { ShellEnvironment } from './adapters/shell.ts';
 
 /**
  * Global signal bus for Aurora Shell modules
@@ -14,7 +13,6 @@ export interface ExtensionContext {
   readonly uuid: string;
   readonly path: string;
   readonly settings: SettingsManager;
-  readonly shell: ShellEnvironment;
   readonly signals: AuroraSignals;
 }
 
@@ -25,7 +23,6 @@ export class DefaultExtensionContext implements ExtensionContext {
     public readonly uuid: string,
     public readonly path: string,
     public readonly settings: SettingsManager,
-    public readonly shell: ShellEnvironment,
   ) {
     this.signals = new AuroraSignals();
   }

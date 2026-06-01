@@ -3,7 +3,7 @@
 /**
  * Aurora Shell — DevTool integration test
  *
- * Verifies the AURORA_DEVTOOLS startup gate and the tray-icons dev tool.
+ * Verifies the AURORA_DEVTOOLS startup gate and DevTool actions.
  */
 
 import GLib from 'gi://GLib';
@@ -21,6 +21,7 @@ export function init() {
   Scripting.defineScriptEvent('extensionEnabled', 'Extension enabled');
   Scripting.defineScriptEvent('devToolAbsent', 'DevTool absent without AURORA_DEVTOOLS');
   Scripting.defineScriptEvent('devToolFound', 'DevTool found with AURORA_DEVTOOLS');
+  Scripting.defineScriptEvent('clipboardToolPassed', 'Clipboard History DevTool actions passed');
   Scripting.defineScriptEvent('trayIconsToolPassed', 'Tray Icons DevTool actions passed');
 }
 
@@ -57,6 +58,36 @@ export async function run() {
   const devTool = extension?.stateObj?._devTool;
   if (!devTool)
     throw new Error('DevTool instance not found on extension state object');
+
+  if (!devTool.generalTool)
+    throw new Error('General DevTool section not found');
+
+  settings.set_boolean('module-clipboard-history', true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(500);
+
+  const clipboardTool = devTool.clipboardHistoryTool;
+  if (!clipboardTool)
+    throw new Error('Clipboard History DevTool section not found');
+
+  const previousEntryCount = clipboardTool.entryCount;
+  const messages = clipboardTool.addRandomMessages(2);
+  if (messages.length !== 2)
+    throw new Error('Clipboard History DevTool did not add random messages');
+  if (clipboardTool.entryCount < previousEntryCount + 2)
+    throw new Error('Clipboard History DevTool entry count did not increase');
+  if (!clipboardTool.openPanel())
+    throw new Error('Clipboard History DevTool did not open the panel');
+  await Scripting.sleep(100);
+  if (!clipboardTool.isPanelOpen)
+    throw new Error('Clipboard History DevTool panel open state was not updated');
+
+  Main.uiGroup
+    .get_children()
+    .find((actor) => actor.has_style_class_name?.('aurora-clipboard-panel'))
+    ?.close?.();
+
+  Scripting.scriptEvent('clipboardToolPassed');
 
   const trayIconsTool = devTool.trayIconsTool;
   if (!trayIconsTool)
@@ -102,6 +133,7 @@ export async function run() {
 let _extensionEnabled = false;
 let _devToolAbsent = false;
 let _devToolFound = false;
+let _clipboardToolPassed = false;
 let _trayIconsToolPassed = false;
 
 /** @returns {void} */
@@ -114,6 +146,9 @@ export function script_devToolAbsent() { _devToolAbsent = true; }
 export function script_devToolFound() { _devToolFound = true; }
 
 /** @returns {void} */
+export function script_clipboardToolPassed() { _clipboardToolPassed = true; }
+
+/** @returns {void} */
 export function script_trayIconsToolPassed() { _trayIconsToolPassed = true; }
 
 /** @returns {void} */
@@ -124,6 +159,8 @@ export function finish() {
   if (GLib.getenv('AURORA_DEVTOOLS') === '1') {
     if (!_devToolFound)
       throw new Error('DevTool was not found with AURORA_DEVTOOLS=1');
+    if (!_clipboardToolPassed)
+      throw new Error('Clipboard History DevTool actions did not complete');
     if (!_trayIconsToolPassed)
       throw new Error('Tray Icons DevTool actions did not complete');
   } else if (!_devToolAbsent) {

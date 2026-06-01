@@ -1,4 +1,5 @@
 import '@girs/gjs';
+import { gettext as _ } from 'gettext';
 
 import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';

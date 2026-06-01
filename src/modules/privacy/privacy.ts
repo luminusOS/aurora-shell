@@ -69,6 +69,7 @@ export class PrivacyModule extends Module {
 export const definition: ModuleDefinition = {
   key: 'privacy',
   settingsKey: 'module-privacy',
+  section: 'privacy-clipboard',
   title: _('Privacy'),
   subtitle: _('Screen sharing privacy features'),
   options: [

@@ -1,5 +1,7 @@
 import { gettext as _ } from 'gettext';
 
+import * as Main from '@girs/gnome-shell/ui/main';
+
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
@@ -20,21 +22,21 @@ export class NoOverview extends Module {
   }
 
   override enable(): void {
-    if (!this.context.shell.isStartingUp) return;
+    if (!Main.layoutManager._startingUp) return;
 
-    this.context.shell.hasOverview = false;
+    Main.sessionMode.hasOverview = false;
 
-    this._startupId = this.context.shell.onStartupComplete(() => {
-      this.context.shell.hasOverview = true;
-      this.context.shell.hideOverview();
+    this._startupId = Main.layoutManager.connect('startup-complete', () => {
+      Main.sessionMode.hasOverview = true;
+      Main.overview.hide();
       this._startupId = null;
     });
   }
 
   override disable(): void {
-    this.context.shell.hasOverview = true;
+    Main.sessionMode.hasOverview = true;
     if (this._startupId !== null) {
-      this.context.shell.disconnect(this._startupId);
+      Main.layoutManager.disconnect(this._startupId);
       this._startupId = null;
     }
   }
@@ -43,6 +45,7 @@ export class NoOverview extends Module {
 export const definition: ModuleDefinition = {
   key: 'no-overview',
   settingsKey: 'module-no-overview',
+  section: 'behavior',
   title: _('No Overview'),
   subtitle: _('Disables the overview at startup'),
   factory: (ctx) => new NoOverview(ctx),

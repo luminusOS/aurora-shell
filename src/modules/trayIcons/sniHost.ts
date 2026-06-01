@@ -1,4 +1,3 @@
-// src/modules/trayIcons/sniHost.ts
 import '@girs/gjs';
 
 import Gio from '@girs/gio-2.0';
@@ -14,6 +13,7 @@ const SNI_ITEM_XML = `
 <node>
   <interface name="org.kde.StatusNotifierItem">
     <property name="Id" type="s" access="read"/>
+    <property name="DesktopEntry" type="s" access="read"/>
     <property name="Status" type="s" access="read"/>
     <property name="IconName" type="s" access="read"/>
     <property name="IconThemePath" type="s" access="read"/>
@@ -41,6 +41,16 @@ const SYMBOLIC_REQUIRED_RATIO = 0.92;
 const LIGHT_PANEL_ICON = [48, 48, 48] as const;
 const DARK_PANEL_ICON = [250, 250, 251] as const;
 const LOG_PREFIX = 'AuroraTray';
+const GENERIC_APP_ID_COMPONENTS = new Set([
+  'app',
+  'application',
+  'desktop',
+  'indicator',
+  'status',
+  'statusicon',
+  'status_icon',
+  'tray',
+]);
 
 // @ts-ignore — _promisify is a GJS extension not reflected in .d.ts
 Gio._promisify(Gio.DBusProxy.prototype, 'init_async');
@@ -62,7 +72,8 @@ type SniHostOptions = {
 type SniEntry = {
   proxy: Gio.DBusProxy;
   item: TrayItem;
-  sniId: string; // SNI Id property — used for app-id-based dedup fallback
+  sniId: string;
+  desktopEntry: string;
   signalId: number;
   nameWatchId: number;
   cancellable: Gio.Cancellable;
@@ -107,10 +118,12 @@ export class SniHost {
 
     const item = this._makeItem(id, proxy);
     const sniId = (proxy.get_cached_property('Id')?.unpack() as string | undefined) ?? '';
+    const desktopEntry =
+      (proxy.get_cached_property('DesktopEntry')?.unpack() as string | undefined) ?? '';
 
     const menuPath = proxy.get_cached_property('Menu')?.unpack() as string | undefined;
     logger.log(
-      `Registered item ${id}. Id=${sniId || '(none)'}. Menu path: ${menuPath || 'none'}. Status: ${item.status}`,
+      `Registered item ${id}. Id=${sniId || '(none)'}. DesktopEntry=${desktopEntry || '(none)'}. Menu path: ${menuPath || 'none'}. Status: ${item.status}`,
       { prefix: LOG_PREFIX },
     );
 
@@ -146,7 +159,7 @@ export class SniHost {
       }) as unknown as never,
     );
 
-    this._entries.set(id, { proxy, item, sniId, signalId, nameWatchId, cancellable });
+    this._entries.set(id, { proxy, item, sniId, desktopEntry, signalId, nameWatchId, cancellable });
     this._callbacks.onItemAdded(item);
   }
 
@@ -517,23 +530,65 @@ export class SniHost {
     return false;
   }
 
-  // Fallback dedup: match BG app ID against SNI item's Id property.
+  getBusNames(): string[] {
+    const names = new Set<string>();
+    for (const entry of this._entries.values()) {
+      if (entry.proxy.g_name) names.add(entry.proxy.g_name);
+      if (entry.proxy.g_name_owner) names.add(entry.proxy.g_name_owner);
+    }
+    return [...names];
+  }
+
+  // Fallback dedup: match BG app ID against SNI metadata.
   // Used when the app doesn't own a D-Bus well-known name matching its app ID
   // (common for Flatpak apps that register SNI under a unique bus name).
   hasSniForAppId(appId: string): boolean {
-    const lower = appId.toLowerCase();
-    // Last dot-component: "com.rtosta.zapzap" → "zapzap"
-    const lastComponent = lower.split('.').at(-1) ?? lower;
-    if (lastComponent.length < 4) return false; // too short to match reliably
+    const appIds = this._appIdCandidates(appId);
+    const appComponents = new Set(
+      [...appIds]
+        .map((candidate) => candidate.split('.').at(-1) ?? candidate)
+        .filter((component) => this._isSpecificAppComponent(component)),
+    );
+
     for (const entry of this._entries.values()) {
+      if (entry.desktopEntry && this._desktopEntryMatchesAppIds(entry.desktopEntry, appIds))
+        return true;
+
       if (!entry.sniId) continue;
       const sniLower = entry.sniId.toLowerCase();
-      // Exact match or BG app ID ends with last component of SNI Id (and vice versa)
-      if (lower === sniLower) return true;
+      if (appIds.has(sniLower)) return true;
+
       const sniLast = sniLower.split('.').at(-1) ?? sniLower;
-      if (sniLast.length >= 4 && lastComponent === sniLast) return true;
+      if (this._isSpecificAppComponent(sniLast) && appComponents.has(sniLast)) return true;
     }
     return false;
+  }
+
+  private _desktopEntryMatchesAppIds(desktopEntry: string, appIds: Set<string>): boolean {
+    const entry = desktopEntry.toLowerCase();
+    const entryWithoutSuffix = entry.replace(/\.desktop$/, '');
+
+    for (const appId of appIds) {
+      if (entry === appId || entry === `${appId}.desktop` || entryWithoutSuffix === appId)
+        return true;
+    }
+
+    return false;
+  }
+
+  private _appIdCandidates(appId: string): Set<string> {
+    const candidates = new Set<string>();
+    let candidate = appId.toLowerCase();
+    while (candidate) {
+      candidates.add(candidate);
+      if (!candidate.endsWith('.desktop')) break;
+      candidate = candidate.slice(0, -'.desktop'.length);
+    }
+    return candidates;
+  }
+
+  private _isSpecificAppComponent(component: string): boolean {
+    return component.length >= 4 && !GENERIC_APP_ID_COMPONENTS.has(component);
   }
 
   destroy(): void {

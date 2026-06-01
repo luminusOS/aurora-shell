@@ -133,7 +133,9 @@ Maintenance branches are created automatically when the first tag for a new majo
 
 ### New features
 
-New features land on `main` and are released alongside a new major GNOME Shell version. **Do not add new features to maintenance branches** — they are strictly for bug fixes.
+Each major Aurora Shell release targets a single GNOME Shell version. New features land on `main` and are released alongside a new major GNOME Shell version.
+
+Branches targeting already-released GNOME Shell versions are in maintenance mode. **Do not add new features to maintenance branches** — they are strictly for bug fixes and compatibility updates.
 
 ### Bug fixes
 
