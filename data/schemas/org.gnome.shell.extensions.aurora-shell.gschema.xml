@@ -95,6 +95,33 @@
       <summary>Enable Bluetooth Menu module</summary>
       <description>Enhances the Bluetooth Quick Settings panel with battery levels and animated icons</description>
     </key>
+    <key name="module-meeting-clock" type="b">
+      <default>true</default>
+      <summary>Enable Meeting Clock module</summary>
+      <description>Shows upcoming calendar events next to the clock</description>
+    </key>
+    <key name="meeting-clock-alerts-enabled" type="b">
+      <default>true</default>
+      <summary>Enable Meeting Clock alerts</summary>
+      <description>Show a notification when a meeting is about to start</description>
+    </key>
+    <key name="meeting-clock-alert-minutes-before" type="i">
+      <range min="0" max="60"/>
+      <default>1</default>
+      <summary>Meeting Clock alert lead time</summary>
+      <description>Minutes before a meeting starts to show the alert</description>
+    </key>
+    <key name="meeting-clock-snooze-minutes" type="i">
+      <range min="1" max="60"/>
+      <default>5</default>
+      <summary>Meeting Clock snooze duration</summary>
+      <description>Minutes to wait before showing a snoozed alert again</description>
+    </key>
+    <key name="meeting-clock-exclude-all-day-events" type="b">
+      <default>true</default>
+      <summary>Hide all-day events in Meeting Clock</summary>
+      <description>Exclude all-day events from the clock and alerts</description>
+    </key>
     <key name="module-tray-icons" type="b">
       <default>true</default>
       <summary>Enable Tray Icons module</summary>

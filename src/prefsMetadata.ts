@@ -156,6 +156,43 @@ export function getModuleMetadata(): ModuleMetadata[] {
       subtitle: _('Shows battery level and animated icons in the Bluetooth Quick Settings panel'),
     },
     {
+      key: 'meeting-clock',
+      settingsKey: 'module-meeting-clock',
+      section: 'dock-panel',
+      title: _('Meeting Clock'),
+      subtitle: _('Shows upcoming calendar events next to the clock'),
+      options: [
+        {
+          key: 'meeting-clock-alerts-enabled',
+          title: _('Meeting Alerts'),
+          subtitle: _('Show a notification when a meeting is about to start'),
+          type: 'switch',
+        },
+        {
+          key: 'meeting-clock-alert-minutes-before',
+          title: _('Alert Lead Time (minutes)'),
+          subtitle: _('Minutes before a meeting starts to show the alert'),
+          type: 'spin',
+          min: 0,
+          max: 60,
+        },
+        {
+          key: 'meeting-clock-snooze-minutes',
+          title: _('Snooze Duration (minutes)'),
+          subtitle: _('Minutes to wait before showing a snoozed alert again'),
+          type: 'spin',
+          min: 1,
+          max: 60,
+        },
+        {
+          key: 'meeting-clock-exclude-all-day-events',
+          title: _('Hide All-Day Events'),
+          subtitle: _('Exclude all-day events from the clock and alerts'),
+          type: 'switch',
+        },
+      ],
+    },
+    {
       key: 'tray-icons',
       settingsKey: 'module-tray-icons',
       section: 'dock-panel',

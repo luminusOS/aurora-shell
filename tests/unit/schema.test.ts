@@ -34,6 +34,7 @@ const EXPECTED_MODULE_KEYS = [
   'module-privacy',
   'module-auto-theme-switcher',
   'module-bluetooth-menu',
+  'module-meeting-clock',
 ] as const;
 
 const schemaXml = readFileSync(SCHEMA_FILE, 'utf-8');
