@@ -23,6 +23,7 @@ export function init() {
   Scripting.defineScriptEvent('devToolFound', 'DevTool found with AURORA_DEVTOOLS');
   Scripting.defineScriptEvent('clipboardToolPassed', 'Clipboard History DevTool actions passed');
   Scripting.defineScriptEvent('trayIconsToolPassed', 'Tray Icons DevTool actions passed');
+  Scripting.defineScriptEvent('weatherClockToolPassed', 'Weather Clock DevTool actions passed');
   Scripting.defineScriptEvent('meetingClockToolPassed', 'Meeting Clock DevTool actions passed');
 }
 
@@ -125,6 +126,26 @@ export async function run() {
 
   Scripting.scriptEvent('trayIconsToolPassed');
 
+  settings.set_boolean('module-weather-clock', true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(500);
+
+  const weatherClockTool = devTool.weatherClockTool;
+  if (!weatherClockTool) throw new Error('Weather Clock DevTool section not found');
+  if (!weatherClockTool.showSunny())
+    throw new Error('Weather Clock DevTool did not set a sunny snapshot');
+  await Scripting.sleep(300);
+  if (!weatherClockTool.isVisible)
+    throw new Error('Weather Clock DevTool did not make the widget visible');
+  if (!weatherClockTool.showOffline())
+    throw new Error('Weather Clock DevTool did not set an offline snapshot');
+  weatherClockTool.clearWeather();
+  settings.set_boolean('module-weather-clock', false);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(300);
+
+  Scripting.scriptEvent('weatherClockToolPassed');
+
   settings.set_boolean('module-meeting-clock', true);
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
@@ -161,6 +182,7 @@ let _devToolAbsent = false;
 let _devToolFound = false;
 let _clipboardToolPassed = false;
 let _trayIconsToolPassed = false;
+let _weatherClockToolPassed = false;
 let _meetingClockToolPassed = false;
 
 /** @returns {void} */
@@ -189,6 +211,11 @@ export function script_trayIconsToolPassed() {
 }
 
 /** @returns {void} */
+export function script_weatherClockToolPassed() {
+  _weatherClockToolPassed = true;
+}
+
+/** @returns {void} */
 export function script_meetingClockToolPassed() {
   _meetingClockToolPassed = true;
 }
@@ -202,6 +229,8 @@ export function finish() {
     if (!_clipboardToolPassed)
       throw new Error('Clipboard History DevTool actions did not complete');
     if (!_trayIconsToolPassed) throw new Error('Tray Icons DevTool actions did not complete');
+    if (!_weatherClockToolPassed)
+      throw new Error('Weather Clock DevTool actions did not complete');
     if (!_meetingClockToolPassed) throw new Error('Meeting Clock DevTool actions did not complete');
   } else if (!_devToolAbsent) {
     throw new Error('DevTool was not confirmed absent without AURORA_DEVTOOLS=1');

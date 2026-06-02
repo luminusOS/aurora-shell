@@ -15,6 +15,7 @@ export type MeetingEvent = {
 export type MeetingClockOptions = {
   alertsEnabled: boolean;
   alertMinutesBefore: number;
+  alertEventsWithoutLink: boolean;
   excludeAllDayEvents: boolean;
   maxFutureSeconds?: number;
   ignoredEventIds?: ReadonlySet<string>;
@@ -269,7 +270,7 @@ export function getDueAlertEvents(
   const leadSeconds = Math.max(0, options.alertMinutesBefore) * 60;
 
   return filterDisplayEvents(events, nowEpochSeconds, options)
-    .filter((event) => Boolean(event.meetingUrl))
+    .filter((event) => Boolean(event.meetingUrl) || options.alertEventsWithoutLink)
     .filter((event) => !ignored.has(event.id))
     .filter((event) => !alerted.has(event.id))
     .filter((event) => (snoozed.get(event.id) ?? 0) <= nowEpochSeconds)

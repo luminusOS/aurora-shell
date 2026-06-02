@@ -119,6 +119,7 @@ test('meetingClock — due alerts require meeting URLs and respect ignored/alert
   const dueEvents = getDueAlertEvents([due, noLink, ignored, alerted, snoozed], NOW, {
     alertsEnabled: true,
     alertMinutesBefore: 5,
+    alertEventsWithoutLink: false,
     excludeAllDayEvents: false,
     ignoredEventIds: new Set(['ignored']),
     alertedEventIds: new Set(['alerted']),
@@ -128,5 +129,21 @@ test('meetingClock — due alerts require meeting URLs and respect ignored/alert
   assert.deepStrictEqual(
     dueEvents.map((candidate) => candidate.id),
     ['due'],
+  );
+});
+
+test('meetingClock — due alerts can include events without meeting URLs when enabled', () => {
+  const noLink = event({ id: 'no-link' });
+
+  const dueEvents = getDueAlertEvents([noLink], NOW, {
+    alertsEnabled: true,
+    alertMinutesBefore: 5,
+    alertEventsWithoutLink: true,
+    excludeAllDayEvents: false,
+  });
+
+  assert.deepStrictEqual(
+    dueEvents.map((candidate) => candidate.id),
+    ['no-link'],
   );
 });

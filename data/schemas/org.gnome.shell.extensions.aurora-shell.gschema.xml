@@ -100,6 +100,16 @@
       <summary>Enable Meeting Clock module</summary>
       <description>Shows upcoming calendar events next to the clock</description>
     </key>
+    <key name="module-weather-clock" type="b">
+      <default>true</default>
+      <summary>Enable Weather Clock module</summary>
+      <description>Shows GNOME Weather next to the clock</description>
+    </key>
+    <key name="weather-clock-after-clock" type="b">
+      <default>false</default>
+      <summary>Show Weather Clock after the clock</summary>
+      <description>Place the weather indicator after the clock instead of before it</description>
+    </key>
     <key name="meeting-clock-alerts-enabled" type="b">
       <default>true</default>
       <summary>Enable Meeting Clock alerts</summary>
@@ -116,6 +126,23 @@
       <default>5</default>
       <summary>Meeting Clock snooze duration</summary>
       <description>Minutes to wait before showing a snoozed alert again</description>
+    </key>
+    <key name="meeting-clock-alert-events-without-link" type="b">
+      <default>false</default>
+      <summary>Alert events without meeting links</summary>
+      <description>Show Meeting Clock alerts for calendar events that do not include a join link</description>
+    </key>
+    <key name="meeting-clock-panel-reveal-interval-minutes" type="i">
+      <range min="1" max="60"/>
+      <default>5</default>
+      <summary>Meeting Clock panel reveal interval</summary>
+      <description>Minutes between automatic Meeting Clock slide reveals in the panel</description>
+    </key>
+    <key name="meeting-clock-panel-lookahead-minutes" type="i">
+      <range min="0" max="1440"/>
+      <default>60</default>
+      <summary>Meeting Clock panel lookahead</summary>
+      <description>Maximum minutes before an event starts for it to appear in the panel clock</description>
     </key>
     <key name="meeting-clock-exclude-all-day-events" type="b">
       <default>true</default>

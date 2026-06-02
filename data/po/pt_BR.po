@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-05-31 18:10-0300\n"
+"POT-Creation-Date: 2026-06-02 18:21-0300\n"
 "PO-Revision-Date: 2026-03-09 18:00-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -65,43 +65,43 @@ msgid ""
 "Shows battery level and animated icons in the Bluetooth Quick Settings panel"
 msgstr ""
 
-#: dist/modules/clipboardHistory/clipboardHistory.js:126
-#: dist/modules/clipboardHistory/clipboardPanel.js:43 dist/prefsMetadata.js:187
+#: dist/modules/clipboardHistory/clipboardHistory.js:146
+#: dist/modules/clipboardHistory/clipboardPanel.js:43 dist/prefsMetadata.js:267
 msgid "Clipboard History"
 msgstr ""
 
-#: dist/modules/clipboardHistory/clipboardHistory.js:127
-#: dist/prefsMetadata.js:188
+#: dist/modules/clipboardHistory/clipboardHistory.js:147
+#: dist/prefsMetadata.js:268
 msgid "Searchable clipboard history with pinning and keyboard navigation"
 msgstr ""
 
-#: dist/modules/clipboardHistory/clipboardHistory.js:131
-#: dist/prefsMetadata.js:192
+#: dist/modules/clipboardHistory/clipboardHistory.js:151
+#: dist/prefsMetadata.js:272
 msgid "Open Shortcut"
 msgstr ""
 
-#: dist/modules/clipboardHistory/clipboardHistory.js:132
-#: dist/prefsMetadata.js:193
+#: dist/modules/clipboardHistory/clipboardHistory.js:152
+#: dist/prefsMetadata.js:273
 msgid "Keyboard shortcut to open the clipboard history panel"
 msgstr ""
 
-#: dist/modules/clipboardHistory/clipboardHistory.js:137
-#: dist/prefsMetadata.js:198
+#: dist/modules/clipboardHistory/clipboardHistory.js:157
+#: dist/prefsMetadata.js:278
 msgid "Max History Items"
 msgstr ""
 
-#: dist/modules/clipboardHistory/clipboardHistory.js:138
-#: dist/prefsMetadata.js:199
+#: dist/modules/clipboardHistory/clipboardHistory.js:158
+#: dist/prefsMetadata.js:279
 msgid "Number of non-pinned entries to retain"
 msgstr ""
 
-#: dist/modules/clipboardHistory/clipboardHistory.js:145
-#: dist/prefsMetadata.js:206
+#: dist/modules/clipboardHistory/clipboardHistory.js:165
+#: dist/prefsMetadata.js:286
 msgid "Poll Interval (ms)"
 msgstr ""
 
-#: dist/modules/clipboardHistory/clipboardHistory.js:146
-#: dist/prefsMetadata.js:207
+#: dist/modules/clipboardHistory/clipboardHistory.js:166
+#: dist/prefsMetadata.js:287
 msgid "How often to check the clipboard for changes"
 msgstr ""
 
@@ -144,6 +144,92 @@ msgstr ""
 
 #: dist/modules/iconWeave/iconWeave.js:483 dist/prefsMetadata.js:93
 msgid "Automatically fixes missing app icons using an in-memory approach"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:320
+msgid "Meeting starting soon"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:328
+msgid "Join"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:329
+msgid "Snooze"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:330
+msgid "Dismiss"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:331
+msgid "Ignore"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:465
+#: dist/modules/meetingClock/meetingClock.js:497 dist/prefsMetadata.js:151
+msgid "Meeting Clock"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:498 dist/prefsMetadata.js:152
+msgid "Shows upcoming calendar events next to the clock"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:502 dist/prefsMetadata.js:156
+msgid "Meeting Alerts"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:503 dist/prefsMetadata.js:157
+msgid "Show a notification when a meeting is about to start"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:508 dist/prefsMetadata.js:162
+msgid "Alert Lead Time (minutes)"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:509 dist/prefsMetadata.js:163
+msgid "Minutes before a meeting starts to show the alert"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:516 dist/prefsMetadata.js:170
+msgid "Snooze Duration (minutes)"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:517 dist/prefsMetadata.js:171
+msgid "Minutes to wait before showing a snoozed alert again"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:524 dist/prefsMetadata.js:178
+msgid "Alert Events Without Links"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:525 dist/prefsMetadata.js:179
+msgid "Show meeting alerts for calendar events that do not include a join link"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:530 dist/prefsMetadata.js:184
+msgid "Panel Reveal Interval (minutes)"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:531 dist/prefsMetadata.js:185
+msgid "Minutes between automatic Meeting Clock slide reveals in the panel"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:538 dist/prefsMetadata.js:192
+msgid "Panel Lookahead (minutes)"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:539 dist/prefsMetadata.js:193
+msgid ""
+"Maximum minutes before an event starts for it to appear in the panel clock"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:546 dist/prefsMetadata.js:200
+msgid "Hide All-Day Events"
+msgstr ""
+
+#: dist/modules/meetingClock/meetingClock.js:547 dist/prefsMetadata.js:201
+msgid "Exclude all-day events from the clock and alerts"
 msgstr ""
 
 #: dist/modules/noOverview/noOverview.js:36 dist/prefsMetadata.js:19
@@ -289,6 +375,22 @@ msgstr ""
 #: dist/modules/volumeMixer/volumeMixer.js:137 dist/prefsMetadata.js:56
 msgid "Per-application volume control in Quick Settings"
 msgstr "Controle de volume por aplicativo nas Configurações Rápidas"
+
+#: dist/modules/weatherClock/weatherClock.js:383 dist/prefsMetadata.js:136
+msgid "Weather Clock"
+msgstr ""
+
+#: dist/modules/weatherClock/weatherClock.js:384 dist/prefsMetadata.js:137
+msgid "Shows GNOME Weather next to the clock"
+msgstr ""
+
+#: dist/modules/weatherClock/weatherClock.js:388 dist/prefsMetadata.js:141
+msgid "Show Weather After Clock"
+msgstr ""
+
+#: dist/modules/weatherClock/weatherClock.js:389 dist/prefsMetadata.js:142
+msgid "Place the weather indicator after the clock instead of before it"
+msgstr ""
 
 #: dist/modules/xwaylandIndicator/xwaylandIndicator.js:108
 #: dist/prefsMetadata.js:62

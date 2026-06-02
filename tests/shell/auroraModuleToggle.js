@@ -30,6 +30,7 @@ const MODULE_SETTINGS_KEYS = [
   'module-app-search-tooltip',
   'module-auto-theme-switcher',
   'module-bluetooth-menu',
+  'module-weather-clock',
   'module-meeting-clock',
 ];
 

@@ -7,12 +7,13 @@ import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as MessageTray from '@girs/gnome-shell/ui/messageTray';
-import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
+import { openClockMenu, type ClockPillRegistration } from '~/shared/clockPill.ts';
+import { registerClockPillWidget } from '~/shared/clockPill.ts';
 
 import { CalendarServerBackend } from './calendarServerBackend.ts';
 import {
@@ -27,27 +28,24 @@ const LOG_PREFIX = 'MeetingClock';
 const ALERTS_ENABLED_KEY = 'meeting-clock-alerts-enabled';
 const ALERT_MINUTES_KEY = 'meeting-clock-alert-minutes-before';
 const SNOOZE_MINUTES_KEY = 'meeting-clock-snooze-minutes';
+const ALERT_EVENTS_WITHOUT_LINK_KEY = 'meeting-clock-alert-events-without-link';
+const PANEL_REVEAL_INTERVAL_MINUTES_KEY = 'meeting-clock-panel-reveal-interval-minutes';
+const PANEL_LOOKAHEAD_MINUTES_KEY = 'meeting-clock-panel-lookahead-minutes';
 const EXCLUDE_ALL_DAY_KEY = 'meeting-clock-exclude-all-day-events';
 const REFRESH_WINDOW_HOURS = 24;
 const REFRESH_INTERVAL_SECONDS = 180;
 const LABEL_REFRESH_SECONDS = 30;
+const PANEL_REVEAL_VISIBLE_SECONDS = 8;
+const PANEL_REVEAL_ANIMATION_MS = 260;
+const PANEL_REVEAL_OFFSET = 18;
 const CALENDAR_SERVER_SOURCE_KEY = 'calendar-server';
-const PANEL_LOOKAHEAD_SECONDS = 60 * 60;
-
-type DateMenuButton = {
-  _clockDisplay: St.Label;
-  menu: {
-    open(animation?: PopupAnimation): void;
-  };
-};
+const CLOCK_PILL_ID = 'meeting-clock';
 
 export class MeetingClock extends Module {
   private _backend: CalendarServerBackend | null = null;
   private _eventsBySource = new Map<string, MeetingEvent[]>();
   private _events: MeetingEvent[] = [];
-  private _dateMenu: DateMenuButton | null = null;
-  private _originalClockDisplay: St.Label | null = null;
-  private _topBox: St.BoxLayout | null = null;
+  private _clockPillRegistration: ClockPillRegistration | null = null;
   private _panelWidget: St.BoxLayout | null = null;
   private _panelLabel: St.Label | null = null;
   private _notificationSource: MessageTray.Source | null = null;
@@ -58,6 +56,9 @@ export class MeetingClock extends Module {
   private _refreshTimerId = 0;
   private _labelTimerId = 0;
   private _alertTimerId = 0;
+  private _panelRevealTimerId = 0;
+  private _panelHideTimerId = 0;
+  private _lastPanelEventId = '';
   private _activeAlertEventId: string | null = null;
   private _alertedEventIds = new Set<string>();
   private _ignoredEventIds = new Set<string>();
@@ -71,7 +72,6 @@ export class MeetingClock extends Module {
     this.disable();
     this._enabled = true;
 
-    this._dateMenu = Main.panel.statusArea.dateMenu as unknown as DateMenuButton;
     this._installClockWidget();
 
     this._backend = new CalendarServerBackend((events) => {
@@ -97,12 +97,18 @@ export class MeetingClock extends Module {
         return GLib.SOURCE_CONTINUE;
       },
     );
+    this._schedulePanelRevealTimer();
 
     const settings = this.context.settings;
     this._settingsIds = [
       settings.connect(`changed::${ALERTS_ENABLED_KEY}`, () => this._scheduleAlerts()),
       settings.connect(`changed::${ALERT_MINUTES_KEY}`, () => this._scheduleAlerts()),
       settings.connect(`changed::${SNOOZE_MINUTES_KEY}`, () => this._scheduleAlerts()),
+      settings.connect(`changed::${ALERT_EVENTS_WITHOUT_LINK_KEY}`, () => this._scheduleAlerts()),
+      settings.connect(`changed::${PANEL_REVEAL_INTERVAL_MINUTES_KEY}`, () =>
+        this._schedulePanelRevealTimer(),
+      ),
+      settings.connect(`changed::${PANEL_LOOKAHEAD_MINUTES_KEY}`, () => this._render()),
       settings.connect(`changed::${EXCLUDE_ALL_DAY_KEY}`, () => {
         this._render();
         this._scheduleAlerts();
@@ -120,6 +126,8 @@ export class MeetingClock extends Module {
     this._clearTimer('_refreshTimerId');
     this._clearTimer('_labelTimerId');
     this._clearTimer('_alertTimerId');
+    this._clearTimer('_panelRevealTimerId');
+    this._clearTimer('_panelHideTimerId');
 
     this._backend?.stop();
     this._backend = null;
@@ -134,34 +142,21 @@ export class MeetingClock extends Module {
     this._ignoredEventIds.clear();
     this._snoozedUntilByEventId.clear();
 
+    this._clockPillRegistration?.unregister();
+    this._clockPillRegistration = null;
     this._panelWidget?.destroy();
     this._panelWidget = null;
     this._panelLabel = null;
-
-    this._restoreClockWidget();
-    this._dateMenu = null;
+    this._lastPanelEventId = '';
   }
 
   private _installClockWidget(): void {
-    const dateMenu = this._dateMenu;
-    if (!dateMenu) return;
-
-    this._originalClockDisplay = dateMenu._clockDisplay;
-    const clockParent = this._originalClockDisplay.get_parent();
-    if (!clockParent) return;
-
-    this._topBox = new St.BoxLayout({
-      style_class: 'clock aurora-meeting-clock-box',
-      y_align: Clutter.ActorAlign.CENTER,
-      y_expand: true,
-    });
-    this._originalClockDisplay.remove_style_class_name('clock');
-
     this._panelWidget = new St.BoxLayout({
       style_class: 'aurora-meeting-clock-widget',
       y_align: Clutter.ActorAlign.CENTER,
       y_expand: true,
       visible: false,
+      opacity: 0,
       reactive: false,
     });
     const icon = new St.Icon({
@@ -176,28 +171,13 @@ export class MeetingClock extends Module {
     this._panelWidget.add_child(this._panelLabel);
     this._panelWidget.add_child(icon);
 
-    clockParent.replace_child(this._originalClockDisplay, this._topBox);
-    this._topBox.add_child(this._originalClockDisplay);
-    this._topBox.add_child(this._panelWidget);
-    this._uiAlive = true;
-  }
-
-  private _restoreClockWidget(): void {
-    if (!this._originalClockDisplay || !this._topBox) {
-      this._originalClockDisplay = null;
-      this._topBox = null;
-      return;
-    }
-
-    const topBoxParent = this._topBox.get_parent();
-    if (this._originalClockDisplay.get_parent() === this._topBox) {
-      this._topBox.remove_child(this._originalClockDisplay);
-    }
-    this._originalClockDisplay.add_style_class_name('clock');
-    topBoxParent?.replace_child(this._topBox, this._originalClockDisplay);
-    this._topBox.destroy();
-    this._topBox = null;
-    this._originalClockDisplay = null;
+    this._clockPillRegistration = registerClockPillWidget(
+      CLOCK_PILL_ID,
+      this._panelWidget,
+      'right',
+      100,
+    );
+    this._uiAlive = Boolean(this._clockPillRegistration);
   }
 
   private _refreshEvents(): void {
@@ -227,21 +207,22 @@ export class MeetingClock extends Module {
   }
 
   showAlert(eventId: string | null = null): boolean {
+    const alertEventsWithoutLink = this.context.settings.getBoolean(ALERT_EVENTS_WITHOUT_LINK_KEY);
     const event =
       (eventId ? this._events.find((candidate) => candidate.id === eventId) : null) ??
-      this._events.find((candidate) => Boolean(candidate.meetingUrl));
-    if (!event?.meetingUrl) return false;
+      this._events.find((candidate) => Boolean(candidate.meetingUrl) || alertEventsWithoutLink);
+    if (!event) return false;
+    if (!event.meetingUrl && !alertEventsWithoutLink) return false;
 
     this._showAlert(event);
     return this._activeAlertEventId === event.id;
   }
 
   openMenu(): boolean {
-    if (!this._enabled || !this._uiAlive || !this._dateMenu) return false;
+    if (!this._enabled || !this._uiAlive) return false;
 
     this._render();
-    this._dateMenu.menu.open(PopupAnimation.FULL);
-    return true;
+    return openClockMenu();
   }
 
   get eventCount(): number {
@@ -259,14 +240,20 @@ export class MeetingClock extends Module {
     const excludeAllDayEvents = this.context.settings.getBoolean(EXCLUDE_ALL_DAY_KEY);
     const presentation = derivePanelPresentation(this._events, now, {
       excludeAllDayEvents,
-      maxFutureSeconds: PANEL_LOOKAHEAD_SECONDS,
+      maxFutureSeconds: this._getPanelLookaheadSeconds(),
     });
 
     if (!presentation) {
-      if (this._panelWidget) this._panelWidget.visible = false;
-    } else {
-      if (this._panelLabel) this._panelLabel.text = presentation.label;
-      if (this._panelWidget) this._panelWidget.visible = true;
+      this._lastPanelEventId = '';
+      this._hidePanelWidget(false);
+      return;
+    }
+
+    const panelEventId = presentation.event.id;
+    if (this._panelLabel) this._panelLabel.text = presentation.label;
+    if (panelEventId !== this._lastPanelEventId) {
+      this._lastPanelEventId = panelEventId;
+      this._revealPanelWidget();
     }
   }
 
@@ -297,10 +284,31 @@ export class MeetingClock extends Module {
     );
   }
 
+  private _schedulePanelRevealTimer(): void {
+    if (!this._enabled || !this._uiAlive) return;
+
+    this._clearTimer('_panelRevealTimerId');
+    const intervalSeconds =
+      Math.max(1, this.context.settings.getInt(PANEL_REVEAL_INTERVAL_MINUTES_KEY)) * 60;
+    this._panelRevealTimerId = GLib.timeout_add_seconds(
+      GLib.PRIORITY_DEFAULT,
+      intervalSeconds,
+      () => {
+        this._revealPanelWidget();
+        return GLib.SOURCE_CONTINUE;
+      },
+    );
+  }
+
+  private _getPanelLookaheadSeconds(): number {
+    return Math.max(0, this.context.settings.getInt(PANEL_LOOKAHEAD_MINUTES_KEY)) * 60;
+  }
+
   private _getDueEvents(now: number): MeetingEvent[] {
     return getDueAlertEvents(this._events, now, {
       alertsEnabled: this.context.settings.getBoolean(ALERTS_ENABLED_KEY),
       alertMinutesBefore: this.context.settings.getInt(ALERT_MINUTES_KEY),
+      alertEventsWithoutLink: this.context.settings.getBoolean(ALERT_EVENTS_WITHOUT_LINK_KEY),
       excludeAllDayEvents: this.context.settings.getBoolean(EXCLUDE_ALL_DAY_KEY),
       ignoredEventIds: this._ignoredEventIds,
       alertedEventIds: this._alertedEventIds,
@@ -313,8 +321,9 @@ export class MeetingClock extends Module {
 
     const leadSeconds = this.context.settings.getInt(ALERT_MINUTES_KEY) * 60;
     const excludeAllDayEvents = this.context.settings.getBoolean(EXCLUDE_ALL_DAY_KEY);
+    const alertEventsWithoutLink = this.context.settings.getBoolean(ALERT_EVENTS_WITHOUT_LINK_KEY);
     const candidates = filterDisplayEvents(this._events, now, { excludeAllDayEvents })
-      .filter((event) => event.meetingUrl)
+      .filter((event) => event.meetingUrl || alertEventsWithoutLink)
       .filter((event) => !this._ignoredEventIds.has(event.id))
       .filter((event) => !this._alertedEventIds.has(event.id))
       .map((event) =>
@@ -347,10 +356,10 @@ export class MeetingClock extends Module {
       resident: true,
       isTransient: false,
     });
-    notification.addAction(_('Join'), () => this._joinEvent(event));
+    if (event.meetingUrl) notification.addAction(_('Join'), () => this._joinEvent(event));
     notification.addAction(_('Snooze'), () => this._snoozeEvent(event));
     notification.addAction(_('Dismiss'), () => this._dismissEvent(event));
-    notification.addAction(_('Ignore'), () => this._ignoreEvent(event));
+    if (event.meetingUrl) notification.addAction(_('Ignore'), () => this._ignoreEvent(event));
     notification.connect('destroy', () => {
       if (this._activeNotification === notification) this._activeNotification = null;
       if (this._activeAlertEventId !== event.id) return;
@@ -402,7 +411,83 @@ export class MeetingClock extends Module {
     this._scheduleAlerts();
   }
 
-  private _clearTimer(prop: '_refreshTimerId' | '_labelTimerId' | '_alertTimerId'): void {
+  private _revealPanelWidget(): void {
+    const widget = this._panelWidget;
+    if (!this._enabled || !this._uiAlive || !widget || !this._lastPanelEventId) return;
+
+    this._clearTimer('_panelHideTimerId');
+    widget.remove_transition('opacity');
+    widget.remove_transition('translation-x');
+    widget.remove_transition('width');
+    widget.visible = true;
+    widget.width = -1;
+    const [, naturalWidth] = widget.get_preferred_width(-1);
+    const targetWidth = Math.ceil(naturalWidth);
+    widget.width = 0;
+    widget.opacity = 0;
+    widget.translation_x = PANEL_REVEAL_OFFSET;
+    widget.ease({
+      width: targetWidth,
+      opacity: 255,
+      translationX: 0,
+      duration: PANEL_REVEAL_ANIMATION_MS,
+      mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+      onComplete: () => {
+        widget.width = -1;
+      },
+    });
+
+    this._panelHideTimerId = GLib.timeout_add_seconds(
+      GLib.PRIORITY_DEFAULT,
+      PANEL_REVEAL_VISIBLE_SECONDS,
+      () => {
+        this._panelHideTimerId = 0;
+        this._hidePanelWidget(true);
+        return GLib.SOURCE_REMOVE;
+      },
+    );
+  }
+
+  private _hidePanelWidget(animated: boolean): void {
+    const widget = this._panelWidget;
+    if (!widget) return;
+
+    this._clearTimer('_panelHideTimerId');
+    widget.remove_transition('opacity');
+    widget.remove_transition('translation-x');
+    widget.remove_transition('width');
+
+    if (!animated || !widget.visible) {
+      widget.opacity = 0;
+      widget.translation_x = PANEL_REVEAL_OFFSET;
+      widget.width = -1;
+      widget.visible = false;
+      return;
+    }
+
+    const [, naturalWidth] = widget.get_preferred_width(-1);
+    widget.width = Math.ceil(naturalWidth);
+    widget.ease({
+      width: 0,
+      opacity: 0,
+      translationX: PANEL_REVEAL_OFFSET,
+      duration: PANEL_REVEAL_ANIMATION_MS,
+      mode: Clutter.AnimationMode.EASE_IN_CUBIC,
+      onComplete: () => {
+        widget.width = -1;
+        widget.visible = false;
+      },
+    });
+  }
+
+  private _clearTimer(
+    prop:
+      | '_refreshTimerId'
+      | '_labelTimerId'
+      | '_alertTimerId'
+      | '_panelRevealTimerId'
+      | '_panelHideTimerId',
+  ): void {
     if (!this[prop]) return;
     GLib.source_remove(this[prop]);
     this[prop] = 0;
@@ -480,6 +565,28 @@ export const definition: ModuleDefinition = {
       type: 'spin',
       min: 1,
       max: 60,
+    },
+    {
+      key: ALERT_EVENTS_WITHOUT_LINK_KEY,
+      title: _('Alert Events Without Links'),
+      subtitle: _('Show meeting alerts for calendar events that do not include a join link'),
+      type: 'switch',
+    },
+    {
+      key: PANEL_REVEAL_INTERVAL_MINUTES_KEY,
+      title: _('Panel Reveal Interval (minutes)'),
+      subtitle: _('Minutes between automatic Meeting Clock slide reveals in the panel'),
+      type: 'spin',
+      min: 1,
+      max: 60,
+    },
+    {
+      key: PANEL_LOOKAHEAD_MINUTES_KEY,
+      title: _('Panel Lookahead (minutes)'),
+      subtitle: _('Maximum minutes before an event starts for it to appear in the panel clock'),
+      type: 'spin',
+      min: 0,
+      max: 1440,
     },
     {
       key: EXCLUDE_ALL_DAY_KEY,

@@ -26,3 +26,17 @@ The **XWayland Indicator** module is inspired by
 [**swsnr/gnome-shell-extension-xwayland-indicator**](https://codeberg.org/swsnr/gnome-shell-extension-xwayland-indicator/).
 Thanks to [@swsnr](https://codeberg.org/swsnr) for the original idea of surfacing which
 windows run under XWayland.
+
+## Weather Clock
+
+The **Weather Clock** module is inspired by
+[**CleoMenezesJr/weather-oclock**](https://github.com/CleoMenezesJr/weather-oclock).
+Thanks to [@CleoMenezesJr](https://github.com/CleoMenezesJr) for the GNOME Weather clock
+integration pattern.
+
+## Meeting Clock
+
+The **Meeting Clock** module is inspired by
+[**danmoz/meetingtime**](https://github.com/danmoz/meetingtime).
+Thanks to [@danmoz](https://github.com/danmoz) for the meeting reminder behavior and
+calendar-driven workflow.
