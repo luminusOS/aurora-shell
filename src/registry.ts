@@ -9,6 +9,8 @@ import { definition as iconWeave } from '~/modules/iconWeave/iconWeave.ts';
 import { definition as appSearchTooltip } from '~/modules/appSearchTooltip/appSearchTooltip.ts';
 import { definition as autoThemeSwitcher } from '~/modules/autoThemeSwitcher/autoThemeSwitcher.ts';
 import { definition as bluetoothMenu } from '~/modules/bluetoothMenu/bluetoothMenu.ts';
+import { definition as weatherClock } from '~/modules/weatherClock/weatherClock.ts';
+import { definition as meetingClock } from '~/modules/meetingClock/meetingClock.ts';
 import { definition as trayIcons } from '~/modules/trayIcons/trayIcons.ts';
 import { definition as clipboardHistory } from '~/modules/clipboardHistory/clipboardHistory.ts';
 
@@ -29,6 +31,8 @@ export function getModuleRegistry(): ModuleDefinition[] {
     appSearchTooltip,
     autoThemeSwitcher,
     bluetoothMenu,
+    weatherClock,
+    meetingClock,
     trayIcons,
     clipboardHistory,
   ];

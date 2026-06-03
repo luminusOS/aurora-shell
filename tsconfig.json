@@ -25,6 +25,7 @@
   "files": [
     "src/extension.ts",
     "src/types/gnome-shell.d.ts",
+    "src/types/gweather.d.ts",
     "src/types/console.d.ts"
   ]
 }

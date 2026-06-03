@@ -22,6 +22,8 @@ Aurora is split into independent modules, so you can enable only what you want.
 | **Dock** | Replaces the stock dash with a smart per-monitor dock with intellihide and edge reveal |
 | **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
 | **XWayland Indicator** | Adds an indicator to the app activities in Ctrl + Tab to indicate where XWayland is running |
+| **Weather Clock** | Shows GNOME Weather next to the panel clock |
+| **Meeting Clock** | Shows upcoming calendar events next to the panel clock and notifies when meetings are about to start |
 | **Tray Icons** | System tray in the panel that shows SNI app icons and GNOME background apps, with configurable icon limit, icon size, attention notifications, and smart SNI/background-app deduplication |
 | **DND on Screen Share** | Automatically enables Do Not Disturb mode when screen sharing or recording is active |
 | **Icon Weave** | Automatically fixes missing app icons by matching untracked windows to their apps in-memory |
@@ -73,6 +75,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for info
 Aurora Shell builds on the work of the wider GNOME community. Special thanks to:
 
 - [**maniacx/Bluetooth-Battery-Meter**](https://github.com/maniacx/Bluetooth-Battery-Meter) the animated Bluetooth icons used by the Bluetooth Menu module come from this project.
+- [**CleoMenezesJr/weather-oclock**](https://github.com/CleoMenezesJr/weather-oclock) inspired the Weather Clock module.
+- [**danmoz/meetingtime**](https://github.com/danmoz/meetingtime) inspired the Meeting Clock module.
 - [**swsnr/gnome-shell-extension-xwayland-indicator**](https://codeberg.org/swsnr/gnome-shell-extension-xwayland-indicator/) the inspiration behind the XWayland Indicator module.
 
 See [CREDITS.md](CREDITS.md) for the full list of attributed work.

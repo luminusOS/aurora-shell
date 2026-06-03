@@ -1,0 +1,24 @@
+.aurora-clock-pill-box {
+  min-height: 2.2em;
+  spacing: 0;
+}
+
+.aurora-weather-clock-widget {
+  margin-right: 0.7em;
+  spacing: 0.3em;
+}
+
+.aurora-weather-clock-widget.weather-after-clock {
+  margin-left: 0.7em;
+  margin-right: 0;
+}
+
+.aurora-weather-clock-icon {
+  icon-size: 14px;
+  padding: 0;
+  margin: 0;
+}
+
+.aurora-weather-clock-label {
+  max-width: 140px;
+}

@@ -13,7 +13,9 @@ import { loadIcon } from '~/shared/icons.ts';
 
 import { ClipboardHistoryDevTool } from './clipboardHistoryDevTool.ts';
 import { GeneralDevTool } from './generalDevTool.ts';
+import { MeetingClockDevTool } from './meetingClockDevTool.ts';
 import { TrayIconsDevTool } from './trayIconsDevTool.ts';
+import { WeatherClockDevTool } from './weatherClockDevTool.ts';
 
 const DEVTOOL_ID = 'aurora-devtool';
 
@@ -36,6 +38,8 @@ export class DevTool extends Module {
   private _generalTool: GeneralDevTool | null = null;
   private _clipboardHistoryTool: ClipboardHistoryDevTool | null = null;
   private _trayIconsTool: TrayIconsDevTool | null = null;
+  private _weatherClockTool: WeatherClockDevTool | null = null;
+  private _meetingClockTool: MeetingClockDevTool | null = null;
   private _sections: DevToolSection[] = [];
   private _activeSectionKey = 'general';
   private _sectionDropdownOpen = false;
@@ -63,7 +67,21 @@ export class DevTool extends Module {
       () => this._rebuildMenu(),
     );
     this._trayIconsTool = new TrayIconsDevTool(() => this._rebuildMenu());
-    this._sections = [this._generalTool, this._clipboardHistoryTool, this._trayIconsTool];
+    this._weatherClockTool = new WeatherClockDevTool(
+      (key) => this._callbacks.getModule(key),
+      () => this._rebuildMenu(),
+    );
+    this._meetingClockTool = new MeetingClockDevTool(
+      (key) => this._callbacks.getModule(key),
+      () => this._rebuildMenu(),
+    );
+    this._sections = [
+      this._generalTool,
+      this._clipboardHistoryTool,
+      this._trayIconsTool,
+      this._weatherClockTool,
+      this._meetingClockTool,
+    ];
 
     const menu = this._getMenu();
     if (!menu) return;
@@ -86,6 +104,8 @@ export class DevTool extends Module {
     this._generalTool = null;
     this._clipboardHistoryTool = null;
     this._trayIconsTool = null;
+    this._weatherClockTool = null;
+    this._meetingClockTool = null;
 
     if (this._menuOpenStateId && this._button) {
       this._getMenu()?.disconnect(this._menuOpenStateId);
@@ -107,6 +127,14 @@ export class DevTool extends Module {
 
   get generalTool(): GeneralDevTool | null {
     return this._generalTool;
+  }
+
+  get meetingClockTool(): MeetingClockDevTool | null {
+    return this._meetingClockTool;
+  }
+
+  get weatherClockTool(): WeatherClockDevTool | null {
+    return this._weatherClockTool;
   }
 
   private _rebuildMenu(): void {
