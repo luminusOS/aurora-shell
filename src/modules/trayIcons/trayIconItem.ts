@@ -265,9 +265,15 @@ export class TrayIconItem extends St.Button {
   override destroy(): void {
     _hideTooltip();
     this._dbusMenuClient?.destroy();
+    if (this._menu && this._menuManager) {
+      this._menuManager.removeMenu(this._menu);
+    }
     this._menu?.destroy();
     this._menu = null;
     this._menuManager = null;
+    if (this._localMenu && this._localMenuManager) {
+      this._localMenuManager.removeMenu(this._localMenu);
+    }
     this._localMenu?.destroy();
     this._localMenu = null;
     this._localMenuManager = null;

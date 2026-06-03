@@ -199,6 +199,12 @@ export class ClipboardPanel extends St.BoxLayout {
     this._isOpen = false;
   }
 
+  override destroy(): void {
+    this.close();
+    this._disconnectDragSignals();
+    super.destroy();
+  }
+
   refresh(): void {
     if (this._isOpen) this._syncList(this._searchEntry.get_text());
   }
@@ -298,8 +304,11 @@ export class ClipboardPanel extends St.BoxLayout {
   }
 
   private _endDrag(): void {
-    if (!this._isDragging) return;
     this._isDragging = false;
+    this._disconnectDragSignals();
+  }
+
+  private _disconnectDragSignals(): void {
     if (this._dragMotionId !== 0) {
       global.stage.disconnect(this._dragMotionId);
       this._dragMotionId = 0;
