@@ -155,7 +155,7 @@ export class TrayContainer extends PanelMenu.Button {
   declare private _limit: number;
   declare private _items: Map<string, TrayIconItem>;
   declare private _chevron: St.Button;
-  declare private _chevronIcon: St.Icon;
+  declare private _chevronIcon: St.Icon | null;
   declare private _clipArea: TrayClipArea;
   declare private _iconRow: St.BoxLayout;
   declare private _outerBox: St.BoxLayout;
@@ -495,7 +495,7 @@ export class TrayContainer extends PanelMenu.Button {
     this._chevron.visible = hasOverflow;
 
     // Chevron rotation: 0° = expanded (points right), 180° = collapsed (points left).
-    this._chevronIcon.ease({
+    this._chevronIcon?.ease({
       rotationAngleZ: this._state.collapsed ? 180 : 0,
       duration: animated ? ANIM_DURATION : 0,
       mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
@@ -648,6 +648,8 @@ export class TrayContainer extends PanelMenu.Button {
     destroyTooltip();
     for (const widget of this._items.values()) widget.destroy();
     this._items.clear();
+    this._chevronIcon?.destroy();
+    this._chevronIcon = null;
     super.destroy();
   }
 }

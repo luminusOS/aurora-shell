@@ -39,7 +39,6 @@ export class ClipboardHistory extends Module {
     const pollMs = rawSettings.get_int('clipboard-history-poll-interval');
 
     this._store = new ClipboardStore(filePath, maxItems);
-    this._store.load();
 
     this._panel = new (ClipboardPanel as unknown as new (
       store: ClipboardStore,
@@ -55,6 +54,8 @@ export class ClipboardHistory extends Module {
     });
 
     this._monitor = new ClipboardMonitor(pollMs, (text) => this.addText(text));
+
+    void this._store.load().then(() => this._panel?.refresh());
 
     this._startupIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
       this._startupIdleId = 0;

@@ -209,16 +209,17 @@ export class AuroraDash extends Dash {
   }
 
   private _syncLabelFlushMode(): void {
-    const items: any[] = [
-      ...((this as any)._box?.get_children?.() ?? []),
-      (this as any)._showAppsIcon,
-    ];
+    const items: any[] = [...this._getDashChildren(), (this as any)._showAppsIcon];
     for (const item of items) {
-      if (!item?.label) continue;
-      if (this._flushMode) {
-        item.label.add_style_class_name('flush-mode');
-      } else {
-        item.label.remove_style_class_name('flush-mode');
+      try {
+        if (!item?.label) continue;
+        if (this._flushMode) {
+          item.label.add_style_class_name('flush-mode');
+        } else {
+          item.label.remove_style_class_name('flush-mode');
+        }
+      } catch {
+        // Ignore children disposed during shell shutdown.
       }
     }
   }
@@ -340,10 +341,15 @@ export class AuroraDash extends Dash {
 
   private _isMenuOpen(): boolean {
     const dashAny = this as any;
-    const children = dashAny._box?.get_children?.() ?? [];
+    const children = this._getDashChildren();
 
     for (const child of children) {
-      const appIcon = child.child?._delegate;
+      let appIcon: any;
+      try {
+        appIcon = child.child?._delegate;
+      } catch {
+        continue;
+      }
 
       if (appIcon?._menu?.isOpen) {
         return true;
@@ -499,11 +505,15 @@ export class AuroraDash extends Dash {
     // Snapshot existing (non-animating-out) apps so we can detect newly added
     // items after stock _redisplay and animate them in ourselves.
     const isFirstDisplay = !dashAny._shownInitially;
-    const existingApps = new Set<any>(
-      ((this as any)._box?.get_children?.() ?? [])
-        .filter((c: any) => c.child?._delegate?.app && !c.animatingOut)
-        .map((c: any) => c.child._delegate.app),
-    );
+    const existingApps = new Set<any>();
+    for (const child of this._getDashChildren()) {
+      try {
+        const app = child.child?._delegate?.app;
+        if (app && !child.animatingOut) existingApps.add(app);
+      } catch {
+        // Ignore children disposed during shell shutdown.
+      }
+    }
 
     // Temporarily patch get_running() so the base Dash only sees apps with
     // windows on this monitor and active workspace. _globallyRunningIds is set
@@ -557,21 +567,24 @@ export class AuroraDash extends Dash {
     // (instant) when overview.visible is false, leaving new items at scale=1.
     // We detect them via the pre-redisplay snapshot and replay the animation.
     if (shouldAnimate && !isFirstDisplay) {
-      const children = (this as any)._box?.get_children?.() ?? [];
-      for (const child of children) {
-        const childApp = child.child?._delegate?.app;
-        if (childApp && !existingApps.has(childApp) && !child.animatingOut) {
-          child.remove_all_transitions();
-          child.scale_x = 0;
-          child.scale_y = 0;
-          child.opacity = 0;
-          child.ease({
-            scale_x: 1,
-            scale_y: 1,
-            opacity: 255,
-            duration: ANIMATION_TIME,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-          });
+      for (const child of this._getDashChildren()) {
+        try {
+          const childApp = child.child?._delegate?.app;
+          if (childApp && !existingApps.has(childApp) && !child.animatingOut) {
+            child.remove_all_transitions();
+            child.scale_x = 0;
+            child.scale_y = 0;
+            child.opacity = 0;
+            child.ease({
+              scale_x: 1,
+              scale_y: 1,
+              opacity: 255,
+              duration: ANIMATION_TIME,
+              mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+          }
+        } catch {
+          // Ignore children disposed during shell shutdown.
         }
       }
     }
@@ -605,13 +618,16 @@ export class AuroraDash extends Dash {
   }
 
   private _updatePerMonitorRunningDots(): void {
-    const children = (this as any)._box?.get_children?.() ?? [];
-    for (const child of children) {
-      const icon = child.child?._delegate;
-      if (!icon?.app) continue;
-      const hasWindowHere = icon.app.get_windows().some((w: any) => this._isWindowRelevant(w));
-      const dot = icon._dot;
-      if (dot) dot.visible = hasWindowHere;
+    for (const child of this._getDashChildren()) {
+      try {
+        const icon = child.child?._delegate;
+        if (!icon?.app) continue;
+        const hasWindowHere = icon.app.get_windows().some((w: any) => this._isWindowRelevant(w));
+        const dot = icon._dot;
+        if (dot) dot.visible = hasWindowHere;
+      } catch {
+        // Ignore children disposed during shell shutdown.
+      }
     }
   }
 
@@ -625,9 +641,13 @@ export class AuroraDash extends Dash {
    * clicked a window directly or switched apps).
    */
   private _overrideIconActivation(): void {
-    const children = (this as any)._box?.get_children?.() ?? [];
-    for (const child of children) {
-      const appIcon = child.child?._delegate;
+    for (const child of this._getDashChildren()) {
+      let appIcon: any;
+      try {
+        appIcon = child.child?._delegate;
+      } catch {
+        continue;
+      }
       if (!appIcon?.app || appIcon._auroraActivatePatched) continue;
 
       appIcon._auroraActivatePatched = true;
@@ -717,6 +737,15 @@ export class AuroraDash extends Dash {
         if (next.minimized) next.unminimize();
         Main.activateWindow(next);
       };
+    }
+  }
+
+  private _getDashChildren(): any[] {
+    if (this._isDestroyed) return [];
+    try {
+      return (this as any)._box?.get_children?.() ?? [];
+    } catch {
+      return [];
     }
   }
 

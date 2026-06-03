@@ -9,6 +9,8 @@ import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 
 // @ts-ignore
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
+// @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
+Gio._promisify(Gio.File.prototype, 'load_contents_async');
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
@@ -268,9 +270,9 @@ export class TrayIcons extends Module {
       if (!sniPid) continue;
 
       const directMatch = appPidSet.has(sniPid);
-      const ancestorMatch = directMatch ? true : this._pidHasAncestor(sniPid, appPidSet);
+      const ancestorMatch = directMatch ? true : await this._pidHasAncestor(sniPid, appPidSet);
       const trackerMatch = this._trackedPidMatchesApp(sniPid, appId, app);
-      const flatpakAppId = this._getFlatpakAppId(sniPid);
+      const flatpakAppId = await this._getFlatpakAppId(sniPid);
       const flatpakMatch = flatpakAppId ? appIdCandidates.has(flatpakAppId.toLowerCase()) : false;
       const covered = ancestorMatch || trackerMatch || flatpakMatch;
       logger.log(
@@ -283,13 +285,19 @@ export class TrayIcons extends Module {
     return false;
   }
 
-  private _getFlatpakAppId(pid: number): string | null {
+  private async _getFlatpakAppId(pid: number): Promise<string | null> {
+    const text = await this._readProcText(`/proc/${pid}/root/.flatpak-info`);
+    if (!text) return null;
+    const match = /^name=(.+)$/m.exec(text);
+    return match?.[1]?.trim() || null;
+  }
+
+  // Async /proc read (EGO-X-004: no synchronous file IO in shell code).
+  private async _readProcText(path: string): Promise<string | null> {
     try {
-      const [ok, bytes] = GLib.file_get_contents(`/proc/${pid}/root/.flatpak-info`);
-      if (!ok) return null;
-      const text = new TextDecoder().decode(bytes);
-      const match = /^name=(.+)$/m.exec(text);
-      return match?.[1]?.trim() || null;
+      const file = Gio.File.new_for_path(path);
+      const [contents] = await file.load_contents_async(null);
+      return new TextDecoder().decode(contents);
     } catch {
       return null;
     }
@@ -306,13 +314,13 @@ export class TrayIcons extends Module {
     }
   }
 
-  private _pidHasAncestor(pid: number, candidateAncestors: Set<number>): boolean {
+  private async _pidHasAncestor(pid: number, candidateAncestors: Set<number>): Promise<boolean> {
     let currentPid = pid;
     const seen = new Set<number>();
 
     while (currentPid > 1 && !seen.has(currentPid)) {
       seen.add(currentPid);
-      const parentPid = this._getParentPid(currentPid);
+      const parentPid = await this._getParentPid(currentPid);
       if (!parentPid) return false;
       if (candidateAncestors.has(parentPid)) return true;
       currentPid = parentPid;
@@ -321,17 +329,12 @@ export class TrayIcons extends Module {
     return false;
   }
 
-  private _getParentPid(pid: number): number | null {
-    try {
-      const [ok, bytes] = GLib.file_get_contents(`/proc/${pid}/status`);
-      if (!ok) return null;
-      const text = new TextDecoder().decode(bytes);
-      const match = /^PPid:\s+(\d+)$/m.exec(text);
-      if (!match) return null;
-      return Number.parseInt(match[1]!, 10);
-    } catch {
-      return null;
-    }
+  private async _getParentPid(pid: number): Promise<number | null> {
+    const text = await this._readProcText(`/proc/${pid}/status`);
+    if (!text) return null;
+    const match = /^PPid:\s+(\d+)$/m.exec(text);
+    if (!match) return null;
+    return Number.parseInt(match[1]!, 10);
   }
 
   private _appIdCandidates(appId: string, app: Shell.App): Set<string> {

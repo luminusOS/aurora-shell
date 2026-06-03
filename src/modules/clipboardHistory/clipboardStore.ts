@@ -5,6 +5,9 @@ import Gio from '@girs/gio-2.0';
 
 import { logger } from '~/core/logger.ts';
 
+// @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
+Gio._promisify(Gio.File.prototype, 'load_contents_async');
+
 const LOG_PREFIX = 'ClipboardHistory';
 
 export type ClipboardEntry = {
@@ -31,12 +34,11 @@ export class ClipboardStore {
     this._maxItems = maxItems;
   }
 
-  load(): void {
+  async load(): Promise<void> {
     try {
       const file = Gio.File.new_for_path(this._filePath);
-      const [ok, contents] = file.load_contents(null);
-      if (!ok) return;
-      const decoded = new TextDecoder().decode(contents as unknown as Uint8Array);
+      const [contents] = await file.load_contents_async(null);
+      const decoded = new TextDecoder().decode(contents);
       const parsed = JSON.parse(decoded) as StorageFormat;
       if (parsed.version !== 1 || !Array.isArray(parsed.entries)) return;
       this._pinned = parsed.entries.filter((e) => e.pinned);

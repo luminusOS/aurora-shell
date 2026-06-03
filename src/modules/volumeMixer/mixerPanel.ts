@@ -66,11 +66,6 @@ export class VolumeMixerPanel extends St.BoxLayout {
     this._emptyLabel.visible = !hasStreams;
   }
 
-  override vfunc_destroy(): void {
-    this._scroll = null;
-    super.vfunc_destroy();
-  }
-
   override vfunc_get_preferred_height(forWidth: number): [number, number] {
     if (!this.get_stage()) return [0, 0];
 
