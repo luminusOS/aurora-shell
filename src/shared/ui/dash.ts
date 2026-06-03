@@ -19,13 +19,6 @@ export interface DashBounds {
 const TARGET_BOX_PADDING = 8;
 
 type TargetBoxListener = (bounds: DashBounds | null) => void;
-type TimeoutProp =
-  | '_autohideTimeoutId'
-  | '_delayEnsureAutoHideId'
-  | '_blockAutoHideDelayId'
-  | '_workAreaUpdateId'
-  | '_iconResizeTimeoutId'
-  | '_springLoadTimerId';
 
 const AUTOHIDE_TIMEOUT = 100;
 const SPRING_LOAD_DELAY = 400;
@@ -139,7 +132,30 @@ export class AuroraDash extends Dash {
 
   override destroy(): void {
     this._isDestroyed = true;
-    this._clearAllTimeouts();
+    if (this._autohideTimeoutId !== 0) {
+      GLib.source_remove(this._autohideTimeoutId);
+      this._autohideTimeoutId = 0;
+    }
+    if (this._delayEnsureAutoHideId !== 0) {
+      GLib.source_remove(this._delayEnsureAutoHideId);
+      this._delayEnsureAutoHideId = 0;
+    }
+    if (this._blockAutoHideDelayId !== 0) {
+      GLib.source_remove(this._blockAutoHideDelayId);
+      this._blockAutoHideDelayId = 0;
+    }
+    if (this._workAreaUpdateId !== 0) {
+      GLib.source_remove(this._workAreaUpdateId);
+      this._workAreaUpdateId = 0;
+    }
+    if (this._iconResizeTimeoutId !== 0) {
+      GLib.source_remove(this._iconResizeTimeoutId);
+      this._iconResizeTimeoutId = 0;
+    }
+    if (this._springLoadTimerId !== 0) {
+      GLib.source_remove(this._springLoadTimerId);
+      this._springLoadTimerId = 0;
+    }
 
     // Remove the global DND drag monitor so its captured `this` doesn't
     // keep firing against a disposed AuroraDash if the dash is destroyed
@@ -291,7 +307,10 @@ export class AuroraDash extends Dash {
 
   /** Schedule a delayed hover re-evaluation after visibility changes. */
   ensureAutoHide(): void {
-    this._clearTimeout('_delayEnsureAutoHideId');
+    if (this._delayEnsureAutoHideId !== 0) {
+      GLib.source_remove(this._delayEnsureAutoHideId);
+      this._delayEnsureAutoHideId = 0;
+    }
     this._delayEnsureAutoHideId = GLib.timeout_add(
       GLib.PRIORITY_DEFAULT,
       VISIBILITY_ANIMATION_TIME,
@@ -594,7 +613,10 @@ export class AuroraDash extends Dash {
     this._overrideIconActivation();
 
     if (dashAny.iconSize !== oldIconSize) {
-      this._clearTimeout('_iconResizeTimeoutId');
+      if (this._iconResizeTimeoutId !== 0) {
+        GLib.source_remove(this._iconResizeTimeoutId);
+        this._iconResizeTimeoutId = 0;
+      }
       this._iconResizeTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ANIMATION_TIME, () => {
         this._iconResizeTimeoutId = 0;
         if (this._workArea) this.applyWorkArea(this._workArea);
@@ -817,14 +839,20 @@ export class AuroraDash extends Dash {
 
   private _clearSpringLoad(): void {
     this._springLoadTarget?.remove_style_class_name?.('aurora-drag-hover');
-    this._clearTimeout('_springLoadTimerId');
+    if (this._springLoadTimerId !== 0) {
+      GLib.source_remove(this._springLoadTimerId);
+      this._springLoadTimerId = 0;
+    }
     this._springLoadTarget = null;
   }
 
   /** Start or restart the autohide timeout — hides the dock if not hovered/blocked. */
   private _onHover(): void {
     if (this._isDestroyed) return;
-    this._clearTimeout('_autohideTimeoutId');
+    if (this._autohideTimeoutId !== 0) {
+      GLib.source_remove(this._autohideTimeoutId);
+      this._autohideTimeoutId = 0;
+    }
     this._autohideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTOHIDE_TIMEOUT, () => {
       if (this._isDestroyed) {
         this._autohideTimeoutId = 0;
@@ -845,7 +873,10 @@ export class AuroraDash extends Dash {
   /** If the cursor is still over the dash container, ensure the dock stays shown. */
   private _ensureHoverState(): void {
     if (this._isDestroyed) return;
-    this._clearTimeout('_blockAutoHideDelayId');
+    if (this._blockAutoHideDelayId !== 0) {
+      GLib.source_remove(this._blockAutoHideDelayId);
+      this._blockAutoHideDelayId = 0;
+    }
     this._blockAutoHideDelayId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
       if (!this._isDestroyed) {
         const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
@@ -951,22 +982,6 @@ export class AuroraDash extends Dash {
       }
       return GLib.SOURCE_REMOVE;
     });
-  }
-
-  private _clearTimeout(prop: TimeoutProp): void {
-    if (this[prop]) {
-      GLib.source_remove(this[prop]);
-      this[prop] = 0;
-    }
-  }
-
-  private _clearAllTimeouts(): void {
-    this._clearTimeout('_autohideTimeoutId');
-    this._clearTimeout('_delayEnsureAutoHideId');
-    this._clearTimeout('_blockAutoHideDelayId');
-    this._clearTimeout('_workAreaUpdateId');
-    this._clearTimeout('_iconResizeTimeoutId');
-    this._clearTimeout('_springLoadTimerId');
   }
 
   private static _boundsEqual(a: DashBounds | null, b: DashBounds | null): boolean {

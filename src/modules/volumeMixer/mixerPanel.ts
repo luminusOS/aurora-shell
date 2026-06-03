@@ -18,7 +18,6 @@ export const MAX_MIXER_HEIGHT = 300;
 export class VolumeMixerPanel extends St.BoxLayout {
   declare private _emptyLabel: St.Label;
   declare private _list: VolumeMixerList;
-  declare private _scroll: St.ScrollView | null;
 
   override _init(context?: ExtensionContext | Partial<St.BoxLayout.ConstructorProps>): void {
     super._init({
@@ -53,16 +52,15 @@ export class VolumeMixerPanel extends St.BoxLayout {
       context as ExtensionContext,
     );
     sections.add_child(this._list);
-    this._scroll = scroll;
     this.add_child(scroll);
 
-    this._list.connectObject('notify::should-show', () => this._sync(), this);
-    this._sync();
+    this._list.connectObject('notify::should-show', () => this._sync(scroll), this);
+    this._sync(scroll);
   }
 
-  private _sync(): void {
+  private _sync(scroll: St.ScrollView): void {
     const hasStreams = this._list.shouldShow;
-    this._scroll!.visible = hasStreams;
+    scroll.visible = hasStreams;
     this._emptyLabel.visible = !hasStreams;
   }
 

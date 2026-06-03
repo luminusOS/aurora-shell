@@ -80,14 +80,19 @@ export class ConsoleLogger implements Logger {
   }
 }
 
-let _activeLogger: Logger = new ConsoleLogger();
+let _activeLogger: Logger | null = null;
+
+function _getActiveLogger(): Logger {
+  _activeLogger ??= new ConsoleLogger();
+  return _activeLogger;
+}
 
 export const logger: Logger = {
-  log: (...args) => _activeLogger.log(...args),
-  debug: (...args) => _activeLogger.debug(...args),
-  info: (...args) => _activeLogger.info(...args),
-  warn: (...args) => _activeLogger.warn(...args),
-  error: (...args) => _activeLogger.error(...args),
+  log: (...args) => _getActiveLogger().log(...args),
+  debug: (...args) => _getActiveLogger().debug(...args),
+  info: (...args) => _getActiveLogger().info(...args),
+  warn: (...args) => _getActiveLogger().warn(...args),
+  error: (...args) => _getActiveLogger().error(...args),
 };
 
 export function setGlobalLogger(l: Logger): void {
