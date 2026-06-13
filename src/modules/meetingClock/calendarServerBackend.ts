@@ -65,7 +65,6 @@ export class CalendarServerBackend {
       this._signalId = 0;
     }
 
-    this._proxy?.run_dispose();
     this._proxy = null;
     this._eventsById.clear();
   }
