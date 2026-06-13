@@ -8,7 +8,7 @@ A modular GNOME Shell extension that adds quality-of-life features missing in va
 
 > **Project goal:** Aurora Shell is a proving ground. Over time, the aim is for some of its
 > features to mature and make their way upstream into GNOME Shell itself. Modules here are
-> meant to be useful on their own today, and good candidates for upstream tomorrow.
+> meant to be useful on their own today and good candidates for upstream tomorrow.
 
 ## Modules
 
@@ -58,12 +58,12 @@ just install
 ## Testing
 
 ```bash
-# Run directly on the host (builds, installs, and launches GNOME Shell)
+# Build, install, and run directly on the host
 just run
 
-# Run inside a toolbox (useful when host lacks gnome-shell dev packages)
-just create-toolbox   # first time only
-just toolbox-run
+# Build, install, and run inside a toolbox
+just toolbox create   # first time only
+just toolbox run
 ```
 
 ## Contributing

@@ -94,6 +94,7 @@ export class BluetoothMenu extends Module {
     this._patchers.set(item, patcher);
 
     const id = item.connect('destroy', () => {
+      patcher.disable({ restoreOriginalChildren: false });
       this._patchers.delete(item);
       this._destroyIds.delete(item);
     });

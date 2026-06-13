@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-06-02 18:21-0300\n"
+"POT-Creation-Date: 2026-06-04 17:27-0300\n"
 "PO-Revision-Date: 2026-03-09 18:00-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -56,52 +56,52 @@ msgstr ""
 msgid "Time to switch to dark theme (HH:MM)"
 msgstr ""
 
-#: dist/modules/bluetoothMenu/bluetoothMenu.js:92 dist/prefsMetadata.js:129
+#: dist/modules/bluetoothMenu/bluetoothMenu.js:93 dist/prefsMetadata.js:129
 msgid "Bluetooth Menu"
 msgstr ""
 
-#: dist/modules/bluetoothMenu/bluetoothMenu.js:93 dist/prefsMetadata.js:130
+#: dist/modules/bluetoothMenu/bluetoothMenu.js:94 dist/prefsMetadata.js:130
 msgid ""
 "Shows battery level and animated icons in the Bluetooth Quick Settings panel"
 msgstr ""
 
 #: dist/modules/clipboardHistory/clipboardHistory.js:146
-#: dist/modules/clipboardHistory/clipboardPanel.js:43 dist/prefsMetadata.js:267
+#: dist/modules/clipboardHistory/clipboardPanel.js:43 dist/prefsMetadata.js:261
 msgid "Clipboard History"
 msgstr ""
 
 #: dist/modules/clipboardHistory/clipboardHistory.js:147
-#: dist/prefsMetadata.js:268
+#: dist/prefsMetadata.js:262
 msgid "Searchable clipboard history with pinning and keyboard navigation"
 msgstr ""
 
 #: dist/modules/clipboardHistory/clipboardHistory.js:151
-#: dist/prefsMetadata.js:272
+#: dist/prefsMetadata.js:266
 msgid "Open Shortcut"
 msgstr ""
 
 #: dist/modules/clipboardHistory/clipboardHistory.js:152
-#: dist/prefsMetadata.js:273
+#: dist/prefsMetadata.js:267
 msgid "Keyboard shortcut to open the clipboard history panel"
 msgstr ""
 
 #: dist/modules/clipboardHistory/clipboardHistory.js:157
-#: dist/prefsMetadata.js:278
+#: dist/prefsMetadata.js:272
 msgid "Max History Items"
 msgstr ""
 
 #: dist/modules/clipboardHistory/clipboardHistory.js:158
-#: dist/prefsMetadata.js:279
+#: dist/prefsMetadata.js:273
 msgid "Number of non-pinned entries to retain"
 msgstr ""
 
 #: dist/modules/clipboardHistory/clipboardHistory.js:165
-#: dist/prefsMetadata.js:286
+#: dist/prefsMetadata.js:280
 msgid "Poll Interval (ms)"
 msgstr ""
 
 #: dist/modules/clipboardHistory/clipboardHistory.js:166
-#: dist/prefsMetadata.js:287
+#: dist/prefsMetadata.js:281
 msgid "How often to check the clipboard for changes"
 msgstr ""
 
@@ -289,59 +289,59 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:393 dist/prefsMetadata.js:136
+#: dist/modules/trayIcons/trayIcons.js:395 dist/prefsMetadata.js:210
 msgid "Tray Icons"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:394 dist/prefsMetadata.js:137
+#: dist/modules/trayIcons/trayIcons.js:396 dist/prefsMetadata.js:211
 msgid "System tray with SNI and background app icons"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:398 dist/prefsMetadata.js:141
+#: dist/modules/trayIcons/trayIcons.js:400 dist/prefsMetadata.js:215
 msgid "Visible Icon Limit"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:399 dist/prefsMetadata.js:142
+#: dist/modules/trayIcons/trayIcons.js:401 dist/prefsMetadata.js:216
 msgid "Maximum number of icons shown before the expand button appears"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:406 dist/prefsMetadata.js:149
+#: dist/modules/trayIcons/trayIcons.js:408 dist/prefsMetadata.js:223
 msgid "Icon Size"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:407 dist/prefsMetadata.js:150
+#: dist/modules/trayIcons/trayIcons.js:409 dist/prefsMetadata.js:224
 msgid "Tray icon size in pixels (14–24)"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:414 dist/prefsMetadata.js:157
+#: dist/modules/trayIcons/trayIcons.js:416 dist/prefsMetadata.js:231
 msgid "Attention Auto-Collapse (seconds)"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:415 dist/prefsMetadata.js:158
+#: dist/modules/trayIcons/trayIcons.js:417 dist/prefsMetadata.js:232
 msgid "Seconds before the tray collapses after a notification icon appears"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:422 dist/prefsMetadata.js:165
+#: dist/modules/trayIcons/trayIcons.js:424 dist/prefsMetadata.js:239
 msgid "Hide Background App When Tray Icon Present"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:423 dist/prefsMetadata.js:166
+#: dist/modules/trayIcons/trayIcons.js:425 dist/prefsMetadata.js:240
 msgid "Remove the background app icon when the same app has an SNI tray icon"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:428 dist/prefsMetadata.js:171
+#: dist/modules/trayIcons/trayIcons.js:430 dist/prefsMetadata.js:245
 msgid "Hide Background Apps from Quick Settings"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:429 dist/prefsMetadata.js:172
+#: dist/modules/trayIcons/trayIcons.js:431 dist/prefsMetadata.js:246
 msgid "Hide the Background Apps section from the Quick Settings dropdown"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:434 dist/prefsMetadata.js:177
+#: dist/modules/trayIcons/trayIcons.js:436 dist/prefsMetadata.js:251
 msgid "Recolor Symbolic Tray Icons"
 msgstr ""
 
-#: dist/modules/trayIcons/trayIcons.js:435 dist/prefsMetadata.js:178
+#: dist/modules/trayIcons/trayIcons.js:437 dist/prefsMetadata.js:252
 msgid "Automatically recolor monochrome SNI icons to match the panel theme"
 msgstr ""
 
@@ -419,7 +419,7 @@ msgid "Press a shortcut…"
 msgstr ""
 
 #: dist/prefsMetadata.js:6
-msgid "Dock &amp; Panel"
+msgid "Dock & Panel"
 msgstr ""
 
 #: dist/prefsMetadata.js:7
@@ -431,7 +431,7 @@ msgid "Behavior"
 msgstr ""
 
 #: dist/prefsMetadata.js:9
-msgid "Privacy &amp; Clipboard"
+msgid "Privacy & Clipboard"
 msgstr ""
 
 #~ msgid "Modules"

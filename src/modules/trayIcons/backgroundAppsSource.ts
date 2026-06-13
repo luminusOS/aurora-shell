@@ -104,7 +104,7 @@ export class BackgroundAppsSource {
     // Remove gone apps
     for (const [id] of this._knownIds) {
       if (!currentApps.has(id)) {
-        logger.log(`BG app removed from monitor: ${id}`, { prefix: LOG_PREFIX });
+        logger.debug(`BG app removed from monitor: ${id}`, { prefix: LOG_PREFIX });
         this._knownIds.delete(id);
         this._callbacks.onItemRemoved(`bg:${id}`);
       }
@@ -113,7 +113,7 @@ export class BackgroundAppsSource {
     // Add new apps
     for (const [appId, { app, message }] of currentApps) {
       if (!this._knownIds.has(appId)) {
-        logger.log(`BG app found in monitor: ${appId}`, { prefix: LOG_PREFIX });
+        logger.debug(`BG app found in monitor: ${appId}`, { prefix: LOG_PREFIX });
         const item = this._makeItem(appId, app, message);
         this._knownIds.set(appId, item);
         this._callbacks.onItemAdded(item, appId, app);

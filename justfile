@@ -37,6 +37,22 @@ package: build
         --schema=schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml
     echo "Packing Done!"
 
+shexli *args: package
+    #!/usr/bin/env bash
+    set -e
+    EXT="dist/target/{{ uuid }}.shell-extension.zip"
+
+    if command -v shexli >/dev/null 2>&1; then
+        shexli "$EXT" {{ args }}
+    elif command -v uvx >/dev/null 2>&1; then
+        uvx --from shexli shexli "$EXT" {{ args }}
+    else
+        echo "shexli is not installed."
+        echo "Install it with: python3 -m pip install --user shexli"
+        echo "Then run: just shexli"
+        exit 1
+    fi
+
 validate:
     yarn validate
     yarn lint
@@ -154,8 +170,11 @@ test-all: package
 run:
     #!/usr/bin/env bash
     set -e
-    env GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas \
-        XDG_CURRENT_DESKTOP=GNOME dbus-run-session gnome-shell --wayland --devkit
+    SHELL_ENV=(
+        GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas
+        XDG_CURRENT_DESKTOP=GNOME
+    )
+    env "${SHELL_ENV[@]}" dbus-run-session gnome-shell --wayland --devkit
 
 toolbox action *args:
     #!/usr/bin/env bash

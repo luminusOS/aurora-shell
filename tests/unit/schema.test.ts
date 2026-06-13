@@ -36,7 +36,11 @@ const EXPECTED_MODULE_KEYS = [
   'module-bluetooth-menu',
   'module-weather-clock',
   'module-meeting-clock',
+  'module-tray-icons',
+  'module-clipboard-history',
 ] as const;
+
+const OPT_IN_MODULE_KEYS = new Set<string>(['module-auto-theme-switcher']);
 
 const schemaXml = readFileSync(SCHEMA_FILE, 'utf-8');
 
@@ -75,6 +79,7 @@ test('schema — every module key defaults to true', () => {
   while ((match = blockRe.exec(schemaXml)) !== null) {
     const block = match[0];
     const keyName = match[1];
+    if (OPT_IN_MODULE_KEYS.has(keyName)) continue;
     const defaultMatch = block.match(/<default>(.*?)<\/default>/);
     assert.ok(defaultMatch, `Key "${keyName}" has no <default> element`);
     assert.strictEqual(

@@ -5,7 +5,9 @@ import type { SettingsManager } from './settings.ts';
  * Global signal bus for Aurora Shell modules
  */
 @GObject.registerClass({
-  Signals: { 'icons-woven': {} },
+  Signals: {
+    'icons-woven': {},
+  },
 })
 export class AuroraSignals extends GObject.Object {}
 

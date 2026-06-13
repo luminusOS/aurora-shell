@@ -92,7 +92,6 @@ export class DockIntellihide extends GObject.Object {
     this._tracker = null;
     Main.keyboard.disconnectObject(this);
     Main.overview.disconnectObject(this);
-    this.disconnectObject?.(this);
   }
 
   private _checkOverlap(): void {

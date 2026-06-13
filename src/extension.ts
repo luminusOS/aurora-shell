@@ -129,12 +129,7 @@ export default class AuroraShellExtension extends Extension {
     }
   }
 
-  override disable(): void {
-    logger.debug('Disabling extension', { prefix: LOG_PREFIX });
-
-    this._settings?.disconnectObject(this);
-    this._disableDevTool();
-
+  private _disableAllModules(): void {
     for (const [name, module] of this._modules) {
       try {
         module.disable();
@@ -144,6 +139,14 @@ export default class AuroraShellExtension extends Extension {
     }
 
     this._modules.clear();
+  }
+
+  override disable(): void {
+    logger.debug('Disabling extension', { prefix: LOG_PREFIX });
+
+    if (this._settings) this._settings.disconnectObject(this);
+    this._disableDevTool();
+    this._disableAllModules();
     this._settings = null;
     this._context = null;
     cleanupIcons();

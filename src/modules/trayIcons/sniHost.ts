@@ -122,7 +122,7 @@ export class SniHost {
       (proxy.get_cached_property('DesktopEntry')?.unpack() as string | undefined) ?? '';
 
     const menuPath = proxy.get_cached_property('Menu')?.unpack() as string | undefined;
-    logger.log(
+    logger.debug(
       `Registered item ${id}. Id=${sniId || '(none)'}. DesktopEntry=${desktopEntry || '(none)'}. Menu path: ${menuPath || 'none'}. Status: ${item.status}`,
       { prefix: LOG_PREFIX },
     );
@@ -203,7 +203,7 @@ export class SniHost {
     if (iconName) {
       const themedIcon = this._resolveThemedIcon(iconName, iconThemePath, itemId, reason);
       if (themedIcon) {
-        logger.log(
+        logger.debug(
           `SNI icon ${itemId} reason=${reason} source=theme-path name=${iconName} path=${iconThemePath}`,
           { prefix: LOG_PREFIX },
         );
@@ -215,7 +215,7 @@ export class SniHost {
     if (pixmaps) {
       const pb = this._extractPixbuf(pixmaps, itemId, reason);
       if (pb) {
-        logger.log(
+        logger.debug(
           `SNI icon ${itemId} reason=${reason} source=pixmap size=${pb.get_width()}x${pb.get_height()}`,
           { prefix: LOG_PREFIX },
         );
@@ -224,14 +224,14 @@ export class SniHost {
     }
 
     if (iconName) {
-      logger.log(
+      logger.debug(
         `SNI icon ${itemId} reason=${reason} source=icon-name name=${iconName} path=${iconThemePath || 'none'}`,
         { prefix: LOG_PREFIX },
       );
       return iconName;
     }
 
-    logger.log(`SNI icon ${itemId} reason=${reason} source=fallback`, { prefix: LOG_PREFIX });
+    logger.debug(`SNI icon ${itemId} reason=${reason} source=fallback`, { prefix: LOG_PREFIX });
     return 'image-missing-symbolic';
   }
 
@@ -340,7 +340,7 @@ export class SniHost {
       }
     }
 
-    logger.log(
+    logger.debug(
       `Recolored symbolic theme-path icon ${itemId} reason=${reason} scheme=${this._getColorScheme()} size=${w}x${h}`,
       { prefix: LOG_PREFIX },
     );
@@ -373,7 +373,7 @@ export class SniHost {
 
     if (!data || w <= 0 || h <= 0) return null;
     if (w < MIN_PIXMAP_SIZE || h < MIN_PIXMAP_SIZE) {
-      logger.log(`Ignoring tiny SNI pixmap ${itemId} reason=${reason} size=${w}x${h}`, {
+      logger.debug(`Ignoring tiny SNI pixmap ${itemId} reason=${reason} size=${w}x${h}`, {
         prefix: LOG_PREFIX,
       });
       return null;
@@ -395,7 +395,7 @@ export class SniHost {
     }
 
     if (symbolic) {
-      logger.log(
+      logger.debug(
         `Recolored symbolic SNI pixmap ${itemId} reason=${reason} scheme=${this._getColorScheme()} size=${w}x${h}`,
         { prefix: LOG_PREFIX },
       );

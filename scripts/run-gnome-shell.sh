@@ -19,5 +19,5 @@ then
 fi
 
 echo "Running GNOME Shell in toolbox '$TOOLBOX'..."
-toolbox --container $TOOLBOX run \
+toolbox --container "$TOOLBOX" run \
   env "${SHELL_ENV[@]}" dbus-run-session gnome-shell "${SHELL_ARGS[@]}"
