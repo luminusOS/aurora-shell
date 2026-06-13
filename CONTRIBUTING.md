@@ -149,6 +149,15 @@ git cherry-pick <commit-sha>
 
 Maintainers decide which fixes are worth backporting. Not every fix needs to land in every maintenance branch.
 
+### Automated backports
+
+To request a maintenance backport, add a label such as `GNOME 50` to the original pull request.
+GitHub Actions creates or updates a separate backport PR targeting `release/v50.x`.
+
+The backport branch is rebuilt from the target release branch, cherry-picks the original PR commits,
+and adds a final version bump commit. For example, if `metadata.json` on `release/v50.x` says
+`50.7`, the generated backport PR bumps it to `50.8`.
+
 ### Release candidates
 
 Release candidates are published alongside GNOME Shell RCs. Tags follow the pattern `v50-rc1`, `v50-rc2`, etc. RC releases are automatically marked as **pre-releases** on GitHub.
@@ -182,12 +191,27 @@ The CI pipeline runs all tests and, if they pass, publishes the GitHub Release a
 - **Coverage:** `just coverage` — runs unit tests with coverage report
 - **Single integration test:** `just test <script>` — packages and runs one shell test headlessly
 - **All integration tests:** `just test-all` — packages and runs all shell tests on the host, printing a pass/fail summary
+- **Shexli review scan:** `just shexli` — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
 - **Clean:** `just clean` — removes `dist/`
 - **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
 
 *For a full test environment, create a Fedora toolbox via `just toolbox create` and run tests inside it using `just toolbox test-all` (preferred over `just test-all`).*
+
+## GNOME Extensions Review
+
+Aurora Shell can be checked locally with Shexli, the experimental static analyzer used by
+extensions.gnome.org:
+
+```bash
+just shexli
+```
+
+The recipe depends on `just package` and scans the generated
+`dist/target/aurora-shell@luminusos.github.io.shell-extension.zip`. Install Shexli with
+`python3 -m pip install --user shexli`, or install `uvx` and the recipe will run
+`uvx --from shexli shexli` automatically.
 
 ## CI
 

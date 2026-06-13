@@ -8,10 +8,13 @@ import Clutter from '@girs/clutter-18';
 import { logger } from '~/core/logger.ts';
 import { loadIcon } from '~/shared/icons.ts';
 
-const COLOR_DISCONNECTED = '#9a9a9a';
-const COLOR_CONNECTED = '#1c71d8';
-const COLOR_ANIMATING = '#3584e4';
 const LOG_PREFIX = 'BluetoothMenu';
+
+type DisableOptions = {
+  restoreOriginalChildren?: boolean;
+};
+
+type StateIconStatus = 'animating' | 'connected' | 'disconnected';
 
 export class BluetoothDeviceItemPatcher {
   private _item: any;
@@ -24,6 +27,7 @@ export class BluetoothDeviceItemPatcher {
   private _animationTimeoutId = 0;
   private _animationFrame = 1;
   private _animatingState: 'connecting' | 'disconnecting' | null = null;
+  private _disposed = true;
 
   constructor(item: any) {
     this._item = item;
@@ -31,6 +35,7 @@ export class BluetoothDeviceItemPatcher {
 
   enable(): void {
     const item = this._item;
+    this._disposed = false;
 
     // Override activate so clicking a device doesn't close the menu.
     // The parent PopupMenuBase listens to 'activate' and calls menu.close();
@@ -64,7 +69,7 @@ export class BluetoothDeviceItemPatcher {
 
     this._stateIcon = new St.Icon({
       icon_size: 16,
-      style_class: 'popup-menu-icon',
+      style_class: 'popup-menu-icon aurora-bt-state-icon',
       y_align: Clutter.ActorAlign.CENTER,
       x_expand: false,
     });
@@ -105,12 +110,16 @@ export class BluetoothDeviceItemPatcher {
   }
 
   private _scheduleUpdate(): void {
+    if (this._disposed) return;
+
     if (this._pendingUpdateId !== 0) {
       GLib.source_remove(this._pendingUpdateId);
       this._pendingUpdateId = 0;
     }
     this._pendingUpdateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
       this._pendingUpdateId = 0;
+      if (this._disposed) return GLib.SOURCE_REMOVE;
+
       this._updateStateIcon();
       this._updateBatteryLabel();
       return GLib.SOURCE_REMOVE;
@@ -126,7 +135,7 @@ export class BluetoothDeviceItemPatcher {
   }
 
   private _updateStateIcon(): void {
-    if (!this._stateIcon) return;
+    if (this._disposed || !this._stateIcon) return;
 
     const connected: boolean = this._item._device.connected;
     const isWorking: boolean = this._item._spinner.visible;
@@ -138,11 +147,16 @@ export class BluetoothDeviceItemPatcher {
         this._animatingState = connected ? 'disconnecting' : 'connecting';
 
         this._animationTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
+          if (this._disposed || !this._stateIcon) {
+            this._animationTimeoutId = 0;
+            return GLib.SOURCE_REMOVE;
+          }
+
           this._animationFrame = (this._animationFrame % 4) + 1;
-          this._stateIcon!.gicon = this._loadIcon(
+          this._stateIcon.gicon = this._loadIcon(
             `bbm-bluetooth-${this._animatingState}-${this._animationFrame}-symbolic`,
           );
-          this._stateIcon!.set_style(`color: ${COLOR_ANIMATING};`);
+          this._setStateIconStatus('animating');
           return GLib.SOURCE_CONTINUE;
         });
       }
@@ -150,7 +164,7 @@ export class BluetoothDeviceItemPatcher {
       this._stateIcon.gicon = this._loadIcon(
         `bbm-bluetooth-${state}-${this._animationFrame}-symbolic`,
       );
-      this._stateIcon.set_style(`color: ${COLOR_ANIMATING};`);
+      this._setStateIconStatus('animating');
     } else {
       this._animatingState = null;
       if (this._animationTimeoutId !== 0) {
@@ -159,16 +173,25 @@ export class BluetoothDeviceItemPatcher {
       }
       if (connected) {
         this._stateIcon.gicon = this._loadIcon('bbm-bluetooth-connected-symbolic');
-        this._stateIcon.set_style(`color: ${COLOR_CONNECTED};`);
+        this._setStateIconStatus('connected');
       } else {
         this._stateIcon.gicon = this._loadIcon('bbm-bluetooth-symbolic');
-        this._stateIcon.set_style(`color: ${COLOR_DISCONNECTED};`);
+        this._setStateIconStatus('disconnected');
       }
     }
   }
 
+  private _setStateIconStatus(status: StateIconStatus): void {
+    if (!this._stateIcon) return;
+
+    this._stateIcon.remove_style_class_name('aurora-bt-state-animating');
+    this._stateIcon.remove_style_class_name('aurora-bt-state-connected');
+    this._stateIcon.remove_style_class_name('aurora-bt-state-disconnected');
+    this._stateIcon.add_style_class_name(`aurora-bt-state-${status}`);
+  }
+
   private _updateBatteryLabel(): void {
-    if (!this._batteryLabel) return;
+    if (this._disposed || !this._batteryLabel) return;
     const connected: boolean = this._item._device.connected;
     const pct: number = this._item._device.battery_percentage;
     // Filter out 0% which is often a placeholder during initial connection
@@ -180,7 +203,10 @@ export class BluetoothDeviceItemPatcher {
     }
   }
 
-  disable(): void {
+  disable(options: DisableOptions = {}): void {
+    const restoreOriginalChildren = options.restoreOriginalChildren ?? true;
+    this._disposed = true;
+
     if (this._spinnerNotifyId) {
       this._item._spinner?.disconnect(this._spinnerNotifyId);
       this._spinnerNotifyId = 0;
@@ -204,22 +230,28 @@ export class BluetoothDeviceItemPatcher {
       this._animationTimeoutId = 0;
     }
 
-    this._stateIcon?.destroy();
+    if (restoreOriginalChildren) this._stateIcon?.destroy();
     this._stateIcon = null;
 
-    this._batteryLabel?.destroy();
+    if (restoreOriginalChildren) this._batteryLabel?.destroy();
     this._batteryLabel = null;
+
+    if (!restoreOriginalChildren) {
+      delete this._item.activate;
+      delete this._item.__auroraBtPatched;
+      return;
+    }
 
     // Re-insert removed children at their original positions.
     // Original layout: [ornament] [icon] [label] [subtitle] [spinner]
     if (this._item._icon) {
-      this._item.insert_child_at_index(this._item._icon, 1);
+      this._restoreChild(this._item._icon, 1);
     }
     if (this._item._subtitle) {
-      this._item.insert_child_at_index(this._item._subtitle, 3);
+      this._restoreChild(this._item._subtitle, 3);
     }
     if (this._item._spinner) {
-      this._item.insert_child_at_index(this._item._spinner, 4);
+      this._restoreChild(this._item._spinner, 4);
       this._item._spinner.opacity = 255;
       this._item._spinner.set_scale(1, 1);
     }
@@ -227,5 +259,11 @@ export class BluetoothDeviceItemPatcher {
     // Remove per-instance activate override so prototype method is restored.
     delete this._item.activate;
     delete this._item.__auroraBtPatched;
+  }
+
+  private _restoreChild(child: Clutter.Actor, index: number): void {
+    if (child.get_parent() !== this._item) {
+      this._item.insert_child_at_index(child, index);
+    }
   }
 }

@@ -62,7 +62,7 @@
       <description>Keep the dock permanently visible and reserve screen space so windows never overlap it</description>
     </key>
     <key name="module-auto-theme-switcher" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Enable Auto Theme Switcher module</summary>
       <description>Automatically switches between light and dark theme based on configured times</description>
     </key>

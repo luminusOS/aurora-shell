@@ -99,7 +99,7 @@ export class TrayIcons extends Module {
     this._sniWatcher.start();
     this._desktopSettingsChangedId = this._desktopSettings.connect('changed::color-scheme', () => {
       const scheme = this._desktopSettings?.getString('color-scheme') ?? 'unknown';
-      logger.log(`Color scheme changed to ${scheme}; refreshing SNI icons`, {
+      logger.debug(`Color scheme changed to ${scheme}; refreshing SNI icons`, {
         prefix: LOG_PREFIX,
       });
       this._sniHost?.refreshIcons('color-scheme');
@@ -148,7 +148,7 @@ export class TrayIcons extends Module {
         }
       }),
       settings.connect('changed::tray-icons-recolor-symbolic-pixmaps', () => {
-        logger.log(
+        logger.debug(
           `Recolor symbolic SNI pixmaps=${settings.get_boolean('tray-icons-recolor-symbolic-pixmaps')}; refreshing SNI icons`,
           { prefix: LOG_PREFIX },
         );
@@ -158,7 +158,7 @@ export class TrayIcons extends Module {
   }
 
   private _onSniItemAdded(item: TrayItem): void {
-    logger.log(`SNI item added: ${item.id} (menuBus=${item.menuBusName ?? 'none'})`, {
+    logger.debug(`SNI item added: ${item.id} (menuBus=${item.menuBusName ?? 'none'})`, {
       prefix: LOG_PREFIX,
     });
     this._container?.addItem(item);
@@ -170,15 +170,15 @@ export class TrayIcons extends Module {
   }
 
   private async _onBgItemAdded(item: TrayItem, appId: string, app: Shell.App): Promise<void> {
-    logger.log(`BG app detected: ${appId}`, { prefix: LOG_PREFIX });
+    logger.debug(`BG app detected: ${appId}`, { prefix: LOG_PREFIX });
     if (this._dedupBgApps && (await this._sniCoversApp(appId, app))) {
-      logger.log(`BG app ${appId} already covered by SNI, skipping`, { prefix: LOG_PREFIX });
+      logger.debug(`BG app ${appId} already covered by SNI, skipping`, { prefix: LOG_PREFIX });
       return;
     }
     if (!this._container) return;
     this._bgItemAppIds.set(appId, { itemId: item.id, app });
     this._container.addItem(item);
-    logger.log(`BG app ${appId} added to tray`, { prefix: LOG_PREFIX });
+    logger.debug(`BG app ${appId} added to tray`, { prefix: LOG_PREFIX });
   }
 
   private async _getUniqueName(busName: string): Promise<string | null> {
@@ -223,7 +223,7 @@ export class TrayIcons extends Module {
     const owner = await this._getUniqueName(appId);
     if (owner) {
       const covered = this._sniHost?.hasItemForBus(owner) ?? false;
-      logger.log(`SNI covers ${appId}? owner=${owner} covered=${covered}`, {
+      logger.debug(`SNI covers ${appId}? owner=${owner} covered=${covered}`, {
         prefix: LOG_PREFIX,
       });
       if (covered) return true;
@@ -235,7 +235,7 @@ export class TrayIcons extends Module {
       const candidateOwner = await this._getUniqueName(candidate);
       if (!candidateOwner) continue;
       const covered = this._sniHost?.hasItemForBus(candidateOwner) ?? false;
-      logger.log(
+      logger.debug(
         `SNI covers ${appId}? candidate=${candidate} owner=${candidateOwner} covered=${covered}`,
         {
           prefix: LOG_PREFIX,
@@ -251,7 +251,7 @@ export class TrayIcons extends Module {
     // Match by SNI metadata such as DesktopEntry or Id instead.
     const coveredByMetadata =
       [...appIdCandidates].some((candidate) => this._sniHost?.hasSniForAppId(candidate)) ?? false;
-    logger.log(`SNI covers ${appId}? owner=none, metadata-match=${coveredByMetadata}`, {
+    logger.debug(`SNI covers ${appId}? owner=none, metadata-match=${coveredByMetadata}`, {
       prefix: LOG_PREFIX,
     });
     return coveredByMetadata;
@@ -261,7 +261,7 @@ export class TrayIcons extends Module {
     const appIdCandidates = this._appIdCandidates(appId, app);
     const appPids = app.get_pids?.() ?? [];
     if (appPids.length === 0) {
-      logger.log(`SNI covers ${appId}? pid-match=false app-pids=[]`, { prefix: LOG_PREFIX });
+      logger.debug(`SNI covers ${appId}? pid-match=false app-pids=[]`, { prefix: LOG_PREFIX });
     }
 
     const appPidSet = new Set(appPids);
@@ -275,7 +275,7 @@ export class TrayIcons extends Module {
       const flatpakAppId = await this._getFlatpakAppId(sniPid);
       const flatpakMatch = flatpakAppId ? appIdCandidates.has(flatpakAppId.toLowerCase()) : false;
       const covered = ancestorMatch || trackerMatch || flatpakMatch;
-      logger.log(
+      logger.debug(
         `SNI covers ${appId}? sni-bus=${busName} sni-pid=${sniPid} flatpak=${flatpakAppId ?? 'none'} app-pids=[${appPids.join(', ')}] pid-match=${covered}`,
         { prefix: LOG_PREFIX },
       );
@@ -351,13 +351,13 @@ export class TrayIcons extends Module {
   }
 
   private async _removeBgItemsCoveredBySni(): Promise<void> {
-    logger.log(`Dedup: bg items: [${[...this._bgItemAppIds.keys()].join(', ')}]`, {
+    logger.debug(`Dedup: bg items: [${[...this._bgItemAppIds.keys()].join(', ')}]`, {
       prefix: LOG_PREFIX,
     });
 
     for (const [appId, entry] of [...this._bgItemAppIds]) {
       if (await this._sniCoversApp(appId, entry.app)) {
-        logger.log(`Removing bg:${appId} covered by SNI`, { prefix: LOG_PREFIX });
+        logger.debug(`Removing bg:${appId} covered by SNI`, { prefix: LOG_PREFIX });
         this._bgItemAppIds.delete(appId);
         this._container?.removeItem(entry.itemId);
       }

@@ -163,6 +163,7 @@ export class TrayContainer extends PanelMenu.Button {
   declare private _attentionTimeoutSeconds: number;
   declare private _autoCollapseTimeoutId: number;
   declare private _debugPostAllocateId: number;
+  declare private _postAllocateRelayoutId: number;
   declare private _opacityTargets: WeakMap<TrayIconItem, number>;
   declare private _scrollTarget: number;
   declare private _smoothScrollAccumulator: number;
@@ -188,6 +189,7 @@ export class TrayContainer extends PanelMenu.Button {
     box.y1 = Math.round(box.y1);
     box.y2 = Math.round(box.y2);
     super.vfunc_allocate(box);
+    this._schedulePostAllocateRelayoutIfNeeded();
   }
 
   // @ts-expect-error Our _init signature differs from PanelMenu.Button._init overloads,
@@ -207,6 +209,7 @@ export class TrayContainer extends PanelMenu.Button {
     this._scrollTarget = 0;
     this._smoothScrollAccumulator = 0;
     this._debugPostAllocateId = 0;
+    this._postAllocateRelayoutId = 0;
 
     // Chevron button (collapse/expand toggle)
     this._chevronIcon = new St.Icon({
@@ -225,7 +228,7 @@ export class TrayContainer extends PanelMenu.Button {
     this._chevron.connect('clicked', () => {
       this._userInteracted = true;
       toggleCollapsed(this._state);
-      logger.log(`Chevron toggled collapsed=${this._state.collapsed}`, { prefix: LOG_PREFIX });
+      logger.debug(`Chevron toggled collapsed=${this._state.collapsed}`, { prefix: LOG_PREFIX });
       this._syncLayout(true);
     });
 
@@ -326,10 +329,12 @@ export class TrayContainer extends PanelMenu.Button {
     if (!centerBox) return fallbackWidth;
 
     if (this.get_text_direction() === Clutter.TextDirection.RTL) {
-      return Math.max(fallbackWidth, Math.round(centerBox.allocation.x1 - parent.allocation.x1));
+      const sideWidth = Math.round(centerBox.allocation.x1 - parent.allocation.x1);
+      return sideWidth > 0 ? sideWidth : fallbackWidth;
     }
 
-    return Math.max(fallbackWidth, Math.round(parent.allocation.x2 - centerBox.allocation.x2));
+    const sideWidth = Math.round(parent.allocation.x2 - centerBox.allocation.x2);
+    return sideWidth > 0 ? sideWidth : fallbackWidth;
   }
 
   private _canScrollIcons(): boolean {
@@ -502,11 +507,10 @@ export class TrayContainer extends PanelMenu.Button {
     });
 
     const visibleCount = Math.min(count, effectiveLimit);
-    const collapsedWidth = visibleCount * itemW + Math.max(0, visibleCount - 1) * ICON_GAP;
+    const naturalCollapsedWidth = visibleCount * itemW + Math.max(0, visibleCount - 1) * ICON_GAP;
     const reservedWidth =
-      availableClipWidth === null
-        ? fullWidth
-        : Math.min(fullWidth, Math.max(collapsedWidth, availableClipWidth));
+      availableClipWidth === null ? fullWidth : Math.min(fullWidth, availableClipWidth);
+    const collapsedWidth = Math.min(naturalCollapsedWidth, reservedWidth);
     const collapsedClipStart = Math.max(0, reservedWidth - collapsedWidth);
 
     // collapsed -> maxScroll anchors the row to newest icons (right-aligned in clip).
@@ -520,7 +524,7 @@ export class TrayContainer extends PanelMenu.Button {
     const startClipStart = Math.round(this._clipArea.clipStart);
 
     if (animated) {
-      logger.log(
+      logger.debug(
         `Viewport animation collapsed=${this._state.collapsed} count=${count} limit=${this._limit} effectiveLimit=${effectiveLimit} visible=${visibleCount} fullWidth=${fullWidth} reservedWidth=${reservedWidth} availableClipWidth=${availableClipWidth ?? 'none'} fromViewport=${startViewportWidth} toViewport=${targetViewportWidth} fromClipStart=${startClipStart} toClipStart=${targetClipStart} scrollOffset=${this._state.scrollOffset} chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
         { prefix: LOG_PREFIX },
       );
@@ -564,7 +568,7 @@ export class TrayContainer extends PanelMenu.Button {
         },
         () => {
           this._applyIconOpacity();
-          logger.log(
+          logger.debug(
             `Viewport animation complete chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
             { prefix: LOG_PREFIX },
           );
@@ -573,7 +577,7 @@ export class TrayContainer extends PanelMenu.Button {
       if (this._debugPostAllocateId > 0) GLib.Source.remove(this._debugPostAllocateId);
       this._debugPostAllocateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
         this._debugPostAllocateId = 0;
-        logger.log(
+        logger.debug(
           `Viewport post-allocate chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
           { prefix: LOG_PREFIX },
         );
@@ -593,6 +597,23 @@ export class TrayContainer extends PanelMenu.Button {
   private _setChevronAnchor(x: number): void {
     const rounded = Math.round(x);
     if (this._chevron.translationX !== rounded) this._chevron.translationX = rounded;
+  }
+
+  private _schedulePostAllocateRelayoutIfNeeded(): void {
+    const availableClipWidth = this._availableClipWidth(this._chevron.visible);
+    if (
+      availableClipWidth === null ||
+      Math.round(this._clipArea.reservedWidth) <= availableClipWidth ||
+      this._postAllocateRelayoutId > 0
+    ) {
+      return;
+    }
+
+    this._postAllocateRelayoutId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+      this._postAllocateRelayoutId = 0;
+      this._syncLayout(false);
+      return GLib.SOURCE_REMOVE;
+    });
   }
 
   private _applyIconOpacity(): void {
@@ -616,7 +637,7 @@ export class TrayContainer extends PanelMenu.Button {
     if (this._scrollTarget === targetX) return;
     this._scrollTarget = targetX;
     if (duration > 0) {
-      logger.log(
+      logger.debug(
         `Scroll animation collapsed=${this._state.collapsed} targetX=${targetX} maxScroll=${this._maxScroll()} offset=${this._state.scrollOffset} duration=${duration}`,
         { prefix: LOG_PREFIX },
       );
@@ -644,6 +665,10 @@ export class TrayContainer extends PanelMenu.Button {
     if (this._debugPostAllocateId > 0) {
       GLib.Source.remove(this._debugPostAllocateId);
       this._debugPostAllocateId = 0;
+    }
+    if (this._postAllocateRelayoutId > 0) {
+      GLib.Source.remove(this._postAllocateRelayoutId);
+      this._postAllocateRelayoutId = 0;
     }
     destroyTooltip();
     for (const widget of this._items.values()) widget.destroy();

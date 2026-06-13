@@ -26,17 +26,18 @@ Do not leave a task incomplete if either command reports errors or failures.
 ## Commands
 
 - **Install deps:** `just deps` — runs `yarn install`; use once or when updating packages
-- **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, compiles `.mo` files
+- **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, and compiles `.mo` files
 - **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
 - **Install:** `just install` — installs the already-packaged `.zip` to GNOME Shell (requires `just package` first)
 - **Full install:** `just full-install` — packages + installs in one step
 - **All:** `just all` — clean + full-install
 - **Uninstall:** `just uninstall` — disables and removes the extension
-- **Run (host):** `just run` — launches a devkit GNOME Shell session (headless, Wayland)
-- **Run (toolbox):** `just toolbox run` — same as above, but inside the Fedora toolbox
+- **Run (host):** `just run` — packages, installs, then launches a devkit GNOME Shell session
+- **Run (toolbox):** `just toolbox run` — packages/installs on the host, then runs GNOME Shell inside the Fedora toolbox
 - **Create toolbox:** `just toolbox create` — create the `aurora-shell-devel` Fedora toolbox
 - **Remove toolbox:** `just toolbox remove` — delete the toolbox
 - **Validate:** `just validate` — runs tsc, ESLint, Prettier check, and Stylelint
+- **Shexli:** `just shexli` — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP
 - **Lint:** `just lint` — runs ESLint only
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
@@ -52,7 +53,7 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 ### Translation commands
 
-- **Regenerate POT template:** `just pot` — builds then scans compiled JS (`dist/`) and writes the `.pot` into `dist/` (a build artifact, **not** committed — avoids `POT-Creation-Date` churn). Run this whenever translatable strings are added or removed.
+- **Regenerate POT template:** `just pot` — builds, then scans compiled JS (`dist/`) and writes the `.pot` into `dist/` (a build artifact, **not** committed — avoids `POT-Creation-Date` churn). Run this whenever translatable strings are added or removed.
 - **Merge new strings into .po files:** `just update-po` — depends on `pot`; regenerates the template into `dist/` then runs `msgmerge` on every `data/po/*.po` against it. The hand-translated `data/po/*.po` files are the committed source of truth.
 - **Compile .mo binaries:** `just compile-mo` — compiles each `po/*.po` into `dist/locale/<lang>/LC_MESSAGES/*.mo`. Called automatically by `just build`.
 
@@ -68,7 +69,8 @@ Do not leave a task incomplete if either command reports errors or failures.
     - `context.ts` — `ExtensionContext` interface and implementation
     - `logger.ts` — Abstracted logging
     - `settings.ts` — `SettingsManager` abstraction for GSettings
-  - `modules/` — one **folder** per feature module, named after the module (e.g., `dock/dock.ts`); the main entry file shares the folder name
+  - `modules/` — feature modules registered by `registry.ts`
+    - regular modules use one **folder** per feature module, named after the module (e.g., `dock/dock.ts`); the main entry file shares the folder name
   - `dev/` — developer-only tooling (e.g., `devTool.ts`), gated behind the `AURORA_DEVTOOLS=1` env var. **Not** a feature module: it is not in the registry, prefs, or gschema, and is instantiated directly by `extension.ts`
   - `shared/` — shared utilities used across modules (e.g., `quickSettings.ts`)
   - `styles/` — SCSS stylesheets (compiled to light + dark CSS)
@@ -98,7 +100,7 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 ## Adding a Module
 
-1. Create `src/modules/myModule/myModule.ts` with a `Module` subclass **and** a co-located `definition` export. Every module **must** live in its own folder named after the module (e.g., `dock/dock.ts`, `panel/panel.ts`):
+1. Create `src/modules/myModule/myModule.ts` with a `Module` subclass **and** a co-located `definition` export. Regular modules **must** live in their own folder named after the module (e.g., `dock/dock.ts`, `panel/panel.ts`).
 
 ```typescript
 import { gettext as _ } from 'gettext';
@@ -161,7 +163,7 @@ return [/* …, */ myModule];
 </key>
 ```
 
-`tests/unit/registry.test.ts` enforces that step 2, step 3, and step 4 stay in parity — including that every module's `section` is a known section id and matches between the registry and `prefsMetadata.ts`. A half-finished addition will fail CI.
+`tests/unit/registry.test.ts` enforces that steps 2, 3, and 4 stay in parity — including that every module's `section` is a known section id and matches between the registry and `prefsMetadata.ts`. A half-finished addition will fail CI.
 
 ### Prefs sections
 
@@ -190,6 +192,19 @@ Per the GNOME review guidelines, clipboard-related keyboard shortcuts must not s
 - Constants: `UPPER_CASE`
 - Keep `enable()` and `disable()` symmetric.
 - Read settings through `this.context.settings`. Importing `Main`/`Shell`/`St` directly is fine — keep heavy algorithms in shell-free pure files so they stay unit-testable.
+
+## Human Review Quality Bar
+
+Avoid code that only looks plausible. A human reviewer should be able to read a change and see a real contract, not a guess.
+
+- Do not add optional calls such as `object?.method?.(...)` unless that method is a real, documented API or the local type intentionally models it. Never use patterns like `this.disconnectObject?.(this)` on objects that do not own that signal connection contract.
+- Do not ship fake behavior. If a UI label, schema description, README entry, or module subtitle says a feature is wired to NetworkManager, ModemManager, UPower, sensors, widgets, or GNOME internals, the code must actually call the relevant API or clearly describe itself as a fallback.
+- Keep runtime capability checks honest. Hardware-specific modules must detect missing services/devices at runtime and stay inactive or degrade explicitly.
+- Do not scatter `as unknown as ...` casts through feature modules. If GObject construction or Shell internals require a cast, isolate it in a small shared helper/factory with a clear name.
+- Do not leave placeholder helpers, legacy duplicates, or unused compatibility functions after a refactor. Remove dead code instead of keeping it “just in case”.
+- Keep strings and metadata truthful and synchronized across module `definition`, `src/prefsMetadata.ts`, schema XML, README/architecture docs, and `.po` files when strings change.
+- Search for obvious generated-code artifacts before finishing: broken joined words in docs, stale project names, obsolete env vars, and UI descriptions that exceed what is implemented.
+- Prefer explicit D-Bus/property handling over no-op calls that only log success. If a feature cannot be safely implemented yet, make the limitation visible in the title/subtitle/docs rather than implying it works.
 
 ## Logging Style
 

@@ -183,7 +183,6 @@ export class AuroraDash extends Dash {
 
     (this as any).showAppsButton?.disconnectObject?.(this);
     (this as any)._box?.disconnectObject?.(this);
-    this.disconnectObject?.(this);
     Main.overview.disconnectObject(this);
     global.display.disconnectObject(this);
     global.workspace_manager.disconnectObject(this);

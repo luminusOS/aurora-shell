@@ -104,7 +104,7 @@ export class SniWatcher {
       Gio.BusNameOwnerFlags.NONE,
       // GJS accepts plain functions here; types expect GObject.Closure
       (() => {
-        logger.info('Acquired org.kde.StatusNotifierWatcher', { prefix: LOG_PREFIX });
+        logger.debug('Acquired org.kde.StatusNotifierWatcher', { prefix: LOG_PREFIX });
         this._emitSignal('StatusNotifierHostRegistered', null);
       }) as unknown as never,
       (() => {
@@ -127,7 +127,7 @@ export class SniWatcher {
       // Bare object path (e.g., Steam): sender is the bus name
       busName = sender;
       objectPath = service;
-      logger.log(`SNI bare-path registration from ${sender}: ${service}`, {
+      logger.debug(`SNI bare-path registration from ${sender}: ${service}`, {
         prefix: LOG_PREFIX,
       });
     } else if (service.includes('/')) {

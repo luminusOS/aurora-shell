@@ -10,3 +10,14 @@
   color: inherit;
   opacity: 1;
 }
+
+.aurora-bt-state-icon {
+  &.aurora-bt-state-animating,
+  &.aurora-bt-state-connected {
+    color: -st-accent-color;
+  }
+
+  &.aurora-bt-state-disconnected {
+    color: #9a9a9a;
+  }
+}

@@ -1,0 +1,128 @@
+name: GNOME Backport
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, closed]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  backport:
+    name: Create GNOME maintenance PR
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create or update backport PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          LABEL=$(jq -r '
+            .pull_request.labels[]
+            | select(.name | test("^GNOME [0-9]+$"))
+            | .name
+          ' "$GITHUB_EVENT_PATH" | head -n1)
+
+          if [ -z "$LABEL" ]; then
+            echo "No GNOME release label found; skipping."
+            exit 0
+          fi
+
+          MAJOR="${LABEL#GNOME }"
+          export MAJOR
+          BASE_BRANCH="release/v${MAJOR}.x"
+          BACKPORT_BRANCH="backport/pr-${PR_NUMBER}-gnome-${MAJOR}"
+          ERROR_BODY="/tmp/backport-error.md"
+
+          on_error() {
+            git cherry-pick --abort >/dev/null 2>&1 || true
+            {
+              echo "Backport to \`${BASE_BRANCH}\` failed."
+              echo ""
+              echo "Label: \`${LABEL}\`"
+              echo "Branch: \`${BACKPORT_BRANCH}\`"
+              echo ""
+              echo "Please create the backport manually or resolve the conflict locally."
+            } > "$ERROR_BODY"
+            gh pr comment "$PR_NUMBER" --body-file "$ERROR_BODY" || true
+          }
+          trap on_error ERR
+
+          git fetch origin "+refs/heads/${BASE_BRANCH}:refs/remotes/origin/${BASE_BRANCH}"
+          git fetch origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/pr/${PR_NUMBER}/head"
+          git checkout -B "$BACKPORT_BRANCH" "origin/${BASE_BRANCH}"
+
+          NEXT_VERSION=$(node -e '
+            const fs = require("fs");
+            const major = process.env.MAJOR;
+            const metadata = JSON.parse(fs.readFileSync("metadata.json", "utf8"));
+            const version = metadata["version-name"];
+            const match = new RegExp(`^${major}\\.([0-9]+)$`).exec(version);
+            if (!match) {
+              throw new Error(`metadata.json version-name must be ${major}.x on release branch, got ${version}`);
+            }
+            process.stdout.write(`${major}.${Number(match[1]) + 1}`);
+          ')
+          export NEXT_VERSION
+
+          COMMITS=$(gh pr view "$PR_NUMBER" --json commits --jq '.commits[].oid')
+          for SHA in $COMMITS; do
+            git cherry-pick -x "$SHA"
+          done
+
+          node -e '
+            const fs = require("fs");
+            const metadata = JSON.parse(fs.readFileSync("metadata.json", "utf8"));
+            metadata["version-name"] = process.env.NEXT_VERSION;
+            fs.writeFileSync("metadata.json", `${JSON.stringify(metadata, null, 4)}\n`);
+          '
+          git add metadata.json
+          if git diff --cached --quiet; then
+            git commit --allow-empty -m "Bump version to ${NEXT_VERSION}"
+          else
+            git commit -m "Bump version to ${NEXT_VERSION}"
+          fi
+
+          git push --force-with-lease origin "$BACKPORT_BRANCH"
+
+          EXISTING_PR=$(gh pr list \
+            --head "$BACKPORT_BRANCH" \
+            --base "$BASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+
+          BODY=$(mktemp)
+          {
+            echo "Backport of #${PR_NUMBER} to \`${BASE_BRANCH}\`."
+            echo ""
+            echo "This branch also bumps \`metadata.json\` to \`${NEXT_VERSION}\`."
+          } > "$BODY"
+
+          if [ -n "$EXISTING_PR" ]; then
+            gh pr edit "$EXISTING_PR" \
+              --title "Backport #${PR_NUMBER} to GNOME ${MAJOR}" \
+              --body-file "$BODY"
+            echo "Updated backport PR #${EXISTING_PR}."
+          else
+            gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$BACKPORT_BRANCH" \
+              --title "Backport #${PR_NUMBER} to GNOME ${MAJOR}" \
+              --body-file "$BODY"
+          fi

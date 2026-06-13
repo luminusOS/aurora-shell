@@ -45,6 +45,7 @@ export async function run() {
   const auroraSettings = getAuroraSettings();
   const desktopSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
 
+  auroraSettings.set_boolean('module-auto-theme-switcher', true);
   await Scripting.waitLeisure();
   await Scripting.sleep(300);
 
