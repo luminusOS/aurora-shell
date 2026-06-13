@@ -76,7 +76,8 @@ export class WeatherClock extends Module {
   private _signals: SignalRecord[] = [];
   private _refreshTimerId = 0;
   private _retryTimerId = 0;
-  private _descriptionTimerId = 0;
+  private _descriptionDelayTimerId = 0;
+  private _descriptionVisibleTimerId = 0;
   private _retryCount = 0;
   private _enabled = false;
   private _uiAlive = false;
@@ -117,19 +118,23 @@ export class WeatherClock extends Module {
     for (const signal of this._signals) signal.obj.disconnect(signal.id);
     this._signals = [];
 
-    if (this._gweatherSettingsId) this._gweatherSettings?.disconnect(this._gweatherSettingsId);
+    if (this._gweatherSettingsId && this._gweatherSettings) {
+      this._gweatherSettings.disconnect(this._gweatherSettingsId);
+    }
     this._gweatherSettingsId = 0;
 
-    this._clearTimer('_refreshTimerId');
-    this._clearTimer('_retryTimerId');
-    this._clearTimer('_descriptionTimerId');
+    this._clearRefreshTimer();
+    this._clearRetryTimer();
+    this._clearDescriptionTimers();
 
-    this._clockPillRegistration?.unregister();
+    if (this._clockPillRegistration) this._clockPillRegistration.unregister();
     this._clockPillRegistration = null;
-    this._panelWidget?.destroy();
-    this._panelWidget = null;
+    if (this._icon) this._icon.destroy();
     this._icon = null;
+    if (this._label) this._label.destroy();
     this._label = null;
+    if (this._panelWidget) this._panelWidget.destroy();
+    this._panelWidget = null;
     this._weatherClient = null;
     this._gweatherSettings = null;
     this._monitor = null;
@@ -290,7 +295,7 @@ export class WeatherClock extends Module {
     const snapshot = this._readSnapshotFromWeather(weather);
     if (snapshot) {
       this._retryCount = 0;
-      this._clearTimer('_retryTimerId');
+      this._clearRetryTimer();
       this.setWeatherSnapshot(GNOME_WEATHER_SOURCE_KEY, snapshot);
       return;
     }
@@ -374,7 +379,7 @@ export class WeatherClock extends Module {
   }
 
   private _startRefreshTimer(): void {
-    this._clearTimer('_refreshTimerId');
+    this._clearRefreshTimer();
     this._refreshTimerId = GLib.timeout_add_seconds(
       GLib.PRIORITY_LOW,
       REFRESH_INTERVAL_SECONDS,
@@ -399,7 +404,7 @@ export class WeatherClock extends Module {
     this._lastPresentation = presentation;
 
     if (!presentation.visible) {
-      this._clearTimer('_descriptionTimerId');
+      this._clearDescriptionTimers();
       this._panelWidget.visible = false;
       return;
     }
@@ -414,39 +419,67 @@ export class WeatherClock extends Module {
   }
 
   private _scheduleDescription(presentation: WeatherPresentation): void {
-    this._clearTimer('_descriptionTimerId');
+    this._clearDescriptionTimers();
     if (!presentation.description) return;
 
-    this._descriptionTimerId = GLib.timeout_add(GLib.PRIORITY_LOW, DESCRIPTION_DELAY_MS, () => {
-      this._descriptionTimerId = 0;
-      if (!this._label || !this._lastPresentation?.description) return GLib.SOURCE_REMOVE;
+    this._descriptionDelayTimerId = GLib.timeout_add(
+      GLib.PRIORITY_LOW,
+      DESCRIPTION_DELAY_MS,
+      () => {
+        this._descriptionDelayTimerId = 0;
+        if (!this._label || !this._lastPresentation?.description) return GLib.SOURCE_REMOVE;
 
-      this._showingDescription = true;
-      this._label.text = this._lastPresentation.description;
-      this._descriptionTimerId = GLib.timeout_add_seconds(
-        GLib.PRIORITY_LOW,
-        DESCRIPTION_VISIBLE_SECONDS,
-        () => {
-          this._descriptionTimerId = 0;
-          if (this._label && this._lastPresentation && this._showingDescription) {
-            this._showingDescription = false;
-            this._label.text = this._lastPresentation.label;
-          }
-          return GLib.SOURCE_REMOVE;
-        },
-      );
-      return GLib.SOURCE_REMOVE;
-    });
+        this._showingDescription = true;
+        this._label.text = this._lastPresentation.description;
+        this._clearDescriptionVisibleTimer();
+        this._descriptionVisibleTimerId = GLib.timeout_add_seconds(
+          GLib.PRIORITY_LOW,
+          DESCRIPTION_VISIBLE_SECONDS,
+          () => {
+            this._descriptionVisibleTimerId = 0;
+            if (this._label && this._lastPresentation && this._showingDescription) {
+              this._showingDescription = false;
+              this._label.text = this._lastPresentation.label;
+            }
+            return GLib.SOURCE_REMOVE;
+          },
+        );
+        return GLib.SOURCE_REMOVE;
+      },
+    );
   }
 
   private _hasConnectivity(): boolean {
     return this._monitor?.connectivity !== Gio.NetworkConnectivity.LOCAL;
   }
 
-  private _clearTimer(prop: '_refreshTimerId' | '_retryTimerId' | '_descriptionTimerId'): void {
-    if (!this[prop]) return;
-    GLib.source_remove(this[prop]);
-    this[prop] = 0;
+  private _clearRefreshTimer(): void {
+    if (!this._refreshTimerId) return;
+    GLib.source_remove(this._refreshTimerId);
+    this._refreshTimerId = 0;
+  }
+
+  private _clearRetryTimer(): void {
+    if (!this._retryTimerId) return;
+    GLib.source_remove(this._retryTimerId);
+    this._retryTimerId = 0;
+  }
+
+  private _clearDescriptionTimers(): void {
+    this._clearDescriptionDelayTimer();
+    this._clearDescriptionVisibleTimer();
+  }
+
+  private _clearDescriptionDelayTimer(): void {
+    if (!this._descriptionDelayTimerId) return;
+    GLib.source_remove(this._descriptionDelayTimerId);
+    this._descriptionDelayTimerId = 0;
+  }
+
+  private _clearDescriptionVisibleTimer(): void {
+    if (!this._descriptionVisibleTimerId) return;
+    GLib.source_remove(this._descriptionVisibleTimerId);
+    this._descriptionVisibleTimerId = 0;
   }
 
   private _now(): number {
