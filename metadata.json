@@ -1,7 +1,7 @@
 {
     "name": "Aurora Shell",
     "description": "A customizable GNOME Shell extension that enhances the user experience with various modules and features. The optional Clipboard History module reads and stores clipboard text locally so it can be browsed and restored; no clipboard data is shared with third parties, and its open shortcut is unset by default.",
-    "version-name": "50.6",
+    "version-name": "50.7",
     "uuid": "aurora-shell@luminusos.github.io",
     "url": "https://github.com/luminusOS/aurora-shell",
     "settings-schema": "org.gnome.shell.extensions.aurora-shell",
