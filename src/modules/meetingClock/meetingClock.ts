@@ -125,18 +125,13 @@ export class MeetingClock extends Module {
     for (const id of this._settingsIds) this.context.settings.disconnect(id);
     this._settingsIds = [];
 
-    if (this._refreshTimerId) GLib.source_remove(this._refreshTimerId);
-    this._refreshTimerId = 0;
-    if (this._labelTimerId) GLib.source_remove(this._labelTimerId);
-    this._labelTimerId = 0;
-    if (this._alertTimerId) GLib.source_remove(this._alertTimerId);
-    this._alertTimerId = 0;
-    if (this._panelRevealTimerId) GLib.source_remove(this._panelRevealTimerId);
-    this._panelRevealTimerId = 0;
-    if (this._panelHideTimerId) GLib.source_remove(this._panelHideTimerId);
-    this._panelHideTimerId = 0;
+    this._clearRefreshTimer();
+    this._clearLabelTimer();
+    this._clearAlertTimer();
+    this._clearPanelRevealTimer();
+    this._clearPanelHideTimer();
 
-    this._backend?.stop();
+    if (this._backend) this._backend.stop();
     this._backend = null;
     this._activeAlertEventId = null;
     this._destroyActiveNotification(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
@@ -148,11 +143,11 @@ export class MeetingClock extends Module {
     this._ignoredEventIds.clear();
     this._snoozedUntilByEventId.clear();
 
-    this._clockPillRegistration?.unregister();
+    if (this._clockPillRegistration) this._clockPillRegistration.unregister();
     this._clockPillRegistration = null;
-    this._panelLabel?.destroy();
+    if (this._panelLabel) this._panelLabel.destroy();
     this._panelLabel = null;
-    this._panelWidget?.destroy();
+    if (this._panelWidget) this._panelWidget.destroy();
     this._panelWidget = null;
     this._lastPanelEventId = '';
   }
@@ -267,7 +262,7 @@ export class MeetingClock extends Module {
   private _scheduleAlerts(): void {
     if (!this._enabled || !this._uiAlive) return;
 
-    this._clearTimer('_alertTimerId');
+    this._clearAlertTimer();
     if (this._activeAlertEventId) return;
 
     const now = this._now();
@@ -294,7 +289,7 @@ export class MeetingClock extends Module {
   private _schedulePanelRevealTimer(): void {
     if (!this._enabled || !this._uiAlive) return;
 
-    this._clearTimer('_panelRevealTimerId');
+    this._clearPanelRevealTimer();
     const intervalSeconds =
       Math.max(1, this.context.settings.getInt(PANEL_REVEAL_INTERVAL_MINUTES_KEY)) * 60;
     this._panelRevealTimerId = GLib.timeout_add_seconds(
@@ -368,8 +363,10 @@ export class MeetingClock extends Module {
     notification.addAction(_('Dismiss'), () => this._dismissEvent(event));
     if (event.meetingUrl) notification.addAction(_('Ignore'), () => this._ignoreEvent(event));
     this._activeNotificationDestroyId = notification.connect('destroy', () => {
-      if (this._activeNotification === notification) this._activeNotification = null;
-      if (this._activeNotification === null) this._activeNotificationDestroyId = 0;
+      if (this._activeNotification === notification) {
+        this._activeNotification = null;
+        this._activeNotificationDestroyId = 0;
+      }
       if (this._activeAlertEventId !== event.id) return;
 
       this._alertedEventIds.add(event.id);
@@ -423,7 +420,7 @@ export class MeetingClock extends Module {
     const widget = this._panelWidget;
     if (!this._enabled || !this._uiAlive || !widget || !this._lastPanelEventId) return;
 
-    this._clearTimer('_panelHideTimerId');
+    this._clearPanelHideTimer();
     widget.remove_transition('opacity');
     widget.remove_transition('translation-x');
     widget.remove_transition('width');
@@ -460,7 +457,7 @@ export class MeetingClock extends Module {
     const widget = this._panelWidget;
     if (!widget) return;
 
-    this._clearTimer('_panelHideTimerId');
+    this._clearPanelHideTimer();
     widget.remove_transition('opacity');
     widget.remove_transition('translation-x');
     widget.remove_transition('width');
@@ -488,17 +485,34 @@ export class MeetingClock extends Module {
     });
   }
 
-  private _clearTimer(
-    prop:
-      | '_refreshTimerId'
-      | '_labelTimerId'
-      | '_alertTimerId'
-      | '_panelRevealTimerId'
-      | '_panelHideTimerId',
-  ): void {
-    if (!this[prop]) return;
-    GLib.source_remove(this[prop]);
-    this[prop] = 0;
+  private _clearRefreshTimer(): void {
+    if (!this._refreshTimerId) return;
+    GLib.source_remove(this._refreshTimerId);
+    this._refreshTimerId = 0;
+  }
+
+  private _clearLabelTimer(): void {
+    if (!this._labelTimerId) return;
+    GLib.source_remove(this._labelTimerId);
+    this._labelTimerId = 0;
+  }
+
+  private _clearAlertTimer(): void {
+    if (!this._alertTimerId) return;
+    GLib.source_remove(this._alertTimerId);
+    this._alertTimerId = 0;
+  }
+
+  private _clearPanelRevealTimer(): void {
+    if (!this._panelRevealTimerId) return;
+    GLib.source_remove(this._panelRevealTimerId);
+    this._panelRevealTimerId = 0;
+  }
+
+  private _clearPanelHideTimer(): void {
+    if (!this._panelHideTimerId) return;
+    GLib.source_remove(this._panelHideTimerId);
+    this._panelHideTimerId = 0;
   }
 
   private _now(): number {
@@ -522,7 +536,7 @@ export class MeetingClock extends Module {
     });
     this._notificationSourceDestroyId = source.connect('destroy', () => {
       if (this._notificationSource === source) this._notificationSource = null;
-      if (this._notificationSource === null) this._notificationSourceDestroyId = 0;
+      this._notificationSourceDestroyId = 0;
     });
     Main.messageTray.add(source);
     this._notificationSource = source;
@@ -531,11 +545,12 @@ export class MeetingClock extends Module {
 
   private _destroyActiveNotification(reason: MessageTray.NotificationDestroyedReason): void {
     const notification = this._activeNotification;
-    const destroyId = this._activeNotificationDestroyId;
     this._activeNotification = null;
+    if (this._activeNotificationDestroyId && notification) {
+      notification.disconnect(this._activeNotificationDestroyId);
+    }
     this._activeNotificationDestroyId = 0;
-    if (notification && destroyId) notification.disconnect(destroyId);
-    notification?.destroy(reason);
+    if (notification) notification.destroy(reason);
   }
 
   private _destroyNotificationSource(reason: MessageTray.NotificationDestroyedReason): void {

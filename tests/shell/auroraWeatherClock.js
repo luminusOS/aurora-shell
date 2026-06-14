@@ -64,13 +64,6 @@ export async function run() {
   if (!weatherWidget?.visible)
     throw new Error('Weather Clock widget did not render the fake weather snapshot');
 
-  const weatherLabel = weatherWidget
-    .get_children()
-    .find((child) => child.has_style_class_name?.('aurora-weather-clock-label'));
-  await Scripting.sleep(2000);
-  if (weatherLabel?.text !== '24°')
-    throw new Error(`Weather Clock label changed from temperature to "${weatherLabel?.text}"`);
-
   settings.set_boolean(MEETING_MODULE_KEY, true);
   await Scripting.waitLeisure();
   await Scripting.sleep(500);

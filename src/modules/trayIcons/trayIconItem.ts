@@ -20,6 +20,7 @@ const LOG_PREFIX = 'AuroraTray';
 
 // Module-level tooltip shared by all TrayIconItems to avoid allocating one per icon.
 let _tooltipLabel: St.Label | null = null;
+const _menuManagers = new WeakMap<PopupMenu.PopupMenu, PopupMenu.PopupMenuManager>();
 
 function _showTooltip(anchor: Clutter.Actor, text: string): void {
   if (!_tooltipLabel) {
@@ -60,10 +61,8 @@ export class TrayIconItem extends St.Button {
   declare private _badge: St.Widget;
   declare private _iconSize: number;
   declare private _menu: PopupMenu.PopupMenu | null;
-  declare private _menuManager: PopupMenu.PopupMenuManager | null;
   declare private _dbusMenuClient: DBusMenuClient | null;
   declare private _localMenu: PopupMenu.PopupMenu | null;
-  declare private _localMenuManager: PopupMenu.PopupMenuManager | null;
 
   override _init(item: TrayItem, iconSize: number): void {
     super._init({
@@ -76,17 +75,14 @@ export class TrayIconItem extends St.Button {
     this._trayItem = item;
     this._iconSize = iconSize;
     this._menu = null;
-    this._menuManager = null;
     this._dbusMenuClient = null;
     this._localMenu = null;
-    this._localMenuManager = null;
 
     if (item.menuBusName && item.menuObjectPath) {
       this._dbusMenuClient = new DBusMenuClient(item.menuBusName, item.menuObjectPath);
       this._menu = new PopupMenu.PopupMenu(this, 0.5, St.Side.TOP);
       this._menu.actor.add_style_class_name('aurora-tray-menu');
-      this._menuManager = new PopupMenu.PopupMenuManager(this);
-      this._menuManager.addMenu(this._menu);
+      this._addManagedMenu(this._menu);
 
       Main.layoutManager.uiGroup.add_child(this._menu.actor);
       this._menu.actor.hide();
@@ -95,8 +91,7 @@ export class TrayIconItem extends St.Button {
     if (item.menuItems && item.menuItems.length > 0) {
       this._localMenu = new PopupMenu.PopupMenu(this, 0.5, St.Side.TOP);
       this._localMenu.actor.add_style_class_name('aurora-tray-menu');
-      this._localMenuManager = new PopupMenu.PopupMenuManager(this);
-      this._localMenuManager.addMenu(this._localMenu);
+      this._addManagedMenu(this._localMenu);
       Main.layoutManager.uiGroup.add_child(this._localMenu.actor);
       this._localMenu.actor.hide();
 
@@ -178,6 +173,20 @@ export class TrayIconItem extends St.Button {
       }
       return Clutter.EVENT_STOP;
     });
+  }
+
+  private _addManagedMenu(menu: PopupMenu.PopupMenu): void {
+    const manager = new PopupMenu.PopupMenuManager(this);
+    manager.addMenu(menu);
+    _menuManagers.set(menu, manager);
+  }
+
+  private _removeManagedMenu(menu: PopupMenu.PopupMenu): void {
+    const manager = _menuManagers.get(menu);
+    if (!manager) return;
+
+    manager.removeMenu(menu);
+    _menuManagers.delete(menu);
   }
 
   private async _showDbusMenu(): Promise<void> {
@@ -264,19 +273,16 @@ export class TrayIconItem extends St.Button {
 
   override destroy(): void {
     _hideTooltip();
-    this._dbusMenuClient?.destroy();
-    if (this._menu && this._menuManager) {
-      this._menuManager.removeMenu(this._menu);
-    }
-    this._menu?.destroy();
+    if (this._dbusMenuClient) this._dbusMenuClient.destroy();
+    this._dbusMenuClient = null;
+    if (this._menu) this._removeManagedMenu(this._menu);
+    if (this._menu) this._menu.destroy();
     this._menu = null;
-    this._menuManager = null;
-    if (this._localMenu && this._localMenuManager) {
-      this._localMenuManager.removeMenu(this._localMenu);
-    }
-    this._localMenu?.destroy();
+    if (this._localMenu) this._removeManagedMenu(this._localMenu);
+    if (this._localMenu) this._localMenu.destroy();
     this._localMenu = null;
-    this._localMenuManager = null;
+    this._badge.destroy();
+    this._iconWidget.destroy();
     this._trayItem.destroy();
     super.destroy();
   }
