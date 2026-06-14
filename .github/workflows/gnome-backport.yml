@@ -2,7 +2,7 @@ name: GNOME Backport
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, labeled, closed]
+    types: [closed]
 
 permissions:
   contents: write
@@ -17,7 +17,7 @@ jobs:
   backport:
     name: Create GNOME maintenance PR
     runs-on: ubuntu-latest
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
     steps:
       - uses: actions/checkout@v4
         with:

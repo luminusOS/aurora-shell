@@ -6,12 +6,15 @@
 
 ## Validation After Changes
 
-After **any** code change, always follow these rules to ensure quality while being efficient:
+After a change to code under `src/`, always follow these rules to ensure quality while being efficient.
+For documentation, workflow, metadata, translation, or other non-`src/` changes, do not run `just validate`
+or `just shexli` unless the task specifically requires that validation.
 
-1.  **Always run `just validate`** — type-checks the source, lints, and checks formatting. Fix any reported errors.
-2.  **Run targeted integration tests:**
+1.  **Run `just validate`** — type-checks the source, lints, and checks formatting. Fix any reported errors.
+2.  **Run `just shexli`** — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP. Review every finding. Some `warning` or `manual_review` findings can be false positives or accepted GNOME-review tradeoffs, but they must be called out explicitly; fix any real regression before finishing.
+3.  **Run targeted integration tests:**
     *   If you modified only **one module**, run only the integration test for that module (e.g., `just test tests/shell/auroraTrayIcons.js`).
-    *   If you made **formatting-only changes** (Prettier) and have already passed the tests in a previous turn, you only need to run `just validate`.
+    *   If you made **formatting-only changes** (Prettier) and have already passed the tests in a previous turn, you only need to run `just validate` and `just shexli`.
     *   If you made **architectural or cross-cutting changes**, run `just toolbox test-all`.
 
 **IMPORTANT:** Never execute the `test` command (or `test-all`) chained with another command using `&&`. Always run it as a separate standalone turn.
