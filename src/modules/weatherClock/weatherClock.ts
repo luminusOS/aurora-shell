@@ -17,7 +17,6 @@ import { registerClockPillWidget, type ClockPillRegistration } from '~/shared/cl
 import {
   deriveWeatherPresentation,
   normalizeWeatherSnapshot,
-  type WeatherPresentation,
   type WeatherSnapshot,
 } from './weatherClockLogic.ts';
 
@@ -28,8 +27,6 @@ const GNOME_WEATHER_SOURCE_KEY = 'gnome-weather';
 const GWEATHER_SCHEMA_ID = 'org.gnome.GWeather4';
 const TEMPERATURE_UNIT_KEY = 'temperature-unit';
 const REFRESH_INTERVAL_SECONDS = 600;
-const DESCRIPTION_DELAY_MS = 1500;
-const DESCRIPTION_VISIBLE_SECONDS = 5;
 const MAX_RETRIES = 5;
 
 type SignalRecord = {
@@ -76,12 +73,9 @@ export class WeatherClock extends Module {
   private _signals: SignalRecord[] = [];
   private _refreshTimerId = 0;
   private _retryTimerId = 0;
-  private _descriptionTimerId = 0;
   private _retryCount = 0;
   private _enabled = false;
   private _uiAlive = false;
-  private _showingDescription = false;
-  private _lastPresentation: WeatherPresentation | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -120,24 +114,25 @@ export class WeatherClock extends Module {
     if (this._gweatherSettingsId) this._gweatherSettings?.disconnect(this._gweatherSettingsId);
     this._gweatherSettingsId = 0;
 
-    this._clearTimer('_refreshTimerId');
-    this._clearTimer('_retryTimerId');
-    this._clearTimer('_descriptionTimerId');
+    if (this._refreshTimerId) GLib.source_remove(this._refreshTimerId);
+    this._refreshTimerId = 0;
+    if (this._retryTimerId) GLib.source_remove(this._retryTimerId);
+    this._retryTimerId = 0;
 
     this._clockPillRegistration?.unregister();
     this._clockPillRegistration = null;
+    this._icon?.destroy();
+    this._icon = null;
+    this._label?.destroy();
+    this._label = null;
     this._panelWidget?.destroy();
     this._panelWidget = null;
-    this._icon = null;
-    this._label = null;
     this._weatherClient = null;
     this._gweatherSettings = null;
     this._monitor = null;
     this._snapshotsBySource.clear();
     this._snapshot = null;
-    this._lastPresentation = null;
     this._retryCount = 0;
-    this._showingDescription = false;
   }
 
   setWeatherSnapshot(sourceKey: string, snapshot: Partial<WeatherSnapshot>): void {
@@ -396,10 +391,8 @@ export class WeatherClock extends Module {
     }
 
     const presentation = deriveWeatherPresentation(this._snapshot, this._now());
-    this._lastPresentation = presentation;
 
     if (!presentation.visible) {
-      this._clearTimer('_descriptionTimerId');
       this._panelWidget.visible = false;
       return;
     }
@@ -409,41 +402,13 @@ export class WeatherClock extends Module {
     this._icon.show();
     this._label.text = presentation.label;
     this._label.show();
-    this._showingDescription = false;
-    this._scheduleDescription(presentation);
-  }
-
-  private _scheduleDescription(presentation: WeatherPresentation): void {
-    this._clearTimer('_descriptionTimerId');
-    if (!presentation.description) return;
-
-    this._descriptionTimerId = GLib.timeout_add(GLib.PRIORITY_LOW, DESCRIPTION_DELAY_MS, () => {
-      this._descriptionTimerId = 0;
-      if (!this._label || !this._lastPresentation?.description) return GLib.SOURCE_REMOVE;
-
-      this._showingDescription = true;
-      this._label.text = this._lastPresentation.description;
-      this._descriptionTimerId = GLib.timeout_add_seconds(
-        GLib.PRIORITY_LOW,
-        DESCRIPTION_VISIBLE_SECONDS,
-        () => {
-          this._descriptionTimerId = 0;
-          if (this._label && this._lastPresentation && this._showingDescription) {
-            this._showingDescription = false;
-            this._label.text = this._lastPresentation.label;
-          }
-          return GLib.SOURCE_REMOVE;
-        },
-      );
-      return GLib.SOURCE_REMOVE;
-    });
   }
 
   private _hasConnectivity(): boolean {
     return this._monitor?.connectivity !== Gio.NetworkConnectivity.LOCAL;
   }
 
-  private _clearTimer(prop: '_refreshTimerId' | '_retryTimerId' | '_descriptionTimerId'): void {
+  private _clearTimer(prop: '_refreshTimerId' | '_retryTimerId'): void {
     if (!this[prop]) return;
     GLib.source_remove(this[prop]);
     this[prop] = 0;

@@ -9,6 +9,10 @@ permissions:
   issues: write
   pull-requests: write
 
+concurrency:
+  group: gnome-backport-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   backport:
     name: Create GNOME maintenance PR
@@ -100,7 +104,8 @@ jobs:
             git commit -m "Bump version to ${NEXT_VERSION}"
           fi
 
-          git push --force-with-lease origin "$BACKPORT_BRANCH"
+          git fetch origin "+refs/heads/${BACKPORT_BRANCH}:refs/remotes/origin/${BACKPORT_BRANCH}" || true
+          git push --force-with-lease origin HEAD:"$BACKPORT_BRANCH"
 
           EXISTING_PR=$(gh pr list \
             --head "$BACKPORT_BRANCH" \
