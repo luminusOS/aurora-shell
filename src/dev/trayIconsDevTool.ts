@@ -246,7 +246,9 @@ export class TrayIconsDevTool {
 
     const button = new St.Button({
       child: content,
-      style_class: active ? 'aurora-devtool-action-button active' : 'aurora-devtool-action-button',
+      style_class: active
+        ? 'button aurora-devtool-action-button active'
+        : 'button aurora-devtool-action-button',
       can_focus: !disabled,
       reactive: !disabled,
       x_expand: true,

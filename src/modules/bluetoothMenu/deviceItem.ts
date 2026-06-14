@@ -27,7 +27,6 @@ export class BluetoothDeviceItemPatcher {
   private _animationTimeoutId = 0;
   private _animationFrame = 1;
   private _animatingState: 'connecting' | 'disconnecting' | null = null;
-  private _disposed = true;
 
   constructor(item: any) {
     this._item = item;
@@ -35,7 +34,6 @@ export class BluetoothDeviceItemPatcher {
 
   enable(): void {
     const item = this._item;
-    this._disposed = false;
 
     // Override activate so clicking a device doesn't close the menu.
     // The parent PopupMenuBase listens to 'activate' and calls menu.close();
@@ -110,15 +108,13 @@ export class BluetoothDeviceItemPatcher {
   }
 
   private _scheduleUpdate(): void {
-    if (this._disposed) return;
-
     if (this._pendingUpdateId !== 0) {
       GLib.source_remove(this._pendingUpdateId);
       this._pendingUpdateId = 0;
     }
     this._pendingUpdateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
       this._pendingUpdateId = 0;
-      if (this._disposed) return GLib.SOURCE_REMOVE;
+      if (!this._stateIcon || !this._batteryLabel) return GLib.SOURCE_REMOVE;
 
       this._updateStateIcon();
       this._updateBatteryLabel();
@@ -135,7 +131,7 @@ export class BluetoothDeviceItemPatcher {
   }
 
   private _updateStateIcon(): void {
-    if (this._disposed || !this._stateIcon) return;
+    if (!this._stateIcon) return;
 
     const connected: boolean = this._item._device.connected;
     const isWorking: boolean = this._item._spinner.visible;
@@ -147,7 +143,7 @@ export class BluetoothDeviceItemPatcher {
         this._animatingState = connected ? 'disconnecting' : 'connecting';
 
         this._animationTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
-          if (this._disposed || !this._stateIcon) {
+          if (!this._stateIcon) {
             this._animationTimeoutId = 0;
             return GLib.SOURCE_REMOVE;
           }
@@ -191,7 +187,7 @@ export class BluetoothDeviceItemPatcher {
   }
 
   private _updateBatteryLabel(): void {
-    if (this._disposed || !this._batteryLabel) return;
+    if (!this._batteryLabel) return;
     const connected: boolean = this._item._device.connected;
     const pct: number = this._item._device.battery_percentage;
     // Filter out 0% which is often a placeholder during initial connection
@@ -205,7 +201,6 @@ export class BluetoothDeviceItemPatcher {
 
   disable(options: DisableOptions = {}): void {
     const restoreOriginalChildren = options.restoreOriginalChildren ?? true;
-    this._disposed = true;
 
     if (this._spinnerNotifyId) {
       this._item._spinner?.disconnect(this._spinnerNotifyId);

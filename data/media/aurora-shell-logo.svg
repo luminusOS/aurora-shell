@@ -1,2 +1,285 @@
-<?xml version="1.0" standalone="no"?>
-<svg viewBox="0 0 500 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="aurora-green" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00FF87"/><stop offset="100%" stop-color="#60EFFF"/></linearGradient><linearGradient id="aurora-cyan" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0061FF"/><stop offset="100%" stop-color="#60EFFF"/></linearGradient><linearGradient id="aurora-purple" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8E2DE2"/><stop offset="100%" stop-color="#4A00E0"/></linearGradient><radialGradient id="night-sky" cx="50%" cy="0%" r="100%"><stop offset="0%" stop-color="#1A2B4C"/><stop offset="100%" stop-color="#080E17"/></radialGradient><filter id="aurora-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="12" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter><filter id="aurora-glow-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="25" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter><clipPath id="logo-clip"><circle cx="250" cy="250" r="230"/></clipPath></defs><circle cx="250" cy="250" r="230" fill="url(#night-sky)"/><g clip-path="url(#logo-clip)"><g opacity="0.45" filter="url(#aurora-glow-soft)"><ellipse cx="120" cy="250" rx="35" ry="280" fill="url(#aurora-green)" transform="rotate(15 120 250)"/><ellipse cx="250" cy="250" rx="50" ry="300" fill="url(#aurora-cyan)" transform="rotate(15 250 250)"/><ellipse cx="380" cy="250" rx="40" ry="260" fill="url(#aurora-purple)" transform="rotate(15 380 250)"/></g><path d="M -50 200 C 180 -50, 350 350, 600 150 L 600 -50 L -50 -50 Z" fill="url(#aurora-green)" opacity="0.85" style="mix-blend-mode: screen;" filter="url(#aurora-glow)"/><path d="M -50 320 C 150 150, 350 500, 600 250 L 600 600 L -50 600 Z" fill="url(#aurora-cyan)" opacity="0.9" style="mix-blend-mode: screen;" filter="url(#aurora-glow)"/><path d="M -50 450 C 150 300, 400 600, 600 380 L 600 600 L -50 600 Z" fill="url(#aurora-purple)" opacity="0.95" style="mix-blend-mode: screen;" filter="url(#aurora-glow)"/><circle cx="340" cy="260" r="60" fill="#FFFFFF" opacity="0.15" filter="url(#aurora-glow)" style="mix-blend-mode: overlay;"/><path d="M 120 90 Q 125 115 145 120 Q 125 125 120 150 Q 115 125 95 120 Q 115 115 120 90 Z" fill="#FFF" opacity="0.9" filter="url(#aurora-glow)"/><path d="M 380 120 Q 383 135 395 138 Q 383 141 380 156 Q 377 141 365 138 Q 377 135 380 120 Z" fill="#00FF87" opacity="0.8" filter="url(#aurora-glow)"/><path d="M 180 380 Q 182 390 190 392 Q 182 394 180 404 Q 178 394 170 392 Q 178 390 180 380 Z" fill="#00C6FF" opacity="0.6"/></g><circle cx="250" cy="250" r="228" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4"/></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Aurora Shell app icon study.
+  GNOME-style 128x128 canvas with a compact 100px object, subtle 6px front
+  profile, 2px-aligned geometry, and aurora bands spaced by approximate golden
+  ratios so the mark stays readable at 64px and 32px.
+-->
+
+<svg
+   width="128"
+   height="128"
+   viewBox="0 0 128 128"
+   version="1.1"
+   id="svg30"
+   sodipodi:docname="aurora-shell-logo_new2.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview30"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="3.9363849"
+     inkscape:cx="51.697181"
+     inkscape:cy="56.650965"
+     inkscape:window-width="1920"
+     inkscape:window-height="911"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg30" />
+  <defs
+     id="defs21">
+    <linearGradient
+       id="sky-top"
+       x1="64"
+       y1="10"
+       x2="64"
+       y2="104"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#1a1530"
+         id="stop1" />
+      <stop
+         offset="0.62"
+         stop-color="#241f31"
+         id="stop2" />
+      <stop
+         offset="1"
+         stop-color="#332b43"
+         id="stop3" />
+    </linearGradient>
+    <linearGradient
+       id="front-profile"
+       x1="64"
+       y1="92"
+       x2="64"
+       y2="112"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#332b43"
+         id="stop4" />
+      <stop
+         offset="1"
+         stop-color="#211b2f"
+         id="stop5" />
+    </linearGradient>
+    <linearGradient
+       id="rim-light"
+       x1="30"
+       y1="16"
+       x2="98"
+       y2="106"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#ffffff"
+         stop-opacity="0.2"
+         id="stop6" />
+      <stop
+         offset="0.58"
+         stop-color="#ffffff"
+         stop-opacity="0.04"
+         id="stop7" />
+      <stop
+         offset="1"
+         stop-color="#000000"
+         stop-opacity="0.18"
+         id="stop8" />
+    </linearGradient>
+    <linearGradient
+       id="green-band"
+       x1="18"
+       y1="96"
+       x2="68"
+       y2="20"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#26a269"
+         id="stop9" />
+      <stop
+         offset="0.62"
+         stop-color="#57e389"
+         id="stop10" />
+      <stop
+         offset="1"
+         stop-color="#b8f7c7"
+         id="stop11" />
+    </linearGradient>
+    <linearGradient
+       id="teal-band"
+       x1="32"
+       y1="102"
+       x2="82"
+       y2="22"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#1a8d7b"
+         id="stop12" />
+      <stop
+         offset="0.62"
+         stop-color="#62d6ea"
+         id="stop13" />
+      <stop
+         offset="1"
+         stop-color="#dcf0ff"
+         id="stop14" />
+    </linearGradient>
+    <linearGradient
+       id="blue-band"
+       x1="44"
+       y1="108"
+       x2="96"
+       y2="30"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#1c71d8"
+         id="stop15" />
+      <stop
+         offset="0.62"
+         stop-color="#99c1f1"
+         id="stop16" />
+      <stop
+         offset="1"
+         stop-color="#dcf0ff"
+         id="stop17" />
+    </linearGradient>
+    <linearGradient
+       id="violet-band"
+       x1="58"
+       y1="104"
+       x2="104"
+       y2="30"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#613583"
+         id="stop18" />
+      <stop
+         offset="0.62"
+         stop-color="#c061cb"
+         id="stop19" />
+      <stop
+         offset="1"
+         stop-color="#f2b7ef"
+         id="stop20" />
+    </linearGradient>
+    <clipPath
+       id="top-disc"
+       clipPathUnits="userSpaceOnUse">
+      <circle
+         cx="64"
+         cy="60"
+         r="50"
+         id="circle20" />
+    </clipPath>
+    <clipPath
+       id="object-silhouette"
+       clipPathUnits="userSpaceOnUse">
+      <circle
+         cx="64"
+         cy="60"
+         r="50"
+         id="circle21" />
+    </clipPath>
+  </defs>
+  <g
+     id="g30"
+     transform="matrix(1.2,0,0,1.2,-12.8,-8)"
+     inkscape:export-filename="g30.png"
+     inkscape:export-xdpi="96"
+     inkscape:export-ydpi="96">
+    <g
+       clip-path="url(#object-silhouette)"
+       id="g28">
+      <circle
+         cx="64"
+         cy="60"
+         r="50"
+         fill="url(#sky-top)"
+         id="circle22"
+         style="fill:url(#sky-top)" />
+      <g
+         clip-path="url(#top-disc)"
+         transform="rotate(-18,64,60)"
+         id="g26">
+        <path
+           d="M -4,68 C 12,42 31,36 48,55 60,68 72,72 84,59 94,48 106,45 120,51 V 64 C 105,58 95,62 84,73 70,87 56,82 43,69 29,54 12,60 0,83 Z"
+           fill="url(#green-band)"
+           opacity="0.86"
+           id="path22"
+           style="fill:url(#green-band)" />
+        <path
+           d="M 4,80 C 20,57 40,51 57,68 70,81 82,84 95,70 105,60 116,58 128,64 V 78 C 114,72 105,76 94,88 80,102 65,96 52,83 38,69 22,74 10,94 Z"
+           fill="url(#teal-band)"
+           opacity="0.78"
+           id="path23"
+           style="fill:url(#teal-band)" />
+        <path
+           d="M 16,92 C 30,72 48,67 64,82 c 13,12 25,16 38,4 9,-8 18,-10 30,-4 v 14 c -13,-5 -22,-2 -32,8 -15,14 -30,7 -42,-4 -13,-12 -28,-9 -36,6 z"
+           fill="url(#blue-band)"
+           opacity="0.72"
+           id="path24"
+           style="fill:url(#blue-band)" />
+        <path
+           d="m 32,102 c 12,-16 28,-19 42,-7 12,10 22,13 34,3 8,-6 16,-7 26,-2 v 16 c -12,-4 -20,-2 -28,4 -15,12 -30,4 -42,-6 -12,-10 -22,-7 -28,4 z"
+           fill="url(#violet-band)"
+           opacity="0.74"
+           id="path25"
+           style="fill:url(#violet-band)" />
+      </g>
+      <path
+         d="m 16,98 c 10,7 27,12 48,12 21,0 38,-5 48,-12 v 8 c -11,4 -28,6 -48,6 -20,0 -37,-2 -48,-6 z"
+         fill="url(#front-profile)"
+         id="path27"
+         style="fill:url(#front-profile)" />
+      <path
+         d="m 26,99 c 10,5 23,7 38,7 15,0 28,-2 38,-7 v 3 c -11,5 -24,7 -38,7 -14,0 -27,-2 -38,-7 z"
+         fill="#000000"
+         opacity="0.06"
+         id="path28" />
+    </g>
+    <g
+       clip-path="url(#top-disc)"
+       id="g29">
+      <circle
+         cx="34"
+         cy="31"
+         r="2"
+         fill="#99c1f1"
+         id="circle28" />
+      <circle
+         cx="88"
+         cy="24"
+         r="1.5"
+         fill="#f6f5f4"
+         id="circle29" />
+      <path
+         d="m 50.878236,32.868679 c 1,6 3,8 9,9 -6,1 -8,3 -9,9 -1,-6 -3,-8 -9,-9 6,-1 8,-3 9,-9 z"
+         fill="#ffffff"
+         id="path29" />
+    </g>
+    <circle
+       cx="64"
+       cy="60"
+       r="49.25"
+       fill="none"
+       stroke="url(#rim-light)"
+       stroke-width="1.5"
+       id="circle30"
+       style="stroke:url(#rim-light)" />
+  </g>
+</svg>

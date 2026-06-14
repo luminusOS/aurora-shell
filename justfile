@@ -16,6 +16,7 @@ build:
     cp -r data/schemas dist/ 2>/dev/null || true
     glib-compile-schemas dist/schemas/
     cp -r data/icons dist/ 2>/dev/null || true
+    cp -r data/media dist/ 2>/dev/null || true
     just compile-mo
 
 package: build
@@ -33,6 +34,7 @@ package: build
         --extra-source=dev \
         --extra-source=shared \
         --extra-source=icons \
+        --extra-source=media \
         --extra-source=locale \
         --schema=schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml
     echo "Packing Done!"

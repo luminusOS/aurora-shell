@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-06-04 17:27-0300\n"
+"POT-Creation-Date: 2026-06-13 22:26-0300\n"
 "PO-Revision-Date: 2026-03-09 18:00-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -146,89 +146,89 @@ msgstr ""
 msgid "Automatically fixes missing app icons using an in-memory approach"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:320
+#: dist/modules/meetingClock/meetingClock.js:329
 msgid "Meeting starting soon"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:328
+#: dist/modules/meetingClock/meetingClock.js:337
 msgid "Join"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:329
+#: dist/modules/meetingClock/meetingClock.js:338
 msgid "Snooze"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:330
+#: dist/modules/meetingClock/meetingClock.js:339
 msgid "Dismiss"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:331
+#: dist/modules/meetingClock/meetingClock.js:340
 msgid "Ignore"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:465
-#: dist/modules/meetingClock/meetingClock.js:497 dist/prefsMetadata.js:151
+#: dist/modules/meetingClock/meetingClock.js:501
+#: dist/modules/meetingClock/meetingClock.js:538 dist/prefsMetadata.js:151
 msgid "Meeting Clock"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:498 dist/prefsMetadata.js:152
+#: dist/modules/meetingClock/meetingClock.js:539 dist/prefsMetadata.js:152
 msgid "Shows upcoming calendar events next to the clock"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:502 dist/prefsMetadata.js:156
+#: dist/modules/meetingClock/meetingClock.js:543 dist/prefsMetadata.js:156
 msgid "Meeting Alerts"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:503 dist/prefsMetadata.js:157
+#: dist/modules/meetingClock/meetingClock.js:544 dist/prefsMetadata.js:157
 msgid "Show a notification when a meeting is about to start"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:508 dist/prefsMetadata.js:162
+#: dist/modules/meetingClock/meetingClock.js:549 dist/prefsMetadata.js:162
 msgid "Alert Lead Time (minutes)"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:509 dist/prefsMetadata.js:163
+#: dist/modules/meetingClock/meetingClock.js:550 dist/prefsMetadata.js:163
 msgid "Minutes before a meeting starts to show the alert"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:516 dist/prefsMetadata.js:170
+#: dist/modules/meetingClock/meetingClock.js:557 dist/prefsMetadata.js:170
 msgid "Snooze Duration (minutes)"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:517 dist/prefsMetadata.js:171
+#: dist/modules/meetingClock/meetingClock.js:558 dist/prefsMetadata.js:171
 msgid "Minutes to wait before showing a snoozed alert again"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:524 dist/prefsMetadata.js:178
+#: dist/modules/meetingClock/meetingClock.js:565 dist/prefsMetadata.js:178
 msgid "Alert Events Without Links"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:525 dist/prefsMetadata.js:179
+#: dist/modules/meetingClock/meetingClock.js:566 dist/prefsMetadata.js:179
 msgid "Show meeting alerts for calendar events that do not include a join link"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:530 dist/prefsMetadata.js:184
+#: dist/modules/meetingClock/meetingClock.js:571 dist/prefsMetadata.js:184
 msgid "Panel Reveal Interval (minutes)"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:531 dist/prefsMetadata.js:185
+#: dist/modules/meetingClock/meetingClock.js:572 dist/prefsMetadata.js:185
 msgid "Minutes between automatic Meeting Clock slide reveals in the panel"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:538 dist/prefsMetadata.js:192
+#: dist/modules/meetingClock/meetingClock.js:579 dist/prefsMetadata.js:192
 msgid "Panel Lookahead (minutes)"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:539 dist/prefsMetadata.js:193
+#: dist/modules/meetingClock/meetingClock.js:580 dist/prefsMetadata.js:193
 msgid ""
 "Maximum minutes before an event starts for it to appear in the panel clock"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:546 dist/prefsMetadata.js:200
+#: dist/modules/meetingClock/meetingClock.js:587 dist/prefsMetadata.js:200
 msgid "Hide All-Day Events"
 msgstr ""
 
-#: dist/modules/meetingClock/meetingClock.js:547 dist/prefsMetadata.js:201
+#: dist/modules/meetingClock/meetingClock.js:588 dist/prefsMetadata.js:201
 msgid "Exclude all-day events from the clock and alerts"
 msgstr ""
 
@@ -376,19 +376,19 @@ msgstr ""
 msgid "Per-application volume control in Quick Settings"
 msgstr "Controle de volume por aplicativo nas Configurações Rápidas"
 
-#: dist/modules/weatherClock/weatherClock.js:383 dist/prefsMetadata.js:136
+#: dist/modules/weatherClock/weatherClock.js:416 dist/prefsMetadata.js:136
 msgid "Weather Clock"
 msgstr ""
 
-#: dist/modules/weatherClock/weatherClock.js:384 dist/prefsMetadata.js:137
+#: dist/modules/weatherClock/weatherClock.js:417 dist/prefsMetadata.js:137
 msgid "Shows GNOME Weather next to the clock"
 msgstr ""
 
-#: dist/modules/weatherClock/weatherClock.js:388 dist/prefsMetadata.js:141
+#: dist/modules/weatherClock/weatherClock.js:421 dist/prefsMetadata.js:141
 msgid "Show Weather After Clock"
 msgstr ""
 
-#: dist/modules/weatherClock/weatherClock.js:389 dist/prefsMetadata.js:142
+#: dist/modules/weatherClock/weatherClock.js:422 dist/prefsMetadata.js:142
 msgid "Place the weather indicator after the clock instead of before it"
 msgstr ""
 
@@ -402,24 +402,32 @@ msgstr ""
 msgid "Shows an X11 badge on XWayland apps in the Alt+Tab switcher"
 msgstr ""
 
-#: dist/prefs.js:18
+#: dist/prefs.js:21
 msgid "General"
 msgstr "Geral"
 
-#: dist/prefs.js:22
+#: dist/prefs.js:25
 msgid "Other"
 msgstr ""
 
-#: dist/prefs.js:143 dist/prefs.js:177 dist/prefs.js:184 dist/prefs.js:194
+#: dist/prefs.js:48
+msgid "Aurora Shell logo"
+msgstr "Logo do Aurora Shell"
+
+#: dist/prefs.js:69
+msgid "Access website"
+msgstr "Acessar website"
+
+#: dist/prefs.js:195 dist/prefs.js:229 dist/prefs.js:236 dist/prefs.js:246
 msgid "Disabled"
 msgstr ""
 
-#: dist/prefs.js:172
+#: dist/prefs.js:224
 msgid "Press a shortcut…"
 msgstr ""
 
 #: dist/prefsMetadata.js:6
-msgid "Dock & Panel"
+msgid "Dock &amp; Panel"
 msgstr ""
 
 #: dist/prefsMetadata.js:7
@@ -431,7 +439,7 @@ msgid "Behavior"
 msgstr ""
 
 #: dist/prefsMetadata.js:9
-msgid "Privacy & Clipboard"
+msgid "Privacy &amp; Clipboard"
 msgstr ""
 
 #~ msgid "Modules"
