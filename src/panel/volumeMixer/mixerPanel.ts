@@ -6,7 +6,7 @@ import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-18';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import { VolumeMixerList } from '~/modules/volumeMixer/mixerList.ts';
+import { VolumeMixerList } from '~/panel/volumeMixer/mixerList.ts';
 
 export const MAX_MIXER_HEIGHT = 300;
 

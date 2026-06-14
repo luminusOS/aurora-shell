@@ -2,7 +2,7 @@ import '@girs/gjs';
 
 import St from '@girs/st-18';
 
-import { ClipboardHistory } from '~/modules/clipboardHistory/clipboardHistory.ts';
+import { ClipboardHistory } from '~/clipboard/clipboardHistory.ts';
 import type { Module } from '~/module.ts';
 
 const RANDOM_MESSAGES = [

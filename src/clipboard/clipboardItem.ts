@@ -4,7 +4,7 @@ import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-18';
 
-import type { ClipboardEntry } from '~/modules/clipboardHistory/clipboardStore.ts';
+import type { ClipboardEntry } from '~/clipboard/clipboardStore.ts';
 
 const MAX_LABEL_CHARS = 80;
 

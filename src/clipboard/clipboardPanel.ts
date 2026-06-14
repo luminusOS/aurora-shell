@@ -6,8 +6,8 @@ import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
-import type { ClipboardEntry, ClipboardStore } from '~/modules/clipboardHistory/clipboardStore.ts';
-import { ClipboardList } from '~/modules/clipboardHistory/clipboardList.ts';
+import type { ClipboardEntry, ClipboardStore } from '~/clipboard/clipboardStore.ts';
+import { ClipboardList } from '~/clipboard/clipboardList.ts';
 
 const PANEL_WIDTH = 560;
 const PANEL_HEIGHT = 480;

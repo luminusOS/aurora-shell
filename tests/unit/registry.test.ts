@@ -2,7 +2,7 @@
  * Regression tests — Module registry consistency
  *
  * Adding a new module requires edits in:
- *   1. src/modules/<module>.ts  — `definition` export (metadata + factory, co-located with class)
+ *   1. semantic source folder   — `definition` export (metadata + factory, co-located with class)
  *   2. src/registry.ts          — one import line + one entry in getModuleRegistry()
  *   3. src/prefsMetadata.ts     — metadata entry (prefs runs in a different process and
  *                                 cannot statically import modules that reference shell internals)
@@ -15,7 +15,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -45,19 +45,11 @@ function parseSectionsFromSource(src: string): { key: string; section: string }[
 
 /** Collect { key, section } pairs from every module definition. */
 function collectSectionsFromModuleFiles(): { key: string; section: string }[] {
-  const modulesDir = resolve(root, 'src/modules');
   const out: { key: string; section: string }[] = [];
-  const walk = (dir: string) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = resolve(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile() && entry.name.endsWith('.ts')) {
-        const src = readFileSync(full, 'utf-8');
-        if (src.includes('export const definition')) out.push(...parseSectionsFromSource(src));
-      }
-    }
-  };
-  walk(modulesDir);
+  for (const file of parseRegistryDefinitionFiles()) {
+    const src = readFileSync(file, 'utf-8');
+    if (src.includes('export const definition')) out.push(...parseSectionsFromSource(src));
+  }
   return out;
 }
 
@@ -80,21 +72,22 @@ function parseRegistryEntries(): { key: string; settingsKey: string }[] {
   return collectEntriesFromModuleFiles();
 }
 
-/** Recursively walk `src/modules/` and collect `definition` blocks. */
-function collectEntriesFromModuleFiles(): { key: string; settingsKey: string }[] {
-  const modulesDir = resolve(root, 'src/modules');
+/** Resolve the module definition files imported by registry.ts. */
+function parseRegistryDefinitionFiles(): string[] {
+  const src = readFileSync(resolve(root, 'src/registry.ts'), 'utf-8');
   const files: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = resolve(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile() && entry.name.endsWith('.ts')) files.push(full);
-    }
-  };
-  walk(modulesDir);
+  const importRe = /import\s*\{\s*definition\s+as\s+\w+\s*\}\s*from\s*'([^']+)'/g;
+  let m;
+  while ((m = importRe.exec(src)) !== null) {
+    files.push(resolve(root, m[1].replace(/^~\//, 'src/')));
+  }
+  return files;
+}
 
+/** Collect `definition` blocks from the files imported by registry.ts. */
+function collectEntriesFromModuleFiles(): { key: string; settingsKey: string }[] {
   const entries: { key: string; settingsKey: string }[] = [];
-  for (const file of files) {
+  for (const file of parseRegistryDefinitionFiles()) {
     const src = readFileSync(file, 'utf-8');
     if (!src.includes('export const definition')) continue;
     entries.push(...parseEntriesFromSource(src));
@@ -264,6 +257,15 @@ test('registry ↔ schema — every settingsKey is declared in the schema XML', 
       `settingsKey "${settingsKey}" is not declared in the GSettings schema`,
     );
   }
+});
+
+test('registry — tray icons is desktop-only', () => {
+  const src = readFileSync(resolve(root, 'src/desktop/trayIcons/trayIcons.ts'), 'utf-8');
+  assert.match(
+    src,
+    /runtime:\s*\{\s*targets:\s*\[\s*'desktop'\s*\]\s*\}/,
+    'Tray Icons must stay desktop-only; Aurora has no mobile tray icons',
+  );
 });
 
 test('registry — every registry import resolves to a module file that exports a definition', () => {

@@ -10,9 +10,9 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
-import { DockHotArea } from '~/modules/dock/hotArea.ts';
-import { DockIntellihide, OverlapStatus } from '~/modules/dock/intellihide.ts';
-import { hasDefinedBottom } from '~/modules/dock/monitorTopology.ts';
+import { DockHotArea } from '~/dock/hotArea.ts';
+import { DockIntellihide, OverlapStatus } from '~/dock/intellihide.ts';
+import { hasDefinedBottom } from '~/dock/monitorTopology.ts';
 
 const HOT_AREA_REVEAL_DURATION = 1500;
 const HOT_AREA_STRIP_HEIGHT = 1;

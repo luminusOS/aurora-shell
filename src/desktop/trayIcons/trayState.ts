@@ -1,4 +1,4 @@
-// src/modules/trayIcons/trayState.ts
+// src/desktop/trayIcons/trayState.ts
 
 // Type-only imports: erased at compile time, no GJS runtime dependency in unit tests.
 import type Gio from '@girs/gio-2.0';

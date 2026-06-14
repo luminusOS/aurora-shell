@@ -3,7 +3,7 @@ import '@girs/gjs';
 import St from '@girs/st-18';
 
 import type { Module } from '~/module.ts';
-import { WeatherClock } from '~/modules/weatherClock/weatherClock.ts';
+import { WeatherClock } from '~/panel/clock/weatherClock/weatherClock.ts';
 
 const DEVTOOL_SOURCE_KEY = 'aurora-devtool';
 

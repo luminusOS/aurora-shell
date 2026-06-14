@@ -5,8 +5,8 @@ import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-18';
 
-import type { ClipboardEntry } from '~/modules/clipboardHistory/clipboardStore.ts';
-import { ClipboardItem } from '~/modules/clipboardHistory/clipboardItem.ts';
+import type { ClipboardEntry } from '~/clipboard/clipboardStore.ts';
+import { ClipboardItem } from '~/clipboard/clipboardItem.ts';
 
 type ListCallbacks = {
   onActivate: (entry: ClipboardEntry) => void;

@@ -14,7 +14,7 @@ import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 import { attachToQuickSettings } from '~/shared/quickSettings.ts';
-import { VolumeMixerPanel } from '~/modules/volumeMixer/mixerPanel.ts';
+import { VolumeMixerPanel } from '~/panel/volumeMixer/mixerPanel.ts';
 import { loadIcon } from '~/shared/icons.ts';
 
 const LOG_PREFIX = 'VolumeMixer';

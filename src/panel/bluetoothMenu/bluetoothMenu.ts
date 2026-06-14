@@ -8,7 +8,7 @@ import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 import { attachToQuickSettings } from '~/shared/quickSettings.ts';
-import { BluetoothDeviceItemPatcher } from '~/modules/bluetoothMenu/deviceItem.ts';
+import { BluetoothDeviceItemPatcher } from '~/panel/bluetoothMenu/deviceItem.ts';
 
 const LOG_PREFIX = 'BluetoothMenu';
 

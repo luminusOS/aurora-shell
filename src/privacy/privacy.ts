@@ -3,8 +3,8 @@ import { gettext as _ } from 'gettext';
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
-import { DndOnShare } from '~/modules/privacy/dndOnShare.ts';
-import { PrivacyPanel } from '~/modules/privacy/privacyPanel.ts';
+import { DndOnShare } from '~/privacy/dndOnShare.ts';
+import { PrivacyPanel } from '~/privacy/privacyPanel.ts';
 
 const DND_KEY = 'privacy-dnd-on-share';
 const PANEL_KEY = 'privacy-panel';

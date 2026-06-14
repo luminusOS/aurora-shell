@@ -12,10 +12,10 @@ import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 
-import type { ClipboardEntry } from '~/modules/clipboardHistory/clipboardStore.ts';
-import { ClipboardStore } from '~/modules/clipboardHistory/clipboardStore.ts';
-import { ClipboardMonitor } from '~/modules/clipboardHistory/clipboardMonitor.ts';
-import { ClipboardPanel } from '~/modules/clipboardHistory/clipboardPanel.ts';
+import type { ClipboardEntry } from '~/clipboard/clipboardStore.ts';
+import { ClipboardStore } from '~/clipboard/clipboardStore.ts';
+import { ClipboardMonitor } from '~/clipboard/clipboardMonitor.ts';
+import { ClipboardPanel } from '~/clipboard/clipboardPanel.ts';
 
 const KEYBINDING_KEY = 'clipboard-history-shortcut';
 const LOG_PREFIX = 'ClipboardHistory';

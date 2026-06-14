@@ -7,7 +7,7 @@ import Clutter from '@girs/clutter-18';
 
 import * as Volume from '@girs/gnome-shell/ui/status/volume';
 
-import { VolumeMixerItem } from '~/modules/volumeMixer/mixerItem.ts';
+import { VolumeMixerItem } from '~/panel/volumeMixer/mixerItem.ts';
 import type { ExtensionContext } from '~/core/context.ts';
 
 /**

@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { hasDefinedBottom } from '../../src/modules/dock/monitorTopology.ts';
+import { hasDefinedBottom } from '../../src/dock/monitorTopology.ts';
 
 const mon = (x: number, y: number, width: number, height: number) => ({
   x,

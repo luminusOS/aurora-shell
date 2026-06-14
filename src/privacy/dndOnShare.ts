@@ -2,7 +2,7 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
-import { getSharingIndicator } from '~/modules/privacy/sharingIndicator.ts';
+import { getSharingIndicator } from '~/privacy/sharingIndicator.ts';
 
 const NOTIFICATIONS_SCHEMA = 'org.gnome.desktop.notifications';
 const SHOW_BANNERS_KEY = 'show-banners';

@@ -441,6 +441,7 @@ export const definition: ModuleDefinition = {
   section: 'dock-panel',
   title: _('Tray Icons'),
   subtitle: _('System tray with SNI and background app icons'),
+  runtime: { targets: ['desktop'] },
   options: [
     {
       key: 'tray-icons-limit',

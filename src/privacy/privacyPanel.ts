@@ -4,7 +4,7 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import { getSharingIndicator } from '~/modules/privacy/sharingIndicator.ts';
+import { getSharingIndicator } from '~/privacy/sharingIndicator.ts';
 
 const FADE_DURATION = 200;
 const EASE_MODE = Clutter.AnimationMode.EASE_OUT_QUAD;

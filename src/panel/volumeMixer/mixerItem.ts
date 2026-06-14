@@ -6,7 +6,7 @@ import Shell from '@girs/shell-18';
 import type Gvc from 'gi://Gvc';
 import Clutter from '@girs/clutter-18';
 
-import { ApplicationStreamSlider } from '~/modules/volumeMixer/streamSlider.ts';
+import { ApplicationStreamSlider } from '~/panel/volumeMixer/streamSlider.ts';
 import type { ExtensionContext } from '~/core/context.ts';
 
 /**

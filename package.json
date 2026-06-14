@@ -5,13 +5,20 @@
   "main": "dist/extension.js",
   "license": "LGPL-3.0-or-later",
   "private": true,
+  "workspaces": [
+    "."
+  ],
   "scripts": {
     "clear": "rm -rf dist",
-    "build:ts": "npx tsc --noEmit && npx eslint src/ && tsx esbuild.ts",
+    "check": "tsc --noEmit",
+    "build:ts": "yarn check && yarn lint && tsx esbuild.ts",
     "build:css": "tsx sass.config.ts",
     "build": "yarn clear && yarn build:css && yarn build:ts",
+    "build:gjsify": "tsx scripts/build-gjsify.ts",
+    "package:gjsify": "tsx scripts/build-gjsify.ts --package",
     "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",
     "validate": "tsc --noEmit",
+    "validate:gjsify": "gjsify check --no-parallel",
     "prettier:check": "prettier --check \"src/**/*.{ts,scss}\"",
     "stylelint": "stylelint \"src/styles/**/*.scss\"",
     "watch:css": "tsx sass.config.ts --watch",
@@ -20,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@gjsify/cli": "^0.5.0",
     "@stylistic/eslint-plugin": "^2.6.4",
     "@tsconfig/strictest": "^2.0.6",
     "@types/adm-zip": "^0.5.7",
