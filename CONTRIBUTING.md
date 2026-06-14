@@ -152,7 +152,8 @@ Maintainers decide which fixes are worth backporting. Not every fix needs to lan
 ### Automated backports
 
 To request a maintenance backport, add a label such as `GNOME 50` to the original pull request.
-GitHub Actions creates or updates a separate backport PR targeting `release/v50.x`.
+After the original pull request is merged into `main`, GitHub Actions creates or updates a separate
+backport PR targeting `release/v50.x`.
 
 The backport branch is rebuilt from the target release branch, cherry-picks the original PR commits,
 and adds a final version bump commit. For example, if `metadata.json` on `release/v50.x` says

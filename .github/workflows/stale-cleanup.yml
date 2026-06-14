@@ -1,0 +1,38 @@
+name: Stale Cleanup
+
+on:
+  schedule:
+    - cron: '00 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  mark-stale:
+    name: Mark and close stale posts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark inactive posts as stale and close stale issues
+        uses: actions/stale@v10
+        with:
+          stale-issue-label: stale
+          stale-pr-label: stale
+          days-before-issue-stale: 45
+          days-before-issue-close: 14
+          days-before-pr-stale: 30
+          days-before-close: -1
+          days-before-pr-close: -1
+          close-issue-label: closed-as-stale
+          close-issue-reason: not_planned
+          remove-stale-when-updated: true
+          operations-per-run: 100
+          stale-issue-message: |
+            This issue has been marked as stale because it has not had recent activity. Add a comment or remove the `stale` label if it is still relevant.
+          close-issue-message: |
+            This issue has been closed because it stayed stale without further activity. Reopen it or file a new issue if it is still relevant.
+          stale-pr-message: |
+            This pull request has been marked as stale because it has not had recent activity. Update it, add a comment, or remove the `stale` label if it should stay active.
+          exempt-issue-labels: pinned,security,release-blocker
+          exempt-pr-labels: pinned,security,release-blocker

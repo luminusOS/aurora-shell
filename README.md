@@ -14,25 +14,46 @@ A modular GNOME Shell extension that adds quality-of-life features missing in va
 
 Aurora is split into independent modules, so you can enable only what you want.
 
+### Dock & Panel
+
+| Module | Description |
+|--------|-------------|
+| **Dock** | Replaces the stock dash with a smart per-monitor dock with intellihide and edge reveal |
+| **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
+| **Bluetooth Menu** | Shows battery level and animated icons in the Bluetooth Quick Settings panel |
+| **Weather Clock** | Shows GNOME Weather next to the panel clock |
+| **Meeting Clock** | Shows upcoming calendar events next to the panel clock and notifies when meetings are about to start |
+| **Tray Icons** | System tray in the panel that shows SNI app icons and GNOME background apps, with configurable icon limit, icon size, attention notifications, and smart SNI/background-app deduplication |
+
+### Appearance
+
+| Module | Description |
+|--------|-------------|
+| **Theme Changer** | Keeps GNOME light/dark color scheme behavior consistent |
+| **Icon Weave** | Automatically fixes missing app icons by matching untracked windows to their apps in-memory |
+| **App Search Tooltip** | Shows app names on hover in the overview search results |
+| **Auto Theme Switcher** | Automatically switches between light and dark theme based on time |
+
+### Behavior
+
 | Module | Description |
 |--------|-------------|
 | **No Overview** | Skips the overview on startup so you land directly on your desktop |
 | **Pip On Top** | Keeps Picture-in-Picture windows above other windows automatically |
-| **Theme Changer** | Keeps GNOME light/dark color scheme behavior consistent |
-| **Dock** | Replaces the stock dash with a smart per-monitor dock with intellihide and edge reveal |
-| **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
-| **XWayland Indicator** | Adds an indicator to the app activities in Ctrl + Tab to indicate where XWayland is running |
-| **Weather Clock** | Shows GNOME Weather next to the panel clock |
-| **Meeting Clock** | Shows upcoming calendar events next to the panel clock and notifies when meetings are about to start |
-| **Tray Icons** | System tray in the panel that shows SNI app icons and GNOME background apps, with configurable icon limit, icon size, attention notifications, and smart SNI/background-app deduplication |
-| **DND on Screen Share** | Automatically enables Do Not Disturb mode when screen sharing or recording is active |
-| **Icon Weave** | Automatically fixes missing app icons by matching untracked windows to their apps in-memory |
+| **XWayland Indicator** | Adds an X11 badge to XWayland apps in the Alt+Tab switcher |
+
+### Privacy & Clipboard
+
+| Module | Description |
+|--------|-------------|
+| **Privacy** | Adds screen sharing privacy features, including automatic Do Not Disturb and panel content hiding |
+| **Clipboard History** | Adds searchable clipboard history with pinning and keyboard navigation |
 
 All modules can be toggled independently from the extension preferences.
 
 ## Requirements
 
-- GNOME Shell 45+
+- GNOME Shell 50+
 - [Node.js](https://nodejs.org/) 20+
 - [Yarn](https://yarnpkg.com/) 4+
 - [just](https://github.com/casey/just) (command runner)
@@ -49,21 +70,12 @@ The easiest way to install is from the official GNOME Extensions website.
 
 ### From command-line
 
-```bash
-git clone https://github.com/luminusOS/aurora-shell.git
-cd aurora-shell
-just install
-```
-
-## Testing
+Download the latest `aurora-shell@luminusos.github.io.shell-extension.zip` file from the
+[GitHub releases page](https://github.com/luminusOS/aurora-shell/releases), then install it:
 
 ```bash
-# Build, install, and run directly on the host
-just run
-
-# Build, install, and run inside a toolbox
-just toolbox create   # first time only
-just toolbox run
+gnome-extensions install --force aurora-shell@luminusos.github.io.shell-extension.zip
+gnome-extensions enable aurora-shell@luminusos.github.io
 ```
 
 ## Contributing

@@ -67,7 +67,7 @@ export class GeneralDevTool {
 
     const button = new St.Button({
       child: content,
-      style_class: 'aurora-devtool-action-button',
+      style_class: 'button aurora-devtool-action-button',
       can_focus: true,
       reactive: true,
       x_expand: true,

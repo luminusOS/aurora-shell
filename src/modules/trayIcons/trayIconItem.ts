@@ -25,7 +25,7 @@ const _menuManagers = new WeakMap<PopupMenu.PopupMenu, PopupMenu.PopupMenuManage
 function _showTooltip(anchor: Clutter.Actor, text: string): void {
   if (!_tooltipLabel) {
     _tooltipLabel = new St.Label({ style_class: 'aurora-tray-tooltip', visible: false });
-    Main.uiGroup.add_child(_tooltipLabel);
+    Main.layoutManager.uiGroup.add_child(_tooltipLabel);
   }
   _tooltipLabel.text = text;
   _tooltipLabel.show();
@@ -48,7 +48,7 @@ function _hideTooltip(): void {
 
 export function destroyTooltip(): void {
   if (_tooltipLabel) {
-    Main.uiGroup.remove_child(_tooltipLabel);
+    Main.layoutManager.uiGroup.remove_child(_tooltipLabel);
     _tooltipLabel.destroy();
     _tooltipLabel = null;
   }
@@ -84,7 +84,7 @@ export class TrayIconItem extends St.Button {
       this._menu.actor.add_style_class_name('aurora-tray-menu');
       this._addManagedMenu(this._menu);
 
-      Main.uiGroup.add_child(this._menu.actor);
+      Main.layoutManager.uiGroup.add_child(this._menu.actor);
       this._menu.actor.hide();
     }
 
@@ -92,7 +92,7 @@ export class TrayIconItem extends St.Button {
       this._localMenu = new PopupMenu.PopupMenu(this, 0.5, St.Side.TOP);
       this._localMenu.actor.add_style_class_name('aurora-tray-menu');
       this._addManagedMenu(this._localMenu);
-      Main.uiGroup.add_child(this._localMenu.actor);
+      Main.layoutManager.uiGroup.add_child(this._localMenu.actor);
       this._localMenu.actor.hide();
 
       for (const mi of item.menuItems) {

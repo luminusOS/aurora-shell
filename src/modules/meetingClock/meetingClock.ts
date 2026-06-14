@@ -135,14 +135,7 @@ export class MeetingClock extends Module {
     this._backend = null;
     this._activeAlertEventId = null;
     this._destroyActiveNotification(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
-    if (this._notificationSource) {
-      if (this._notificationSourceDestroyId) {
-        this._notificationSource.disconnect(this._notificationSourceDestroyId);
-        this._notificationSourceDestroyId = 0;
-      }
-      this._notificationSource.destroy(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
-    }
-    this._notificationSource = null;
+    this._destroyNotificationSource(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
     this._eventsBySource.clear();
     this._events = [];
     this._activeAlertEventId = null;
@@ -558,6 +551,15 @@ export class MeetingClock extends Module {
     }
     this._activeNotificationDestroyId = 0;
     if (notification) notification.destroy(reason);
+  }
+
+  private _destroyNotificationSource(reason: MessageTray.NotificationDestroyedReason): void {
+    const source = this._notificationSource;
+    const destroyId = this._notificationSourceDestroyId;
+    this._notificationSource = null;
+    this._notificationSourceDestroyId = 0;
+    if (source && destroyId) source.disconnect(destroyId);
+    source?.destroy(reason);
   }
 
   private _clearAlertState(eventIds: ReadonlySet<string | undefined>): void {
