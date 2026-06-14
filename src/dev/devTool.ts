@@ -240,8 +240,8 @@ export class DevTool extends Module {
     const button = new St.Button({
       child: content,
       style_class: this._sectionDropdownOpen
-        ? 'aurora-devtool-section-trigger active'
-        : 'aurora-devtool-section-trigger',
+        ? 'button aurora-devtool-section-trigger active'
+        : 'button aurora-devtool-section-trigger',
       can_focus: true,
       x_expand: true,
       accessible_name: section.title,
@@ -262,8 +262,8 @@ export class DevTool extends Module {
     const button = new St.Button({
       child: content,
       style_class: active
-        ? 'aurora-devtool-section-option active'
-        : 'aurora-devtool-section-option',
+        ? 'button aurora-devtool-section-option active'
+        : 'button aurora-devtool-section-option',
       can_focus: true,
       x_expand: true,
       accessible_name: section.title,

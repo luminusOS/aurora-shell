@@ -47,6 +47,7 @@ jobs:
           export MAJOR
           BASE_BRANCH="release/v${MAJOR}.x"
           BACKPORT_BRANCH="backport/pr-${PR_NUMBER}-gnome-${MAJOR}"
+          BACKPORT_TITLE="${PR_TITLE//$'\n'/ } (GNOME ${MAJOR} backport)"
           ERROR_BODY="/tmp/backport-error.md"
 
           on_error() {
@@ -64,6 +65,7 @@ jobs:
           trap on_error ERR
 
           git fetch origin "+refs/heads/${BASE_BRANCH}:refs/remotes/origin/${BASE_BRANCH}"
+          git fetch origin "+refs/heads/${BACKPORT_BRANCH}:refs/remotes/origin/${BACKPORT_BRANCH}" || true
           git fetch origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/origin/pr/${PR_NUMBER}/head"
           git checkout -B "$BACKPORT_BRANCH" "origin/${BASE_BRANCH}"
 
@@ -111,18 +113,20 @@ jobs:
           {
             echo "Backport of #${PR_NUMBER} to \`${BASE_BRANCH}\`."
             echo ""
+            echo "Original title: ${PR_TITLE}"
+            echo ""
             echo "This branch also bumps \`metadata.json\` to \`${NEXT_VERSION}\`."
           } > "$BODY"
 
           if [ -n "$EXISTING_PR" ]; then
             gh pr edit "$EXISTING_PR" \
-              --title "Backport #${PR_NUMBER} to GNOME ${MAJOR}" \
+              --title "$BACKPORT_TITLE" \
               --body-file "$BODY"
             echo "Updated backport PR #${EXISTING_PR}."
           else
             gh pr create \
               --base "$BASE_BRANCH" \
               --head "$BACKPORT_BRANCH" \
-              --title "Backport #${PR_NUMBER} to GNOME ${MAJOR}" \
+              --title "$BACKPORT_TITLE" \
               --body-file "$BODY"
           fi

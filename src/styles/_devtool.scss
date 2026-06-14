@@ -1,16 +1,15 @@
 .aurora-devtool-panel {
-  width: 380px;
-  padding: 10px;
-  spacing: 10px;
+  width: 360px;
+  padding: 8px;
+  spacing: 8px;
 }
 
 .aurora-devtool-header {
   spacing: 8px;
-  padding: 2px 2px 0;
+  padding: 2px 4px 0;
 }
 
 .aurora-devtool-title {
-  font-size: 1.05em;
   font-weight: 700;
 }
 
@@ -19,22 +18,19 @@
 }
 
 .aurora-devtool-section-dropdown {
-  spacing: 6px;
+  spacing: 4px;
 }
 
 .aurora-devtool-section-trigger,
 .aurora-devtool-section-option {
   border-radius: 8px;
-  padding: 8px 9px;
-  background-color: rgba(127, 127, 127, 0.12);
-
-  &:hover {
-    background-color: rgba(127, 127, 127, 0.2);
-  }
+  padding: 7px 9px;
+  border: 1px solid transparent;
 
   &:active,
   &.active {
-    background-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.18), 28%);
+    border-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.35), 35%);
+    background-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.12), 24%);
   }
 }
 
@@ -42,7 +38,8 @@
   spacing: 4px;
   padding: 4px;
   border-radius: 8px;
-  background-color: rgba(127, 127, 127, 0.1);
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  background-color: rgba(127, 127, 127, 0.08);
 }
 
 .aurora-devtool-section-button-content {
@@ -59,9 +56,10 @@
 
 .aurora-devtool-summary {
   spacing: 8px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border-radius: 8px;
-  background-color: rgba(127, 127, 127, 0.1);
+  border: 1px solid rgba(127, 127, 127, 0.16);
+  background-color: rgba(127, 127, 127, 0.08);
 }
 
 .aurora-devtool-summary-label {
@@ -74,19 +72,12 @@
 
 .aurora-devtool-action-button {
   border-radius: 8px;
-  padding: 9px 10px;
-  background-color: rgba(127, 127, 127, 0.13);
-
-  &:hover {
-    background-color: rgba(127, 127, 127, 0.22);
-  }
-
-  &:active {
-    background-color: rgba(127, 127, 127, 0.28);
-  }
+  padding: 8px 10px;
+  border: 1px solid transparent;
 
   &.active {
-    background-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.18), 34%);
+    border-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.35), 42%);
+    background-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.12), 30%);
   }
 }
 

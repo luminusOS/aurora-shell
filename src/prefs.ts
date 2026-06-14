@@ -3,12 +3,15 @@ import '@girs/gjs';
 import Adw from '@girs/adw-1';
 import Gdk from '@girs/gdk-4.0';
 import Gio from '@girs/gio-2.0';
+import GLib from '@girs/glib-2.0';
 import Gtk from '@girs/gtk-4.0';
 
 import { ExtensionPreferences, gettext as _ } from '@girs/gnome-shell/extensions/prefs';
 import { getModuleMetadata, getSections, type ModuleMetadata } from '~/prefsMetadata.ts';
 
 const OTHER_SECTION_ID = '__other__';
+const LOGO_FILENAME = 'aurora-shell-logo.svg';
+const WEBSITE_URL = 'https://github.com/luminusOS/aurora-shell';
 
 export default class AuroraShellPreferences extends ExtensionPreferences {
   override fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {
@@ -22,6 +25,8 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
     const modules = getModuleMetadata();
     const sections = [...getSections(), { id: OTHER_SECTION_ID, title: _('Other') }];
     const knownIds = new Set(getSections().map((s) => s.id));
+
+    page.add(this._buildLogoGroup());
 
     for (const section of sections) {
       const members = modules.filter((def) =>
@@ -39,6 +44,60 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
     window.add(page);
 
     return Promise.resolve();
+  }
+
+  private _buildLogoGroup(): Adw.PreferencesGroup {
+    const group = new Adw.PreferencesGroup();
+    const logoPath = GLib.build_filenamev([this.path, 'media', LOGO_FILENAME]);
+    const logoFile = Gio.File.new_for_path(logoPath);
+
+    const logo = Gtk.Picture.new_for_file(logoFile);
+    logo.alternative_text = _('Aurora Shell logo');
+    logo.can_shrink = true;
+    logo.content_fit = Gtk.ContentFit.CONTAIN;
+    logo.halign = Gtk.Align.CENTER;
+    logo.valign = Gtk.Align.CENTER;
+    logo.set_size_request(96, 96);
+
+    const box = new Gtk.Box({
+      orientation: Gtk.Orientation.VERTICAL,
+      halign: Gtk.Align.CENTER,
+      spacing: 10,
+      margin_top: 18,
+      margin_bottom: 10,
+    });
+    box.append(logo);
+    box.append(this._buildWebsiteButton());
+
+    group.add(box);
+    return group;
+  }
+
+  private _buildWebsiteButton(): Gtk.LinkButton {
+    const websiteUrl = this.metadata['url'] ?? WEBSITE_URL;
+    const label = _('Access website');
+    const content = new Gtk.Box({
+      orientation: Gtk.Orientation.HORIZONTAL,
+      spacing: 6,
+      halign: Gtk.Align.CENTER,
+      valign: Gtk.Align.CENTER,
+    });
+
+    content.append(
+      new Gtk.Image({
+        icon_name: 'insert-link-symbolic',
+        pixel_size: 16,
+      }),
+    );
+    content.append(new Gtk.Label({ label }));
+
+    const button = Gtk.LinkButton.new(websiteUrl);
+    button.set_child(content);
+    button.tooltip_text = websiteUrl;
+    button.halign = Gtk.Align.CENTER;
+    button.valign = Gtk.Align.CENTER;
+
+    return button;
   }
 
   private _buildModuleRow(def: ModuleMetadata, settings: Gio.Settings): Adw.PreferencesRow {

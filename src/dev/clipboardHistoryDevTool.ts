@@ -148,7 +148,7 @@ export class ClipboardHistoryDevTool {
 
     const button = new St.Button({
       child: content,
-      style_class: 'aurora-devtool-action-button',
+      style_class: 'button aurora-devtool-action-button',
       can_focus: !disabled,
       reactive: !disabled,
       x_expand: true,
