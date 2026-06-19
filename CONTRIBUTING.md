@@ -13,33 +13,35 @@ graph TD
 
     A["extension.ts"] -->|Injects| B["ExtensionContext"]:::core
     B -->|Provides| C["SettingsManager"]:::core
-    B -->|Provides| D["ShellEnvironment"]:::adapter
+    B -->|Provides| D["DeviceService"]:::adapter
 
     E["Module"]:::core -->|uses| B
 
-    M["modules/*.ts<br/>(class + definition)"]:::core -->|definition export| F["registry.ts"]:::core
+    M["semantic folders<br/>(class + definition)"]:::core -->|definition export| F["registry.ts"]:::core
     F -->|Definitions + factory| A
     P["prefsMetadata.ts"]:::core -->|Metadata mirror| G["prefs.ts (Generic UI)"]
 ```
 
-1.  **Dependency Injection:** `extension.ts` instantiates an `ExtensionContext` and injects it into every module. **Modules must never use GNOME Shell globals (like `Main`, `Gio.Settings`) directly.**
+1.  **Dependency Injection:** `extension.ts` instantiates an `ExtensionContext` and injects it into every module. Modules read Aurora settings through `this.context.settings`; direct imports of GNOME Shell APIs such as `Main` are expected for Shell UI integration.
 2.  **Abstractions:**
     - Use `this.context.settings` to interact with GSettings.
-    - Use `this.context.shell` for Shell-wide status (e.g., startup check, overview).
-    - This allows for easier mocking during unit tests.
+    - Use `this.context.device` for runtime target and hardware capabilities.
+    - Keep pure logic outside Shell imports when it needs unit coverage.
 3.  **Layering:** Separate UI orchestration (Clutter actors) from pure business logic. Complex logic should be extracted into standalone TypeScript functions or classes.
 4.  **Self-Registering Modules:** Each module file exports a `definition: ModuleDefinition` co-located with its class, including the factory that constructs it. `src/registry.ts` is a pure aggregator — it imports every `definition` and returns them in UI order. `extension.ts` iterates the registry and calls `def.factory(ctx)` directly; no central factory map exists.
 5.  **Metadata-Driven Preferences:** The preferences UI is generated dynamically from `src/prefsMetadata.ts`, a hand-maintained metadata mirror. Prefs cannot import `registry.ts` because it runs in `gnome-extensions-app` (GTK/Adw), which cannot resolve `resource:///org/gnome/shell/*` imports pulled in transitively by module classes. Parity between `registry.ts`, `prefsMetadata.ts`, and the GSettings schema is enforced by `tests/unit/registry.test.ts`.
 
 ## Adding a Module
 
-1. Create `src/modules/myModule/myModule.ts` with a `Module` subclass **and** a co-located `definition` export. Every module **must** live in its own folder named after the module (e.g., `dock/dock.ts`, `trayIcons/trayIcons.ts`). For complex modules, split supporting logic into sibling files inside that folder (e.g., `trayIcons/sniHost.ts`, `trayIcons/trayContainer.ts`):
+1. Choose the semantic source area, then create a `Module` subclass **and** a co-located `definition` export. Single-file modules can live directly in their area, for example `src/patches/myPatch.ts`; complex modules should use a subfolder, for example `src/panel/myPanelFeature/myPanelFeature.ts`.
+
+Current source areas are `dock`, `panel`, `desktop`, `patches`, `theme`, `privacy`, and `clipboard`. Use `desktop` for desktop-only features such as tray icons. Add future hardware probes under `device`, not inside feature modules.
 
 ```typescript
 import { gettext as _ } from 'gettext';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import type { ModuleDefinition } from '~/moduleDefinition.ts';
+import type { ModuleDefinition } from '~/module.ts';
 import { Module } from '~/module.ts';
 
 export class MyModule extends Module {
@@ -59,8 +61,10 @@ export class MyModule extends Module {
 export const definition: ModuleDefinition = {
   key: 'my-module',
   settingsKey: 'module-my-module',
+  section: 'behavior',
   title: _('My Module'),
   subtitle: _('Description'),
+  runtime: { targets: ['desktop'] },
   options: [
     // (Optional) add sub-settings here
     { key: 'my-sub-key', title: _('Sub Setting'), subtitle: _('...'), type: 'switch' },
@@ -72,7 +76,7 @@ export const definition: ModuleDefinition = {
 2. Register the definition in `src/registry.ts` — one import line plus one array entry (preserve UI order):
 
 ```typescript
-import { definition as myModule } from '~/modules/myModule/myModule.ts';
+import { definition as myModule } from '~/patches/myPatch.ts';
 
 export function getModuleRegistry(): ModuleDefinition[] {
   return [
@@ -88,6 +92,7 @@ export function getModuleRegistry(): ModuleDefinition[] {
 {
   key: 'my-module',
   settingsKey: 'module-my-module',
+  section: 'behavior',
   title: _('My Module'),
   subtitle: _('Description'),
   options: [

@@ -3,8 +3,8 @@ import '@girs/gjs';
 import St from '@girs/st-18';
 
 import type { Module } from '~/module.ts';
-import { MeetingClock } from '~/modules/meetingClock/meetingClock.ts';
-import type { MeetingEvent } from '~/modules/meetingClock/meetingClockLogic.ts';
+import { MeetingClock } from '~/panel/clock/meetingClock/meetingClock.ts';
+import type { MeetingEvent } from '~/panel/clock/meetingClock/meetingClockLogic.ts';
 
 const DEVTOOL_SOURCE_KEY = 'aurora-devtool';
 const DEV_MEETING_URL = 'https://meet.google.com/aur-ora-dev';

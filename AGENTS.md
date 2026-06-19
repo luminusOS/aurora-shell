@@ -64,7 +64,7 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 - `src/` — TypeScript source root
   - `extension.ts` — entry point; iterates the registry and instantiates modules via each definition's `factory`
-  - `module.ts` — base `Module` class plus the shared `ModuleOption` / `ModuleMetadata` / `ModuleDefinition` types
+  - `module.ts` — base `Module` class plus the shared `ModuleOption` / `ModuleMetadata` / `ModuleDefinition` / runtime policy types
   - `registry.ts` — aggregator; imports each module's `definition` export and returns them in UI order (used by `extension.ts`)
   - `prefsMetadata.ts` — pure metadata mirror for the prefs UI; cannot import modules because prefs runs in `gnome-extensions-app` (no `resource:///org/gnome/shell/*` available). Also exports `getSections()` (the ordered list of prefs sections)
   - `prefs.ts` — generic extension preferences UI driven by `prefsMetadata.ts`; renders one `Adw.PreferencesGroup` per section
@@ -72,8 +72,15 @@ Do not leave a task incomplete if either command reports errors or failures.
     - `context.ts` — `ExtensionContext` interface and implementation
     - `logger.ts` — Abstracted logging
     - `settings.ts` — `SettingsManager` abstraction for GSettings
-  - `modules/` — feature modules registered by `registry.ts`
-    - regular modules use one **folder** per feature module, named after the module (e.g., `dock/dock.ts`); the main entry file shares the folder name
+  - feature modules are grouped by semantic area instead of a single `modules/` root:
+    - `dock/` — dock module and dock-specific helpers
+    - `panel/` — GNOME panel and Quick Settings integrations
+    - `desktop/` — desktop-only modules such as tray icons
+    - `patches/` — focused Shell behavior patches and monkey-patches
+    - `theme/` — theme and color-scheme modules
+    - `privacy/` — privacy and screen-sharing behavior
+    - `clipboard/` — clipboard history module and UI
+  - `device/` — runtime target and hardware capability detection for future mobile work
   - `dev/` — developer-only tooling (e.g., `devTool.ts`), gated behind the `AURORA_DEVTOOLS=1` env var. **Not** a feature module: it is not in the registry, prefs, or gschema, and is instantiated directly by `extension.ts`
   - `shared/` — shared utilities used across modules (e.g., `quickSettings.ts`)
   - `styles/` — SCSS stylesheets (compiled to light + dark CSS)
@@ -97,13 +104,13 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 1. **Settings via context:** Modules receive an `ExtensionContext` in their constructor and read configuration through `this.context.settings` (the `SettingsManager` abstraction) rather than touching `Gio.Settings` directly.
 2. **`Main` is fair game:** Importing `Main` (`resource:///org/gnome/shell/ui/main.js`) directly is the idiomatic GNOME-extension way and is expected — there is no shell adapter. Confidence in shell interactions comes from the `tests/shell/` integration suite running a real headless GNOME Shell, not from mocking `Main`.
-3. **Layering & testability:** Keep UI logic (Clutter/St) separated from pure domain logic. Extract complex algorithms into pure TypeScript files with no shell imports (e.g., `src/modules/dock/monitorTopology.ts`, `src/modules/trayIcons/trayState.ts`) so they can be unit-tested with `node --test`. UI/shell glue is covered by integration tests instead.
+3. **Layering & testability:** Keep UI logic (Clutter/St) separated from pure domain logic. Extract complex algorithms into pure TypeScript files with no shell imports (e.g., `src/dock/monitorTopology.ts`, `src/desktop/trayIcons/trayState.ts`) so they can be unit-tested with `node --test`. UI/shell glue is covered by integration tests instead.
 4. **Metadata-Driven UI:** The preferences window is generated dynamically from `src/prefsMetadata.ts` (a hand-maintained mirror of each module's metadata, kept in parity by `tests/unit/registry.test.ts`). If a module needs options, define them in the `options` array of its `ModuleDefinition` and mirror them into `prefsMetadata.ts`.
 5. **Self-Registering Modules:** Each module file exports a `definition: ModuleDefinition` co-located with its class. The factory that constructs the module lives on the definition itself — `src/registry.ts` is a pure aggregator and never references module classes directly.
 
 ## Adding a Module
 
-1. Create `src/modules/myModule/myModule.ts` with a `Module` subclass **and** a co-located `definition` export. Regular modules **must** live in their own folder named after the module (e.g., `dock/dock.ts`, `panel/panel.ts`).
+1. Create a module in the appropriate semantic area with a `Module` subclass **and** a co-located `definition` export. Single-file patches can live directly in `src/patches/`; complex modules should use a feature folder such as `src/panel/myModule/myModule.ts`.
 
 ```typescript
 import { gettext as _ } from 'gettext';
@@ -126,6 +133,7 @@ export const definition: ModuleDefinition = {
   section: 'behavior', // must match an id from getSections() in prefsMetadata.ts
   title: _('My Module'),
   subtitle: _('Description'),
+  runtime: { targets: ['desktop'] }, // optional; omitted modules default to desktop-only
   options: [
     { key: 'my-option', title: _('Option'), subtitle: _('Desc'), type: 'switch' },
   ],
@@ -136,7 +144,7 @@ export const definition: ModuleDefinition = {
 2. Register the definition in `src/registry.ts` (one import + one array entry, preserving UI order):
 
 ```typescript
-import { definition as myModule } from '~/modules/myModule/myModule.ts';
+import { definition as myModule } from '~/patches/myModule.ts';
 // …inside getModuleRegistry():
 return [/* …, */ myModule];
 ```

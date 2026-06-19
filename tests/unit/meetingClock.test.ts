@@ -7,7 +7,7 @@ import {
   getDueAlertEvents,
   normalizeCalendarServerEvent,
   type MeetingEvent,
-} from '../../src/modules/meetingClock/meetingClockLogic.ts';
+} from '../../src/panel/clock/meetingClock/meetingClockLogic.ts';
 
 const NOW = 1_700_000_000;
 

@@ -5,7 +5,7 @@ import {
   deriveWeatherPresentation,
   normalizeWeatherSnapshot,
   type WeatherSnapshot,
-} from '../../src/modules/weatherClock/weatherClockLogic.ts';
+} from '../../src/panel/clock/weatherClock/weatherClockLogic.ts';
 
 const NOW = 1_700_000_000;
 

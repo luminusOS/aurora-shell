@@ -272,26 +272,31 @@ export class AuroraDash extends Dash {
   }
 
   applyWorkArea(workArea: DashBounds): void {
+    if (this._isDestroyed) return;
     this._workArea = workArea;
     if (!this._container) return;
 
-    // Provide the dash with its maximum bounds so it can automatically
-    // shrink the iconSize when there are too many apps to fit.
-    this.setMaxSize(workArea.width, workArea.height);
+    try {
+      // Provide the dash with its maximum bounds so it can automatically
+      // shrink the iconSize when there are too many apps to fit.
+      this.setMaxSize(workArea.width, workArea.height);
 
-    const [, prefW] = this.get_preferred_width(workArea.width);
-    const width = Math.min(Math.max(prefW, 0), workArea.width);
+      const [, prefW] = this.get_preferred_width(workArea.width);
+      const width = Math.min(Math.max(prefW, 0), workArea.width);
 
-    const [, prefH] = this.get_preferred_height(width || workArea.width);
-    const height = Math.min(Math.max(prefH, 0), workArea.height);
+      const [, prefH] = this.get_preferred_height(width || workArea.width);
+      const height = Math.min(Math.max(prefH, 0), workArea.height);
 
-    const marginBottom = this._getMarginBottom();
-    const x = workArea.x + Math.round((workArea.width - width) / 2);
-    const y = Math.max(workArea.y, workArea.y + workArea.height - height - marginBottom);
+      const marginBottom = this._getMarginBottom();
+      const x = workArea.x + Math.round((workArea.width - width) / 2);
+      const y = Math.max(workArea.y, workArea.y + workArea.height - height - marginBottom);
 
-    this._container.set_size(width, height);
-    this._container.set_position(x, y);
-    this._queueTargetBoxUpdate();
+      this._container.set_size(width, height);
+      this._container.set_position(x, y);
+      this._queueTargetBoxUpdate();
+    } catch (_e) {
+      if (!this._isDestroyed) throw _e;
+    }
   }
 
   blockAutoHide(block: boolean): void {
@@ -380,6 +385,15 @@ export class AuroraDash extends Dash {
     }
 
     return false;
+  }
+
+  private _dashContainerHasHover(): boolean {
+    try {
+      const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
+      return dashContainer?.get_hover?.() ?? false;
+    } catch {
+      return false;
+    }
   }
 
   private _performShow(animate = true, onComplete?: () => void): void {
@@ -837,7 +851,11 @@ export class AuroraDash extends Dash {
   }
 
   private _clearSpringLoad(): void {
-    this._springLoadTarget?.remove_style_class_name?.('aurora-drag-hover');
+    try {
+      this._springLoadTarget?.remove_style_class_name?.('aurora-drag-hover');
+    } catch {
+      // The target may already be disposed during shell shutdown.
+    }
     if (this._springLoadTimerId !== 0) {
       GLib.source_remove(this._springLoadTimerId);
       this._springLoadTimerId = 0;
@@ -857,9 +875,7 @@ export class AuroraDash extends Dash {
         this._autohideTimeoutId = 0;
         return GLib.SOURCE_REMOVE;
       }
-      const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
-
-      if (dashContainer?.get_hover?.() || this._blockAutoHide || this._isMenuOpen()) {
+      if (this._dashContainerHasHover() || this._blockAutoHide || this._isMenuOpen()) {
         return GLib.SOURCE_CONTINUE;
       }
 
@@ -878,8 +894,7 @@ export class AuroraDash extends Dash {
     }
     this._blockAutoHideDelayId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
       if (!this._isDestroyed) {
-        const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
-        if (dashContainer?.get_hover?.()) this.show(false);
+        if (this._dashContainerHasHover()) this.show(false);
       }
       this._blockAutoHideDelayId = 0;
       return GLib.SOURCE_REMOVE;

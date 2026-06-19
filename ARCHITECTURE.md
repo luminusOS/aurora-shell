@@ -11,9 +11,10 @@ flowchart TD
   Shell[GNOME Shell] --> Extension[src/extension.ts]
   Extension --> Context[src/core/context.ts]
   Extension --> Registry[src/registry.ts]
-  Registry --> Modules[src/modules/*]
+  Registry --> Modules[semantic module folders]
   Modules --> Shared[src/shared/*]
   Modules --> Core[src/core/*]
+  Context --> Device[src/device/*]
   Prefs[src/prefs.ts] --> PrefsMetadata[src/prefsMetadata.ts]
   PrefsMetadata -. mirrors .-> Registry
   Schema[data/schemas/*.xml] -. validates settings .-> Registry
@@ -26,11 +27,17 @@ flowchart TD
 ```text
 src/
   core/                  Extension context, settings, and logging
+  clipboard/             Clipboard history module and UI
+  desktop/               Desktop-only modules such as tray icons
   dev/                   Developer-only tools
-  modules/               Feature modules registered in the extension
-    ...                  One folder per regular Aurora module
+  device/                Runtime target and hardware capability detection
+  dock/                  Dock module and dock-specific helpers
+  panel/                 GNOME panel and Quick Settings integrations
+  patches/               Focused Shell behavior patches and monkey-patches
+  privacy/               Privacy and screen-sharing behavior
   shared/                Utilities shared by modules
   styles/                SCSS partials compiled into Shell stylesheets
+  theme/                 Theme and color-scheme modules
 ```
 
 ## Runtime Lifecycle
@@ -80,6 +87,7 @@ classDiagram
     +title string
     +subtitle string
     +options ModuleOption[]
+    +runtime ModuleRuntimePolicy
     +factory(context) Module
   }
 
@@ -87,6 +95,7 @@ classDiagram
     +uuid string
     +path string
     +settings SettingsManager
+    +device DeviceService
   }
 
   ModuleDefinition --> Module : creates
@@ -96,6 +105,11 @@ classDiagram
 Each module owns its runtime behavior and cleanup. `enable()` and `disable()` must stay symmetric:
 actors, signal handlers, timeouts, D-Bus watches, and injected Shell UI must be removed by the same
 module that created them.
+
+`ModuleDefinition.runtime` is optional. When omitted, the module is treated as desktop-only. Use
+`targets: ['shared']` only for modules that are intentionally valid on both desktop and future
+mobile runtimes. Hardware-specific modules should declare `requires` capabilities instead of
+probing and failing late inside `enable()`.
 
 ## Registry And Preferences
 

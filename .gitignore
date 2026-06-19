@@ -12,6 +12,8 @@ node_modules/
 
 # Build output
 dist/
+dist-gjsify/
+dist-gjsify-probe/
 
 # npm (legacy)
 package-lock.json
@@ -37,3 +39,7 @@ Thumbs.db
 .docs/
 docs/
 .superpowers/
+
+# IA Stuff
+.agents/
+skills-lock.json

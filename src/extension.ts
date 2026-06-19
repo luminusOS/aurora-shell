@@ -5,12 +5,14 @@ import GLib from '@girs/glib-2.0';
 import { Extension } from '@girs/gnome-shell/extensions/extension';
 
 import type { Module } from './module.ts';
+import { moduleSupportsRuntime } from './module.ts';
 import { getModuleRegistry, type ModuleDefinition } from './registry.ts';
 import type { ExtensionContext } from '~/core/context.ts';
 import { initIcons, cleanupIcons } from '~/shared/icons.ts';
 import { DefaultExtensionContext } from '~/core/context.ts';
 import { ConsoleLogger, setGlobalLogger, logger } from '~/core/logger.ts';
 import { GSettingsManager } from '~/core/settings.ts';
+import { DefaultDeviceService } from '~/device/device.ts';
 import { DevTool } from '~/dev/devTool.ts';
 
 const LOG_PREFIX = 'AuroraShell';
@@ -37,6 +39,7 @@ export default class AuroraShellExtension extends Extension {
       this.uuid,
       this.path,
       new GSettingsManager(this._settings),
+      new DefaultDeviceService(),
     );
 
     initIcons(this.path);
@@ -48,7 +51,7 @@ export default class AuroraShellExtension extends Extension {
 
   private _initializeModules(): void {
     for (const def of getModuleRegistry()) {
-      if (this._settings?.get_boolean(def.settingsKey)) {
+      if (this._settings?.get_boolean(def.settingsKey) && this._supportsRuntime(def)) {
         this._modules.set(def.key, def.factory(this._context!));
       }
     }
@@ -110,6 +113,11 @@ export default class AuroraShellExtension extends Extension {
     const existing = this._modules.get(def.key);
 
     if (enabled && !existing) {
+      if (!this._supportsRuntime(def)) {
+        logger.debug(`Skipping module ${def.key}: unsupported runtime`, { prefix: LOG_PREFIX });
+        return;
+      }
+
       logger.debug(`Enabling module ${def.key}`, { prefix: LOG_PREFIX });
       try {
         const module = def.factory(this._context!);
@@ -127,6 +135,12 @@ export default class AuroraShellExtension extends Extension {
         logger.error(`Failed to disable module ${def.key}: ${e}`, { prefix: LOG_PREFIX });
       }
     }
+  }
+
+  private _supportsRuntime(def: ModuleDefinition): boolean {
+    if (!this._context) return false;
+    const { target, capabilities } = this._context.device.current;
+    return moduleSupportsRuntime(def, target, capabilities);
   }
 
   private _disableAllModules(): void {

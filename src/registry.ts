@@ -1,18 +1,18 @@
-import { definition as noOverview } from '~/modules/noOverview/noOverview.ts';
-import { definition as pipOnTop } from '~/modules/pipOnTop/pipOnTop.ts';
-import { definition as themeChanger } from '~/modules/themeChanger/themeChanger.ts';
-import { definition as dock } from '~/modules/dock/dock.ts';
-import { definition as volumeMixer } from '~/modules/volumeMixer/volumeMixer.ts';
-import { definition as xwaylandIndicator } from '~/modules/xwaylandIndicator/xwaylandIndicator.ts';
-import { definition as privacy } from '~/modules/privacy/privacy.ts';
-import { definition as iconWeave } from '~/modules/iconWeave/iconWeave.ts';
-import { definition as appSearchTooltip } from '~/modules/appSearchTooltip/appSearchTooltip.ts';
-import { definition as autoThemeSwitcher } from '~/modules/autoThemeSwitcher/autoThemeSwitcher.ts';
-import { definition as bluetoothMenu } from '~/modules/bluetoothMenu/bluetoothMenu.ts';
-import { definition as weatherClock } from '~/modules/weatherClock/weatherClock.ts';
-import { definition as meetingClock } from '~/modules/meetingClock/meetingClock.ts';
-import { definition as trayIcons } from '~/modules/trayIcons/trayIcons.ts';
-import { definition as clipboardHistory } from '~/modules/clipboardHistory/clipboardHistory.ts';
+import { definition as noOverview } from '~/patches/noOverview.ts';
+import { definition as pipOnTop } from '~/patches/pipOnTop.ts';
+import { definition as themeChanger } from '~/theme/themeChanger.ts';
+import { definition as dock } from '~/dock/dock.ts';
+import { definition as volumeMixer } from '~/panel/volumeMixer/volumeMixer.ts';
+import { definition as xwaylandIndicator } from '~/patches/xwaylandIndicator.ts';
+import { definition as privacy } from '~/privacy/privacy.ts';
+import { definition as iconWeave } from '~/patches/iconWeave.ts';
+import { definition as appSearchTooltip } from '~/patches/appSearchTooltip.ts';
+import { definition as autoThemeSwitcher } from '~/theme/autoThemeSwitcher.ts';
+import { definition as bluetoothMenu } from '~/panel/bluetoothMenu/bluetoothMenu.ts';
+import { definition as weatherClock } from '~/panel/clock/weatherClock/weatherClock.ts';
+import { definition as meetingClock } from '~/panel/clock/meetingClock/meetingClock.ts';
+import { definition as trayIcons } from '~/desktop/trayIcons/trayIcons.ts';
+import { definition as clipboardHistory } from '~/clipboard/clipboardHistory.ts';
 
 import type { ModuleDefinition } from '~/module.ts';
 

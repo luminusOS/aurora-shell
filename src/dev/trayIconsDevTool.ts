@@ -3,7 +3,7 @@ import '@girs/gjs';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
-import type { TrayItem } from '~/modules/trayIcons/trayState.ts';
+import type { TrayItem } from '~/desktop/trayIcons/trayState.ts';
 
 const TRAY_ID = 'aurora-tray-icons';
 const FAKE_ICON_NAMES = [

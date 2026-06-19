@@ -7,8 +7,8 @@ import {
   applyScroll,
   addAttention,
   clearAttention,
-} from '../../src/modules/trayIcons/trayState.ts';
-import type { TrayItem } from '../../src/modules/trayIcons/trayState.ts';
+} from '../../src/desktop/trayIcons/trayState.ts';
+import type { TrayItem } from '../../src/desktop/trayIcons/trayState.ts';
 
 test('createTrayState returns collapsed=true, offset=0, empty attention set', () => {
   const state = createTrayState();

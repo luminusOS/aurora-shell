@@ -19,6 +19,15 @@ build:
     cp -r data/media dist/ 2>/dev/null || true
     just compile-mo
 
+build-gjsify:
+    yarn build:gjsify
+
+package-gjsify:
+    yarn package:gjsify
+
+validate-gjsify:
+    yarn validate:gjsify
+
 package: build
     #!/usr/bin/env bash
     set -e
@@ -30,9 +39,16 @@ package: build
         $(find . -maxdepth 1 -name '*.js' ! -name 'extension.js' -printf '--extra-source=%f ') \
         $(find . -maxdepth 1 -name '*.css' -printf '--extra-source=%f ') \
         --extra-source=core \
-        --extra-source=modules \
+        --extra-source=clipboard \
         --extra-source=dev \
+        --extra-source=desktop \
+        --extra-source=device \
+        --extra-source=dock \
+        --extra-source=panel \
+        --extra-source=patches \
+        --extra-source=privacy \
         --extra-source=shared \
+        --extra-source=theme \
         --extra-source=icons \
         --extra-source=media \
         --extra-source=locale \
