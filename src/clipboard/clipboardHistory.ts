@@ -2,6 +2,7 @@ import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
 import GLib from '@girs/glib-2.0';
+import Gio from '@girs/gio-2.0';
 import St from '@girs/st-18';
 import Meta from '@girs/meta-18';
 import Shell from '@girs/shell-18';
@@ -12,13 +13,16 @@ import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { ModuleDefinition } from '~/module.ts';
 
-import type { ClipboardEntry } from '~/clipboard/clipboardStore.ts';
+import type { ClipboardEntry, ClipboardImagePayload } from '~/clipboard/clipboardStore.ts';
 import { ClipboardStore } from '~/clipboard/clipboardStore.ts';
 import { ClipboardMonitor } from '~/clipboard/clipboardMonitor.ts';
 import { ClipboardPanel } from '~/clipboard/clipboardPanel.ts';
 
 const KEYBINDING_KEY = 'clipboard-history-shortcut';
 const LOG_PREFIX = 'ClipboardHistory';
+
+// @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
+Gio._promisify(Gio.File.prototype, 'load_contents_async');
 
 export class ClipboardHistory extends Module {
   private _store: ClipboardStore | null = null;
@@ -32,13 +36,13 @@ export class ClipboardHistory extends Module {
   }
 
   override enable(): void {
-    const configDir = GLib.get_user_config_dir() + '/aurora-shell';
-    const filePath = configDir + '/clipboard-history.json';
+    const sessionDir = GLib.get_user_runtime_dir() + '/aurora-shell/' + this.context.uuid;
+    const filePath = sessionDir + '/clipboard-history.log';
+    const mediaDir = sessionDir + '/clipboard-media';
     const rawSettings = this.context.settings.getRawSettings();
-    const maxItems = rawSettings.get_int('clipboard-history-max-items');
     const pollMs = rawSettings.get_int('clipboard-history-poll-interval');
 
-    this._store = new ClipboardStore(filePath, maxItems);
+    this._store = new ClipboardStore(filePath, mediaDir);
 
     this._panel = new (ClipboardPanel as unknown as new (
       store: ClipboardStore,
@@ -53,7 +57,10 @@ export class ClipboardHistory extends Module {
       onTogglePin: (id) => this._onTogglePin(id),
     });
 
-    this._monitor = new ClipboardMonitor(pollMs, (text) => this.addText(text));
+    this._monitor = new ClipboardMonitor(pollMs, {
+      onText: (text) => this.addText(text),
+      onImage: (payload) => void this.addImage(payload),
+    });
 
     void this._store.load().then(() => this._panel?.refresh());
 
@@ -76,9 +83,6 @@ export class ClipboardHistory extends Module {
     }
 
     this._settingsIds = [
-      rawSettings.connect('changed::clipboard-history-max-items', () => {
-        this._store?.setMaxItems(rawSettings.get_int('clipboard-history-max-items'));
-      }),
       rawSettings.connect('changed::clipboard-history-poll-interval', () => {
         this._monitor?.setInterval(rawSettings.get_int('clipboard-history-poll-interval'));
       }),
@@ -136,6 +140,18 @@ export class ClipboardHistory extends Module {
     return added;
   }
 
+  async addImage(payload: ClipboardImagePayload): Promise<boolean> {
+    const added = (await this._store?.addImage(payload)) ?? false;
+    if (added) this._panel?.refresh();
+    return added;
+  }
+
+  clearHistory(): boolean {
+    const cleared = this._store?.clear() ?? false;
+    if (cleared) this._panel?.refresh();
+    return cleared;
+  }
+
   get entryCount(): number {
     return (this._store?.getPinned().length ?? 0) + (this._store?.getHistory().length ?? 0);
   }
@@ -145,9 +161,27 @@ export class ClipboardHistory extends Module {
   }
 
   private _onActivate(entry: ClipboardEntry): void {
+    if (entry.kind === 'image') {
+      void this._restoreImage(entry);
+      this.closePanel();
+      return;
+    }
+
     St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, entry.text);
     this.closePanel();
     logger.debug(`Restored clipboard entry: ${entry.text.slice(0, 40)}`, { prefix: LOG_PREFIX });
+  }
+
+  private async _restoreImage(entry: ClipboardEntry): Promise<void> {
+    if (!entry.filePath || !entry.mimeType) return;
+
+    try {
+      const [contents] = await Gio.File.new_for_path(entry.filePath).load_contents_async(null);
+      St.Clipboard.get_default().set_content(St.ClipboardType.CLIPBOARD, entry.mimeType, contents);
+      logger.debug(`Restored clipboard image: ${entry.mimeType}`, { prefix: LOG_PREFIX });
+    } catch (e) {
+      logger.warn('Failed to restore clipboard image:', { prefix: LOG_PREFIX }, e as Error);
+    }
   }
 
   private _onRemove(id: string): void {
@@ -179,14 +213,6 @@ export const definition: ModuleDefinition = {
       title: _('Open Shortcut'),
       subtitle: _('Keyboard shortcut to open the clipboard history panel'),
       type: 'shortcut',
-    },
-    {
-      key: 'clipboard-history-max-items',
-      title: _('Max History Items'),
-      subtitle: _('Number of non-pinned entries to retain'),
-      type: 'spin',
-      min: 10,
-      max: 200,
     },
     {
       key: 'clipboard-history-poll-interval',

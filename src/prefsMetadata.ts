@@ -294,14 +294,6 @@ export function getModuleMetadata(): ModuleMetadata[] {
           type: 'shortcut',
         },
         {
-          key: 'clipboard-history-max-items',
-          title: _('Max History Items'),
-          subtitle: _('Number of non-pinned entries to retain'),
-          type: 'spin',
-          min: 10,
-          max: 200,
-        },
-        {
           key: 'clipboard-history-poll-interval',
           title: _('Poll Interval (ms)'),
           subtitle: _('How often to check the clipboard for changes'),

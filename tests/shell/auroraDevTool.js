@@ -85,6 +85,11 @@ export async function run() {
     .find((actor) => actor.has_style_class_name?.('aurora-clipboard-panel'))
     ?.close?.();
 
+  if (!clipboardTool.clearHistory())
+    throw new Error('Clipboard History DevTool did not clear the history');
+  if (clipboardTool.entryCount !== 0)
+    throw new Error('Clipboard History DevTool still has entries after clear');
+
   Scripting.scriptEvent('clipboardToolPassed');
 
   const trayIconsTool = devTool.trayIconsTool;

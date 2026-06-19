@@ -1,43 +1,26 @@
 @use 'variables' as vars;
 
+// Non-image cards include 8px vertical padding on each side. Keep their themed
+// height below the full-bleed image height so their final outer size matches it.
+$aurora-clipboard-card-max-height: 84px;
+$aurora-clipboard-card-content-height: 68px;
+$aurora-clipboard-card-image-height: 100px;
+
 .aurora-clipboard-panel {
   background-color: vars.$aurora-overview-bg;
   color: vars.$aurora-overview-fg;
-  border-radius: 16px;
-  box-shadow: vars.$aurora-surface-shadow;
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
   border: vars.$aurora-surface-border;
-  padding: 8px 0;
-  min-width: 500px;
-  min-height: 400px;
-}
-
-.aurora-clipboard-header {
-  padding: 10px 12px 6px;
-  spacing: 4px;
-}
-
-.aurora-clipboard-title {
-  font-size: 0.95em;
-  font-weight: 600;
-}
-
-.aurora-clipboard-close-btn {
-  border-radius: 6px;
-  padding: 4px;
-
-  &:hover {
-    background-color: vars.$aurora-overview-hover-bg;
-  }
-
-  &:active {
-    background-color: vars.$aurora-overview-active-bg;
-  }
+  padding: 12px 0 10px;
+  min-width: 300px;
+  min-height: 360px;
 }
 
 .aurora-clipboard-search {
-  margin: 12px 12px 6px;
+  margin: 0 12px 10px;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 7px 10px;
   background-color: vars.$aurora-overview-search-bg;
   color: vars.$aurora-overview-fg;
 
@@ -51,25 +34,25 @@
   }
 }
 
-.aurora-clipboard-section-header {
-  font-size: 0.78em;
-  font-weight: 600;
-  opacity: 0.55;
-  padding: 10px 16px 3px;
-  letter-spacing: 0.06em;
+.aurora-clipboard-search-icon {
+  opacity: 0.65;
 }
 
 .aurora-clipboard-list {
-  padding: 0 6px 8px;
+  padding: 0 10px 10px;
+  spacing: 6px;
 }
 
 .aurora-clipboard-item {
   border-radius: 8px;
-  padding: 7px 12px;
+  padding: 8px 10px;
+  max-height: $aurora-clipboard-card-max-height;
   text-align: left;
+  background-color: vars.$aurora-overview-folder-bg;
+  border: vars.$aurora-surface-border;
 
   &:hover {
-    background-color: vars.$aurora-overview-hover-bg;
+    background-color: st-mix(vars.$aurora-overview-hover-bg, vars.$aurora-overview-folder-bg, 55%);
   }
 
   &:active {
@@ -78,25 +61,182 @@
 
   &:selected {
     background-color: vars.$aurora-overview-selected-bg;
+    box-shadow: inset 0 0 0 2px vars.$aurora-accent-focus-ring;
   }
 
   &:focus {
     background-color: vars.$aurora-overview-selected-bg;
+    box-shadow: inset 0 0 0 2px vars.$aurora-accent-focus-ring;
   }
+}
+
+// Full-bleed image card — overrides padding, fixed thumbnail height
+.aurora-clipboard-item--image {
+  padding: 0;
+  height: $aurora-clipboard-card-image-height;
+  max-height: $aurora-clipboard-card-image-height;
+  background-color: rgba(0, 0, 0, 0.2);
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+
+  &:selected,
+  &:focus {
+    background-color: transparent;
+  }
+
+  .aurora-clipboard-image-actions {
+    margin: 6px;
+    padding: 0;
+    background-color: transparent;
+  }
+}
+
+.aurora-clipboard-image-overlay {
+  border-radius: 8px;
+}
+
+.aurora-clipboard-image-missing {
+  opacity: 0.55;
+}
+
+.aurora-clipboard-item-content {
+  spacing: 12px;
+}
+
+.aurora-clipboard-item--link .aurora-clipboard-item-content {
+  min-height: $aurora-clipboard-card-content-height;
+}
+
+.aurora-clipboard-item-body {
+  spacing: 5px;
+}
+
+.aurora-clipboard-item-text-overlay {
+  max-height: $aurora-clipboard-card-content-height;
+}
+
+.aurora-clipboard-item-text-body {
+  max-height: $aurora-clipboard-card-content-height;
 }
 
 .aurora-clipboard-item-label {
   font-size: 0.93em;
+  font-family: sans-serif;
+  max-height: $aurora-clipboard-card-content-height;
+}
+
+.aurora-clipboard-item-meta {
+  font-size: 0.78em;
+  opacity: 0.56;
+}
+
+// Link preview card
+.aurora-clipboard-item-link-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.aurora-clipboard-item-link-title {
+  font-size: 0.93em;
+  font-weight: bold;
+}
+
+.aurora-clipboard-item-link-desc {
+  font-size: 0.82em;
+  opacity: 0.7;
+  max-height: 34px;
+}
+
+// Code card
+.aurora-clipboard-item-code-overlay {
+  max-height: $aurora-clipboard-card-content-height;
+}
+
+.aurora-clipboard-item-code {
+  spacing: 8px;
+  max-height: $aurora-clipboard-card-content-height;
+}
+
+.aurora-clipboard-item-code-gutter {
+  font-size: 0.88em;
+  font-family: monospace;
+  opacity: 0.4;
+}
+
+.aurora-clipboard-item-code-label {
+  font-size: 0.88em;
   font-family: monospace;
 }
 
-.aurora-clipboard-pin-icon {
-  margin-left: 8px;
-  opacity: 0.65;
+.aurora-clipboard-item-code-badge {
+  margin: 0 1px 1px 0;
+  padding: 2px 5px;
+  border-radius: 6px;
+  font-size: 0.74em;
+  background-color: rgba(0, 0, 0, 0.62);
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.42);
+}
+
+.aurora-clipboard-item-actions {
+  spacing: 4px;
+  padding: 5px;
+  border-radius: 12px;
+  background-color: st-mix(vars.$aurora-overview-bg, vars.$aurora-overview-fg, 88%);
+}
+
+.aurora-clipboard-item-action {
+  border-radius: 999px;
+  padding: 3px;
+  min-width: 22px;
+  min-height: 22px;
+  color: vars.$aurora-overview-fg;
+  background-color: st-mix(vars.$aurora-overview-bg, vars.$aurora-overview-fg, 78%);
+  border: none;
+  opacity: 1;
+
+  &:hover {
+    background-color: st-mix(vars.$aurora-overview-bg, vars.$aurora-overview-fg, 68%);
+  }
+
+  &:active {
+    background-color: st-mix(vars.$aurora-overview-bg, vars.$aurora-overview-fg, 58%);
+  }
+
+  &.checked {
+    opacity: 1;
+    background-color: vars.$aurora-accent;
+    color: #ffffff;
+  }
+}
+
+.aurora-clipboard-item-menu {
+  .popup-menu-content {
+    border-radius: 10px;
+  }
 }
 
 .aurora-clipboard-empty {
-  font-size: 0.9em;
-  opacity: 0.5;
-  padding: 32px 16px;
+  spacing: 8px;
+  padding: 52px 24px;
+}
+
+.aurora-clipboard-empty-icon {
+  opacity: 0.42;
+}
+
+.aurora-clipboard-empty-title {
+  font-size: 1em;
+  font-weight: bold;
+}
+
+.aurora-clipboard-empty-hint {
+  max-width: 250px;
+  font-size: 0.85em;
+  opacity: 0.58;
+  text-align: center;
 }

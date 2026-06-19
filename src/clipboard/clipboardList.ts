@@ -19,41 +19,59 @@ export class ClipboardList extends St.BoxLayout {
   declare private _callbacks: ListCallbacks;
   declare private _items: ClipboardItem[];
   declare private _selectedIndex: number;
-  declare private _pinnedHeader: St.Label;
-  declare private _historyHeader: St.Label;
-  declare private _emptyLabel: St.Label;
+  declare private _emptyState: St.Bin;
 
   override _init(callbacks: ListCallbacks): void {
     super._init({
       orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-clipboard-list',
       x_expand: true,
+      y_expand: true,
     });
 
     this._callbacks = callbacks;
     this._items = [];
     this._selectedIndex = -1;
 
-    this._pinnedHeader = new St.Label({
-      text: _('Pinned'),
-      style_class: 'aurora-clipboard-section-header',
-      visible: false,
-    });
-    this._historyHeader = new St.Label({
-      text: _('History'),
-      style_class: 'aurora-clipboard-section-header',
-      visible: false,
-    });
-    this._emptyLabel = new St.Label({
-      text: _('No clipboard history yet'),
+    const emptyContent = new St.BoxLayout({
+      orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-clipboard-empty',
       x_align: Clutter.ActorAlign.CENTER,
+      y_align: Clutter.ActorAlign.CENTER,
+    });
+    emptyContent.add_child(
+      new St.Icon({
+        icon_name: 'edit-paste-symbolic',
+        icon_size: 32,
+        style_class: 'aurora-clipboard-empty-icon',
+        x_align: Clutter.ActorAlign.CENTER,
+      }),
+    );
+    emptyContent.add_child(
+      new St.Label({
+        text: _('Clipboard history is empty'),
+        style_class: 'aurora-clipboard-empty-title',
+        x_align: Clutter.ActorAlign.CENTER,
+      }),
+    );
+    const hint = new St.Label({
+      text: _('Copy text, links, code, or images to see them here.'),
+      style_class: 'aurora-clipboard-empty-hint',
+      x_align: Clutter.ActorAlign.CENTER,
+    });
+    hint.clutter_text.set_line_wrap(true);
+    emptyContent.add_child(hint);
+
+    this._emptyState = new St.Bin({
+      child: emptyContent,
+      x_expand: true,
+      y_expand: true,
+      x_align: Clutter.ActorAlign.FILL,
+      y_align: Clutter.ActorAlign.FILL,
       visible: false,
     });
 
-    this.add_child(this._pinnedHeader);
-    this.add_child(this._historyHeader);
-    this.add_child(this._emptyLabel);
+    this.add_child(this._emptyState);
   }
 
   populate(pinned: ClipboardEntry[], history: ClipboardEntry[]): void {
@@ -64,12 +82,9 @@ export class ClipboardList extends St.BoxLayout {
     const hasPinned = pinned.length > 0;
     const hasHistory = history.length > 0;
 
-    this._pinnedHeader.visible = hasPinned;
-    this._historyHeader.visible = hasHistory;
-    this._emptyLabel.visible = !hasPinned && !hasHistory;
+    this._emptyState.visible = !hasPinned && !hasHistory;
 
-    this.remove_child(this._historyHeader);
-    this.remove_child(this._emptyLabel);
+    this.remove_child(this._emptyState);
 
     if (hasPinned) {
       for (const entry of pinned) {
@@ -77,13 +92,12 @@ export class ClipboardList extends St.BoxLayout {
       }
     }
 
-    this.add_child(this._historyHeader);
     if (hasHistory) {
       for (const entry of history) {
         this._addItem(entry);
       }
     }
-    this.add_child(this._emptyLabel);
+    this.add_child(this._emptyState);
 
     if (this._items.length > 0) {
       this._setSelected(0);
@@ -120,7 +134,10 @@ export class ClipboardList extends St.BoxLayout {
   }
 
   private _addItem(entry: ClipboardEntry): void {
-    const item = new (ClipboardItem as unknown as new (e: ClipboardEntry) => ClipboardItem)(entry);
+    const item = new (ClipboardItem as unknown as new (
+      e: ClipboardEntry,
+      cbs: ListCallbacks,
+    ) => ClipboardItem)(entry, this._callbacks);
     item.connect('clicked', () => this._callbacks.onActivate(entry));
     this._items.push(item);
     this.add_child(item);
@@ -129,10 +146,12 @@ export class ClipboardList extends St.BoxLayout {
   private _setSelected(index: number): void {
     if (this._selectedIndex >= 0 && this._selectedIndex < this._items.length) {
       this._items[this._selectedIndex]!.remove_style_pseudo_class('selected');
+      this._items[this._selectedIndex]!.setActionsVisible(false);
     }
     this._selectedIndex = index;
     if (index >= 0 && index < this._items.length) {
       this._items[index]!.add_style_pseudo_class('selected');
+      this._items[index]!.setActionsVisible(true);
     }
   }
 }

@@ -1,8 +1,10 @@
 import '@girs/gjs';
 
+import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 
 import { ClipboardHistory } from '~/clipboard/clipboardHistory.ts';
+import { fingerprintBytes } from '~/clipboard/clipboardMonitor.ts';
 import type { Module } from '~/module.ts';
 
 const RANDOM_MESSAGES = [
@@ -12,6 +14,17 @@ const RANDOM_MESSAGES = [
   'Temporary clipboard sample',
   'Debug message from DevTool',
 ] as const;
+
+const SAMPLE_LINK = 'https://github.com/boerdereinar/copyous';
+
+const SAMPLE_CODE_SNIPPET = `function clamp(value, min, max) {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}`;
+
+const SAMPLE_IMAGE_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==';
 
 export class ClipboardHistoryDevTool {
   readonly key = 'clipboard-history';
@@ -81,7 +94,44 @@ export class ClipboardHistoryDevTool {
         !clipboard,
       ),
     );
+    secondaryRow.add_child(
+      this._createActionButton(
+        'user-trash-symbolic',
+        'Clear History',
+        () => this.clearHistory(),
+        !clipboard || clipboard.entryCount === 0,
+      ),
+    );
     panel.add_child(secondaryRow);
+
+    const sampleRow = new St.BoxLayout({
+      style_class: 'aurora-devtool-action-row',
+    });
+    sampleRow.add_child(
+      this._createActionButton(
+        'image-x-generic-symbolic',
+        'Add Image',
+        () => void this.addSampleImage(),
+        !clipboard,
+      ),
+    );
+    sampleRow.add_child(
+      this._createActionButton(
+        'insert-link-symbolic',
+        'Add Link',
+        () => this.addSampleLink(),
+        !clipboard,
+      ),
+    );
+    sampleRow.add_child(
+      this._createActionButton(
+        'accessories-text-editor-symbolic',
+        'Add Code',
+        () => this.addSampleCode(),
+        !clipboard,
+      ),
+    );
+    panel.add_child(sampleRow);
 
     return panel;
   }
@@ -109,6 +159,47 @@ export class ClipboardHistoryDevTool {
       if (message) messages.push(message);
     }
     return messages;
+  }
+
+  addSampleLink(): boolean {
+    const clipboard = this._getClipboardHistory();
+    if (!clipboard) return false;
+
+    const added = clipboard.addText(SAMPLE_LINK);
+    if (added) this._requestMenuRebuild();
+    return added;
+  }
+
+  addSampleCode(): boolean {
+    const clipboard = this._getClipboardHistory();
+    if (!clipboard) return false;
+
+    const added = clipboard.addText(SAMPLE_CODE_SNIPPET);
+    if (added) this._requestMenuRebuild();
+    return added;
+  }
+
+  async addSampleImage(): Promise<boolean> {
+    const clipboard = this._getClipboardHistory();
+    if (!clipboard) return false;
+
+    const data = GLib.base64_decode(SAMPLE_IMAGE_PNG_BASE64);
+    const bytes = new GLib.Bytes(data);
+    const added = await clipboard.addImage({
+      mimeType: 'image/png',
+      bytes,
+      fingerprint: fingerprintBytes(bytes),
+    });
+    if (added) this._requestMenuRebuild();
+    return added;
+  }
+
+  clearHistory(): boolean {
+    const clipboard = this._getClipboardHistory();
+    if (!clipboard?.clearHistory()) return false;
+
+    this._requestMenuRebuild();
+    return true;
   }
 
   get entryCount(): number {

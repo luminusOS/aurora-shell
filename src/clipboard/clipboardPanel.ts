@@ -8,9 +8,12 @@ import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ClipboardEntry, ClipboardStore } from '~/clipboard/clipboardStore.ts';
 import { ClipboardList } from '~/clipboard/clipboardList.ts';
+import { placeClipboardPanelNearPointer } from '~/clipboard/clipboardPosition.ts';
 
-const PANEL_WIDTH = 560;
+const PANEL_WIDTH = 360;
 const PANEL_HEIGHT = 480;
+const PANEL_EDGE_MARGIN = 12;
+const PANEL_POINTER_OFFSET = 12;
 
 type PanelCallbacks = {
   onActivate: (entry: ClipboardEntry) => void;
@@ -25,7 +28,6 @@ export class ClipboardPanel extends St.BoxLayout {
   declare private _list: ClipboardList;
   declare private _searchEntry: St.Entry;
   declare private _scroll: St.ScrollView;
-  declare private _header: St.BoxLayout;
 
   private _isOpen: boolean = false;
   private _overlay: St.Bin | null = null;
@@ -35,13 +37,6 @@ export class ClipboardPanel extends St.BoxLayout {
   private _searchChangedId: number = 0;
   private _monitorsChangedId: number = 0;
   private _sessionModeId: number = 0;
-
-  // Drag state
-  private _isDragging: boolean = false;
-  private _dragOffsetX: number = 0;
-  private _dragOffsetY: number = 0;
-  private _dragMotionId: number = 0;
-  private _dragEndId: number = 0;
 
   override _init(store: ClipboardStore, callbacks: PanelCallbacks): void {
     super._init({
@@ -54,52 +49,20 @@ export class ClipboardPanel extends St.BoxLayout {
     this._store = store;
     this._callbacks = callbacks;
 
-    // ── Header (drag handle + close button) ──────────────────────────────
-    this._header = new St.BoxLayout({
-      style_class: 'aurora-clipboard-header',
-      orientation: Clutter.Orientation.HORIZONTAL,
-      reactive: true,
-      x_expand: true,
-    });
-
-    const titleLabel = new St.Label({
-      text: _('Clipboard History'),
-      style_class: 'aurora-clipboard-title',
-      x_expand: true,
-      y_align: Clutter.ActorAlign.CENTER,
-    });
-
-    // Close button as St.Bin so button-press-event stops here (EVENT_STOP)
-    // and never reaches the header's drag handler — St.Button.clicked is
-    // unreliable when a parent header also handles button-press-event.
-    const closeButton = new St.Bin({
-      style_class: 'aurora-clipboard-close-btn',
-      child: new St.Icon({ icon_name: 'window-close-symbolic', icon_size: 16 }),
-      reactive: true,
-    });
-    closeButton.connect('button-press-event', () => {
-      this.close();
-      return Clutter.EVENT_STOP;
-    });
-
-    // Drag via header — only fires when close button does NOT consume the press
-    this._header.connect('button-press-event', (_actor: Clutter.Actor, event: Clutter.Event) => {
-      this._startDrag(event);
-      return Clutter.EVENT_STOP;
-    });
-
-    this._header.add_child(titleLabel);
-    this._header.add_child(closeButton);
-
-    // ── Search field ─────────────────────────────────────────────────────
     this._searchEntry = new St.Entry({
       style_class: 'aurora-clipboard-search',
-      hint_text: _('Search clipboard history…'),
+      hint_text: _('Search…'),
       can_focus: true,
       x_expand: true,
     });
+    this._searchEntry.set_primary_icon(
+      new St.Icon({
+        icon_name: 'edit-find-symbolic',
+        icon_size: 16,
+        style_class: 'aurora-clipboard-search-icon',
+      }),
+    );
 
-    // ── Scrollable list ───────────────────────────────────────────────────
     this._list = new (ClipboardList as unknown as new (cbs: {
       onActivate: (e: ClipboardEntry) => void;
       onRemove: (id: string) => void;
@@ -113,7 +76,6 @@ export class ClipboardPanel extends St.BoxLayout {
     this._scroll = new St.ScrollView({ x_expand: true, y_expand: true });
     this._scroll.set_child(this._list);
 
-    this.add_child(this._header);
     this.add_child(this._searchEntry);
     this.add_child(this._scroll);
   }
@@ -137,12 +99,7 @@ export class ClipboardPanel extends St.BoxLayout {
     Main.uiGroup.add_child(this._overlay);
     Main.uiGroup.add_child(this); // panel sits above overlay
 
-    const monitor = Main.layoutManager.monitors[Main.layoutManager.primaryIndex]!;
-    this.set_size(PANEL_WIDTH, PANEL_HEIGHT);
-    this.set_position(
-      monitor.x + Math.round((monitor.width - PANEL_WIDTH) / 2),
-      monitor.y + Math.round((monitor.height - PANEL_HEIGHT) / 2),
-    );
+    this._positionNearPointer();
 
     this.show();
     this._isOpen = true;
@@ -168,8 +125,6 @@ export class ClipboardPanel extends St.BoxLayout {
 
   close(): void {
     if (!this._isOpen) return;
-
-    this._endDrag();
 
     if (this._capturedEventId !== 0) {
       global.stage.disconnect(this._capturedEventId);
@@ -201,15 +156,12 @@ export class ClipboardPanel extends St.BoxLayout {
 
   override destroy(): void {
     this.close();
-    this._disconnectDragSignals();
     super.destroy();
   }
 
   refresh(): void {
     if (this._isOpen) this._syncList(this._searchEntry.get_text());
   }
-
-  // ── Keyboard handling ────────────────────────────────────────────────────
 
   private _onCapturedEvent(event: Clutter.Event): boolean {
     if (event.type() !== Clutter.EventType.KEY_PRESS) return Clutter.EVENT_PROPAGATE;
@@ -278,44 +230,38 @@ export class ClipboardPanel extends St.BoxLayout {
     }
   }
 
-  // ── Drag to reposition ───────────────────────────────────────────────────
-
-  private _startDrag(event: Clutter.Event): void {
-    if (this._isDragging) return;
-    const [x, y] = event.get_coords();
-    this._dragOffsetX = x - this.x;
-    this._dragOffsetY = y - this.y;
-    this._isDragging = true;
-    this._dragMotionId = global.stage.connect(
-      'motion-event',
-      (_actor: Clutter.Actor, evt: Clutter.Event) => this._onDragMotion(evt),
+  private _positionNearPointer(): void {
+    const [pointerX, pointerY] = global.get_pointer();
+    const monitorIndex = this._findMonitorIndexAt(pointerX, pointerY);
+    const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex);
+    const bounds = placeClipboardPanelNearPointer(
+      pointerX,
+      pointerY,
+      workArea,
+      PANEL_WIDTH,
+      PANEL_HEIGHT,
+      PANEL_EDGE_MARGIN,
+      PANEL_POINTER_OFFSET,
     );
-    this._dragEndId = global.stage.connect('button-release-event', () => {
-      this._endDrag();
-      return Clutter.EVENT_PROPAGATE;
-    });
+
+    this.set_size(bounds.width, bounds.height);
+    this.set_position(bounds.x, bounds.y);
   }
 
-  private _onDragMotion(event: Clutter.Event): boolean {
-    if (!this._isDragging) return Clutter.EVENT_PROPAGATE;
-    const [x, y] = event.get_coords();
-    this.set_position(x - this._dragOffsetX, y - this._dragOffsetY);
-    return Clutter.EVENT_PROPAGATE;
-  }
-
-  private _endDrag(): void {
-    this._isDragging = false;
-    this._disconnectDragSignals();
-  }
-
-  private _disconnectDragSignals(): void {
-    if (this._dragMotionId !== 0) {
-      global.stage.disconnect(this._dragMotionId);
-      this._dragMotionId = 0;
+  private _findMonitorIndexAt(x: number, y: number): number {
+    const monitors = Main.layoutManager.monitors;
+    for (let i = 0; i < monitors.length; i++) {
+      const monitor = monitors[i]!;
+      if (
+        x >= monitor.x &&
+        x < monitor.x + monitor.width &&
+        y >= monitor.y &&
+        y < monitor.y + monitor.height
+      ) {
+        return i;
+      }
     }
-    if (this._dragEndId !== 0) {
-      global.stage.disconnect(this._dragEndId);
-      this._dragEndId = 0;
-    }
+
+    return Main.layoutManager.primaryIndex;
   }
 }
