@@ -10,6 +10,7 @@ import { Dash } from '@girs/gnome-shell/ui/dash';
 
 import { logger } from '~/core/logger.ts';
 import { TrashIcon, type TrashIconInstance } from '~/dock/trashIcon.ts';
+import { canLaunchTrash, NAUTILUS_APP_ID } from '~/dock/trashLauncher.ts';
 
 export interface DashBounds {
   x: number;
@@ -56,6 +57,7 @@ export class AuroraDash extends Dash {
   private _iconResizeTimeoutId = 0;
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
+  private _dashContainerHover = false;
   private _isDestroyed = false;
   private _flushMode = false;
   private _targetBoxListener: TargetBoxListener | null = null;
@@ -82,7 +84,16 @@ export class AuroraDash extends Dash {
     const dashContainer = this._dashInternals._dashContainer;
     dashContainer?.set_track_hover?.(true);
     dashContainer?.set_reactive?.(true);
-    dashContainer?.connectObject?.('notify::hover', this._onHover.bind(this), this);
+    dashContainer?.connectObject?.(
+      'notify::hover',
+      () => {
+        this._dashContainerHover = dashContainer.get_hover();
+        this._onHover();
+      },
+      'destroy',
+      () => this._onDashContainerDestroyed(),
+      this,
+    );
 
     this.set_x_align?.(Clutter.ActorAlign.CENTER);
     this.set_y_align?.(Clutter.ActorAlign.END);
@@ -129,10 +140,24 @@ export class AuroraDash extends Dash {
     return 0;
   }
 
+  private _onDashContainerDestroyed(): void {
+    this._isDestroyed = true;
+    this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
+    this._delayEnsureAutoHideId = this._removeSource(this._delayEnsureAutoHideId);
+    this._blockAutoHideDelayId = this._removeSource(this._blockAutoHideDelayId);
+    this._dashContainerHover = false;
+    delete this._dashInternals._dashContainer;
+  }
+
   private _setupTrashIcon(): void {
     const dash = this._dashInternals;
     const dashContainer = dash._dashContainer;
     if (!dashContainer) return;
+
+    if (!this._canLaunchTrashWithNautilus()) {
+      logger.debug('Trash icon disabled: Nautilus is unavailable', { prefix: LOG_PREFIX });
+      return;
+    }
 
     const trashIcon = new TrashIcon() as TrashIconInstance;
     this._trashIcon = trashIcon;
@@ -149,6 +174,15 @@ export class AuroraDash extends Dash {
     }
 
     this.connectObject?.('icon-size-changed', () => trashIcon.setIconSize(dash.iconSize), this);
+  }
+
+  private _canLaunchTrashWithNautilus(): boolean {
+    return canLaunchTrash({
+      getNautilusExecutable: () => {
+        const app = Shell.AppSystem.get_default().lookup_app(NAUTILUS_APP_ID);
+        return app?.get_app_info().get_executable() ?? null;
+      },
+    });
   }
 
   get monitorIndex(): number {
@@ -468,12 +502,7 @@ export class AuroraDash extends Dash {
   }
 
   private _dashContainerHasHover(): boolean {
-    try {
-      const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
-      return dashContainer?.get_hover?.() ?? false;
-    } catch {
-      return false;
-    }
+    return this._dashContainerHover;
   }
 
   private _performShow(animate = true): void {

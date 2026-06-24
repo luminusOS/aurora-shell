@@ -56,8 +56,8 @@ export var METRICS = {};
 export function init() {
   Scripting.defineScriptEvent('dockPresent', 'Dock actor found in stage after enable');
   Scripting.defineScriptEvent('panelIntact', 'Top panel still visible with dock active');
-  Scripting.defineScriptEvent('trashIconValid', 'Trash icon and position are correct');
-  Scripting.defineScriptEvent('trashClickWired', 'Trash click invokes its open action');
+  Scripting.defineScriptEvent('trashIconValid', 'Trash icon availability and position are correct');
+  Scripting.defineScriptEvent('trashClickWired', 'Trash launch behavior is valid');
   Scripting.defineScriptEvent('hiddenDockInputReleased', 'Hidden dock releases its input area');
   Scripting.defineScriptEvent(
     'hotAreaYieldedInput',
@@ -136,37 +136,44 @@ export async function run() {
   const showAppsIndex = dashChildren.indexOf(showAppsIcon);
   const trashIcon = showAppsIndex > 0 ? dashChildren[showAppsIndex - 1] : null;
   const trashIndex = dashChildren.indexOf(trashIcon);
+  const nautilus = Shell.AppSystem.get_default().lookup_app('org.gnome.Nautilus.desktop');
+  const hasNautilus = Boolean(nautilus?.get_app_info().get_executable());
 
-  if (trashIcon?._trashFile?.get_uri?.() !== 'trash:///')
-    throw new Error('Trash icon was not created while dock-show-trash is enabled');
-  if (trashIcon._iconActor?.icon_name?.endsWith('-symbolic'))
-    throw new Error(`Trash icon is still symbolic: ${trashIcon._iconActor.icon_name}`);
-  if (trashIndex < 0 || showAppsIndex !== trashIndex + 1)
-    throw new Error(
-      `Trash icon must immediately precede Show Apps (trash=${trashIndex}, showApps=${showAppsIndex})`,
-    );
-  if (dash._box?.contains?.(trashIcon))
-    throw new Error('Trash icon is inside the app list instead of being a fixed dock item');
-  if (dash._trashIcon !== trashIcon)
-    throw new Error('Dash lost its fixed trash icon reference after GObject construction');
-  const fileManager = Shell.AppSystem.get_default().lookup_app('org.gnome.Nautilus.desktop');
-  if (!fileManager?.get_app_info().get_executable())
-    throw new Error('Nautilus executable fallback is unavailable');
+  if (!hasNautilus) {
+    if (trashIcon?._trashFile?.get_uri?.() === 'trash:///')
+      throw new Error('Trash icon was created without Nautilus installed');
 
-  Scripting.scriptEvent('trashIconValid');
+    Scripting.scriptEvent('trashIconValid');
+    Scripting.scriptEvent('trashClickWired');
+  } else {
+    if (trashIcon?._trashFile?.get_uri?.() !== 'trash:///')
+      throw new Error('Trash icon was not created while dock-show-trash is enabled');
+    if (trashIcon._iconActor?.icon_name?.endsWith('-symbolic'))
+      throw new Error(`Trash icon is still symbolic: ${trashIcon._iconActor.icon_name}`);
+    if (trashIndex < 0 || showAppsIndex !== trashIndex + 1)
+      throw new Error(
+        `Trash icon must immediately precede Show Apps (trash=${trashIndex}, showApps=${showAppsIndex})`,
+      );
+    if (dash._box?.contains?.(trashIcon))
+      throw new Error('Trash icon is inside the app list instead of being a fixed dock item');
+    if (dash._trashIcon !== trashIcon)
+      throw new Error('Dash lost its fixed trash icon reference after GObject construction');
 
-  // I4 — clicking the button must invoke the trash open action
-  let openCalled = false;
-  const originalOpenTrashAsync = trashIcon._openTrashAsync;
-  trashIcon._openTrashAsync = async () => {
-    openCalled = true;
-  };
-  trashIcon.toggleButton.emit('clicked', 1);
-  await Scripting.waitLeisure();
-  trashIcon._openTrashAsync = originalOpenTrashAsync;
-  if (!openCalled) throw new Error('Clicking the trash icon did not invoke its open action');
+    Scripting.scriptEvent('trashIconValid');
 
-  Scripting.scriptEvent('trashClickWired');
+    // I4 — clicking the button must invoke the trash open action
+    let openCalled = false;
+    const originalOpenTrashAsync = trashIcon._openTrashAsync;
+    trashIcon._openTrashAsync = () => {
+      openCalled = true;
+    };
+    trashIcon.toggleButton.emit('clicked', 1);
+    await Scripting.waitLeisure();
+    trashIcon._openTrashAsync = originalOpenTrashAsync;
+    if (!openCalled) throw new Error('Clicking the trash icon did not invoke its open action');
+
+    Scripting.scriptEvent('trashClickWired');
+  }
 
   // I5 — a hidden autohide dock must release its whole container input area
   dash.hide(false);

@@ -14,11 +14,10 @@ import * as IconGrid from '@girs/gnome-shell/ui/iconGrid';
 import { DashItemContainer } from '@girs/gnome-shell/ui/dash';
 
 import { logger } from '~/core/logger.ts';
-import { launchTrash, queryDefaultHandler, TRASH_URI } from '~/dock/trashLauncher.ts';
+import { launchTrash, NAUTILUS_APP_ID, TRASH_URI } from '~/dock/trashLauncher.ts';
 
 const ICON_EMPTY = 'user-trash';
 const ICON_FULL = 'user-trash-full';
-const FILE_MANAGER_APP_ID = 'org.gnome.Nautilus.desktop';
 const LOG_PREFIX = 'DockTrash';
 
 type SizableBaseIcon = InstanceType<typeof IconGrid.BaseIcon> & {
@@ -35,7 +34,6 @@ export const TrashIcon = GObject.registerClass(
     declare private _trashFile: Gio.File;
     declare private _monitor: Gio.FileMonitor | null;
     declare private _refreshCancellable: Gio.Cancellable | null;
-    declare private _openCancellable: Gio.Cancellable | null;
     declare private _menu: PopupMenu.PopupMenu | null;
     declare private _menuManager: PopupMenu.PopupMenuManager | null;
     declare private _emptyItem: PopupMenu.PopupMenuItem | null;
@@ -52,7 +50,6 @@ export const TrashIcon = GObject.registerClass(
       this._trashFile = Gio.File.new_for_uri(TRASH_URI);
       this._monitor = null;
       this._refreshCancellable = null;
-      this._openCancellable = null;
       this._menu = null;
       this._menuManager = null;
       this._emptyItem = null;
@@ -194,26 +191,19 @@ export const TrashIcon = GObject.registerClass(
       void this._openTrashAsync();
     }
 
-    private async _openTrashAsync(): Promise<void> {
-      this._openCancellable?.cancel();
-      const cancellable = new Gio.Cancellable();
-      this._openCancellable = cancellable;
+    private _openTrashAsync(): void {
       const launchContext = global.create_app_launch_context(global.get_current_time(), -1);
 
       try {
-        await launchTrash({
-          launchDefaultHandler: async () => {
-            const handler = await queryDefaultHandler(this._trashFile, 0, cancellable);
-            return handler.launch_uris([TRASH_URI], launchContext);
-          },
-          launchFallbackHandler: () => {
-            const fileManager = Shell.AppSystem.get_default().lookup_app(FILE_MANAGER_APP_ID);
+        launchTrash({
+          launchNautilus: () => {
+            const fileManager = Shell.AppSystem.get_default().lookup_app(NAUTILUS_APP_ID);
             const executable = fileManager?.get_app_info().get_executable();
             if (!executable) return false;
 
             const launcher = Gio.AppInfo.create_from_commandline(
               GLib.shell_quote(executable),
-              FILE_MANAGER_APP_ID,
+              NAUTILUS_APP_ID,
               Gio.AppInfoCreateFlags.SUPPORTS_URIS |
                 Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION,
             );
@@ -221,10 +211,7 @@ export const TrashIcon = GObject.registerClass(
           },
         });
       } catch (error) {
-        if (!cancellable.is_cancelled() && !this._destroyed)
-          this._warn('Failed to open trash', error);
-      } finally {
-        if (this._openCancellable === cancellable) this._openCancellable = null;
+        if (!this._destroyed) this._warn('Failed to open trash', error);
       }
     }
 
@@ -322,8 +309,6 @@ export const TrashIcon = GObject.registerClass(
     private _onDestroy(): void {
       this._destroyed = true;
       this.toggleButton.disconnectObject(this);
-      this._openCancellable?.cancel();
-      this._openCancellable = null;
       this._refreshCancellable?.cancel();
       this._refreshCancellable = null;
       this._monitor?.disconnectObject(this);
