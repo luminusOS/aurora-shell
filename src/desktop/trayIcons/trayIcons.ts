@@ -38,10 +38,11 @@ export class TrayIcons extends Module {
   private _sniHost: SniHost | null = null;
   private _bgSource: BackgroundAppsSource | null = null;
   private _settingsChangedIds: number[] = [];
-  private _bgItemAppIds = new Map<string, BgTrayEntry>(); // appId -> tray entry
+  private _bgItemAppIds = new Map<string, BgTrayEntry>();
   private _dedupBgApps = true;
   private _bgAppsToggle: any = null;
-  private _bgAppsToggleVisibleId = 0;
+  private _bgAppsGrid: any = null;
+  private _bgAppsGridChildAddedId = 0;
   private _desktopSettings: SettingsManager | null = null;
   private _desktopSettingsChangedId = 0;
 
@@ -73,7 +74,6 @@ export class TrayIcons extends Module {
       'right',
     );
 
-    // SNI layer
     this._sniWatcher = new SniWatcher(
       (busName, objectPath) => {
         this._sniHost
@@ -105,7 +105,6 @@ export class TrayIcons extends Module {
       this._sniHost?.refreshIcons('color-scheme');
     });
 
-    // Background Apps layer
     this._bgSource = new BackgroundAppsSource({
       onItemAdded: (item, appId, app) => this._onBgItemAdded(item, appId, app).catch(() => {}),
       onItemRemoved: (id) => this._onItemRemoved(id),
@@ -114,7 +113,6 @@ export class TrayIcons extends Module {
       .start()
       .catch((e) => logger.warn(`bg source start failed: ${e}`, { prefix: LOG_PREFIX }));
 
-    // Settings change listeners
     this._settingsChangedIds.push(
       settings.connect('changed::tray-icons-limit', () => {
         this._container?.setLimit(settings.get_int('tray-icons-limit'));
@@ -247,8 +245,6 @@ export class TrayIcons extends Module {
     const coveredByPid = await this._sniCoversAppPid(appId, app);
     if (coveredByPid) return true;
 
-    // Fallback: app doesn't own its expected D-Bus name (common for Flatpak Qt/SNI apps).
-    // Match by SNI metadata such as DesktopEntry or Id instead.
     const coveredByMetadata =
       [...appIdCandidates].some((candidate) => this._sniHost?.hasSniForAppId(candidate)) ?? false;
     logger.debug(`SNI covers ${appId}? owner=none, metadata-match=${coveredByMetadata}`, {
@@ -292,7 +288,6 @@ export class TrayIcons extends Module {
     return match?.[1]?.trim() || null;
   }
 
-  // Async /proc read (EGO-X-004: no synchronous file IO in shell code).
   private async _readProcText(path: string): Promise<string | null> {
     try {
       const file = Gio.File.new_for_path(path);
@@ -380,26 +375,93 @@ export class TrayIcons extends Module {
   }
 
   private _hideBgAppsQuickSettings(): void {
-    if (this._bgAppsToggle) return;
+    if (this._bgAppsToggle) {
+      this._forceHideBgAppsToggle();
+      return;
+    }
+
+    this._watchBgAppsQuickSettingsGrid();
+    const toggle = this._findBgAppsQuickSettingsToggle();
+    if (!toggle) {
+      logger.debug('Background Apps quick settings toggle not found yet', { prefix: LOG_PREFIX });
+      return;
+    }
+
+    this._bgAppsToggle = toggle;
+    this._forceHideBgAppsToggle();
+    toggle.connectObject(
+      'notify::visible',
+      () => this._forceHideBgAppsToggle(),
+      'destroy',
+      () => {
+        this._bgAppsToggle = null;
+      },
+      this,
+    );
+    logger.debug('Background Apps quick settings toggle hidden', { prefix: LOG_PREFIX });
+  }
+
+  private _findBgAppsQuickSettingsToggle(): any {
+    const quickSettings = Main.panel.statusArea.quickSettings as any;
+    const backgroundAppsItem = quickSettings?._backgroundApps?.quickSettingsItems?.find?.(
+      (item: any) => this._isBgAppsQuickSettingsToggle(item),
+    );
+    if (backgroundAppsItem) return backgroundAppsItem;
+
+    return this._findBgAppsQuickSettingsToggleInActor(quickSettings?.menu?._grid);
+  }
+
+  private _findBgAppsQuickSettingsToggleInActor(actor: any): any {
+    if (!actor) return null;
+    if (this._isBgAppsQuickSettingsToggle(actor)) return actor;
+
+    for (const child of actor.get_children?.() ?? []) {
+      const match = this._findBgAppsQuickSettingsToggleInActor(child);
+      if (match) return match;
+    }
+
+    return null;
+  }
+
+  private _isBgAppsQuickSettingsToggle(actor: any): boolean {
+    return actor?.has_style_class_name?.('background-apps-quick-toggle') === true;
+  }
+
+  private _watchBgAppsQuickSettingsGrid(): void {
     const grid = (Main.panel.statusArea.quickSettings as any)?.menu?._grid;
     if (!grid) return;
-    for (const child of grid.get_children()) {
-      if ((child as any).has_style_class_name?.('background-apps-quick-toggle')) {
-        this._bgAppsToggle = child;
-        child.visible = false;
-        this._bgAppsToggleVisibleId = child.connect('notify::visible', () => {
-          if (child.visible) child.visible = false;
-        });
-        break;
-      }
+    if (this._bgAppsGrid === grid && this._bgAppsGridChildAddedId) return;
+
+    this._unwatchBgAppsQuickSettingsGrid();
+    this._bgAppsGrid = grid;
+    this._bgAppsGridChildAddedId = grid.connect('child-added', () => {
+      this._hideBgAppsQuickSettings();
+    });
+  }
+
+  private _unwatchBgAppsQuickSettingsGrid(): void {
+    if (!this._bgAppsGrid || !this._bgAppsGridChildAddedId) return;
+    try {
+      this._bgAppsGrid.disconnect(this._bgAppsGridChildAddedId);
+    } catch {
+      // Quick Settings may be destroyed during Shell shutdown.
     }
+    this._bgAppsGrid = null;
+    this._bgAppsGridChildAddedId = 0;
+  }
+
+  private _forceHideBgAppsToggle(): void {
+    if (!this._bgAppsToggle) return;
+    if (this._bgAppsToggle.visible) this._bgAppsToggle.visible = false;
   }
 
   private _restoreBgAppsQuickSettings(): void {
+    this._unwatchBgAppsQuickSettingsGrid();
     if (!this._bgAppsToggle) return;
-    if (this._bgAppsToggleVisibleId) {
-      this._bgAppsToggle.disconnect(this._bgAppsToggleVisibleId);
-      this._bgAppsToggleVisibleId = 0;
+    try {
+      this._bgAppsToggle.disconnectObject(this);
+    } catch {
+      // Quick Settings may be destroyed during Shell shutdown.
     }
     this._bgAppsToggle._syncVisibility?.();
     this._bgAppsToggle = null;

@@ -95,7 +95,7 @@ uninstall:
     @echo "Uninstalled."
 
 logs:
-    journalctl -b 0 /usr/bin/gnome-shell | grep "aurora"
+    journalctl -b 0 -r -o cat /usr/bin/gnome-shell | grep -i "aurora"
 
 clean:
     rm -rf dist
@@ -218,9 +218,7 @@ toolbox action *args:
                 echo "Example: just toolbox test tests/shell/auroraBasic.js"
                 exit 1
             fi
-            toolbox --container {{ toolbox_name }} run env GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas \
-                dbus-run-session gnome-shell-test-tool \
-                --headless --extension "$EXT" "$SCRIPT"
+            bash scripts/run-toolbox-shell-test.sh {{ toolbox_name }} "$EXT" "$SCRIPT"
             ;;
         "test-all")
             just package
@@ -228,9 +226,8 @@ toolbox action *args:
             PASS=0; FAIL=0
             for script in tests/shell/aurora*.js; do
                 echo "==> Running $script"
-                if toolbox --container {{ toolbox_name }} run env GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas \
-                        dbus-run-session gnome-shell-test-tool \
-                        --headless --extension "$EXT" "$script"; then
+                if bash scripts/run-toolbox-shell-test.sh \
+                        {{ toolbox_name }} "$EXT" "$script"; then
                     echo "    PASS: $script"
                     PASS=$((PASS + 1))
                 else

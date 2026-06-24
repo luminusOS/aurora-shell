@@ -39,14 +39,21 @@ disable_dbus_service() {
   printf '[D-BUS Service]\nName=%s\nExec=/usr/bin/false\n' "$name" > "$service_dir/$name.service"
 }
 
-# A private session must not start a second keyring daemon: it cannot unlock the
-# host keyring and would display an authentication prompt inside the devkit.
+# A private session must not start host-scoped services whose state lives under
+# /run/user/$UID. In particular, a second document portal can invalidate the
+# host Flatpak document mount and leave Flatpak apps unable to start until the
+# host xdg-document-portal.service is restarted.
+disable_dbus_service org.freedesktop.portal.Documents
+
+# A second keyring daemon cannot unlock the host keyring and would display an
+# authentication prompt inside the devkit.
 disable_dbus_service org.freedesktop.secrets
 disable_dbus_service org.freedesktop.impl.portal.Secret
 disable_dbus_service org.gnome.keyring
 
 SHELL_ENV=(
   SHELL_DEBUG=all
+  G_MESSAGES_DEBUG="Aurora Shell"
   AURORA_DEVTOOLS=1
   XDG_CURRENT_DESKTOP=GNOME
   XDG_SESSION_TYPE=wayland

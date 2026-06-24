@@ -8,15 +8,16 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import * as DND from '@girs/gnome-shell/ui/dnd';
 import { Dash } from '@girs/gnome-shell/ui/dash';
 
+import { logger } from '~/core/logger.ts';
+import { TrashIcon, type TrashIconInstance } from '~/dock/trashIcon.ts';
+import { canLaunchTrash, NAUTILUS_APP_ID } from '~/dock/trashLauncher.ts';
+
 export interface DashBounds {
   x: number;
   y: number;
   width: number;
   height: number;
 }
-
-/** Padding added around the dash bounds to form the target box used for intellihide overlap checks. */
-const TARGET_BOX_PADDING = 8;
 
 type TargetBoxListener = (bounds: DashBounds | null) => void;
 
@@ -28,23 +29,22 @@ const HIDE_SCALE = 0.98;
 const EASE_DURATION_FACTOR = 0.8;
 const FULL_OPACITY = 255;
 const PIVOT_CENTER_BOTTOM: [number, number] = [0.5, 1];
+const LOG_PREFIX = 'DockDash';
+
+type VisibilityTarget = 'shown' | 'hidden';
 
 interface AuroraDashParams {
   monitorIndex?: number;
+  showTrash?: boolean;
 }
 
-/**
- * Custom Dash widget for Aurora Shell.
- *
- * Extends the default GNOME Shell Dash with autohide behavior, slide-in/out
- * animations, intellihide target-box tracking, and per-monitor positioning.
- *
- * Positioning model:
- * - The **container** (St.Bin, managed by Dock) is positioned at screen
- *   coordinates via `applyWorkArea → container.set_position()`.
- * - The **dash** (this widget) always sits at local y=0 inside the container.
- *   Show/hide animations use `translation_y` only — never modify `this.y`.
- */
+type DashInternals = {
+  _dashContainer?: St.Widget;
+  _showAppsIcon?: St.Widget;
+  iconSize: number;
+  _hookUpLabel(item: unknown): void;
+};
+
 @GObject.registerClass
 export class AuroraDash extends Dash {
   declare private _monitorIndex: number;
@@ -57,28 +57,43 @@ export class AuroraDash extends Dash {
   private _iconResizeTimeoutId = 0;
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
+  private _dashContainerHover = false;
   private _isDestroyed = false;
   private _flushMode = false;
   private _targetBoxListener: TargetBoxListener | null = null;
-  private _pendingShow: { animate: boolean; onComplete: (() => void) | undefined } | null = null;
+  private _pendingShow: { animate: boolean } | null = null;
+  declare private _visibilityTarget: VisibilityTarget;
+  declare private _showCompletionCallbacks: Array<() => void>;
   private _springLoadTimerId = 0;
   private _springLoadTarget: any = null;
   private _springLoadDragMonitor: { dragMotion: (e: any) => number } | null = null;
+  declare private _trashIcon: TrashIconInstance | null;
 
   override _init(params: AuroraDashParams = {}): void {
     super._init();
 
+    this._visibilityTarget = this.visible ? 'shown' : 'hidden';
+    this._showCompletionCallbacks = [];
+    this._trashIcon = null;
     this._monitorIndex = params.monitorIndex ?? Main.layoutManager.primaryIndex;
 
-    // Redirect "Show Apps" button to the overview instead of toggling
     const button = (this as any).showAppsButton;
     button?.set_toggle_mode?.(false);
     button?.connectObject?.('clicked', () => Main.overview.showApps(), this);
 
-    const dashContainer = (this as unknown as { _dashContainer?: St.Widget })._dashContainer;
+    const dashContainer = this._dashInternals._dashContainer;
     dashContainer?.set_track_hover?.(true);
     dashContainer?.set_reactive?.(true);
-    dashContainer?.connectObject?.('notify::hover', this._onHover.bind(this), this);
+    dashContainer?.connectObject?.(
+      'notify::hover',
+      () => {
+        this._dashContainerHover = dashContainer.get_hover();
+        this._onHover();
+      },
+      'destroy',
+      () => this._onDashContainerDestroyed(),
+      this,
+    );
 
     this.set_x_align?.(Clutter.ActorAlign.CENTER);
     this.set_y_align?.(Clutter.ActorAlign.END);
@@ -97,7 +112,6 @@ export class AuroraDash extends Dash {
       this,
     );
 
-    // Re-evaluate per-monitor app filtering when windows move between monitors
     global.display.connectObject(
       'window-entered-monitor',
       () => this._queueRedisplay(),
@@ -106,7 +120,6 @@ export class AuroraDash extends Dash {
       this,
     );
 
-    // Re-evaluate when the active workspace changes
     global.workspace_manager.connectObject(
       'active-workspace-changed',
       () => this._queueRedisplay(),
@@ -114,6 +127,62 @@ export class AuroraDash extends Dash {
     );
 
     this._setupSpringLoadMonitor();
+
+    if (params.showTrash) this._setupTrashIcon();
+  }
+
+  private get _dashInternals(): DashInternals {
+    return this as unknown as DashInternals;
+  }
+
+  private _removeSource(id: number): 0 {
+    if (id !== 0) GLib.source_remove(id);
+    return 0;
+  }
+
+  private _onDashContainerDestroyed(): void {
+    this._isDestroyed = true;
+    this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
+    this._delayEnsureAutoHideId = this._removeSource(this._delayEnsureAutoHideId);
+    this._blockAutoHideDelayId = this._removeSource(this._blockAutoHideDelayId);
+    this._dashContainerHover = false;
+    delete this._dashInternals._dashContainer;
+  }
+
+  private _setupTrashIcon(): void {
+    const dash = this._dashInternals;
+    const dashContainer = dash._dashContainer;
+    if (!dashContainer) return;
+
+    if (!this._canLaunchTrashWithNautilus()) {
+      logger.debug('Trash icon disabled: Nautilus is unavailable', { prefix: LOG_PREFIX });
+      return;
+    }
+
+    const trashIcon = new TrashIcon() as TrashIconInstance;
+    this._trashIcon = trashIcon;
+    trashIcon.show(false);
+    trashIcon.setIconSize(dash.iconSize);
+    dash._hookUpLabel(trashIcon);
+
+    const showAppsIcon = dash._showAppsIcon;
+    const showAppsIndex = showAppsIcon ? dashContainer.get_children().indexOf(showAppsIcon) : -1;
+    if (showAppsIndex >= 0) {
+      dashContainer.insert_child_at_index(trashIcon, showAppsIndex);
+    } else {
+      dashContainer.add_child(trashIcon);
+    }
+
+    this.connectObject?.('icon-size-changed', () => trashIcon.setIconSize(dash.iconSize), this);
+  }
+
+  private _canLaunchTrashWithNautilus(): boolean {
+    return canLaunchTrash({
+      getNautilusExecutable: () => {
+        const app = Shell.AppSystem.get_default().lookup_app(NAUTILUS_APP_ID);
+        return app?.get_app_info().get_executable() ?? null;
+      },
+    });
   }
 
   get monitorIndex(): number {
@@ -130,32 +199,26 @@ export class AuroraDash extends Dash {
     return this._targetBox;
   }
 
+  get pointerInsideDock(): boolean {
+    return this._dashContainerHasHover();
+  }
+
+  containsStagePoint(x: number, y: number): boolean {
+    return (
+      this._boundsContainPoint(this._getActorStageBounds(this._container), x, y) ||
+      this._boundsContainPoint(this._getActorStageBounds(this), x, y) ||
+      this._boundsContainPoint(this._targetBox, x, y)
+    );
+  }
+
   override destroy(): void {
     this._isDestroyed = true;
-    if (this._autohideTimeoutId !== 0) {
-      GLib.source_remove(this._autohideTimeoutId);
-      this._autohideTimeoutId = 0;
-    }
-    if (this._delayEnsureAutoHideId !== 0) {
-      GLib.source_remove(this._delayEnsureAutoHideId);
-      this._delayEnsureAutoHideId = 0;
-    }
-    if (this._blockAutoHideDelayId !== 0) {
-      GLib.source_remove(this._blockAutoHideDelayId);
-      this._blockAutoHideDelayId = 0;
-    }
-    if (this._workAreaUpdateId !== 0) {
-      GLib.source_remove(this._workAreaUpdateId);
-      this._workAreaUpdateId = 0;
-    }
-    if (this._iconResizeTimeoutId !== 0) {
-      GLib.source_remove(this._iconResizeTimeoutId);
-      this._iconResizeTimeoutId = 0;
-    }
-    if (this._springLoadTimerId !== 0) {
-      GLib.source_remove(this._springLoadTimerId);
-      this._springLoadTimerId = 0;
-    }
+    this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
+    this._delayEnsureAutoHideId = this._removeSource(this._delayEnsureAutoHideId);
+    this._blockAutoHideDelayId = this._removeSource(this._blockAutoHideDelayId);
+    this._workAreaUpdateId = this._removeSource(this._workAreaUpdateId);
+    this._iconResizeTimeoutId = this._removeSource(this._iconResizeTimeoutId);
+    this._springLoadTimerId = this._removeSource(this._springLoadTimerId);
 
     // Remove the global DND drag monitor so its captured `this` doesn't
     // keep firing against a disposed AuroraDash if the dash is destroyed
@@ -193,6 +256,7 @@ export class AuroraDash extends Dash {
     this._container = null;
     this._targetBox = null;
     this._pendingShow = null;
+    this._showCompletionCallbacks = [];
 
     super.destroy();
   }
@@ -202,15 +266,10 @@ export class AuroraDash extends Dash {
     super._queueRedisplay();
   }
 
-  /** Force the dash to re-render its icon list. */
   refresh(): void {
     (this as any)._redisplay();
   }
 
-  /**
-   * When true the dock sits flush at the physical screen edge with no
-   * margin-bottom gap, matching macOS dock behaviour.
-   */
   setFlushMode(flush: boolean): void {
     this._flushMode = flush;
     if (flush) {
@@ -309,12 +368,17 @@ export class AuroraDash extends Dash {
     this._onHover();
   }
 
-  /** Schedule a delayed hover re-evaluation after visibility changes. */
+  forceAutoHide(animate = true): void {
+    this._blockAutoHide = false;
+
+    this._blockAutoHideDelayId = this._removeSource(this._blockAutoHideDelayId);
+    this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
+
+    this.hide(animate);
+  }
+
   ensureAutoHide(): void {
-    if (this._delayEnsureAutoHideId !== 0) {
-      GLib.source_remove(this._delayEnsureAutoHideId);
-      this._delayEnsureAutoHideId = 0;
-    }
+    this._delayEnsureAutoHideId = this._removeSource(this._delayEnsureAutoHideId);
     this._delayEnsureAutoHideId = GLib.timeout_add(
       GLib.PRIORITY_DEFAULT,
       VISIBILITY_ANIMATION_TIME,
@@ -327,15 +391,54 @@ export class AuroraDash extends Dash {
   }
 
   override show(animate = true, onComplete?: () => void): void {
+    this._container?.show();
+    this._setContainerInputEnabled(true);
+    if (onComplete) this._showCompletionCallbacks.push(onComplete);
+
+    // Monitor topology changes can emit several allocation/work-area and
+    // intellihide updates for the same visible state. Restarting an active
+    // show transition from the hidden pose on every update makes the dock
+    // flash rapidly, especially on rotated external monitors.
+    if (this._visibilityTarget === 'shown') {
+      if (this._isFullyShown()) this._flushShowCompletionCallbacks();
+      return;
+    }
+
+    logger.debug(
+      `monitor=${this._monitorIndex} visibility ${this._visibilityTarget}->shown animate=${animate}`,
+      { prefix: LOG_PREFIX },
+    );
+    this._visibilityTarget = 'shown';
+
     if (!this._hasValidAllocation()) {
-      this._pendingShow = { animate, onComplete };
+      this._pendingShow = { animate };
       return;
     }
     this._pendingShow = null;
-    this._performShow(animate, onComplete);
+    this._performShow(animate);
   }
 
   override hide(animate = true): void {
+    // The chrome container remains allocated while the dash is hidden. If it
+    // stays reactive, its transparent bounds win Clutter picking and create a
+    // dead area over controls in windows underneath the dock.
+    this._setContainerInputEnabled(false);
+
+    if (this._visibilityTarget === 'hidden') {
+      if (this._isFullyHidden()) return;
+      logger.debug(`monitor=${this._monitorIndex} visibility hidden resync animate=${animate}`, {
+        prefix: LOG_PREFIX,
+      });
+    } else {
+      logger.debug(
+        `monitor=${this._monitorIndex} visibility ${this._visibilityTarget}->hidden animate=${animate}`,
+        { prefix: LOG_PREFIX },
+      );
+    }
+    this._visibilityTarget = 'hidden';
+    this._pendingShow = null;
+    this._showCompletionCallbacks = [];
+
     if (this._isFullyHidden()) return;
 
     this.remove_all_transitions();
@@ -353,7 +456,14 @@ export class AuroraDash extends Dash {
       scaleY: HIDE_SCALE,
       duration: VISIBILITY_ANIMATION_TIME * EASE_DURATION_FACTOR,
       mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-      onComplete: () => super.hide(),
+      onComplete: () => {
+        if (this._visibilityTarget === 'hidden') {
+          super.hide();
+          logger.debug(`monitor=${this._monitorIndex} hidden transition completed`, {
+            prefix: LOG_PREFIX,
+          });
+        }
+      },
     });
 
     this.ease_property('translation-y', this.height, {
@@ -384,21 +494,22 @@ export class AuroraDash extends Dash {
       return true;
     }
 
+    if (this._trashIcon?.menuIsOpen) {
+      return true;
+    }
+
     return false;
   }
 
   private _dashContainerHasHover(): boolean {
-    try {
-      const dashContainer = (this as any)._dashContainer as St.Widget | undefined;
-      return dashContainer?.get_hover?.() ?? false;
-    } catch {
-      return false;
-    }
+    return this._dashContainerHover;
   }
 
-  private _performShow(animate = true, onComplete?: () => void): void {
+  private _performShow(animate = true): void {
+    if (this._visibilityTarget !== 'shown') return;
+
     if (this._isFullyShown()) {
-      onComplete?.();
+      this._flushShowCompletionCallbacks();
       return;
     }
 
@@ -410,21 +521,19 @@ export class AuroraDash extends Dash {
       this.applyWorkArea(this._workArea);
     }
 
-    // Reset all transforms BEFORE making visible so Clutter never sees the
-    // actor at a stale position (avoids "needs an allocation" warnings and
-    // prevents _queueTargetBoxUpdate from reading a wrong transformed Y).
+    const wasVisible = this.visible;
     this.remove_all_transitions();
     this.set_pivot_point(...PIVOT_CENTER_BOTTOM);
 
     if (!animate) {
       this._applyShownState();
       super.show();
-      onComplete?.();
+      this._queueTargetBoxUpdate();
+      this._flushShowCompletionCallbacks();
       return;
     }
 
-    // Start from the hidden pose, then animate in
-    this._applyHiddenState();
+    if (!wasVisible) this._applyHiddenState();
     super.show();
 
     this.ease({
@@ -433,7 +542,15 @@ export class AuroraDash extends Dash {
       scaleY: 1,
       duration: VISIBILITY_ANIMATION_TIME,
       mode: Clutter.AnimationMode.EASE_IN_CUBIC,
-      ...(onComplete !== undefined ? { onComplete } : {}),
+      onComplete: () => {
+        if (this._visibilityTarget !== 'shown') return;
+        this._applyShownState();
+        this._queueTargetBoxUpdate();
+        logger.debug(`monitor=${this._monitorIndex} shown transition completed`, {
+          prefix: LOG_PREFIX,
+        });
+        this._flushShowCompletionCallbacks();
+      },
     });
 
     this.ease_property('translation-y', 0, {
@@ -442,18 +559,52 @@ export class AuroraDash extends Dash {
     });
   }
 
-  /** Set transform properties to the fully-visible resting state. */
   private _applyShownState(): void {
     this.translation_y = 0;
     this.opacity = FULL_OPACITY;
     this.set_scale(1, 1);
   }
 
-  /** Set transform properties to the fully-hidden state. */
   private _applyHiddenState(): void {
     this.translation_y = this.height;
     this.opacity = 0;
     this.set_scale(HIDE_SCALE, HIDE_SCALE);
+  }
+
+  private _flushShowCompletionCallbacks(): void {
+    const callbacks = this._showCompletionCallbacks;
+    this._showCompletionCallbacks = [];
+    for (const callback of callbacks) callback();
+  }
+
+  private _setContainerInputEnabled(enabled: boolean): void {
+    this._container?.set_reactive(enabled);
+  }
+
+  private _getActorStageBounds(actor: any): DashBounds | null {
+    if (!actor?.visible) return null;
+
+    const allocation = actor.get_allocation_box?.();
+    if (!allocation) return null;
+
+    const width = Math.max(0, (allocation.x2 ?? 0) - (allocation.x1 ?? 0));
+    const height = Math.max(0, (allocation.y2 ?? 0) - (allocation.y1 ?? 0));
+    if (width <= 0 || height <= 0) return null;
+
+    const [x, y] = actor.get_transformed_position?.() ?? [actor.x, actor.y];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+
+    return { x, y, width, height };
+  }
+
+  private _boundsContainPoint(bounds: DashBounds | null, x: number, y: number): boolean {
+    if (!bounds) return false;
+    return (
+      x >= bounds.x &&
+      x <= bounds.x + bounds.width &&
+      y >= bounds.y &&
+      y <= bounds.y + bounds.height
+    );
   }
 
   // Stock Dash._init() connects item-drag-* / window-drag-* via bare
@@ -484,7 +635,6 @@ export class AuroraDash extends Dash {
   override _syncLabel(item: any, appIcon: any): void {
     if (this._isDestroyed) return;
 
-    // Prevent crash in showLabel() if the timeout fires after the item is destroyed
     if (item && !item._auroraShowLabelPatched) {
       item._auroraShowLabelPatched = true;
       const originalShowLabel = item.showLabel;
@@ -534,8 +684,6 @@ export class AuroraDash extends Dash {
     const oldIconSize = dashAny.iconSize;
     const shouldAnimate = this.visible && this.opacity > 0;
 
-    // Snapshot existing (non-animating-out) apps so we can detect newly added
-    // items after stock _redisplay and animate them in ourselves.
     const isFirstDisplay = !dashAny._shownInitially;
     const existingApps = new Set<any>();
     for (const child of this._getDashChildren()) {
@@ -561,9 +709,6 @@ export class AuroraDash extends Dash {
       const isRelevant = (w: any) => this._isWindowRelevant(w);
       appSystem.get_running = () => {
         const apps = allApps.filter((app: any) => {
-          // Always show apps that are still launching — they have no windows yet
-          // so isRelevant() would return false and the icon would be delayed
-          // until the window appears on the current workspace.
           if (app.get_state?.() === Shell.AppState.STARTING) return true;
           return app.get_windows().some(isRelevant);
         });
@@ -595,9 +740,6 @@ export class AuroraDash extends Dash {
       Dash.prototype._redisplay.call(this);
     }
 
-    // Animate newly-added items in. Stock Dash._redisplay calls item.show(false)
-    // (instant) when overview.visible is false, leaving new items at scale=1.
-    // We detect them via the pre-redisplay snapshot and replay the animation.
     if (shouldAnimate && !isFirstDisplay) {
       for (const child of this._getDashChildren()) {
         try {
@@ -626,10 +768,7 @@ export class AuroraDash extends Dash {
     this._overrideIconActivation();
 
     if (dashAny.iconSize !== oldIconSize) {
-      if (this._iconResizeTimeoutId !== 0) {
-        GLib.source_remove(this._iconResizeTimeoutId);
-        this._iconResizeTimeoutId = 0;
-      }
+      this._iconResizeTimeoutId = this._removeSource(this._iconResizeTimeoutId);
       this._iconResizeTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ANIMATION_TIME, () => {
         this._iconResizeTimeoutId = 0;
         if (this._workArea) this.applyWorkArea(this._workArea);
@@ -640,10 +779,6 @@ export class AuroraDash extends Dash {
     }
   }
 
-  /**
-   * Check whether a window belongs to this dock's monitor and the active
-   * workspace. Windows stuck to all workspaces are always considered relevant.
-   */
   private _isWindowRelevant(w: any): boolean {
     return (
       w.get_monitor() === this._monitorIndex &&
@@ -789,7 +924,6 @@ export class AuroraDash extends Dash {
       dragMotion: (dragEvent: any) => {
         if (this._isDestroyed) return DND.DragMotionResult.CONTINUE;
 
-        // Internal dock icon drags (DashIcon source) have .app set; skip those.
         if (dragEvent.source?.app) {
           this._clearSpringLoad();
           return DND.DragMotionResult.CONTINUE;
@@ -844,7 +978,6 @@ export class AuroraDash extends Dash {
 
     DND.addDragMonitor(this._springLoadDragMonitor);
 
-    // Clear spring-load state when an external (X11/Wayland) drag ends.
     (global.backend as any)
       .get_dnd?.()
       ?.connectObject?.('dnd-leave', () => this._clearSpringLoad(), this);
@@ -857,18 +990,15 @@ export class AuroraDash extends Dash {
       // The target may already be disposed during shell shutdown.
     }
     if (this._springLoadTimerId !== 0) {
-      GLib.source_remove(this._springLoadTimerId);
-      this._springLoadTimerId = 0;
+      this._springLoadTimerId = this._removeSource(this._springLoadTimerId);
     }
     this._springLoadTarget = null;
   }
 
-  /** Start or restart the autohide timeout — hides the dock if not hovered/blocked. */
   private _onHover(): void {
     if (this._isDestroyed) return;
     if (this._autohideTimeoutId !== 0) {
-      GLib.source_remove(this._autohideTimeoutId);
-      this._autohideTimeoutId = 0;
+      this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
     }
     this._autohideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTOHIDE_TIMEOUT, () => {
       if (this._isDestroyed) {
@@ -885,12 +1015,10 @@ export class AuroraDash extends Dash {
     });
   }
 
-  /** If the cursor is still over the dash container, ensure the dock stays shown. */
   private _ensureHoverState(): void {
     if (this._isDestroyed) return;
     if (this._blockAutoHideDelayId !== 0) {
-      GLib.source_remove(this._blockAutoHideDelayId);
-      this._blockAutoHideDelayId = 0;
+      this._blockAutoHideDelayId = this._removeSource(this._blockAutoHideDelayId);
     }
     this._blockAutoHideDelayId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
       if (!this._isDestroyed) {
@@ -915,7 +1043,6 @@ export class AuroraDash extends Dash {
     return !this.visible && this.opacity === 0;
   }
 
-  /** Read the allocation box and return `{ width, height }`, or null if empty/missing. */
   private _getAllocationSize(): { width: number; height: number } | null {
     const alloc = this.get_allocation_box?.();
     if (!alloc) return null;
@@ -941,23 +1068,19 @@ export class AuroraDash extends Dash {
     const size = this._getAllocationSize();
     if (!size) return;
 
-    // Only compute stage position when transforms are at rest to avoid
-    // capturing a mid-animation Y that would cause intellihide to track
-    // a wrong position.
     if (!this.visible || this.translation_y !== 0) return;
 
     const [stageX, stageY] = (this as any).get_transformed_position?.() ?? [0, 0];
-    const p = TARGET_BOX_PADDING;
 
-    const padded: DashBounds = {
-      x: stageX - p,
-      y: stageY - p,
-      width: size.width + p * 2,
-      height: size.height + p * 2,
+    const bounds: DashBounds = {
+      x: stageX,
+      y: stageY,
+      width: size.width,
+      height: size.height,
     };
 
-    if (!AuroraDash._boundsEqual(this._targetBox, padded)) {
-      this._targetBox = padded;
+    if (!AuroraDash._boundsEqual(this._targetBox, bounds)) {
+      this._targetBox = bounds;
       this._targetBoxListener?.(this._targetBox);
     }
 
@@ -967,9 +1090,9 @@ export class AuroraDash extends Dash {
   private _flushPendingShow(): void {
     if (!this._pendingShow || !this._hasValidAllocation()) return;
 
-    const { animate, onComplete } = this._pendingShow;
+    const { animate } = this._pendingShow;
     this._pendingShow = null;
-    this._performShow(animate, onComplete);
+    this._performShow(animate);
   }
 
   private _getMarginBottom(): number {

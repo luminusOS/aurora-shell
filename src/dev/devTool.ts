@@ -12,6 +12,7 @@ import { Module } from '~/module.ts';
 import { loadIcon } from '~/shared/icons.ts';
 
 import { ClipboardHistoryDevTool } from './clipboardHistoryDevTool.ts';
+import { DockDevTool } from './dockDevTool.ts';
 import { GeneralDevTool } from './generalDevTool.ts';
 import { MeetingClockDevTool } from './meetingClockDevTool.ts';
 import { TrayIconsDevTool } from './trayIconsDevTool.ts';
@@ -36,6 +37,7 @@ export class DevTool extends Module {
   private _button: PanelMenu.Button | null = null;
   private _menuOpenStateId = 0;
   private _generalTool: GeneralDevTool | null = null;
+  private _dockTool: DockDevTool | null = null;
   private _clipboardHistoryTool: ClipboardHistoryDevTool | null = null;
   private _trayIconsTool: TrayIconsDevTool | null = null;
   private _weatherClockTool: WeatherClockDevTool | null = null;
@@ -62,6 +64,10 @@ export class DevTool extends Module {
     );
 
     this._generalTool = new GeneralDevTool(() => this._callbacks.openPreferences());
+    this._dockTool = new DockDevTool(
+      (key) => this._callbacks.getModule(key),
+      () => this._rebuildMenu(),
+    );
     this._clipboardHistoryTool = new ClipboardHistoryDevTool(
       (key) => this._callbacks.getModule(key),
       () => this._rebuildMenu(),
@@ -77,6 +83,7 @@ export class DevTool extends Module {
     );
     this._sections = [
       this._generalTool,
+      this._dockTool,
       this._clipboardHistoryTool,
       this._trayIconsTool,
       this._weatherClockTool,
@@ -102,6 +109,7 @@ export class DevTool extends Module {
     }
     this._sections = [];
     this._generalTool = null;
+    this._dockTool = null;
     this._clipboardHistoryTool = null;
     this._trayIconsTool = null;
     this._weatherClockTool = null;
@@ -127,6 +135,10 @@ export class DevTool extends Module {
 
   get generalTool(): GeneralDevTool | null {
     return this._generalTool;
+  }
+
+  get dockTool(): DockDevTool | null {
+    return this._dockTool;
   }
 
   get meetingClockTool(): MeetingClockDevTool | null {
