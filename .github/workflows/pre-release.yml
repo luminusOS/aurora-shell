@@ -1,0 +1,96 @@
+name: Pre-release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pre-release-main
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  pre-release:
+    name: Create daily pre-release
+    runs-on: ubuntu-latest
+    needs: [ci]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+
+          VERSION_NAME="$(node -e 'const fs = require("fs"); const metadata = JSON.parse(fs.readFileSync("metadata.json", "utf8")); process.stdout.write(metadata["version-name"]);')"
+          RELEASE_DATE="$(date -u +%Y%m%d)"
+          RELEASE_NAME="${VERSION_NAME}-${RELEASE_DATE}"
+
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=v${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Download extension zip
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zip
+          path: dist/target/
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Remove stale daily pre-releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_TAG: ${{ steps.metadata.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          gh release list --limit 100 --json tagName,isPrerelease --jq '
+            .[]
+            | select(.isPrerelease == true)
+            | .tagName
+          ' | while read -r tag; do
+            if [ -z "$tag" ] || [ "$tag" = "$CURRENT_TAG" ]; then
+              continue
+            fi
+
+            if [[ "$tag" =~ ^v[0-9]+\.[0-9]+-[0-9]{8}$ ]]; then
+              gh release delete "$tag" --yes --cleanup-tag
+            fi
+          done
+
+          git fetch --tags --force
+          git tag -l 'v*.*-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' | while read -r tag; do
+            if [ -z "$tag" ] || [ "$tag" = "$CURRENT_TAG" ]; then
+              continue
+            fi
+
+            git push --delete origin "$tag" || true
+            git tag --delete "$tag" || true
+          done
+
+      - name: Move daily pre-release tag
+        run: |
+          set -euo pipefail
+          git tag --force "${{ steps.metadata.outputs.tag_name }}" "$GITHUB_SHA"
+          git push --force origin "refs/tags/${{ steps.metadata.outputs.tag_name }}"
+
+      - name: Create or update GitHub pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.metadata.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.metadata.outputs.release_name }}
+          files: dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
+          generate_release_notes: true
+          prerelease: true
+          make_latest: false
+          overwrite_files: true

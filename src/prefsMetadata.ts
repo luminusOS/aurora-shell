@@ -72,6 +72,12 @@ export function getModuleMetadata(): ModuleMetadata[] {
           subtitle: _('Keep dock permanently visible and shrink windows so they never overlap it'),
           type: 'switch',
         },
+        {
+          key: 'dock-show-trash',
+          title: _('Show Trash Icon'),
+          subtitle: _('Show a trash can in the dock; click to open it, right-click to empty it'),
+          type: 'switch',
+        },
       ],
     },
     {

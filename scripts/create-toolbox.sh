@@ -7,6 +7,7 @@ IMAGE="${2:-registry.fedoraproject.org/fedora-toolbox:44}"
 
 PACKAGES=(
   gnome-shell
+  nautilus
   glib2-devel
   mutter-devkit
   mutter-tests

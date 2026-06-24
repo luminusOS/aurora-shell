@@ -61,6 +61,11 @@
       <summary>Always show dock</summary>
       <description>Keep the dock permanently visible and reserve screen space so windows never overlap it</description>
     </key>
+    <key name="dock-show-trash" type="b">
+      <default>true</default>
+      <summary>Show trash icon</summary>
+      <description>Show a trash can icon in the dock; click to open the trash, right-click to empty it</description>
+    </key>
     <key name="module-auto-theme-switcher" type="b">
       <default>false</default>
       <summary>Enable Auto Theme Switcher module</summary>

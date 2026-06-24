@@ -14,6 +14,12 @@ import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from './testUtils
 const DEVTOOL_ID = 'aurora-devtool';
 const TRAY_ID = 'aurora-tray-icons';
 
+function collectText(actor) {
+  const text = typeof actor?.text === 'string' ? [actor.text] : [];
+  for (const child of actor?.get_children?.() ?? []) text.push(...collectText(child));
+  return text;
+}
+
 export var METRICS = {};
 
 /** @returns {void} */
@@ -25,6 +31,7 @@ export function init() {
   Scripting.defineScriptEvent('trayIconsToolPassed', 'Tray Icons DevTool actions passed');
   Scripting.defineScriptEvent('weatherClockToolPassed', 'Weather Clock DevTool actions passed');
   Scripting.defineScriptEvent('meetingClockToolPassed', 'Meeting Clock DevTool actions passed');
+  Scripting.defineScriptEvent('dockToolPassed', 'Dock DevTool actions passed');
 }
 
 /** @returns {Promise<void>} */
@@ -180,6 +187,92 @@ export async function run() {
   await Scripting.sleep(300);
 
   Scripting.scriptEvent('meetingClockToolPassed');
+
+  settings.set_boolean('module-dock', true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(500);
+
+  const dockTool = devTool.dockTool;
+  if (!dockTool) throw new Error('Dock DevTool section not found');
+  if (dockTool.iconName !== 'view-app-grid-symbolic')
+    throw new Error(`Unexpected Dock DevTool icon: ${dockTool.iconName}`);
+
+  const dock = extension?.stateObj?._modules?.get('dock');
+  if (!dock) throw new Error('Dock module not found for Dock DevTool test');
+  if (dock.bindings.length === 0) throw new Error('Dock DevTool test requires at least one binding');
+
+  if (!dockTool.revealAll()) throw new Error('Dock DevTool revealAll returned false');
+  await Scripting.sleep(300);
+  if (!dock.bindings.every((b) => b.dash.visible))
+    throw new Error('Dock DevTool revealAll did not show the dock');
+  if (dock.bindings.some((b) => b.hotArea?.reactive))
+    throw new Error('Dock DevTool revealAll left a hot area above a visible dock');
+
+  if (!dockTool.triggerHotArea()) throw new Error('Dock DevTool triggerHotArea returned false');
+  await Scripting.sleep(100);
+
+  if (!dockTool.hideAll()) throw new Error('Dock DevTool hideAll returned false');
+  await Scripting.sleep(300);
+  if (dock.bindings.some((b) => b.dash.visible))
+    throw new Error('Dock DevTool hideAll did not hide every dock');
+  if (dock.bindings.some((b) => b.container.reactive))
+    throw new Error('Dock DevTool hideAll left a hidden container reactive');
+
+  const monitorIndex = dock.bindings[0].monitorIndex;
+  if (!dockTool.showMonitor(monitorIndex))
+    throw new Error('Dock DevTool showMonitor returned false');
+  await Scripting.sleep(300);
+  if (!dock.bindings[0].dash.visible)
+    throw new Error('Dock DevTool showMonitor did not show the selected monitor');
+
+  if (!dockTool.hideMonitor(monitorIndex))
+    throw new Error('Dock DevTool hideMonitor returned false');
+  await Scripting.sleep(300);
+  if (dock.bindings[0].dash.visible)
+    throw new Error('Dock DevTool hideMonitor did not hide the selected monitor');
+
+  if (dock.bindings[0].hotArea) {
+    if (!dockTool.triggerMonitorHotArea(monitorIndex))
+      throw new Error('Dock DevTool triggerMonitorHotArea returned false');
+    await Scripting.sleep(100);
+    if (!dock.bindings[0].hotAreaActive)
+      throw new Error('Dock DevTool did not trigger the selected monitor hot area');
+  }
+
+  if (dockTool.showMonitor(-1))
+    throw new Error('Dock DevTool showMonitor accepted an invalid monitor');
+
+  const alwaysShowBefore = settings.get_boolean('dock-always-show');
+  if (dock.alwaysShow !== alwaysShowBefore)
+    throw new Error('Dock alwaysShow getter does not reflect the persisted setting');
+  const panelBeforeToggle = dockTool.buildPanel();
+  const textsBeforeToggle = collectText(panelBeforeToggle);
+  panelBeforeToggle.destroy();
+  if (!textsBeforeToggle.includes(`Always Show: ${alwaysShowBefore ? 'On' : 'Off'}`))
+    throw new Error('Dock DevTool Always Show button does not display the persisted state');
+  if (!textsBeforeToggle.some((text) => text.startsWith(`Monitor ${monitorIndex + 1}:`)))
+    throw new Error('Dock DevTool did not render controls for the selected monitor');
+
+  if (!dockTool.toggleAlwaysShow())
+    throw new Error('Dock DevTool toggleAlwaysShow returned false');
+  await Scripting.waitLeisure();
+  await Scripting.sleep(500);
+  if (settings.get_boolean('dock-always-show') === alwaysShowBefore)
+    throw new Error('Dock DevTool toggleAlwaysShow did not flip always-show mode');
+  const panelAfterToggle = dockTool.buildPanel();
+  const textsAfterToggle = collectText(panelAfterToggle);
+  panelAfterToggle.destroy();
+  if (!textsAfterToggle.includes(`Always Show: ${alwaysShowBefore ? 'Off' : 'On'}`))
+    throw new Error('Dock DevTool Always Show button did not update to the new state');
+
+  if (!dockTool.toggleAlwaysShow())
+    throw new Error('Dock DevTool toggleAlwaysShow restore returned false');
+  await Scripting.waitLeisure();
+  await Scripting.sleep(500);
+  if (settings.get_boolean('dock-always-show') !== alwaysShowBefore)
+    throw new Error('Dock DevTool toggleAlwaysShow did not restore always-show mode');
+
+  Scripting.scriptEvent('dockToolPassed');
 }
 
 let _extensionEnabled = false;
@@ -189,6 +282,7 @@ let _clipboardToolPassed = false;
 let _trayIconsToolPassed = false;
 let _weatherClockToolPassed = false;
 let _meetingClockToolPassed = false;
+let _dockToolPassed = false;
 
 /** @returns {void} */
 export function script_extensionEnabled() {
@@ -226,6 +320,11 @@ export function script_meetingClockToolPassed() {
 }
 
 /** @returns {void} */
+export function script_dockToolPassed() {
+  _dockToolPassed = true;
+}
+
+/** @returns {void} */
 export function finish() {
   if (!_extensionEnabled) throw new Error('Extension was not found or not enabled');
 
@@ -237,6 +336,7 @@ export function finish() {
     if (!_weatherClockToolPassed)
       throw new Error('Weather Clock DevTool actions did not complete');
     if (!_meetingClockToolPassed) throw new Error('Meeting Clock DevTool actions did not complete');
+    if (!_dockToolPassed) throw new Error('Dock DevTool actions did not complete');
   } else if (!_devToolAbsent) {
     throw new Error('DevTool was not confirmed absent without AURORA_DEVTOOLS=1');
   }

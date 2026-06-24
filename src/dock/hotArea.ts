@@ -9,19 +9,14 @@ import Shell from '@girs/shell-18';
 import GObject from '@girs/gobject-2.0';
 import * as Layout from '@girs/gnome-shell/ui/layout';
 
+import { logger } from '~/core/logger.ts';
 import type { DashBounds } from '~/shared/ui/dash.ts';
 
+const LOG_PREFIX = 'DockHotArea';
 const HOT_AREA_TRIGGER_SPEED = 150;
 const HOT_AREA_TRIGGER_TIMEOUT = 550;
 const HOT_AREA_DEBOUNCE_TIMEOUT = 250;
 
-/**
- * Invisible input barrier at the bottom screen edge.
- *
- * Uses a GNOME Shell PressureBarrier plus a thin reactive widget to detect
- * when the user pushes the pointer against the bottom edge, then emits
- * 'triggered' so the Dock module can reveal the dash.
- */
 @GObject.registerClass({
   Signals: { triggered: {} },
 })
@@ -29,7 +24,9 @@ export class DockHotArea extends St.Widget {
   private _pressureBarrier: Layout.PressureBarrier | null = null;
   private _horizontalBarrier: Meta.Barrier | null = null;
   private _monitor!: DashBounds;
-  private _triggerAllowed = true;
+  private _enabled = true;
+  private _edgeArmed = true;
+  private _grabSuppressed = false;
   private _pointerDwellTimeoutId = 0;
 
   override _init(monitor: DashBounds) {
@@ -45,7 +42,12 @@ export class DockHotArea extends St.Widget {
     this._pressureBarrier.connectObject(
       'trigger',
       () => {
-        if (this._triggerAllowed) this.emit('triggered');
+        if (this._canTrigger()) {
+          logger.debug(`pressure trigger geometry=${this._formatGeometry()}`, {
+            prefix: LOG_PREFIX,
+          });
+          this.emit('triggered');
+        }
       },
       this,
     );
@@ -53,13 +55,16 @@ export class DockHotArea extends St.Widget {
     this.connectObject(
       'enter-event',
       () => {
-        if (this._triggerAllowed) {
+        if (this._canTrigger()) {
           this._clearDebounceTimer();
 
           this._pointerDwellTimeoutId = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT,
             HOT_AREA_DEBOUNCE_TIMEOUT,
             () => {
+              logger.debug(`pointer dwell trigger geometry=${this._formatGeometry()}`, {
+                prefix: LOG_PREFIX,
+              });
               this.emit('triggered');
               this._pointerDwellTimeoutId = 0;
               return GLib.SOURCE_REMOVE;
@@ -74,24 +79,33 @@ export class DockHotArea extends St.Widget {
     this.connectObject(
       'leave-event',
       () => {
-        if (this._pointerDwellTimeoutId) {
-          GLib.source_remove(this._pointerDwellTimeoutId);
-          this._pointerDwellTimeoutId = 0;
+        this._clearDebounceTimer();
+        if (this._enabled && !this._grabSuppressed && !this._edgeArmed) {
+          this._edgeArmed = true;
+          logger.debug(`rearmed after pointer leave geometry=${this._formatGeometry()}`, {
+            prefix: LOG_PREFIX,
+          });
         }
         return Clutter.EVENT_PROPAGATE;
       },
       this,
     );
 
-    // Suppress triggers while the user is dragging a window
     global.display.connectObject(
       'grab-op-begin',
       (_d: any, _w: any, op: Meta.GrabOp) => {
-        if (op === Meta.GrabOp.MOVING) this._triggerAllowed = false;
+        if (op === Meta.GrabOp.MOVING) {
+          this._grabSuppressed = true;
+          this._edgeArmed = false;
+          this._clearDebounceTimer();
+        }
       },
       'grab-op-end',
       (_d: any, _w: any, op: Meta.GrabOp) => {
-        if (op === Meta.GrabOp.MOVING) this._triggerAllowed = true;
+        if (op === Meta.GrabOp.MOVING) {
+          this._grabSuppressed = false;
+          if (this._enabled) this._edgeArmed = !this._isPointerInsideHotArea();
+        }
       },
       this,
     );
@@ -99,7 +113,27 @@ export class DockHotArea extends St.Widget {
 
   setGeometry(monitor: DashBounds): void {
     this._monitor = monitor;
-    this._rebuildBarrier(monitor.width);
+    if (this._enabled) this._rebuildBarrier(monitor.width);
+  }
+
+  setEnabled(enabled: boolean): void {
+    if (enabled === this._enabled && enabled === this.reactive) return;
+    this._enabled = enabled;
+    this.set_reactive(enabled);
+    if (enabled) {
+      this._edgeArmed = !this._isPointerInsideHotArea() && !this._grabSuppressed;
+      logger.debug(`enabled=true armed=${this._edgeArmed} geometry=${this._formatGeometry()}`, {
+        prefix: LOG_PREFIX,
+      });
+      this._rebuildBarrier(this._monitor.width);
+    } else {
+      this._edgeArmed = false;
+      logger.debug(`enabled=false geometry=${this._formatGeometry()}`, {
+        prefix: LOG_PREFIX,
+      });
+      this._clearDebounceTimer();
+      this._destroyBarrier();
+    }
   }
 
   override destroy(): void {
@@ -149,5 +183,27 @@ export class DockHotArea extends St.Widget {
       GLib.source_remove(this._pointerDwellTimeoutId);
       this._pointerDwellTimeoutId = 0;
     }
+  }
+
+  private _canTrigger(): boolean {
+    return this._enabled && this._edgeArmed && !this._grabSuppressed;
+  }
+
+  private _isPointerInsideHotArea(): boolean {
+    const [pointerX, pointerY] = global.get_pointer();
+    const monitor = this._monitor;
+    const bottom = monitor.y + monitor.height;
+    const top = bottom - Math.max(1, this.height || 1);
+    return (
+      pointerX >= monitor.x &&
+      pointerX <= monitor.x + monitor.width &&
+      pointerY >= top &&
+      pointerY <= bottom
+    );
+  }
+
+  private _formatGeometry(): string {
+    const monitor = this._monitor;
+    return `${monitor.x},${monitor.y} ${monitor.width}x${monitor.height}`;
   }
 }
