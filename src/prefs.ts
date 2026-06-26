@@ -7,7 +7,12 @@ import GLib from '@girs/glib-2.0';
 import Gtk from '@girs/gtk-4.0';
 
 import { ExtensionPreferences, gettext as _ } from '@girs/gnome-shell/extensions/prefs';
-import { getModuleMetadata, getSections, type ModuleMetadata } from '~/prefsMetadata.ts';
+import {
+  getModuleMetadata,
+  getSections,
+  type ModuleMetadata,
+  type ModuleOption,
+} from '~/prefsMetadata.ts';
 
 const OTHER_SECTION_ID = '__other__';
 const LOGO_FILENAME = 'aurora-shell-logo.svg';
@@ -16,6 +21,7 @@ const WEBSITE_URL = 'https://github.com/luminusOS/aurora-shell';
 export default class AuroraShellPreferences extends ExtensionPreferences {
   override fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void> {
     const settings = this.getSettings();
+    this._registerIconSearchPaths(window);
 
     const page = new Adw.PreferencesPage({
       title: _('General'),
@@ -98,6 +104,15 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
     button.valign = Gtk.Align.CENTER;
 
     return button;
+  }
+
+  private _registerIconSearchPaths(window: Gtk.Widget): void {
+    const iconTheme = Gtk.IconTheme.get_for_display(window.get_display());
+
+    for (const relativePath of ['icons', 'data/icons']) {
+      const iconPath = GLib.build_filenamev([this.path, relativePath]);
+      if (GLib.file_test(iconPath, GLib.FileTest.IS_DIR)) iconTheme.add_search_path(iconPath);
+    }
   }
 
   private _buildModuleRow(def: ModuleMetadata, settings: Gio.Settings): Adw.PreferencesRow {
@@ -205,10 +220,96 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
         expander.add_row(
           this._buildShortcutRow(option.key!, option.title, option.subtitle, settings),
         );
+      } else if (option.type === 'icon-select') {
+        expander.add_row(this._buildIconSelectRow(option, settings));
       }
     }
 
     return expander;
+  }
+
+  private _buildIconSelectRow(option: ModuleOption, settings: Gio.Settings): Adw.ActionRow {
+    const choices = option.choices ?? [];
+    const row = new Adw.ActionRow({
+      title: option.title,
+      subtitle: option.subtitle,
+    });
+
+    const selectedIcon = new Gtk.Image({
+      icon_name: 'image-missing-symbolic',
+      pixel_size: 20,
+      valign: Gtk.Align.CENTER,
+    });
+    const button = new Gtk.Button({
+      child: selectedIcon,
+      valign: Gtk.Align.CENTER,
+      tooltip_text: option.title,
+    });
+    button.add_css_class('flat');
+
+    const popover = new Gtk.Popover({
+      autohide: true,
+      has_arrow: true,
+      position: Gtk.PositionType.BOTTOM,
+    });
+    popover.set_parent(button);
+
+    const grid = new Gtk.Grid({
+      column_spacing: 6,
+      column_homogeneous: true,
+      row_spacing: 6,
+    });
+
+    for (const [index, choice] of choices.entries()) {
+      const icon = new Gtk.Image({
+        icon_name: choice.iconName ?? 'image-missing-symbolic',
+        pixel_size: 24,
+        valign: Gtk.Align.CENTER,
+        halign: Gtk.Align.CENTER,
+      });
+
+      const choiceButton = new Gtk.Button({
+        child: icon,
+        has_frame: false,
+        tooltip_text: choice.title,
+      });
+      choiceButton.add_css_class('flat');
+      choiceButton.set_size_request(44, 44);
+      choiceButton.connect('clicked', () => {
+        settings.set_string(option.key!, choice.value);
+        popover.popdown();
+      });
+
+      grid.attach(choiceButton, index % 6, Math.floor(index / 6), 1, 1);
+    }
+
+    const popoverBox = new Gtk.Box({
+      orientation: Gtk.Orientation.VERTICAL,
+      margin_top: 6,
+      margin_bottom: 6,
+      margin_start: 6,
+      margin_end: 6,
+    });
+    popoverBox.append(grid);
+    popover.set_child(popoverBox);
+
+    const syncSelection = () => {
+      if (choices.length === 0) return;
+
+      const selected =
+        choices.find((choice) => choice.value === settings.get_string(option.key!)) ?? choices[0]!;
+      selectedIcon.icon_name = selected.iconName ?? 'image-missing-symbolic';
+      button.tooltip_text = selected.title;
+    };
+
+    button.connect('clicked', () => popover.popup());
+
+    settings.connect(`changed::${option.key!}`, syncSelection);
+    syncSelection();
+
+    row.add_suffix(button);
+    row.activatable_widget = button;
+    return row;
   }
 
   private _buildShortcutRow(

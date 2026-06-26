@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-06-18 12:20-0300\n"
+"POT-Creation-Date: 2026-06-25 00:39-0300\n"
 "PO-Revision-Date: 2026-03-09 18:00-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -16,56 +16,56 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: dist/clipboard/clipboardHistory.js:177 dist/prefsMetadata.js:261
+#: dist/clipboard/clipboardHistory.js:177 dist/prefsMetadata.js:350
 msgid "Clipboard History"
 msgstr ""
 
-#: dist/clipboard/clipboardHistory.js:178 dist/prefsMetadata.js:262
+#: dist/clipboard/clipboardHistory.js:178 dist/prefsMetadata.js:351
 msgid "Searchable clipboard history with pinning and keyboard navigation"
 msgstr ""
 
-#: dist/clipboard/clipboardHistory.js:182 dist/prefsMetadata.js:266
+#: dist/clipboard/clipboardHistory.js:182 dist/prefsMetadata.js:355
 msgid "Open Shortcut"
 msgstr ""
 
-#: dist/clipboard/clipboardHistory.js:183 dist/prefsMetadata.js:267
+#: dist/clipboard/clipboardHistory.js:183 dist/prefsMetadata.js:356
 msgid "Keyboard shortcut to open the clipboard history panel"
 msgstr ""
 
-#: dist/clipboard/clipboardHistory.js:188 dist/prefsMetadata.js:272
+#: dist/clipboard/clipboardHistory.js:188 dist/prefsMetadata.js:361
 msgid "Poll Interval (ms)"
 msgstr ""
 
-#: dist/clipboard/clipboardHistory.js:189 dist/prefsMetadata.js:273
+#: dist/clipboard/clipboardHistory.js:189 dist/prefsMetadata.js:362
 msgid "How often to check the clipboard for changes"
 msgstr ""
 
-#: dist/clipboard/clipboardItem.js:247
+#: dist/clipboard/clipboardItem.js:323
 #, javascript-format
 msgid "%d lines"
 msgstr ""
 
-#: dist/clipboard/clipboardItem.js:300
+#: dist/clipboard/clipboardItem.js:382
 msgid "Copy"
 msgstr ""
 
-#: dist/clipboard/clipboardItem.js:303
+#: dist/clipboard/clipboardItem.js:385
 msgid "Unpin"
 msgstr ""
 
-#: dist/clipboard/clipboardItem.js:303
+#: dist/clipboard/clipboardItem.js:385
 msgid "Pin"
 msgstr ""
 
-#: dist/clipboard/clipboardItem.js:306
+#: dist/clipboard/clipboardItem.js:388
 msgid "Delete"
 msgstr ""
 
-#: dist/clipboard/clipboardList.js:35
+#: dist/clipboard/clipboardList.js:36
 msgid "Clipboard history is empty"
 msgstr "O histórico da área de transferência está vazio"
 
-#: dist/clipboard/clipboardList.js:41
+#: dist/clipboard/clipboardList.js:42
 msgid "Copy text, links, code, or images to see them here."
 msgstr "Copie textos, links, códigos ou imagens para vê-los aqui."
 
@@ -73,7 +73,7 @@ msgstr "Copie textos, links, códigos ou imagens para vê-los aqui."
 msgid "Search…"
 msgstr "Pesquisar…"
 
-#: dist/desktop/trayIcons/backgroundAppsSource.js:109
+#: dist/desktop/trayIcons/backgroundAppsSource.js:109 dist/dock/trashIcon.js:94
 msgid "Open"
 msgstr ""
 
@@ -81,84 +81,210 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:395 dist/prefsMetadata.js:210
+#: dist/desktop/trayIcons/trayIcons.js:451 dist/prefsMetadata.js:299
 msgid "Tray Icons"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:396 dist/prefsMetadata.js:211
+#: dist/desktop/trayIcons/trayIcons.js:452 dist/prefsMetadata.js:300
 msgid "System tray with SNI and background app icons"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:401 dist/prefsMetadata.js:215
+#: dist/desktop/trayIcons/trayIcons.js:457 dist/prefsMetadata.js:304
 msgid "Visible Icon Limit"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:402 dist/prefsMetadata.js:216
+#: dist/desktop/trayIcons/trayIcons.js:458 dist/prefsMetadata.js:305
 msgid "Maximum number of icons shown before the expand button appears"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:409 dist/prefsMetadata.js:223
+#: dist/desktop/trayIcons/trayIcons.js:465 dist/prefsMetadata.js:312
 msgid "Icon Size"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:410 dist/prefsMetadata.js:224
+#: dist/desktop/trayIcons/trayIcons.js:466 dist/prefsMetadata.js:313
 msgid "Tray icon size in pixels (14–24)"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:417 dist/prefsMetadata.js:231
+#: dist/desktop/trayIcons/trayIcons.js:473 dist/prefsMetadata.js:320
 msgid "Attention Auto-Collapse (seconds)"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:418 dist/prefsMetadata.js:232
+#: dist/desktop/trayIcons/trayIcons.js:474 dist/prefsMetadata.js:321
 msgid "Seconds before the tray collapses after a notification icon appears"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:425 dist/prefsMetadata.js:239
+#: dist/desktop/trayIcons/trayIcons.js:481 dist/prefsMetadata.js:328
 msgid "Hide Background App When Tray Icon Present"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:426 dist/prefsMetadata.js:240
+#: dist/desktop/trayIcons/trayIcons.js:482 dist/prefsMetadata.js:329
 msgid "Remove the background app icon when the same app has an SNI tray icon"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:431 dist/prefsMetadata.js:245
+#: dist/desktop/trayIcons/trayIcons.js:487 dist/prefsMetadata.js:334
 msgid "Hide Background Apps from Quick Settings"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:432 dist/prefsMetadata.js:246
+#: dist/desktop/trayIcons/trayIcons.js:488 dist/prefsMetadata.js:335
 msgid "Hide the Background Apps section from the Quick Settings dropdown"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:437 dist/prefsMetadata.js:251
+#: dist/desktop/trayIcons/trayIcons.js:493 dist/prefsMetadata.js:340
 msgid "Recolor Symbolic Tray Icons"
 msgstr ""
 
-#: dist/desktop/trayIcons/trayIcons.js:438 dist/prefsMetadata.js:252
+#: dist/desktop/trayIcons/trayIcons.js:494 dist/prefsMetadata.js:341
 msgid "Automatically recolor monochrome SNI icons to match the panel theme"
 msgstr ""
 
-#: dist/dock/dock.js:323 dist/prefsMetadata.js:40
+#: dist/dock/dock.js:494 dist/prefsMetadata.js:47
 msgid "Dock"
 msgstr "Dock"
 
-#: dist/dock/dock.js:324 dist/prefsMetadata.js:41
+#: dist/dock/dock.js:495 dist/prefsMetadata.js:48
 msgid "Custom dock with auto-hide and intellihide features"
 msgstr "Dock personalizado com ocultação automática e inteligente"
 
-#: dist/dock/dock.js:328 dist/prefsMetadata.js:45
+#: dist/dock/dock.js:499 dist/prefsMetadata.js:52
 msgid "Always Show Dock"
 msgstr ""
 
-#: dist/dock/dock.js:329 dist/prefsMetadata.js:46
+#: dist/dock/dock.js:500 dist/prefsMetadata.js:53
 msgid ""
 "Keep dock permanently visible and shrink windows so they never overlap it"
 msgstr ""
 
-#: dist/panel/bluetoothMenu/bluetoothMenu.js:93 dist/prefsMetadata.js:129
+#: dist/dock/dock.js:505 dist/prefsMetadata.js:58
+msgid "Show Trash Icon"
+msgstr ""
+
+#: dist/dock/dock.js:506 dist/prefsMetadata.js:59
+msgid "Show a trash can in the dock; click to open it, right-click to empty it"
+msgstr ""
+
+#: dist/dock/trashIcon.js:39 dist/dock/trashIcon.js:49
+msgid "Trash"
+msgstr ""
+
+#: dist/dock/trashIcon.js:97
+msgid "Empty Trash"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:104
+msgid "About This PC"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:110
+msgid "Home Folder"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:115
+msgid "Downloads"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:122
+msgid "System Settings"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:127
+msgid "Software"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:132
+msgid "Extensions"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:159
+msgid "Recent Items"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:165
+msgid "No recent items"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:286 dist/panel/auroraMenu.js:298
+#: dist/panel/auroraMenu.js:375 dist/prefsMetadata.js:68
+msgid "Aurora Menu"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:286
+msgid "Could not launch the selected command."
+msgstr ""
+
+#: dist/panel/auroraMenu.js:298
+msgid "Could not open the selected recent item."
+msgstr ""
+
+#: dist/panel/auroraMenu.js:376 dist/prefsMetadata.js:69
+msgid "Aurora panel menu with recent items and useful shortcuts"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:380 dist/prefsMetadata.js:73
+msgid "Menu Icon"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:381 dist/prefsMetadata.js:74
+msgid "Choose the icon shown in the top panel"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:386 dist/prefsMetadata.js:79
+#, fuzzy
+msgid "Aurora Shell"
+msgstr "Logo do Aurora Shell"
+
+#: dist/panel/auroraMenu.js:391 dist/prefsMetadata.js:84
+msgid "GNOME"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:396 dist/prefsMetadata.js:89
+msgid "Luminus OS"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:403 dist/prefsMetadata.js:96
+msgid "Hide Activities Button"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:404 dist/prefsMetadata.js:97
+msgid "Hide the Activities button while Aurora Menu is enabled"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:409 dist/prefsMetadata.js:102
+msgid "Software Command"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:410 dist/prefsMetadata.js:103
+msgid "Command used by the Software menu item"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:415 dist/prefsMetadata.js:108
+msgid "Custom Menu Item"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:416 dist/prefsMetadata.js:109
+msgid "Show one additional command in Aurora Menu"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:421 dist/prefsMetadata.js:114
+msgid "Custom Item Label"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:422 dist/prefsMetadata.js:115
+msgid "Text shown for the custom menu item"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:427 dist/prefsMetadata.js:120
+msgid "Custom Item Command"
+msgstr ""
+
+#: dist/panel/auroraMenu.js:428 dist/prefsMetadata.js:121
+msgid "Command launched by the custom menu item"
+msgstr ""
+
+#: dist/panel/bluetoothMenu/bluetoothMenu.js:93 dist/prefsMetadata.js:218
 msgid "Bluetooth Menu"
 msgstr ""
 
-#: dist/panel/bluetoothMenu/bluetoothMenu.js:94 dist/prefsMetadata.js:130
+#: dist/panel/bluetoothMenu/bluetoothMenu.js:94 dist/prefsMetadata.js:219
 msgid ""
 "Shows battery level and animated icons in the Bluetooth Quick Settings panel"
 msgstr ""
@@ -184,85 +310,101 @@ msgid "Ignore"
 msgstr ""
 
 #: dist/panel/clock/meetingClock/meetingClock.js:494
-#: dist/panel/clock/meetingClock/meetingClock.js:540 dist/prefsMetadata.js:151
+#: dist/panel/clock/meetingClock/meetingClock.js:540 dist/prefsMetadata.js:240
 msgid "Meeting Clock"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:541 dist/prefsMetadata.js:152
+#: dist/panel/clock/meetingClock/meetingClock.js:541 dist/prefsMetadata.js:241
 msgid "Shows upcoming calendar events next to the clock"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:545 dist/prefsMetadata.js:156
+#: dist/panel/clock/meetingClock/meetingClock.js:545 dist/prefsMetadata.js:245
 msgid "Meeting Alerts"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:546 dist/prefsMetadata.js:157
+#: dist/panel/clock/meetingClock/meetingClock.js:546 dist/prefsMetadata.js:246
 msgid "Show a notification when a meeting is about to start"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:551 dist/prefsMetadata.js:162
+#: dist/panel/clock/meetingClock/meetingClock.js:551 dist/prefsMetadata.js:251
 msgid "Alert Lead Time (minutes)"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:552 dist/prefsMetadata.js:163
+#: dist/panel/clock/meetingClock/meetingClock.js:552 dist/prefsMetadata.js:252
 msgid "Minutes before a meeting starts to show the alert"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:559 dist/prefsMetadata.js:170
+#: dist/panel/clock/meetingClock/meetingClock.js:559 dist/prefsMetadata.js:259
 msgid "Snooze Duration (minutes)"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:560 dist/prefsMetadata.js:171
+#: dist/panel/clock/meetingClock/meetingClock.js:560 dist/prefsMetadata.js:260
 msgid "Minutes to wait before showing a snoozed alert again"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:567 dist/prefsMetadata.js:178
+#: dist/panel/clock/meetingClock/meetingClock.js:567 dist/prefsMetadata.js:267
 msgid "Alert Events Without Links"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:568 dist/prefsMetadata.js:179
+#: dist/panel/clock/meetingClock/meetingClock.js:568 dist/prefsMetadata.js:268
 msgid "Show meeting alerts for calendar events that do not include a join link"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:573 dist/prefsMetadata.js:184
+#: dist/panel/clock/meetingClock/meetingClock.js:573 dist/prefsMetadata.js:273
 msgid "Panel Reveal Interval (minutes)"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:574 dist/prefsMetadata.js:185
+#: dist/panel/clock/meetingClock/meetingClock.js:574 dist/prefsMetadata.js:274
 msgid "Minutes between automatic Meeting Clock slide reveals in the panel"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:581 dist/prefsMetadata.js:192
+#: dist/panel/clock/meetingClock/meetingClock.js:581 dist/prefsMetadata.js:281
 msgid "Panel Lookahead (minutes)"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:582 dist/prefsMetadata.js:193
+#: dist/panel/clock/meetingClock/meetingClock.js:582 dist/prefsMetadata.js:282
 msgid ""
 "Maximum minutes before an event starts for it to appear in the panel clock"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:589 dist/prefsMetadata.js:200
+#: dist/panel/clock/meetingClock/meetingClock.js:589 dist/prefsMetadata.js:289
 msgid "Hide All-Day Events"
 msgstr ""
 
-#: dist/panel/clock/meetingClock/meetingClock.js:590 dist/prefsMetadata.js:201
+#: dist/panel/clock/meetingClock/meetingClock.js:590 dist/prefsMetadata.js:290
 msgid "Exclude all-day events from the clock and alerts"
 msgstr ""
 
-#: dist/panel/clock/weatherClock/weatherClock.js:357 dist/prefsMetadata.js:136
+#: dist/panel/clock/weatherClock/weatherClock.js:357 dist/prefsMetadata.js:225
 msgid "Weather Clock"
 msgstr ""
 
-#: dist/panel/clock/weatherClock/weatherClock.js:358 dist/prefsMetadata.js:137
+#: dist/panel/clock/weatherClock/weatherClock.js:358 dist/prefsMetadata.js:226
 msgid "Shows GNOME Weather next to the clock"
 msgstr ""
 
-#: dist/panel/clock/weatherClock/weatherClock.js:362 dist/prefsMetadata.js:141
+#: dist/panel/clock/weatherClock/weatherClock.js:362 dist/prefsMetadata.js:230
 msgid "Show Weather After Clock"
 msgstr ""
 
-#: dist/panel/clock/weatherClock/weatherClock.js:363 dist/prefsMetadata.js:142
+#: dist/panel/clock/weatherClock/weatherClock.js:363 dist/prefsMetadata.js:231
 msgid "Place the weather indicator after the clock instead of before it"
+msgstr ""
+
+#: dist/panel/lockKeyIndicators.js:92 dist/prefsMetadata.js:144
+msgid "Lock Key Indicators"
+msgstr ""
+
+#: dist/panel/lockKeyIndicators.js:93 dist/prefsMetadata.js:145
+msgid "Shows Caps Lock and Num Lock indicators in the top panel"
+msgstr ""
+
+#: dist/panel/lowBatteryPercentage.js:112 dist/prefsMetadata.js:137
+msgid "Low Battery Percentage"
+msgstr ""
+
+#: dist/panel/lowBatteryPercentage.js:113 dist/prefsMetadata.js:138
+msgid "Shows battery percentage in the panel while below 20%"
 msgstr ""
 
 #: dist/panel/volumeMixer/mixerItem.js:94
@@ -284,7 +426,7 @@ msgstr ""
 
 #: dist/panel/volumeMixer/volumeMixer.js:108
 #: dist/panel/volumeMixer/volumeMixer.js:117
-#: dist/panel/volumeMixer/volumeMixer.js:136 dist/prefsMetadata.js:55
+#: dist/panel/volumeMixer/volumeMixer.js:136 dist/prefsMetadata.js:130
 msgid "Volume Mixer"
 msgstr "Mixer de Volume"
 
@@ -292,33 +434,42 @@ msgstr "Mixer de Volume"
 msgid "Sound Output"
 msgstr ""
 
-#: dist/panel/volumeMixer/volumeMixer.js:137 dist/prefsMetadata.js:56
+#: dist/panel/volumeMixer/volumeMixer.js:137 dist/prefsMetadata.js:131
 msgid "Per-application volume control in Quick Settings"
 msgstr "Controle de volume por aplicativo nas Configurações Rápidas"
 
-#: dist/patches/appSearchTooltip.js:151 dist/prefsMetadata.js:99
+#: dist/patches/appSearchTooltip.js:151 dist/prefsMetadata.js:188
 msgid "App Search Tooltip"
 msgstr ""
 
-#: dist/patches/appSearchTooltip.js:152 dist/prefsMetadata.js:100
+#: dist/patches/appSearchTooltip.js:152 dist/prefsMetadata.js:189
 msgid "Shows app name on hover in the overview search results"
 msgstr ""
 
-#: dist/patches/iconWeave.js:482 dist/prefsMetadata.js:92
+#: dist/patches/focusLaunchedWindows.js:35 dist/prefsMetadata.js:33
+msgid "Focus Launched Windows"
+msgstr ""
+
+#: dist/patches/focusLaunchedWindows.js:36 dist/prefsMetadata.js:34
+msgid ""
+"Focuses newly launched windows instead of showing window-ready notifications"
+msgstr ""
+
+#: dist/patches/iconWeave.js:482 dist/prefsMetadata.js:181
 msgid "Icon Weave"
 msgstr ""
 
-#: dist/patches/iconWeave.js:483 dist/prefsMetadata.js:93
+#: dist/patches/iconWeave.js:483 dist/prefsMetadata.js:182
 msgid "Automatically fixes missing app icons using an in-memory approach"
 msgstr ""
 
 #: dist/patches/noOverview.js:36 dist/prefsMetadata.js:19
-msgid "No Overview"
-msgstr "Sem Visão Geral"
+msgid "Skip Overview on Login"
+msgstr ""
 
 #: dist/patches/noOverview.js:37 dist/prefsMetadata.js:20
-msgid "Disables the overview at startup"
-msgstr "Desativa a visão geral ao iniciar"
+msgid "Goes directly to the desktop when GNOME Shell starts"
+msgstr ""
 
 #: dist/patches/pipOnTop.js:104 dist/prefsMetadata.js:26
 msgid "Pip On Top"
@@ -328,35 +479,35 @@ msgstr "PiP Sempre no Topo"
 msgid "Keeps Picture-in-Picture windows always on top"
 msgstr "Mantém janelas Picture-in-Picture sempre no topo"
 
-#: dist/patches/xwaylandIndicator.js:108 dist/prefsMetadata.js:62
+#: dist/patches/xwaylandIndicator.js:108 dist/prefsMetadata.js:151
 msgid "XWayland Indicator"
 msgstr ""
 
-#: dist/patches/xwaylandIndicator.js:109 dist/prefsMetadata.js:63
+#: dist/patches/xwaylandIndicator.js:109 dist/prefsMetadata.js:152
 msgid "Shows an X11 badge on XWayland apps in the Alt+Tab switcher"
 msgstr ""
 
-#: dist/prefs.js:21
+#: dist/prefs.js:22
 msgid "General"
 msgstr "Geral"
 
-#: dist/prefs.js:25
+#: dist/prefs.js:26
 msgid "Other"
 msgstr ""
 
-#: dist/prefs.js:48
+#: dist/prefs.js:49
 msgid "Aurora Shell logo"
 msgstr "Logo do Aurora Shell"
 
-#: dist/prefs.js:69
+#: dist/prefs.js:77
 msgid "Access website"
 msgstr "Acessar website"
 
-#: dist/prefs.js:195 dist/prefs.js:229 dist/prefs.js:236 dist/prefs.js:246
+#: dist/prefs.js:292 dist/prefs.js:326 dist/prefs.js:333 dist/prefs.js:343
 msgid "Disabled"
 msgstr ""
 
-#: dist/prefs.js:224
+#: dist/prefs.js:321
 msgid "Press a shortcut…"
 msgstr ""
 
@@ -376,62 +527,68 @@ msgstr ""
 msgid "Privacy &amp; Clipboard"
 msgstr ""
 
-#: dist/prefsMetadata.js:33 dist/theme/themeChanger.js:55
+#: dist/prefsMetadata.js:40 dist/theme/themeChanger.js:55
 msgid "Theme Changer"
 msgstr "Alternador de Tema"
 
-#: dist/prefsMetadata.js:34 dist/theme/themeChanger.js:56
+#: dist/prefsMetadata.js:41 dist/theme/themeChanger.js:56
 msgid "Monitors and synchronizes GNOME color scheme"
 msgstr "Monitora e sincroniza o esquema de cores do GNOME"
 
-#: dist/prefsMetadata.js:69 dist/privacy/privacy.js:67
+#: dist/prefsMetadata.js:158 dist/privacy/privacy.js:67
 msgid "Privacy"
 msgstr ""
 
-#: dist/prefsMetadata.js:70 dist/privacy/privacy.js:68
+#: dist/prefsMetadata.js:159 dist/privacy/privacy.js:68
 msgid "Screen sharing privacy features"
 msgstr ""
 
-#: dist/prefsMetadata.js:74 dist/privacy/privacy.js:72
+#: dist/prefsMetadata.js:163 dist/privacy/privacy.js:72
 msgid "DND on Screen Share"
 msgstr ""
 
-#: dist/prefsMetadata.js:75 dist/privacy/privacy.js:73
+#: dist/prefsMetadata.js:164 dist/privacy/privacy.js:73
 msgid "Automatically enables Do Not Disturb mode when screen sharing"
 msgstr ""
 
-#: dist/prefsMetadata.js:80 dist/privacy/privacy.js:78
+#: dist/prefsMetadata.js:169 dist/privacy/privacy.js:78
 msgid "Privacy Panel"
 msgstr ""
 
-#: dist/prefsMetadata.js:82 dist/privacy/privacy.js:79
+#: dist/prefsMetadata.js:171 dist/privacy/privacy.js:79
 msgid ""
 "Hides panel content during screen sharing; shows only the sharing indicator"
 msgstr ""
 
-#: dist/prefsMetadata.js:106 dist/theme/autoThemeSwitcher.js:112
+#: dist/prefsMetadata.js:195 dist/theme/autoThemeSwitcher.js:112
 msgid "Auto Theme Switcher"
 msgstr ""
 
-#: dist/prefsMetadata.js:107 dist/theme/autoThemeSwitcher.js:113
+#: dist/prefsMetadata.js:196 dist/theme/autoThemeSwitcher.js:113
 msgid "Automatically switches between light and dark theme based on time"
 msgstr ""
 
-#: dist/prefsMetadata.js:112 dist/theme/autoThemeSwitcher.js:118
+#: dist/prefsMetadata.js:201 dist/theme/autoThemeSwitcher.js:118
 msgid "Light Time"
 msgstr ""
 
-#: dist/prefsMetadata.js:113 dist/theme/autoThemeSwitcher.js:119
+#: dist/prefsMetadata.js:202 dist/theme/autoThemeSwitcher.js:119
 msgid "Time to switch to light theme (HH:MM)"
 msgstr ""
 
-#: dist/prefsMetadata.js:119 dist/theme/autoThemeSwitcher.js:125
+#: dist/prefsMetadata.js:208 dist/theme/autoThemeSwitcher.js:125
 msgid "Dark Time"
 msgstr ""
 
-#: dist/prefsMetadata.js:120 dist/theme/autoThemeSwitcher.js:126
+#: dist/prefsMetadata.js:209 dist/theme/autoThemeSwitcher.js:126
 msgid "Time to switch to dark theme (HH:MM)"
 msgstr ""
+
+#~ msgid "No Overview"
+#~ msgstr "Sem Visão Geral"
+
+#~ msgid "Disables the overview at startup"
+#~ msgstr "Desativa a visão geral ao iniciar"
 
 #~ msgid "Modules"
 #~ msgstr "Módulos"

@@ -2,7 +2,7 @@ import { gettext as _ } from 'gettext';
 
 import type { ModuleMetadata } from '~/module.ts';
 
-export type { ModuleOption, ModuleMetadata } from '~/module.ts';
+export type { ModuleOption, ModuleOptionChoice, ModuleMetadata } from '~/module.ts';
 
 /**
  * Preferences sections, in display order.
@@ -42,8 +42,8 @@ export function getModuleMetadata(): ModuleMetadata[] {
       key: 'no-overview',
       settingsKey: 'module-no-overview',
       section: 'behavior',
-      title: _('No Overview'),
-      subtitle: _('Disables the overview at startup'),
+      title: _('Skip Overview on Login'),
+      subtitle: _('Goes directly to the desktop when GNOME Shell starts'),
     },
     {
       key: 'pip-on-top',
@@ -51,6 +51,13 @@ export function getModuleMetadata(): ModuleMetadata[] {
       section: 'behavior',
       title: _('Pip On Top'),
       subtitle: _('Keeps Picture-in-Picture windows always on top'),
+    },
+    {
+      key: 'focus-launched-windows',
+      settingsKey: 'module-focus-launched-windows',
+      section: 'behavior',
+      title: _('Focus Launched Windows'),
+      subtitle: _('Focuses newly launched windows instead of showing window-ready notifications'),
     },
     {
       key: 'theme-changer',
@@ -81,11 +88,87 @@ export function getModuleMetadata(): ModuleMetadata[] {
       ],
     },
     {
+      key: 'aurora-menu',
+      settingsKey: 'module-aurora-menu',
+      section: 'dock-panel',
+      title: _('Aurora Menu'),
+      subtitle: _('Aurora panel menu with recent items and useful shortcuts'),
+      options: [
+        {
+          key: 'aurora-menu-icon',
+          title: _('Menu Icon'),
+          subtitle: _('Choose the icon shown in the top panel'),
+          type: 'icon-select',
+          choices: [
+            {
+              value: 'aurora',
+              title: _('Aurora Shell'),
+              iconName: 'aurora-shell-menu-symbolic',
+            },
+            {
+              value: 'gnome',
+              title: _('GNOME'),
+              iconName: 'start-here-symbolic',
+            },
+            {
+              value: 'luminus',
+              title: _('Luminus OS'),
+              iconName: 'luminus-os-symbolic',
+            },
+          ],
+        },
+        {
+          key: 'aurora-menu-hide-activities',
+          title: _('Hide Activities Button'),
+          subtitle: _('Hide the Activities button while Aurora Menu is enabled'),
+          type: 'switch',
+        },
+        {
+          key: 'aurora-menu-app-store-command',
+          title: _('Software Command'),
+          subtitle: _('Command used by the Software menu item'),
+          type: 'entry',
+        },
+        {
+          key: 'aurora-menu-custom-item-enabled',
+          title: _('Custom Menu Item'),
+          subtitle: _('Show one additional command in Aurora Menu'),
+          type: 'switch',
+        },
+        {
+          key: 'aurora-menu-custom-item-label',
+          title: _('Custom Item Label'),
+          subtitle: _('Text shown for the custom menu item'),
+          type: 'entry',
+        },
+        {
+          key: 'aurora-menu-custom-item-command',
+          title: _('Custom Item Command'),
+          subtitle: _('Command launched by the custom menu item'),
+          type: 'entry',
+        },
+      ],
+    },
+    {
       key: 'volume-mixer',
       settingsKey: 'module-volume-mixer',
       section: 'dock-panel',
       title: _('Volume Mixer'),
       subtitle: _('Per-application volume control in Quick Settings'),
+    },
+    {
+      key: 'low-battery-percentage',
+      settingsKey: 'module-low-battery-percentage',
+      section: 'dock-panel',
+      title: _('Low Battery Percentage'),
+      subtitle: _('Shows battery percentage in the panel while below 20%'),
+    },
+    {
+      key: 'lock-key-indicators',
+      settingsKey: 'module-lock-key-indicators',
+      section: 'dock-panel',
+      title: _('Lock Key Indicators'),
+      subtitle: _('Shows Caps Lock and Num Lock indicators in the top panel'),
     },
     {
       key: 'xwayland-indicator',
