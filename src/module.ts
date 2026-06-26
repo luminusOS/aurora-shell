@@ -22,9 +22,16 @@ export type ModuleOption = {
   minuteKey?: string;
   title: string;
   subtitle: string;
-  type: 'switch' | 'entry' | 'spin' | 'time' | 'shortcut';
+  type: 'switch' | 'entry' | 'spin' | 'time' | 'shortcut' | 'icon-select';
   min?: number;
   max?: number;
+  choices?: ModuleOptionChoice[];
+};
+
+export type ModuleOptionChoice = {
+  value: string;
+  title: string;
+  iconName?: string;
 };
 
 export type ModuleMetadata = {

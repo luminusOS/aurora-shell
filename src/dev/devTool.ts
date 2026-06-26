@@ -100,7 +100,7 @@ export class DevTool extends Module {
     });
 
     this._rebuildMenu();
-    Main.panel.addToStatusArea(DEVTOOL_ID, this._button as unknown as PanelMenuButton, 1, 'left');
+    Main.panel.addToStatusArea(DEVTOOL_ID, this._button as unknown as PanelMenuButton, 2, 'left');
   }
 
   override disable(): void {

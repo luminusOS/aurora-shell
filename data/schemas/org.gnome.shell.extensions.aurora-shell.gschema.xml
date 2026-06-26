@@ -11,6 +11,11 @@
       <summary>Enable Pip On Top module</summary>
       <description>Keeps Picture-in-Picture windows always on top</description>
     </key>
+    <key name="module-focus-launched-windows" type="b">
+      <default>true</default>
+      <summary>Enable Focus Launched Windows module</summary>
+      <description>Focuses newly launched windows instead of showing window-ready notifications</description>
+    </key>
     <key name="module-theme-changer" type="b">
       <default>true</default>
       <summary>Enable Theme Changer module</summary>
@@ -66,6 +71,41 @@
       <summary>Show trash icon</summary>
       <description>Show a trash can icon in the dock; click to open the trash, right-click to empty it</description>
     </key>
+    <key name="module-aurora-menu" type="b">
+      <default>true</default>
+      <summary>Enable Aurora Menu module</summary>
+      <description>Aurora panel menu with recent items and useful shortcuts</description>
+    </key>
+    <key name="aurora-menu-icon" type="s">
+      <default>'aurora'</default>
+      <summary>Aurora Menu icon</summary>
+      <description>Icon shown by Aurora Menu in the top panel</description>
+    </key>
+    <key name="aurora-menu-hide-activities" type="b">
+      <default>false</default>
+      <summary>Hide Activities button</summary>
+      <description>Hide the Activities button while Aurora Menu is enabled</description>
+    </key>
+    <key name="aurora-menu-app-store-command" type="s">
+      <default>'gnome-software'</default>
+      <summary>Software command</summary>
+      <description>Command used by the Software menu item</description>
+    </key>
+    <key name="aurora-menu-custom-item-enabled" type="b">
+      <default>false</default>
+      <summary>Enable custom Aurora Menu item</summary>
+      <description>Show one additional command in Aurora Menu</description>
+    </key>
+    <key name="aurora-menu-custom-item-label" type="s">
+      <default>''</default>
+      <summary>Custom Aurora Menu item label</summary>
+      <description>Text shown for the custom menu item</description>
+    </key>
+    <key name="aurora-menu-custom-item-command" type="s">
+      <default>''</default>
+      <summary>Custom Aurora Menu item command</summary>
+      <description>Command launched by the custom menu item</description>
+    </key>
     <key name="module-auto-theme-switcher" type="b">
       <default>false</default>
       <summary>Enable Auto Theme Switcher module</summary>
@@ -99,6 +139,16 @@
       <default>true</default>
       <summary>Enable Bluetooth Menu module</summary>
       <description>Enhances the Bluetooth Quick Settings panel with battery levels and animated icons</description>
+    </key>
+    <key name="module-low-battery-percentage" type="b">
+      <default>true</default>
+      <summary>Enable Low Battery Percentage module</summary>
+      <description>Shows battery percentage in the panel while below 20%</description>
+    </key>
+    <key name="module-lock-key-indicators" type="b">
+      <default>true</default>
+      <summary>Enable Lock Key Indicators module</summary>
+      <description>Shows Caps Lock and Num Lock indicators in the top panel</description>
     </key>
     <key name="module-meeting-clock" type="b">
       <default>true</default>
