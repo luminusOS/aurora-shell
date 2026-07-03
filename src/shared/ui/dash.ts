@@ -11,6 +11,12 @@ import { Dash } from '@girs/gnome-shell/ui/dash';
 import { logger } from '~/core/logger.ts';
 import { TrashIcon, type TrashIconInstance } from '~/dock/trashIcon.ts';
 import { canLaunchTrash, NAUTILUS_APP_ID } from '~/dock/trashLauncher.ts';
+import {
+  ExternalStorageMonitor,
+  createExternalStorageIcon,
+  type ExternalStorageIconInstance,
+  type ExternalStorageItem,
+} from '~/dock/externalStorageIcon.ts';
 
 export interface DashBounds {
   x: number;
@@ -36,6 +42,7 @@ type VisibilityTarget = 'shown' | 'hidden';
 interface AuroraDashParams {
   monitorIndex?: number;
   showTrash?: boolean;
+  showExternalStorage?: boolean;
 }
 
 type DashInternals = {
@@ -68,6 +75,8 @@ export class AuroraDash extends Dash {
   private _springLoadTarget: any = null;
   private _springLoadDragMonitor: { dragMotion: (e: any) => number } | null = null;
   declare private _trashIcon: TrashIconInstance | null;
+  private _externalStorageMonitor: ExternalStorageMonitor | null = null;
+  declare private _externalStorageIcons: ExternalStorageIconInstance[];
 
   override _init(params: AuroraDashParams = {}): void {
     super._init();
@@ -75,6 +84,7 @@ export class AuroraDash extends Dash {
     this._visibilityTarget = this.visible ? 'shown' : 'hidden';
     this._showCompletionCallbacks = [];
     this._trashIcon = null;
+    this._externalStorageIcons = [];
     this._monitorIndex = params.monitorIndex ?? Main.layoutManager.primaryIndex;
 
     const button = (this as any).showAppsButton;
@@ -128,6 +138,7 @@ export class AuroraDash extends Dash {
 
     this._setupSpringLoadMonitor();
 
+    if (params.showExternalStorage) this._setupExternalStorageIcons();
     if (params.showTrash) this._setupTrashIcon();
   }
 
@@ -174,6 +185,63 @@ export class AuroraDash extends Dash {
     }
 
     this.connectObject?.('icon-size-changed', () => trashIcon.setIconSize(dash.iconSize), this);
+  }
+
+  private _setupExternalStorageIcons(): void {
+    const dash = this._dashInternals;
+    if (!dash._dashContainer) return;
+
+    this._externalStorageMonitor = new ExternalStorageMonitor((items) => {
+      this._syncExternalStorageIcons(items);
+    });
+    this._syncExternalStorageIcons(this._externalStorageMonitor.items);
+    this.connectObject?.(
+      'icon-size-changed',
+      () => {
+        for (const icon of this._externalStorageIcons) {
+          icon.setIconSize(dash.iconSize);
+        }
+      },
+      this,
+    );
+  }
+
+  private _syncExternalStorageIcons(items: readonly ExternalStorageItem[]): void {
+    if (this._isDestroyed) return;
+
+    for (const icon of this._externalStorageIcons) {
+      icon.destroy();
+    }
+    this._externalStorageIcons = [];
+
+    const dash = this._dashInternals;
+    const dashContainer = dash._dashContainer;
+    if (!dashContainer) return;
+
+    for (const item of items) {
+      const storageIcon = createExternalStorageIcon(item);
+      storageIcon.show(false);
+      storageIcon.setIconSize(dash.iconSize);
+      dash._hookUpLabel(storageIcon);
+      this._externalStorageIcons.push(storageIcon);
+    }
+
+    const fixedAnchor = this._trashIcon ?? dash._showAppsIcon;
+    const fixedAnchorIndex = fixedAnchor ? dashContainer.get_children().indexOf(fixedAnchor) : -1;
+
+    for (const [offset, icon] of this._externalStorageIcons.entries()) {
+      if (fixedAnchorIndex >= 0) {
+        dashContainer.insert_child_at_index(icon, fixedAnchorIndex + offset);
+      } else {
+        dashContainer.add_child(icon);
+      }
+    }
+
+    // Adding/removing storage icons changes how many icons must share the
+    // work-area width, but setMaxSize sees the same bounds and skips its
+    // redisplay. Queue one explicitly so _adjustIconSize reruns on hotplug.
+    this._queueRedisplay();
+    if (this._workArea) this._queueWorkAreaUpdate();
   }
 
   private _canLaunchTrashWithNautilus(): boolean {
@@ -243,6 +311,12 @@ export class AuroraDash extends Dash {
       this._springLoadDragMonitor = null;
     }
     this._springLoadTarget = null;
+    this._externalStorageMonitor?.destroy();
+    this._externalStorageMonitor = null;
+    for (const icon of this._externalStorageIcons) {
+      icon.destroy();
+    }
+    this._externalStorageIcons = [];
 
     (this as any).showAppsButton?.disconnectObject?.(this);
     (this as any)._box?.disconnectObject?.(this);
@@ -498,6 +572,10 @@ export class AuroraDash extends Dash {
       return true;
     }
 
+    if (this._externalStorageIcons.some((icon) => icon.menuIsOpen)) {
+      return true;
+    }
+
     return false;
   }
 
@@ -676,6 +754,40 @@ export class AuroraDash extends Dash {
     };
 
     return item;
+  }
+
+  override _adjustIconSize(): void {
+    if (this._isDestroyed) return;
+    const box = (this as any)._box;
+    const extraIcons: Array<TrashIconInstance | ExternalStorageIconInstance> = [
+      ...this._externalStorageIcons,
+    ];
+    if (this._trashIcon) extraIcons.push(this._trashIcon);
+
+    if (!box || extraIcons.length === 0) {
+      (Dash.prototype as any)._adjustIconSize.call(this);
+      return;
+    }
+
+    // Stock _adjustIconSize splits the available width among _box children
+    // plus the show-apps button only. The trash and external-storage icons
+    // live in _dashContainer, so their width is never counted and the dash
+    // keeps an oversized iconSize that overflows the work area. They share
+    // the DashItemContainer anatomy (child._delegate.icon) the stock filter
+    // expects, so appending them to the measured child list makes the stock
+    // math — width budget and per-icon resize — cover them too.
+    const hadOwnProp = Object.prototype.hasOwnProperty.call(box, 'get_children');
+    const origGetChildren = box.get_children;
+    box.get_children = () => [...origGetChildren.call(box), ...extraIcons];
+    try {
+      (Dash.prototype as any)._adjustIconSize.call(this);
+    } finally {
+      if (hadOwnProp) {
+        box.get_children = origGetChildren;
+      } else {
+        delete box.get_children;
+      }
+    }
   }
 
   override _redisplay(): void {

@@ -37,6 +37,7 @@ export class Dock extends Module {
   private _dockSettings: any = null;
   private _alwaysShow = false;
   private _showTrash = true;
+  private _showExternalStorage = true;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -46,8 +47,10 @@ export class Dock extends Module {
     this._dockSettings = this.context.settings.getRawSettings();
     this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
     this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
+    this._showExternalStorage =
+      this._dockSettings?.get_boolean('dock-show-external-storage') ?? true;
     logger.debug(
-      `enable alwaysShow=${this._alwaysShow} showTrash=${this._showTrash} monitors=${Main.layoutManager.monitors?.length ?? 0}`,
+      `enable alwaysShow=${this._alwaysShow} showTrash=${this._showTrash} showExternalStorage=${this._showExternalStorage} monitors=${Main.layoutManager.monitors?.length ?? 0}`,
       { prefix: LOG_PREFIX },
     );
 
@@ -81,6 +84,12 @@ export class Dock extends Module {
       'changed::dock-show-trash',
       () => {
         this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
+        this._rebuildBindings();
+      },
+      'changed::dock-show-external-storage',
+      () => {
+        this._showExternalStorage =
+          this._dockSettings?.get_boolean('dock-show-external-storage') ?? true;
         this._rebuildBindings();
       },
       this,
@@ -224,9 +233,11 @@ export class Dock extends Module {
     const dash = new (AuroraDash as unknown as new (p: {
       monitorIndex: number;
       showTrash: boolean;
+      showExternalStorage: boolean;
     }) => AuroraDash)({
       monitorIndex,
       showTrash: this._showTrash,
+      showExternalStorage: this._showExternalStorage,
     });
     container.set_child(dash);
     dash.attachToContainer(container);
@@ -280,11 +291,10 @@ export class Dock extends Module {
             binding.hotArea?.setEnabled(false);
             dash.blockAutoHide(true);
           } else if (intellihide.status === OverlapStatus.BLOCKED) {
-            logger.debug(`monitor=${monitorIndex} intellihide=BLOCKED release autohide`, {
+            logger.debug(`monitor=${monitorIndex} intellihide=BLOCKED handoff autohide`, {
               prefix: LOG_PREFIX,
             });
-            dash.forceAutoHide(true);
-            this._enableHotAreaWhenDockHidden(binding);
+            this._handOffBlockedDockToAutoHide(binding);
           }
         },
         'blocked-reasserted',
@@ -482,9 +492,14 @@ export class Dock extends Module {
   private _handleHotAreaActiveIntellihideChange(binding: ManagedDockBinding): void {
     if (binding.intellihide?.status !== OverlapStatus.BLOCKED) {
       logger.debug(
-        `monitor=${binding.monitorIndex} ignored intellihide=${OverlapStatus[binding.intellihide?.status ?? OverlapStatus.CLEAR]} while hot area is active`,
+        `monitor=${binding.monitorIndex} intellihide=CLEAR while hot area is active; keeping dock visible`,
         { prefix: LOG_PREFIX },
       );
+      this._clearHotAreaReveal(binding);
+      this._clearHotAreaEnable(binding);
+      binding.hotAreaActive = false;
+      binding.hotArea?.setEnabled(false);
+      binding.dash.blockAutoHide(true);
       return;
     }
 
@@ -498,6 +513,12 @@ export class Dock extends Module {
     );
     this._clearHotAreaReveal(binding);
     this._releaseHotAreaToAutoHide(binding);
+  }
+
+  private _handOffBlockedDockToAutoHide(binding: ManagedDockBinding): void {
+    binding.dash.blockAutoHide(false);
+    binding.dash.ensureAutoHide();
+    this._enableHotAreaWhenDockHidden(binding);
   }
 
   // End a hot-area reveal: when a window is blocking, hand the dock to the
@@ -518,9 +539,7 @@ export class Dock extends Module {
       `monitor=${binding.monitorIndex} hot-area reveal handed to native autohide: BLOCKED`,
       { prefix: LOG_PREFIX },
     );
-    binding.dash.blockAutoHide(false);
-    binding.dash.ensureAutoHide();
-    this._enableHotAreaWhenDockHidden(binding);
+    this._handOffBlockedDockToAutoHide(binding);
   }
 
   private _enableHotAreaWhenDockHidden(binding: ManagedDockBinding): void {
@@ -590,6 +609,12 @@ export const definition: ModuleDefinition = {
       key: 'dock-show-trash',
       title: _('Show Trash Icon'),
       subtitle: _('Show a trash can in the dock; click to open it, right-click to empty it'),
+      type: 'switch',
+    },
+    {
+      key: 'dock-show-external-storage',
+      title: _('Show External Storage'),
+      subtitle: _('Show removable drives in the dock when they are connected'),
       type: 'switch',
     },
   ],

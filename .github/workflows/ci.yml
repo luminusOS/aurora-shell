@@ -14,24 +14,13 @@ jobs:
     name: Validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --immutable
+      - name: Setup Yarn
+        uses: ./.github/actions/setup-yarn
 
       - name: Install just
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y just
+        uses: extractions/setup-just@v4
 
       - name: Validate
         run: just validate
@@ -40,19 +29,10 @@ jobs:
     name: Unit & regression tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --immutable
+      - name: Setup Yarn
+        uses: ./.github/actions/setup-yarn
 
       - name: Run unit tests
         run: yarn test:unit
@@ -62,27 +42,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y just gettext zip gnome-shell python3-gi gir1.2-glib-2.0
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build & package
-        run: just package
+      - name: Package extension
+        uses: ./.github/actions/package-extension
 
       - name: Upload extension zip
         uses: actions/upload-artifact@v4
@@ -105,7 +68,7 @@ jobs:
       image: ${{ matrix.container }}
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download extension zip
         uses: actions/download-artifact@v4

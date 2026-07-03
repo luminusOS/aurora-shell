@@ -13,30 +13,13 @@ concurrency:
 
 jobs:
   pre-release:
-    name: Create daily pre-release
+    name: Create nightly pre-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y just gettext zip gnome-shell python3-gi gir1.2-glib-2.0
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build extension zip
-        run: just package
+      - name: Package extension
+        uses: ./.github/actions/package-extension
 
       - name: Read version metadata
         id: metadata
@@ -44,50 +27,30 @@ jobs:
           set -euo pipefail
 
           VERSION_NAME="$(node -e 'const fs = require("fs"); const metadata = JSON.parse(fs.readFileSync("metadata.json", "utf8")); process.stdout.write(metadata["version-name"]);')"
-          RELEASE_DATE="$(date -u +%Y%m%d)"
-          RELEASE_NAME="${VERSION_NAME}-${RELEASE_DATE}"
+          TAG_PREFIX="refs/tags/v${VERSION_NAME}-nightly"
+          LAST_NIGHTLY="$(
+            git ls-remote --tags origin "v${VERSION_NAME}-nightly*" |
+              awk -v prefix="$TAG_PREFIX" '
+                {
+                  tag = $2
+                  sub(/\^\{\}$/, "", tag)
+                  if (index(tag, prefix) == 1) {
+                    number = substr(tag, length(prefix) + 1)
+                    if (number ~ /^[0-9]+$/) print number
+                  }
+                }
+              ' |
+              sort -n |
+              tail -n 1
+          )"
+          NEXT_NIGHTLY=$(( ${LAST_NIGHTLY:-0} + 1 ))
+          RELEASE_NAME="v${VERSION_NAME}-nightly${NEXT_NIGHTLY}"
 
           echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
           echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
-          echo "tag_name=v${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Remove stale daily pre-releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CURRENT_TAG: ${{ steps.metadata.outputs.tag_name }}
-        run: |
-          set -euo pipefail
-
-          gh release list --limit 100 --json tagName,isPrerelease --jq '
-            .[]
-            | select(.isPrerelease == true)
-            | .tagName
-          ' | while read -r tag; do
-            if [ -z "$tag" ] || [ "$tag" = "$CURRENT_TAG" ]; then
-              continue
-            fi
-
-            if [[ "$tag" =~ ^v[0-9]+\.[0-9]+-[0-9]{8}$ ]]; then
-              gh release delete "$tag" --yes --cleanup-tag
-            fi
-          done
-
-          git fetch --tags --force
-          git tag -l 'v*.*-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' | while read -r tag; do
-            if [ -z "$tag" ] || [ "$tag" = "$CURRENT_TAG" ]; then
-              continue
-            fi
-
-            git push --delete origin "$tag" || true
-            git tag --delete "$tag" || true
-          done
-
-      - name: Move daily pre-release tag
+      - name: Create nightly pre-release tag
         run: |
           set -euo pipefail
           git tag --force "${{ steps.metadata.outputs.tag_name }}" "$GITHUB_SHA"
@@ -104,3 +67,13 @@ jobs:
           prerelease: true
           make_latest: false
           overwrite_files: true
+
+      - name: Delete old pre-releases
+        uses: Nats-ji/delete-old-releases@v1
+        with:
+          token: ${{ github.token }}
+          keep-count: 3
+          keep-old-minor-releases: true
+          include-prerelease: true
+          semver-loose: true
+          remove-tags: true
