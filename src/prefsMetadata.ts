@@ -85,6 +85,12 @@ export function getModuleMetadata(): ModuleMetadata[] {
           subtitle: _('Show a trash can in the dock; click to open it, right-click to empty it'),
           type: 'switch',
         },
+        {
+          key: 'dock-show-external-storage',
+          title: _('Show External Storage'),
+          subtitle: _('Show removable drives in the dock when they are connected'),
+          type: 'switch',
+        },
       ],
     },
     {

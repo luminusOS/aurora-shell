@@ -71,6 +71,11 @@
       <summary>Show trash icon</summary>
       <description>Show a trash can icon in the dock; click to open the trash, right-click to empty it</description>
     </key>
+    <key name="dock-show-external-storage" type="b">
+      <default>true</default>
+      <summary>Show external storage</summary>
+      <description>Show removable drives in the dock when they are connected</description>
+    </key>
     <key name="module-aurora-menu" type="b">
       <default>true</default>
       <summary>Enable Aurora Menu module</summary>

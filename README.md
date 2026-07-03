@@ -16,38 +16,34 @@ Aurora is split into independent modules, so you can enable only what you want.
 
 ### Dock & Panel
 
-| Module | Description |
-|--------|-------------|
-| **Dock** | Replaces the stock dash with a smart per-monitor dock with intellihide and edge reveal |
-| **Volume Mixer** | Adds per-application volume sliders to Quick Settings with fast access to Sound Settings |
-| **Bluetooth Menu** | Shows battery level and animated icons in the Bluetooth Quick Settings panel |
-| **Weather Clock** | Shows GNOME Weather next to the panel clock |
-| **Meeting Clock** | Shows upcoming calendar events next to the panel clock and notifies when meetings are about to start |
-| **Tray Icons** | System tray in the panel that shows SNI app icons and GNOME background apps, with configurable icon limit, icon size, attention notifications, and smart SNI/background-app deduplication |
+- **Dock** - replaces the stock dash with a smart per-monitor dock with intellihide, edge reveal, optional always-visible mode, Trash, and removable drive shortcuts.
+- **Aurora Menu** - adds an Aurora panel menu with recent items, useful shortcuts, configurable panel icon, optional Activities button hiding, and a custom command slot.
+- **Volume Mixer** - adds per-application volume sliders to Quick Settings with fast access to Sound Settings.
+- **Low Battery Percentage** - uses GNOME's native battery percentage setting while the battery is discharging below 20%, without overriding users who already enabled it.
+- **Lock Key Indicators** - shows Caps Lock and Num Lock indicators in the top panel.
+- **Bluetooth Menu** - shows battery level and animated icons in the Bluetooth Quick Settings panel.
+- **Weather Clock** - shows GNOME Weather next to the panel clock, with configurable placement before or after the clock.
+- **Meeting Clock** - shows upcoming calendar events next to the panel clock, supports meeting alerts, snooze timing, lookahead controls, all-day event filtering, and events without join links.
+- **Tray Icons** - adds a system tray for SNI app icons and GNOME background apps, with configurable icon limit, icon size, attention timeout, symbolic icon recoloring, background-app deduplication, and optional Quick Settings background-app hiding.
 
 ### Appearance
 
-| Module | Description |
-|--------|-------------|
-| **Theme Changer** | Keeps GNOME light/dark color scheme behavior consistent |
-| **Icon Weave** | Automatically fixes missing app icons by matching untracked windows to their apps in-memory |
-| **App Search Tooltip** | Shows app names on hover in the overview search results |
-| **Auto Theme Switcher** | Automatically switches between light and dark theme based on time |
+- **Theme Changer** - keeps GNOME light/dark color scheme behavior consistent.
+- **Icon Weave** - automatically fixes missing app icons by matching untracked windows to their apps in memory.
+- **App Search Tooltip** - shows app names on hover in the overview search results.
+- **Auto Theme Switcher** - automatically switches between light and dark theme based on configured times.
 
 ### Behavior
 
-| Module | Description |
-|--------|-------------|
-| **No Overview** | Skips the overview on startup so you land directly on your desktop |
-| **Pip On Top** | Keeps Picture-in-Picture windows above other windows automatically |
-| **XWayland Indicator** | Adds an X11 badge to XWayland apps in the Alt+Tab switcher |
+- **Skip Overview on Login** - skips the overview on startup so GNOME Shell opens directly to the desktop.
+- **Pip On Top** - keeps Picture-in-Picture windows above other windows automatically.
+- **Focus Launched Windows** - focuses newly launched windows instead of showing window-ready notifications.
+- **XWayland Indicator** - adds an X11 badge to XWayland apps in the Alt+Tab switcher.
 
 ### Privacy & Clipboard
 
-| Module | Description |
-|--------|-------------|
-| **Privacy** | Adds screen sharing privacy features, including automatic Do Not Disturb and panel content hiding |
-| **Clipboard History** | Adds searchable clipboard history with pinning and keyboard navigation |
+- **Privacy** - adds screen sharing privacy features, including automatic Do Not Disturb and panel content hiding.
+- **Clipboard History** - adds searchable clipboard history with pinning, keyboard navigation, configurable polling, and a user-assigned shortcut.
 
 All modules can be toggled independently from the extension preferences.
 

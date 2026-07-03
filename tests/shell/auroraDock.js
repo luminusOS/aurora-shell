@@ -18,8 +18,11 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
+import St from 'gi://St';
 import {
   ensureOverviewHidden,
   EXTENSION_UUID,
@@ -76,12 +79,16 @@ export function init() {
     'Repeated show requests do not restart the dock animation',
   );
   Scripting.defineScriptEvent(
-    'blockedOverlapHidesDock',
-    'Intellihide BLOCKED hides the dock even while hover is active',
+    'blockedOverlapDefersHide',
+    'Intellihide BLOCKED keeps the dock while hovered and hides after leave',
   );
   Scripting.defineScriptEvent(
     'hotAreaActiveBlockedHidesDock',
     'A BLOCKED update closes a hot-area reveal even while the pointer is inside the dock',
+  );
+  Scripting.defineScriptEvent(
+    'hotAreaActiveClearShowsDock',
+    'A CLEAR update during a hot-area reveal pins the dock visible',
   );
   Scripting.defineScriptEvent(
     'focusReassertSignalEmitted',
@@ -95,6 +102,14 @@ export function init() {
     'intellihideFlapDebounced',
     'Transient geometry flaps coalesce into a single settled status',
   );
+  Scripting.defineScriptEvent(
+    'externalStorageDisabled',
+    'External storage dock icons are absent when disabled',
+  );
+  Scripting.defineScriptEvent(
+    'iconResizeCountsFixedIcons',
+    'Automatic icon resize accounts for trash/storage icons outside _box',
+  );
   Scripting.defineScriptEvent('dockRemoved', 'Dock actor removed from stage after disable');
 }
 
@@ -105,8 +120,10 @@ export async function run() {
 
   const settings = getAuroraSettings();
   const originalShowTrash = settings.get_boolean('dock-show-trash');
+  const originalShowExternalStorage = settings.get_boolean('dock-show-external-storage');
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
   settings.set_boolean('dock-show-trash', true);
+  settings.set_boolean('dock-show-external-storage', false);
   settings.set_boolean('dock-always-show', false);
 
   await Scripting.waitLeisure();
@@ -175,6 +192,94 @@ export async function run() {
     Scripting.scriptEvent('trashClickWired');
   }
 
+  if (dash._externalStorageIcons?.length)
+    throw new Error('External storage icons were created while dock-show-external-storage is disabled');
+
+  Scripting.scriptEvent('externalStorageDisabled');
+
+  // I15 — the automatic icon resize must count the fixed dock icons (trash,
+  // external storage) that live in _dashContainer outside _box. Constrain the
+  // max width to exactly fit every icon at size 24: if the fixed icons were
+  // not counted, _adjustIconSize would keep a larger size and the dock would
+  // overflow its work area.
+  //
+  // The fixed-icon count here must not depend on how many apps happen to be
+  // pinned or running in the test environment: with zero of those, the dash
+  // holds only the Show Apps icon, which — being simultaneously the first
+  // and last child — picks up extra edge margin that a multi-icon dash never
+  // sees, so the sizing budget below (derived from a single representative
+  // icon) undershoots the real render. Synthesizing a few external-storage
+  // icons (no hardware or Nautilus required) keeps the icon count, and this
+  // check, consistent across every environment.
+  const priorMaxWidth = dash._maxWidth;
+  const priorMaxHeight = dash._maxHeight;
+  const injectedStorageIcons = dash._externalStorageIcons.length === 0;
+  try {
+    if (injectedStorageIcons) {
+      dash._syncExternalStorageIcons(
+        [1, 2, 3].map((n) => ({
+          id: `aurora-test-fake-storage-${n}`,
+          name: `Aurora Test Fake Storage ${n}`,
+          kind: 'mount',
+          sortKey: String(n),
+          icon: Gio.ThemedIcon.new('drive-harddisk'),
+          volume: null,
+          mount: null,
+        })),
+      );
+    }
+
+    const boxIconChildren = dash._box
+      .get_children()
+      .filter((actor) => actor.child?._delegate?.icon && !actor.animatingOut);
+    const fixedIcons = [
+      dash._showAppsIcon,
+      dash._trashIcon,
+      ...(dash._externalStorageIcons ?? []),
+    ].filter(Boolean);
+    const totalIcons = boxIconChildren.length + fixedIcons.length;
+
+    const themeNode = dash.get_theme_node();
+    const spacing = themeNode.get_length('spacing');
+    const firstButton = (boxIconChildren[0] ?? fixedIcons[0]).child;
+    const firstIcon = firstButton._delegate.icon;
+    firstIcon.icon.ensure_style();
+    const [, , iconNatWidth] = firstIcon.icon.get_preferred_size();
+    const [, , buttonNatWidth] = firstButton.get_preferred_size();
+    const iconPadding = buttonNatWidth - iconNatWidth;
+
+    const probe = new Clutter.ActorBox({ x1: 0, y1: 0, x2: 1000, y2: 42 });
+    const content = themeNode.get_content_box(probe);
+    const horizontalChrome = 1000 - (content.x2 - content.x1);
+
+    // Budget the width for every icon at size 31 — just below the 32 step of
+    // baseIconSizes. Counting all icons picks 24 and fits with dozens of px
+    // to spare; leaving the fixed icons out of the count picks 32 and
+    // overflows the budget by a full icon-step per icon.
+    const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+    const targetIconSize = 31 * scaleFactor;
+    const maxWidth = Math.ceil(
+      totalIcons * (iconPadding + targetIconSize) +
+        (totalIcons - 1) * spacing +
+        horizontalChrome,
+    );
+
+    dash.setMaxSize(maxWidth, priorMaxHeight > 0 ? priorMaxHeight : 400);
+    dash._adjustIconSize();
+    const [, natWidth] = dash.get_preferred_width(-1);
+    if (natWidth > maxWidth)
+      throw new Error(
+        `dash natural width ${natWidth} exceeds the ${maxWidth}px budget for ` +
+          `${totalIcons} icons (iconSize=${dash.iconSize}) — fixed icons not counted`,
+      );
+  } finally {
+    if (injectedStorageIcons) dash._syncExternalStorageIcons([]);
+    dash.setMaxSize(priorMaxWidth, priorMaxHeight);
+    dash._adjustIconSize();
+  }
+
+  Scripting.scriptEvent('iconResizeCountsFixedIcons');
+
   // I5 — a hidden autohide dock must release its whole container input area
   dash.hide(false);
   if (dock.bindings[0].container.reactive)
@@ -209,23 +314,30 @@ export async function run() {
 
   const binding = dock.bindings[0];
 
-  // I7 — a direct intellihide BLOCKED transition must hide the dock even if
-  // hover is currently active. This covers launching/maximizing/fullscreening
-  // a window from the dock: the pointer can keep the dash hover state true,
-  // but an overlapping window should still move the dock out of the way.
+  // I7 — a direct intellihide BLOCKED transition from a visible dock must hand
+  // off to hover autohide. This covers switching from a small window to a
+  // fullscreen window via the dock: the dock must stay up while the pointer is
+  // still over it and hide only after the pointer leaves.
   dash.show(false);
-  dash._visibilityTarget = 'hidden';
   const originalDashContainerHasHover = dash._dashContainerHasHover;
-  dash._dashContainerHasHover = () => true;
-  binding.hotAreaActive = false;
-  clearIntellihideQueuedRefreshes(binding.intellihide);
-  binding.intellihide._status = 1;
-  binding.intellihide.emit('status-changed');
-  await Scripting.sleep(350);
-  dash._dashContainerHasHover = originalDashContainerHasHover;
-  if (dash.visible) throw new Error('Intellihide BLOCKED did not hide a hovered dock');
+  try {
+    dash._dashContainerHasHover = () => true;
+    binding.hotAreaActive = false;
+    clearIntellihideQueuedRefreshes(binding.intellihide);
+    binding.intellihide._status = 1;
+    binding.intellihide.emit('status-changed');
+    await Scripting.sleep(350);
+    if (!dash.visible)
+      throw new Error('Intellihide BLOCKED hid the dock while the pointer stayed over it');
 
-  Scripting.scriptEvent('blockedOverlapHidesDock');
+    dash._dashContainerHasHover = () => false;
+    await Scripting.sleep(450);
+  } finally {
+    dash._dashContainerHasHover = originalDashContainerHasHover;
+  }
+  if (dash.visible) throw new Error('Intellihide BLOCKED did not hide after the pointer left');
+
+  Scripting.scriptEvent('blockedOverlapDefersHide');
 
   // I8 — the bottom-edge actor must stop stealing hover while the dock is revealed
   dash.show(false);
@@ -263,6 +375,24 @@ export async function run() {
   Scripting.scriptEvent('hotAreaReleaseDeferred');
 
   dock._clearHotAreaReveal(binding);
+
+  // I10 — if a small focused window makes intellihide CLEAR while a hot-area
+  // reveal is still active, the dock must switch back to pinned-visible mode.
+  // This matches the journal sequence where CLEAR was previously ignored and
+  // the dock hid even though the active window no longer overlapped it.
+  dash.hide(false);
+  binding.hotAreaActive = true;
+  binding.hotArea?.setEnabled(true);
+  binding.intellihide._status = 0; // CLEAR
+  binding.intellihide.emit('status-changed');
+  await Scripting.sleep(350);
+  if (!dash.visible) throw new Error('Hot-area active CLEAR did not show the dock');
+  if (binding.hotAreaActive)
+    throw new Error('Hot-area active CLEAR did not end the reveal state');
+  if (binding.hotArea?.reactive)
+    throw new Error('Hot-area active CLEAR left the hot area reactive over the dock');
+
+  Scripting.scriptEvent('hotAreaActiveClearShowsDock');
 
   // I10 — when a hot-area reveal is active and intellihide reasserts BLOCKED
   // (e.g. switching between two fullscreen/maximized windows via the dock
@@ -444,6 +574,7 @@ export async function run() {
 
   // restore
   settings.set_boolean('dock-show-trash', originalShowTrash);
+  settings.set_boolean('dock-show-external-storage', originalShowExternalStorage);
   settings.set_boolean('dock-always-show', originalAlwaysShow);
   settings.set_boolean('module-dock', originalValue);
   await Scripting.waitLeisure();
@@ -459,9 +590,12 @@ let _hotAreaYieldedInput = false;
 let _hotAreaReleaseDeferred = false;
 let _hotAreaRearmedAfterHide = false;
 let _repeatedShowStable = false;
-let _blockedOverlapHidesDock = false;
+let _blockedOverlapDefersHide = false;
 let _hotAreaActiveBlockedHidesDock = false;
+let _hotAreaActiveClearShowsDock = false;
 let _dockRemoved = false;
+let _externalStorageDisabled = false;
+let _iconResizeCountsFixedIcons = false;
 
 /** @returns {void} */
 export function script_dockPresent() {
@@ -509,8 +643,8 @@ export function script_repeatedShowStable() {
 }
 
 /** @returns {void} */
-export function script_blockedOverlapHidesDock() {
-  _blockedOverlapHidesDock = true;
+export function script_blockedOverlapDefersHide() {
+  _blockedOverlapDefersHide = true;
 }
 
 /** @returns {void} */
@@ -519,8 +653,23 @@ export function script_hotAreaActiveBlockedHidesDock() {
 }
 
 /** @returns {void} */
+export function script_hotAreaActiveClearShowsDock() {
+  _hotAreaActiveClearShowsDock = true;
+}
+
+/** @returns {void} */
 export function script_dockRemoved() {
   _dockRemoved = true;
+}
+
+/** @returns {void} */
+export function script_externalStorageDisabled() {
+  _externalStorageDisabled = true;
+}
+
+/** @returns {void} */
+export function script_iconResizeCountsFixedIcons() {
+  _iconResizeCountsFixedIcons = true;
 }
 
 /** @returns {void} */
@@ -538,9 +687,15 @@ export function finish() {
     throw new Error('Hot area was not rearmed after the dock hide transition');
   if (!_repeatedShowStable)
     throw new Error('Repeated show requests restarted the dock animation');
-  if (!_blockedOverlapHidesDock)
-    throw new Error('Intellihide BLOCKED did not hide a hovered dock');
+  if (!_blockedOverlapDefersHide)
+    throw new Error('Intellihide BLOCKED did not defer hiding while hovered');
   if (!_hotAreaActiveBlockedHidesDock)
     throw new Error('Hot-area active BLOCKED update did not hide the dock');
+  if (!_hotAreaActiveClearShowsDock)
+    throw new Error('Hot-area active CLEAR update did not pin the dock visible');
+  if (!_externalStorageDisabled)
+    throw new Error('External storage icons were not verified disabled');
+  if (!_iconResizeCountsFixedIcons)
+    throw new Error('Automatic icon resize did not account for fixed dock icons');
   if (!_dockRemoved) throw new Error('Dock actor was not removed after module was disabled');
 }
