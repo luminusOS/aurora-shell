@@ -19,6 +19,7 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -201,9 +202,33 @@ export async function run() {
   // max width to exactly fit every icon at size 24: if the fixed icons were
   // not counted, _adjustIconSize would keep a larger size and the dock would
   // overflow its work area.
+  //
+  // The fixed-icon count here must not depend on how many apps happen to be
+  // pinned or running in the test environment: with zero of those, the dash
+  // holds only the Show Apps icon, which — being simultaneously the first
+  // and last child — picks up extra edge margin that a multi-icon dash never
+  // sees, so the sizing budget below (derived from a single representative
+  // icon) undershoots the real render. Synthesizing a few external-storage
+  // icons (no hardware or Nautilus required) keeps the icon count, and this
+  // check, consistent across every environment.
   const priorMaxWidth = dash._maxWidth;
   const priorMaxHeight = dash._maxHeight;
+  const injectedStorageIcons = dash._externalStorageIcons.length === 0;
   try {
+    if (injectedStorageIcons) {
+      dash._syncExternalStorageIcons(
+        [1, 2, 3].map((n) => ({
+          id: `aurora-test-fake-storage-${n}`,
+          name: `Aurora Test Fake Storage ${n}`,
+          kind: 'mount',
+          sortKey: String(n),
+          icon: Gio.ThemedIcon.new('drive-harddisk'),
+          volume: null,
+          mount: null,
+        })),
+      );
+    }
+
     const boxIconChildren = dash._box
       .get_children()
       .filter((actor) => actor.child?._delegate?.icon && !actor.animatingOut);
@@ -248,6 +273,7 @@ export async function run() {
           `${totalIcons} icons (iconSize=${dash.iconSize}) — fixed icons not counted`,
       );
   } finally {
+    if (injectedStorageIcons) dash._syncExternalStorageIcons([]);
     dash.setMaxSize(priorMaxWidth, priorMaxHeight);
     dash._adjustIconSize();
   }
