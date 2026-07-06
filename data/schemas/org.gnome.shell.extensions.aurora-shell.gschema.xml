@@ -91,10 +91,50 @@
       <summary>Hide Activities button</summary>
       <description>Hide the Activities button while Aurora Menu is enabled</description>
     </key>
+    <key name="aurora-menu-show-about" type="b">
+      <default>true</default>
+      <summary>Show About This PC</summary>
+      <description>Show the About This PC item in Aurora Menu</description>
+    </key>
+    <key name="aurora-menu-show-home" type="b">
+      <default>true</default>
+      <summary>Show Home Folder</summary>
+      <description>Show the Home Folder item in Aurora Menu</description>
+    </key>
+    <key name="aurora-menu-show-downloads" type="b">
+      <default>true</default>
+      <summary>Show Downloads</summary>
+      <description>Show the Downloads item in Aurora Menu</description>
+    </key>
+    <key name="aurora-menu-show-recent-items" type="b">
+      <default>true</default>
+      <summary>Show Recent Items</summary>
+      <description>Show the Recent Items submenu in Aurora Menu</description>
+    </key>
+    <key name="aurora-menu-show-settings" type="b">
+      <default>true</default>
+      <summary>Show System Settings</summary>
+      <description>Show the System Settings item in Aurora Menu</description>
+    </key>
+    <key name="aurora-menu-show-software" type="b">
+      <default>true</default>
+      <summary>Show Software</summary>
+      <description>Show the Software item in Aurora Menu</description>
+    </key>
+    <key name="aurora-menu-show-extensions" type="b">
+      <default>true</default>
+      <summary>Show Extensions</summary>
+      <description>Show the Extensions item in Aurora Menu</description>
+    </key>
     <key name="aurora-menu-app-store-command" type="s">
       <default>'gnome-software'</default>
       <summary>Software command</summary>
       <description>Command used by the Software menu item</description>
+    </key>
+    <key name="aurora-menu-custom-items" type="as">
+      <default>[]</default>
+      <summary>Custom Aurora Menu commands</summary>
+      <description>Custom Aurora Menu commands, one per list entry</description>
     </key>
     <key name="aurora-menu-custom-item-enabled" type="b">
       <default>false</default>

@@ -22,7 +22,7 @@ export type ModuleOption = {
   minuteKey?: string;
   title: string;
   subtitle: string;
-  type: 'switch' | 'entry' | 'spin' | 'time' | 'shortcut' | 'icon-select';
+  type: 'switch' | 'entry' | 'spin' | 'time' | 'shortcut' | 'icon-select' | 'command-list';
   min?: number;
   max?: number;
   choices?: ModuleOptionChoice[];
