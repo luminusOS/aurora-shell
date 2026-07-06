@@ -222,10 +222,71 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
         );
       } else if (option.type === 'icon-select') {
         expander.add_row(this._buildIconSelectRow(option, settings));
+      } else if (option.type === 'command-list') {
+        expander.add_row(
+          this._buildCommandListRow(option.key!, option.title, option.subtitle, settings),
+        );
       }
     }
 
     return expander;
+  }
+
+  private _buildCommandListRow(
+    key: string,
+    title: string,
+    subtitle: string,
+    settings: Gio.Settings,
+  ): Adw.ActionRow {
+    const row = new Adw.ActionRow({ title, subtitle });
+    const textView = new Gtk.TextView({
+      monospace: true,
+      wrap_mode: Gtk.WrapMode.NONE,
+      accepts_tab: false,
+      top_margin: 6,
+      bottom_margin: 6,
+      left_margin: 6,
+      right_margin: 6,
+    });
+    textView.set_size_request(320, 96);
+
+    const scrolled = new Gtk.ScrolledWindow({
+      min_content_height: 96,
+      max_content_height: 160,
+      hexpand: true,
+      vexpand: false,
+      valign: Gtk.Align.CENTER,
+    });
+    scrolled.set_child(textView);
+
+    const buffer = textView.buffer;
+    let syncing = false;
+
+    const syncText = () => {
+      syncing = true;
+      buffer.set_text(settings.get_strv(key).join('\n'), -1);
+      syncing = false;
+    };
+
+    buffer.connect('changed', () => {
+      if (syncing) return;
+
+      const start = buffer.get_start_iter();
+      const end = buffer.get_end_iter();
+      const lines = buffer
+        .get_text(start, end, false)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      settings.set_strv(key, lines);
+    });
+
+    settings.connect(`changed::${key}`, syncText);
+    syncText();
+
+    row.add_suffix(scrolled);
+    return row;
   }
 
   private _buildIconSelectRow(option: ModuleOption, settings: Gio.Settings): Adw.ActionRow {

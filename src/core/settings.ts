@@ -5,6 +5,8 @@ export interface SettingsManager {
   setBoolean(key: string, value: boolean): void;
   getString(key: string): string;
   setString(key: string, value: string): void;
+  getStrv(key: string): string[];
+  setStrv(key: string, value: string[]): void;
   getInt(key: string): number;
   setInt(key: string, value: number): void;
   connect(signal: string, callback: () => void): number;
@@ -30,6 +32,14 @@ export class GSettingsManager implements SettingsManager {
 
   setString(key: string, value: string): void {
     this.settings.set_string(key, value);
+  }
+
+  getStrv(key: string): string[] {
+    return this.settings.get_strv(key);
+  }
+
+  setStrv(key: string, value: string[]): void {
+    this.settings.set_strv(key, value);
   }
 
   getInt(key: string): number {
