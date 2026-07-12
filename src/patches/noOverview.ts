@@ -4,7 +4,6 @@ import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 
 /**
  * NoOverview Module
@@ -41,12 +40,3 @@ export class NoOverview extends Module {
     }
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'no-overview',
-  settingsKey: 'module-no-overview',
-  section: 'behavior',
-  title: _('No Overview'),
-  subtitle: _('Disables the overview at startup'),
-  factory: (ctx) => new NoOverview(ctx),
-};

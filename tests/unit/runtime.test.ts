@@ -1,9 +1,9 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
-import { moduleSupportsRuntime, type ModuleDefinition } from '../../src/module.ts';
+import { moduleSupportsRuntime, type ModuleManifest } from '../../src/module.ts';
 
-function definition(runtime?: ModuleDefinition['runtime']): ModuleDefinition {
+function manifest(runtime?: ModuleManifest['runtime']): ModuleManifest {
   return {
     key: 'test-module',
     settingsKey: 'module-test-module',
@@ -11,26 +11,23 @@ function definition(runtime?: ModuleDefinition['runtime']): ModuleDefinition {
     title: 'Test Module',
     subtitle: 'Runtime test module',
     runtime,
-    factory: () => {
-      throw new Error('factory should not be called');
-    },
   };
 }
 
-test('runtime — modules default to desktop only', () => {
-  const def = definition();
-  assert.equal(moduleSupportsRuntime(def, 'desktop', new Set()), true);
-  assert.equal(moduleSupportsRuntime(def, 'mobile', new Set()), false);
+test('runtime — modules default to desktop role', () => {
+  const item = manifest();
+  assert.equal(moduleSupportsRuntime(item, new Set(['desktop']), new Set()), true);
+  assert.equal(moduleSupportsRuntime(item, new Set(['mobile']), new Set()), false);
 });
 
-test('runtime — shared modules support every target', () => {
-  const def = definition({ targets: ['shared'] });
-  assert.equal(moduleSupportsRuntime(def, 'desktop', new Set()), true);
-  assert.equal(moduleSupportsRuntime(def, 'mobile', new Set()), true);
+test('runtime — a manifest supports both roles explicitly', () => {
+  const item = manifest({ roles: ['desktop', 'mobile'] });
+  assert.equal(moduleSupportsRuntime(item, new Set(['desktop']), new Set()), true);
+  assert.equal(moduleSupportsRuntime(item, new Set(['mobile']), new Set()), true);
 });
 
 test('runtime — required capabilities must be present', () => {
-  const def = definition({ targets: ['desktop'], requires: ['backlight'] });
-  assert.equal(moduleSupportsRuntime(def, 'desktop', new Set()), false);
-  assert.equal(moduleSupportsRuntime(def, 'desktop', new Set(['backlight'])), true);
+  const item = manifest({ roles: ['desktop'], requires: ['backlight'] });
+  assert.equal(moduleSupportsRuntime(item, new Set(['desktop']), new Set()), false);
+  assert.equal(moduleSupportsRuntime(item, new Set(['desktop']), new Set(['backlight'])), true);
 });

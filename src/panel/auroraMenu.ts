@@ -13,8 +13,13 @@ import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 import { loadIcon } from '~/shared/icons.ts';
+import {
+  decodeXml,
+  parseCustomCommand,
+  truncateMiddle,
+  type CustomMenuCommand,
+} from '~/panel/auroraMenuState.ts';
 
 const LOG_PREFIX = 'AuroraMenu';
 const STATUS_AREA_ID = 'aurora-menu';
@@ -57,11 +62,6 @@ type MenuCommand = {
   iconName: string;
   argv?: string[];
   activate?: () => void;
-};
-
-type CustomMenuCommand = {
-  label: string;
-  command: string;
 };
 
 type RecentItem = {
@@ -521,15 +521,6 @@ function parseIsoTime(value: string): number {
   return dateTime?.to_unix() ?? 0;
 }
 
-function decodeXml(value: string): string {
-  return value
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
-}
-
 function isGioError(error: unknown, code: number): boolean {
   return Boolean(
     (error as { matches?: (domain: unknown, code: unknown) => boolean })?.matches?.(
@@ -573,118 +564,3 @@ function parseCommandLine(raw: string, key: string): string[] {
 
   return [];
 }
-
-function parseCustomCommand(raw: string): CustomMenuCommand | null {
-  const value = raw.trim();
-  if (!value) return null;
-
-  const separator = value.indexOf('|');
-  if (separator <= 0) return null;
-
-  const label = value.slice(0, separator).trim();
-  const command = value.slice(separator + 1).trim();
-  if (!label || !command) return null;
-
-  return { label, command };
-}
-
-function truncateMiddle(value: string, limit: number): string {
-  if (value.length <= limit) return value;
-
-  const edgeLength = Math.max(1, Math.floor((limit - 1) / 2));
-  return `${value.slice(0, edgeLength)}…${value.slice(value.length - edgeLength)}`;
-}
-
-export const definition: ModuleDefinition = {
-  key: 'aurora-menu',
-  settingsKey: 'module-aurora-menu',
-  section: 'dock-panel',
-  title: _('Aurora Menu'),
-  subtitle: _('Aurora panel menu with recent items and useful shortcuts'),
-  options: [
-    {
-      key: MENU_ICON_KEY,
-      title: _('Menu Icon'),
-      subtitle: _('Choose the icon shown in the top panel'),
-      type: 'icon-select',
-      choices: [
-        {
-          value: 'aurora',
-          title: _('Aurora Shell'),
-          iconName: 'aurora-shell-menu-symbolic',
-        },
-        {
-          value: 'gnome',
-          title: _('GNOME'),
-          iconName: 'start-here-symbolic',
-        },
-        {
-          value: 'luminus',
-          title: _('Luminus OS'),
-          iconName: 'luminus-os-symbolic',
-        },
-      ],
-    },
-    {
-      key: HIDE_ACTIVITIES_KEY,
-      title: _('Hide Activities Button'),
-      subtitle: _('Hide the Activities button while Aurora Menu is enabled'),
-      type: 'switch',
-    },
-    {
-      key: SHOW_ABOUT_KEY,
-      title: _('Show About This PC'),
-      subtitle: _('Show the About This PC item in Aurora Menu'),
-      type: 'switch',
-    },
-    {
-      key: SHOW_HOME_KEY,
-      title: _('Show Home Folder'),
-      subtitle: _('Show the Home Folder item in Aurora Menu'),
-      type: 'switch',
-    },
-    {
-      key: SHOW_DOWNLOADS_KEY,
-      title: _('Show Downloads'),
-      subtitle: _('Show the Downloads item in Aurora Menu'),
-      type: 'switch',
-    },
-    {
-      key: SHOW_RECENT_KEY,
-      title: _('Show Recent Items'),
-      subtitle: _('Show the Recent Items submenu in Aurora Menu'),
-      type: 'switch',
-    },
-    {
-      key: SHOW_SETTINGS_KEY,
-      title: _('Show System Settings'),
-      subtitle: _('Show the System Settings item in Aurora Menu'),
-      type: 'switch',
-    },
-    {
-      key: SHOW_SOFTWARE_KEY,
-      title: _('Show Software'),
-      subtitle: _('Show the Software item in Aurora Menu'),
-      type: 'switch',
-    },
-    {
-      key: SHOW_EXTENSIONS_KEY,
-      title: _('Show Extensions'),
-      subtitle: _('Show the Extensions item in Aurora Menu'),
-      type: 'switch',
-    },
-    {
-      key: APP_STORE_COMMAND_KEY,
-      title: _('Software Command'),
-      subtitle: _('Command used by the Software menu item'),
-      type: 'entry',
-    },
-    {
-      key: CUSTOM_ITEMS_KEY,
-      title: _('Custom Menu Commands'),
-      subtitle: _('One command per line, using “Label | command”'),
-      type: 'command-list',
-    },
-  ],
-  factory: (ctx) => new AuroraMenu(ctx),
-};

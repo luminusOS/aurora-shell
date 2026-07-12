@@ -13,9 +13,9 @@ Gio._promisify(Gio.DBusConnection.prototype, 'call');
 Gio._promisify(Gio.File.prototype, 'load_contents_async');
 
 import type { ExtensionContext } from '~/core/context.ts';
+import type { CleanupBag } from '~/core/cleanupBag.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
 
 import { TrayContainer } from './trayContainer.ts';
@@ -37,20 +37,20 @@ export class TrayIcons extends Module {
   private _sniWatcher: SniWatcher | null = null;
   private _sniHost: SniHost | null = null;
   private _bgSource: BackgroundAppsSource | null = null;
-  private _settingsChangedIds: number[] = [];
+  private _cleanup: CleanupBag | null = null;
   private _bgItemAppIds = new Map<string, BgTrayEntry>();
   private _dedupBgApps = true;
   private _bgAppsToggle: any = null;
   private _bgAppsGrid: any = null;
   private _bgAppsGridChildAddedId = 0;
   private _desktopSettings: SettingsManager | null = null;
-  private _desktopSettingsChangedId = 0;
 
   constructor(context: ExtensionContext) {
     super(context);
   }
 
   override enable(): void {
+    this._cleanup = this.context.createCleanupBag();
     const settings = this.context.settings.getRawSettings();
     this._desktopSettings = this.context.settings.getSchema('org.gnome.desktop.interface');
     const iconSize = settings.get_int('tray-icons-icon-size');
@@ -97,7 +97,7 @@ export class TrayIcons extends Module {
       },
     );
     this._sniWatcher.start();
-    this._desktopSettingsChangedId = this._desktopSettings.connect('changed::color-scheme', () => {
+    this._cleanup.connect(this._desktopSettings, 'changed::color-scheme', () => {
       const scheme = this._desktopSettings?.getString('color-scheme') ?? 'unknown';
       logger.debug(`Color scheme changed to ${scheme}; refreshing SNI icons`, {
         prefix: LOG_PREFIX,
@@ -113,46 +113,44 @@ export class TrayIcons extends Module {
       .start()
       .catch((e) => logger.warn(`bg source start failed: ${e}`, { prefix: LOG_PREFIX }));
 
-    this._settingsChangedIds.push(
-      settings.connect('changed::tray-icons-limit', () => {
-        this._container?.setLimit(settings.get_int('tray-icons-limit'));
-      }),
-      settings.connect('changed::tray-icons-icon-size', () => {
-        this._container?.setIconSize(settings.get_int('tray-icons-icon-size'));
-      }),
-      settings.connect('changed::tray-icons-attention-timeout', () => {
-        this._container?.setAttentionTimeout(settings.get_int('tray-icons-attention-timeout'));
-      }),
-      settings.connect('changed::tray-icons-dedup-bg-apps', () => {
-        this._dedupBgApps = settings.get_boolean('tray-icons-dedup-bg-apps');
-        if (this._dedupBgApps) {
-          for (const [appId, entry] of [...this._bgItemAppIds]) {
-            this._sniCoversApp(appId, entry.app)
-              .then((covered) => {
-                if (covered) {
-                  this._bgItemAppIds.delete(appId);
-                  this._container?.removeItem(entry.itemId);
-                }
-              })
-              .catch(() => {});
-          }
+    this._cleanup.connect(settings, 'changed::tray-icons-limit', () => {
+      this._container?.setLimit(settings.get_int('tray-icons-limit'));
+    });
+    this._cleanup.connect(settings, 'changed::tray-icons-icon-size', () => {
+      this._container?.setIconSize(settings.get_int('tray-icons-icon-size'));
+    });
+    this._cleanup.connect(settings, 'changed::tray-icons-attention-timeout', () => {
+      this._container?.setAttentionTimeout(settings.get_int('tray-icons-attention-timeout'));
+    });
+    this._cleanup.connect(settings, 'changed::tray-icons-dedup-bg-apps', () => {
+      this._dedupBgApps = settings.get_boolean('tray-icons-dedup-bg-apps');
+      if (this._dedupBgApps) {
+        for (const [appId, entry] of [...this._bgItemAppIds]) {
+          this._sniCoversApp(appId, entry.app)
+            .then((covered) => {
+              if (covered) {
+                this._bgItemAppIds.delete(appId);
+                this._container?.removeItem(entry.itemId);
+              }
+            })
+            .catch(() => {});
         }
-      }),
-      settings.connect('changed::tray-icons-hide-bg-quick-settings', () => {
-        if (settings.get_boolean('tray-icons-hide-bg-quick-settings')) {
-          this._hideBgAppsQuickSettings();
-        } else {
-          this._restoreBgAppsQuickSettings();
-        }
-      }),
-      settings.connect('changed::tray-icons-recolor-symbolic-pixmaps', () => {
-        logger.debug(
-          `Recolor symbolic SNI pixmaps=${settings.get_boolean('tray-icons-recolor-symbolic-pixmaps')}; refreshing SNI icons`,
-          { prefix: LOG_PREFIX },
-        );
-        this._sniHost?.refreshIcons('recolor-setting');
-      }),
-    );
+      }
+    });
+    this._cleanup.connect(settings, 'changed::tray-icons-hide-bg-quick-settings', () => {
+      if (settings.get_boolean('tray-icons-hide-bg-quick-settings')) {
+        this._hideBgAppsQuickSettings();
+      } else {
+        this._restoreBgAppsQuickSettings();
+      }
+    });
+    this._cleanup.connect(settings, 'changed::tray-icons-recolor-symbolic-pixmaps', () => {
+      logger.debug(
+        `Recolor symbolic SNI pixmaps=${settings.get_boolean('tray-icons-recolor-symbolic-pixmaps')}; refreshing SNI icons`,
+        { prefix: LOG_PREFIX },
+      );
+      this._sniHost?.refreshIcons('recolor-setting');
+    });
   }
 
   private _onSniItemAdded(item: TrayItem): void {
@@ -468,15 +466,8 @@ export class TrayIcons extends Module {
   }
 
   override disable(): void {
-    const settings = this.context.settings.getRawSettings();
-    for (const id of this._settingsChangedIds) {
-      settings.disconnect(id);
-    }
-    this._settingsChangedIds = [];
-    if (this._desktopSettings && this._desktopSettingsChangedId > 0) {
-      this._desktopSettings.disconnect(this._desktopSettingsChangedId);
-      this._desktopSettingsChangedId = 0;
-    }
+    this._cleanup?.dispose();
+    this._cleanup = null;
     this._desktopSettings = null;
 
     this._restoreBgAppsQuickSettings();
@@ -496,57 +487,3 @@ export class TrayIcons extends Module {
     this._container = null;
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'tray-icons',
-  settingsKey: 'module-tray-icons',
-  section: 'dock-panel',
-  title: _('Tray Icons'),
-  subtitle: _('System tray with SNI and background app icons'),
-  runtime: { targets: ['desktop'] },
-  options: [
-    {
-      key: 'tray-icons-limit',
-      title: _('Visible Icon Limit'),
-      subtitle: _('Maximum number of icons shown before the expand button appears'),
-      type: 'spin',
-      min: 1,
-      max: 20,
-    },
-    {
-      key: 'tray-icons-icon-size',
-      title: _('Icon Size'),
-      subtitle: _('Tray icon size in pixels (14–24)'),
-      type: 'spin',
-      min: 14,
-      max: 24,
-    },
-    {
-      key: 'tray-icons-attention-timeout',
-      title: _('Attention Auto-Collapse (seconds)'),
-      subtitle: _('Seconds before the tray collapses after a notification icon appears'),
-      type: 'spin',
-      min: 1,
-      max: 30,
-    },
-    {
-      key: 'tray-icons-dedup-bg-apps',
-      title: _('Hide Background App When Tray Icon Present'),
-      subtitle: _('Remove the background app icon when the same app has an SNI tray icon'),
-      type: 'switch',
-    },
-    {
-      key: 'tray-icons-hide-bg-quick-settings',
-      title: _('Hide Background Apps from Quick Settings'),
-      subtitle: _('Hide the Background Apps section from the Quick Settings dropdown'),
-      type: 'switch',
-    },
-    {
-      key: 'tray-icons-recolor-symbolic-pixmaps',
-      title: _('Recolor Symbolic Tray Icons'),
-      subtitle: _('Automatically recolor monochrome SNI icons to match the panel theme'),
-      type: 'switch',
-    },
-  ],
-  factory: (ctx) => new TrayIcons(ctx),
-};

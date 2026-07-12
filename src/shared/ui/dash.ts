@@ -17,13 +17,14 @@ import {
   type ExternalStorageIconInstance,
   type ExternalStorageItem,
 } from '~/dock/externalStorageIcon.ts';
+import {
+  boundsContainPoint,
+  boundsEqual,
+  calculateDashPlacement,
+  type DashBounds,
+} from '~/shared/ui/dashLayout.ts';
 
-export interface DashBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+export type { DashBounds } from '~/shared/ui/dashLayout.ts';
 
 type TargetBoxListener = (bounds: DashBounds | null) => void;
 
@@ -273,9 +274,9 @@ export class AuroraDash extends Dash {
 
   containsStagePoint(x: number, y: number): boolean {
     return (
-      this._boundsContainPoint(this._getActorStageBounds(this._container), x, y) ||
-      this._boundsContainPoint(this._getActorStageBounds(this), x, y) ||
-      this._boundsContainPoint(this._targetBox, x, y)
+      boundsContainPoint(this._getActorStageBounds(this._container), x, y) ||
+      boundsContainPoint(this._getActorStageBounds(this), x, y) ||
+      boundsContainPoint(this._targetBox, x, y)
     );
   }
 
@@ -418,14 +419,10 @@ export class AuroraDash extends Dash {
       const width = Math.min(Math.max(prefW, 0), workArea.width);
 
       const [, prefH] = this.get_preferred_height(width || workArea.width);
-      const height = Math.min(Math.max(prefH, 0), workArea.height);
+      const placement = calculateDashPlacement(workArea, prefW, prefH, this._getMarginBottom());
 
-      const marginBottom = this._getMarginBottom();
-      const x = workArea.x + Math.round((workArea.width - width) / 2);
-      const y = Math.max(workArea.y, workArea.y + workArea.height - height - marginBottom);
-
-      this._container.set_size(width, height);
-      this._container.set_position(x, y);
+      this._container.set_size(placement.width, placement.height);
+      this._container.set_position(placement.x, placement.y);
       this._queueTargetBoxUpdate();
     } catch (_e) {
       if (!this._isDestroyed) throw _e;
@@ -673,16 +670,6 @@ export class AuroraDash extends Dash {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
 
     return { x, y, width, height };
-  }
-
-  private _boundsContainPoint(bounds: DashBounds | null, x: number, y: number): boolean {
-    if (!bounds) return false;
-    return (
-      x >= bounds.x &&
-      x <= bounds.x + bounds.width &&
-      y >= bounds.y &&
-      y <= bounds.y + bounds.height
-    );
   }
 
   // Stock Dash._init() connects item-drag-* / window-drag-* via bare
@@ -1191,7 +1178,7 @@ export class AuroraDash extends Dash {
       height: size.height,
     };
 
-    if (!AuroraDash._boundsEqual(this._targetBox, bounds)) {
+    if (!boundsEqual(this._targetBox, bounds)) {
       this._targetBox = bounds;
       this._targetBoxListener?.(this._targetBox);
     }
@@ -1231,11 +1218,5 @@ export class AuroraDash extends Dash {
       }
       return GLib.SOURCE_REMOVE;
     });
-  }
-
-  private static _boundsEqual(a: DashBounds | null, b: DashBounds | null): boolean {
-    if (a === b) return true;
-    if (!a || !b) return false;
-    return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
   }
 }

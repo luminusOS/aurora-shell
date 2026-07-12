@@ -4,123 +4,46 @@ Thank you for your interest in contributing to Aurora Shell! This document outli
 
 ## Architecture Overview
 
-Aurora Shell is designed to be highly modular. Each feature is an independent module that can be enabled or disabled by the user without affecting other features.
+Aurora Shell keeps GNOME integration close to each functional area. `extension.ts` creates the
+context and delegates module lifecycle to `ModuleManager`. The ordered `moduleCatalog.ts` is shared by
+runtime and preferences; `registry.ts` only associates each manifest with its implementation factory.
 
-```mermaid
-graph TD
-    classDef core fill:#f9f2f4,stroke:#e83e8c,stroke-width:2px,color:#c7254e;
-    classDef adapter fill:#e7f3ff,stroke:#007bff,stroke-width:2px;
-
-    A["extension.ts"] -->|Injects| B["ExtensionContext"]:::core
-    B -->|Provides| C["SettingsManager"]:::core
-    B -->|Provides| D["DeviceService"]:::adapter
-
-    E["Module"]:::core -->|uses| B
-
-    M["semantic folders<br/>(class + definition)"]:::core -->|definition export| F["registry.ts"]:::core
-    F -->|Definitions + factory| A
-    P["prefsMetadata.ts"]:::core -->|Metadata mirror| G["prefs.ts (Generic UI)"]
-```
-
-1.  **Dependency Injection:** `extension.ts` instantiates an `ExtensionContext` and injects it into every module. Modules read Aurora settings through `this.context.settings`; direct imports of GNOME Shell APIs such as `Main` are expected for Shell UI integration.
-2.  **Abstractions:**
-    - Use `this.context.settings` to interact with GSettings.
-    - Use `this.context.device` for runtime target and hardware capabilities.
-    - Keep pure logic outside Shell imports when it needs unit coverage.
-3.  **Layering:** Separate UI orchestration (Clutter actors) from pure business logic. Complex logic should be extracted into standalone TypeScript functions or classes.
-4.  **Self-Registering Modules:** Each module file exports a `definition: ModuleDefinition` co-located with its class, including the factory that constructs it. `src/registry.ts` is a pure aggregator — it imports every `definition` and returns them in UI order. `extension.ts` iterates the registry and calls `def.factory(ctx)` directly; no central factory map exists.
-5.  **Metadata-Driven Preferences:** The preferences UI is generated dynamically from `src/prefsMetadata.ts`, a hand-maintained metadata mirror. Prefs cannot import `registry.ts` because it runs in `gnome-extensions-app` (GTK/Adw), which cannot resolve `resource:///org/gnome/shell/*` imports pulled in transitively by module classes. Parity between `registry.ts`, `prefsMetadata.ts`, and the GSettings schema is enforced by `tests/unit/registry.test.ts`.
+Module descriptions live in Shell-free `*.manifest.ts` files. Implementations contain behavior and
+lifecycle only. Pure calculations should be extracted when they are independently testable, while direct
+`Main`/St/Clutter integration remains idiomatic for a GNOME Shell extension.
 
 ## Adding a Module
 
-1. Choose the semantic source area, then create a `Module` subclass **and** a co-located `definition` export. Single-file modules can live directly in their area, for example `src/patches/myPatch.ts`; complex modules should use a subfolder, for example `src/panel/myPanelFeature/myPanelFeature.ts`.
+1. Create `feature.manifest.ts` and the `Module` implementation in the appropriate functional area.
+2. Add the manifest to `moduleCatalog.ts` in preference order.
+3. Associate the manifest key with its factory in `registry.ts`.
+4. Add every module, option, and internal setting key to the GSettings schema.
+5. Add unit coverage for pure logic and a Shell test for GNOME integration.
 
-Current source areas are `dock`, `panel`, `desktop`, `patches`, `theme`, `privacy`, and `clipboard`. Use `desktop` for desktop-only features such as tray icons. Add future hardware probes under `device`, not inside feature modules.
+A minimal manifest looks like:
 
 ```typescript
 import { gettext as _ } from 'gettext';
+import type { ModuleManifest } from '~/module.ts';
 
-import type { ExtensionContext } from '~/core/context.ts';
-import type { ModuleDefinition } from '~/module.ts';
-import { Module } from '~/module.ts';
-
-export class MyModule extends Module {
-  constructor(context: ExtensionContext) {
-    super(context);
-  }
-
-  override enable(): void {
-    // setup using this.context (e.g., this.context.settings.getBoolean('...'))
-  }
-
-  override disable(): void {
-    // cleanup
-  }
-}
-
-export const definition: ModuleDefinition = {
+export const manifest: ModuleManifest = {
   key: 'my-module',
   settingsKey: 'module-my-module',
   section: 'behavior',
   title: _('My Module'),
   subtitle: _('Description'),
-  runtime: { targets: ['desktop'] },
-  options: [
-    // (Optional) add sub-settings here
-    { key: 'my-sub-key', title: _('Sub Setting'), subtitle: _('...'), type: 'switch' },
-  ],
-  factory: (ctx) => new MyModule(ctx),
+  runtime: { roles: ['desktop'], scope: 'session' },
+  options: [{ key: 'my-option', title: _('Option'), subtitle: _('Description'), type: 'switch' }],
 };
 ```
 
-2. Register the definition in `src/registry.ts` — one import line plus one array entry (preserve UI order):
+The runtime implementation keeps the small `enable()`/`disable()` contract. Use
+`this.context.createCleanupBag()` for repetitive signals, source IDs, D-Bus watches, and arbitrary
+cleanup; keep explicit teardown where stateful GNOME APIs make it clearer.
 
-```typescript
-import { definition as myModule } from '~/patches/myPatch.ts';
-
-export function getModuleRegistry(): ModuleDefinition[] {
-  return [
-    // …existing modules…
-    myModule,
-  ];
-}
-```
-
-3. Mirror the metadata into `src/prefsMetadata.ts`. Prefs runs in a separate process that cannot statically import module source files — see the comment at the top of `prefsMetadata.ts` for the full explanation:
-
-```typescript
-{
-  key: 'my-module',
-  settingsKey: 'module-my-module',
-  section: 'behavior',
-  title: _('My Module'),
-  subtitle: _('Description'),
-  options: [
-    { key: 'my-sub-key', title: _('Sub Setting'), subtitle: _('...'), type: 'switch' },
-  ],
-},
-```
-
-4. Add a GSettings toggle key (`data/schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`):
-
-```xml
-<key name="module-my-module" type="b">
-  <default>true</default>
-  <summary>Enable My Module</summary>
-  <description>What this module does</description>
-</key>
-```
-
-5. Build and verify:
-
-```bash
-just build
-just unit-test
-```
-
-`tests/unit/registry.test.ts` parses each module's `definition`, `prefsMetadata.ts`, `registry.ts`, and the schema XML. It fails if any of the four drift out of sync (missing key, duplicate settingsKey, mismatched order, missing schema entry, etc.), so a half-finished module addition is caught immediately.
-
-After these steps, your module appears in Preferences and respects the runtime enable/disable toggles.
+`tests/unit/registry.test.ts` verifies catalog order, uniqueness, known sections, and factory
+coverage through the TypeScript AST. `tests/unit/schema.test.ts` structurally validates XML and
+requires catalog settings and schema keys to match exactly.
 
 ## Branching & Release Model
 
@@ -128,11 +51,11 @@ Aurora Shell follows a branching model aligned with GNOME Shell's own release cy
 
 ### Branches
 
-| Branch | Purpose |
-|--------|---------|
-| `main` | Active development targeting the next GNOME release |
-| `release/v50.x` | Maintenance branch for GNOME 50 |
-| `release/v51.x` | Maintenance branch for GNOME 51 |
+| Branch          | Purpose                                             |
+| --------------- | --------------------------------------------------- |
+| `main`          | Active development targeting the next GNOME release |
+| `release/v50.x` | Maintenance branch for GNOME 50                     |
+| `release/v51.x` | Maintenance branch for GNOME 51                     |
 
 Maintenance branches are created automatically when the first tag for a new major version is pushed.
 
@@ -203,7 +126,7 @@ The CI pipeline runs all tests and, if they pass, publishes the GitHub Release a
 - **Clean:** `just clean` — removes `dist/`
 - **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
 
-*For a full test environment, create a Fedora toolbox via `just toolbox create` and run tests inside it using `just toolbox test-all` (preferred over `just test-all`).*
+_For a full test environment, create a Fedora toolbox via `just toolbox create` and run tests inside it using `just toolbox test-all` (preferred over `just test-all`)._
 
 ## GNOME Extensions Review
 

@@ -7,7 +7,6 @@ import * as AltTab from '@girs/gnome-shell/ui/altTab';
 import type { ExtensionContext } from '~/core/context.ts';
 import { loadIcon } from '~/shared/icons.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 
 export class XwaylandIndicator extends Module {
   private _origAppPopupInit: ((...args: unknown[]) => void) | null = null;
@@ -111,12 +110,3 @@ export class XwaylandIndicator extends Module {
     wrapper.add_child(badge);
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'xwayland-indicator',
-  settingsKey: 'module-xwayland-indicator',
-  section: 'behavior',
-  title: _('XWayland Indicator'),
-  subtitle: _('Shows an X11 badge on XWayland apps in the Alt+Tab switcher'),
-  factory: (ctx) => new XwaylandIndicator(ctx),
-};

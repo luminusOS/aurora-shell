@@ -7,9 +7,9 @@ import GLib from '@girs/glib-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import type { CleanupBag } from '~/core/cleanupBag.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
 import { DockHotArea } from '~/dock/hotArea.ts';
 import { DockIntellihide, OverlapStatus } from '~/dock/intellihide.ts';
@@ -33,6 +33,7 @@ export type ManagedDockBinding = {
 
 export class Dock extends Module {
   private _bindings = new Map<number, ManagedDockBinding>();
+  private _cleanup: CleanupBag | null = null;
   private _pendingRebuild = false;
   private _dockSettings: any = null;
   private _alwaysShow = false;
@@ -44,6 +45,7 @@ export class Dock extends Module {
   }
 
   override enable(): void {
+    this._cleanup = this.context.createCleanupBag();
     this._dockSettings = this.context.settings.getRawSettings();
     this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
     this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
@@ -57,22 +59,32 @@ export class Dock extends Module {
     Main.overview.dash.hide();
 
     this._rebuildBindings();
-    Main.layoutManager.connectObject(
-      'monitors-changed',
-      () => this._rebuildBindings(),
-      'hot-corners-changed',
-      () => this._rebuildBindings(),
-      this,
+    this._cleanup.connectObject(Main.layoutManager, this, () =>
+      Main.layoutManager.connectObject(
+        'monitors-changed',
+        () => this._rebuildBindings(),
+        'hot-corners-changed',
+        () => this._rebuildBindings(),
+        'startup-complete',
+        () => this._rebuildBindings(),
+        this,
+      ),
     );
-    global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this);
-    Main.sessionMode.connectObject('updated', () => this._refreshBindingsLayout(), this);
+    this._cleanup.connectObject(global.display, this, () =>
+      global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this),
+    );
+    this._cleanup.connectObject(Main.sessionMode, this, () =>
+      Main.sessionMode.connectObject('updated', () => this._refreshBindingsLayout(), this),
+    );
 
-    Main.overview.connectObject(
-      'showing',
-      () => this._setOverviewVisible(true),
-      'hidden',
-      () => this._setOverviewVisible(false),
-      this,
+    this._cleanup.connectObject(Main.overview, this, () =>
+      Main.overview.connectObject(
+        'showing',
+        () => this._setOverviewVisible(true),
+        'hidden',
+        () => this._setOverviewVisible(false),
+        this,
+      ),
     );
 
     this._dockSettings?.connectObject?.(
@@ -95,18 +107,17 @@ export class Dock extends Module {
       this,
     );
 
-    this.context.signals.connectObject('icons-woven', () => this._refreshBindingsLayout(), this);
+    this._cleanup.connectObject(this.context.signals, this, () =>
+      this.context.signals.connectObject('icons-woven', () => this._refreshBindingsLayout(), this),
+    );
+    this._cleanup.add(() => this._dockSettings?.disconnectObject?.(this));
   }
 
   override disable(): void {
     Main.overview.dash.show();
-    this._dockSettings?.disconnectObject?.(this);
+    this._cleanup?.dispose();
+    this._cleanup = null;
     this._dockSettings = null;
-    this.context.signals.disconnectObject(this);
-    Main.layoutManager.disconnectObject(this);
-    global.display.disconnectObject(this);
-    Main.sessionMode.disconnectObject(this);
-    Main.overview.disconnectObject(this);
     this._pendingRebuild = false;
     this._clearBindings();
   }
@@ -591,32 +602,3 @@ export class Dock extends Module {
     });
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'dock',
-  settingsKey: 'module-dock',
-  section: 'dock-panel',
-  title: _('Dock'),
-  subtitle: _('Custom dock with auto-hide and intellihide features'),
-  options: [
-    {
-      key: 'dock-always-show',
-      title: _('Always Show Dock'),
-      subtitle: _('Keep dock permanently visible and shrink windows so they never overlap it'),
-      type: 'switch',
-    },
-    {
-      key: 'dock-show-trash',
-      title: _('Show Trash Icon'),
-      subtitle: _('Show a trash can in the dock; click to open it, right-click to empty it'),
-      type: 'switch',
-    },
-    {
-      key: 'dock-show-external-storage',
-      title: _('Show External Storage'),
-      subtitle: _('Show removable drives in the dock when they are connected'),
-      type: 'switch',
-    },
-  ],
-  factory: (ctx) => new Dock(ctx),
-};

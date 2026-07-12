@@ -7,7 +7,6 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
-import type { ModuleDefinition } from '~/module.ts';
 
 /**
  * AutoThemeSwitcher Module
@@ -123,28 +122,3 @@ export class AutoThemeSwitcher extends Module {
     });
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'auto-theme-switcher',
-  settingsKey: 'module-auto-theme-switcher',
-  section: 'appearance',
-  title: _('Auto Theme Switcher'),
-  subtitle: _('Automatically switches between light and dark theme based on time'),
-  options: [
-    {
-      hourKey: 'auto-theme-switcher-light-hours',
-      minuteKey: 'auto-theme-switcher-light-minutes',
-      title: _('Light Time'),
-      subtitle: _('Time to switch to light theme (HH:MM)'),
-      type: 'time',
-    },
-    {
-      hourKey: 'auto-theme-switcher-dark-hours',
-      minuteKey: 'auto-theme-switcher-dark-minutes',
-      title: _('Dark Time'),
-      subtitle: _('Time to switch to dark theme (HH:MM)'),
-      type: 'time',
-    },
-  ],
-  factory: (ctx) => new AutoThemeSwitcher(ctx),
-};

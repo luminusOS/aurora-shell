@@ -9,9 +9,9 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import * as MessageTray from '@girs/gnome-shell/ui/messageTray';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import type { CleanupBag } from '~/core/cleanupBag.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 import { openClockMenu, type ClockPillRegistration } from '~/shared/clockPill.ts';
 import { registerClockPillWidget } from '~/shared/clockPill.ts';
 
@@ -54,7 +54,7 @@ export class MeetingClock extends Module {
   private _activeNotificationDestroyId = 0;
   private _uiAlive = false;
   private _enabled = false;
-  private _settingsIds: number[] = [];
+  private _cleanup: CleanupBag | null = null;
   private _refreshTimerId = 0;
   private _labelTimerId = 0;
   private _alertTimerId = 0;
@@ -72,6 +72,7 @@ export class MeetingClock extends Module {
 
   override enable(): void {
     this.disable();
+    this._cleanup = this.context.createCleanupBag();
     this._enabled = true;
 
     this._installClockWidget();
@@ -102,28 +103,30 @@ export class MeetingClock extends Module {
     this._schedulePanelRevealTimer();
 
     const settings = this.context.settings;
-    this._settingsIds = [
-      settings.connect(`changed::${ALERTS_ENABLED_KEY}`, () => this._scheduleAlerts()),
-      settings.connect(`changed::${ALERT_MINUTES_KEY}`, () => this._scheduleAlerts()),
-      settings.connect(`changed::${SNOOZE_MINUTES_KEY}`, () => this._scheduleAlerts()),
-      settings.connect(`changed::${ALERT_EVENTS_WITHOUT_LINK_KEY}`, () => this._scheduleAlerts()),
-      settings.connect(`changed::${PANEL_REVEAL_INTERVAL_MINUTES_KEY}`, () =>
-        this._schedulePanelRevealTimer(),
-      ),
-      settings.connect(`changed::${PANEL_LOOKAHEAD_MINUTES_KEY}`, () => this._render()),
-      settings.connect(`changed::${EXCLUDE_ALL_DAY_KEY}`, () => {
-        this._render();
-        this._scheduleAlerts();
-      }),
-    ];
+    this._cleanup.connect(settings, `changed::${ALERTS_ENABLED_KEY}`, () => this._scheduleAlerts());
+    this._cleanup.connect(settings, `changed::${ALERT_MINUTES_KEY}`, () => this._scheduleAlerts());
+    this._cleanup.connect(settings, `changed::${SNOOZE_MINUTES_KEY}`, () => this._scheduleAlerts());
+    this._cleanup.connect(settings, `changed::${ALERT_EVENTS_WITHOUT_LINK_KEY}`, () =>
+      this._scheduleAlerts(),
+    );
+    this._cleanup.connect(settings, `changed::${PANEL_REVEAL_INTERVAL_MINUTES_KEY}`, () =>
+      this._schedulePanelRevealTimer(),
+    );
+    this._cleanup.connect(settings, `changed::${PANEL_LOOKAHEAD_MINUTES_KEY}`, () =>
+      this._render(),
+    );
+    this._cleanup.connect(settings, `changed::${EXCLUDE_ALL_DAY_KEY}`, () => {
+      this._render();
+      this._scheduleAlerts();
+    });
   }
 
   override disable(): void {
     this._enabled = false;
     this._uiAlive = false;
 
-    for (const id of this._settingsIds) this.context.settings.disconnect(id);
-    this._settingsIds = [];
+    this._cleanup?.dispose();
+    this._cleanup = null;
 
     this._clearRefreshTimer();
     this._clearLabelTimer();
@@ -572,64 +575,3 @@ export class MeetingClock extends Module {
     }
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'meeting-clock',
-  settingsKey: 'module-meeting-clock',
-  section: 'dock-panel',
-  title: _('Meeting Clock'),
-  subtitle: _('Shows upcoming calendar events next to the clock'),
-  options: [
-    {
-      key: ALERTS_ENABLED_KEY,
-      title: _('Meeting Alerts'),
-      subtitle: _('Show a notification when a meeting is about to start'),
-      type: 'switch',
-    },
-    {
-      key: ALERT_MINUTES_KEY,
-      title: _('Alert Lead Time (minutes)'),
-      subtitle: _('Minutes before a meeting starts to show the alert'),
-      type: 'spin',
-      min: 0,
-      max: 60,
-    },
-    {
-      key: SNOOZE_MINUTES_KEY,
-      title: _('Snooze Duration (minutes)'),
-      subtitle: _('Minutes to wait before showing a snoozed alert again'),
-      type: 'spin',
-      min: 1,
-      max: 60,
-    },
-    {
-      key: ALERT_EVENTS_WITHOUT_LINK_KEY,
-      title: _('Alert Events Without Links'),
-      subtitle: _('Show meeting alerts for calendar events that do not include a join link'),
-      type: 'switch',
-    },
-    {
-      key: PANEL_REVEAL_INTERVAL_MINUTES_KEY,
-      title: _('Panel Reveal Interval (minutes)'),
-      subtitle: _('Minutes between automatic Meeting Clock slide reveals in the panel'),
-      type: 'spin',
-      min: 1,
-      max: 60,
-    },
-    {
-      key: PANEL_LOOKAHEAD_MINUTES_KEY,
-      title: _('Panel Lookahead (minutes)'),
-      subtitle: _('Maximum minutes before an event starts for it to appear in the panel clock'),
-      type: 'spin',
-      min: 0,
-      max: 1440,
-    },
-    {
-      key: EXCLUDE_ALL_DAY_KEY,
-      title: _('Hide All-Day Events'),
-      subtitle: _('Exclude all-day events from the clock and alerts'),
-      type: 'switch',
-    },
-  ],
-  factory: (ctx) => new MeetingClock(ctx),
-};

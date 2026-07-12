@@ -9,9 +9,9 @@ import GWeather from 'gi://GWeather';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import type { CleanupBag } from '~/core/cleanupBag.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 import { registerClockPillWidget, type ClockPillRegistration } from '~/shared/clockPill.ts';
 
 import {
@@ -28,11 +28,6 @@ const GWEATHER_SCHEMA_ID = 'org.gnome.GWeather4';
 const TEMPERATURE_UNIT_KEY = 'temperature-unit';
 const REFRESH_INTERVAL_SECONDS = 600;
 const MAX_RETRIES = 5;
-
-type SignalRecord = {
-  obj: { disconnect(id: number): void };
-  id: number;
-};
 
 type WeatherClient = {
   available: boolean;
@@ -65,12 +60,10 @@ export class WeatherClock extends Module {
   private _label: St.Label | null = null;
   private _weatherClient: WeatherClient | null = null;
   private _gweatherSettings: Gio.Settings | null = null;
-  private _gweatherSettingsId = 0;
+  private _cleanup: CleanupBag | null = null;
   private _monitor: Gio.NetworkMonitor | null = null;
   private _snapshotsBySource = new Map<string, WeatherSnapshot>();
   private _snapshot: WeatherSnapshot | null = null;
-  private _settingsIds: number[] = [];
-  private _signals: SignalRecord[] = [];
   private _refreshTimerId = 0;
   private _retryTimerId = 0;
   private _retryCount = 0;
@@ -83,38 +76,29 @@ export class WeatherClock extends Module {
 
   override enable(): void {
     this.disable();
+    this._cleanup = this.context.createCleanupBag();
     this._enabled = true;
     this._monitor = Gio.NetworkMonitor.get_default();
     this._gweatherSettings = this._createGWeatherSettings();
-    this._gweatherSettingsId =
-      this._gweatherSettings?.connect(`changed::${TEMPERATURE_UNIT_KEY}`, () =>
+    if (this._gweatherSettings)
+      this._cleanup.connect(this._gweatherSettings, `changed::${TEMPERATURE_UNIT_KEY}`, () =>
         this._onWeatherChanged(),
-      ) ?? 0;
+      );
     this._installClockWidget();
     this._connectWeatherBackend();
     this._startRefreshTimer();
 
-    this._settingsIds = [
-      this.context.settings.connect(`changed::${AFTER_CLOCK_KEY}`, () =>
-        this._registerClockWidget(),
-      ),
-    ];
+    this._cleanup.connect(this.context.settings, `changed::${AFTER_CLOCK_KEY}`, () =>
+      this._registerClockWidget(),
+    );
   }
 
   override disable(): void {
     this._enabled = false;
     this._uiAlive = false;
 
-    for (const id of this._settingsIds) this.context.settings.disconnect(id);
-    this._settingsIds = [];
-
-    for (const signal of this._signals) signal.obj.disconnect(signal.id);
-    this._signals = [];
-
-    if (this._gweatherSettingsId && this._gweatherSettings) {
-      this._gweatherSettings.disconnect(this._gweatherSettingsId);
-    }
-    this._gweatherSettingsId = 0;
+    this._cleanup?.dispose();
+    this._cleanup = null;
 
     this._clearRefreshTimer();
     this._clearRetryTimer();
@@ -248,7 +232,7 @@ export class WeatherClock extends Module {
     signalName: string,
     callback: (...args: unknown[]) => void,
   ): void {
-    this._signals.push({ obj, id: obj.connect(signalName, callback) });
+    this._cleanup?.connect(obj, signalName, callback);
   }
 
   private _onConnectivityChanged(): void {
@@ -424,20 +408,3 @@ export class WeatherClock extends Module {
     return Math.floor(Date.now() / 1000);
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'weather-clock',
-  settingsKey: 'module-weather-clock',
-  section: 'dock-panel',
-  title: _('Weather Clock'),
-  subtitle: _('Shows GNOME Weather next to the clock'),
-  options: [
-    {
-      key: AFTER_CLOCK_KEY,
-      title: _('Show Weather After Clock'),
-      subtitle: _('Place the weather indicator after the clock instead of before it'),
-      type: 'switch',
-    },
-  ],
-  factory: (ctx) => new WeatherClock(ctx),
-};

@@ -7,7 +7,6 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
-import type { ModuleDefinition } from '~/module.ts';
 
 const LOG_PREFIX = 'LowBatteryPercentage';
 const LOW_BATTERY_PERCENT = 20;
@@ -136,12 +135,3 @@ export class LowBatteryPercentage extends Module {
     this._managedBatteryPercentage = false;
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'low-battery-percentage',
-  settingsKey: 'module-low-battery-percentage',
-  section: 'dock-panel',
-  title: _('Low Battery Percentage'),
-  subtitle: _('Shows battery percentage in the panel while below 20%'),
-  factory: (ctx) => new LowBatteryPercentage(ctx),
-};

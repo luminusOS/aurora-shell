@@ -9,9 +9,9 @@ import Shell from '@girs/shell-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import type { CleanupBag } from '~/core/cleanupBag.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 
 import type { ClipboardEntry, ClipboardImagePayload } from '~/clipboard/clipboardStore.ts';
 import { ClipboardStore } from '~/clipboard/clipboardStore.ts';
@@ -28,7 +28,7 @@ export class ClipboardHistory extends Module {
   private _store: ClipboardStore | null = null;
   private _monitor: ClipboardMonitor | null = null;
   private _panel: ClipboardPanel | null = null;
-  private _settingsIds: number[] = [];
+  private _cleanup: CleanupBag | null = null;
   private _startupIdleId: number = 0;
 
   constructor(context: ExtensionContext) {
@@ -36,6 +36,7 @@ export class ClipboardHistory extends Module {
   }
 
   override enable(): void {
+    this._cleanup = this.context.createCleanupBag();
     const sessionDir = GLib.get_user_runtime_dir() + '/aurora-shell/' + this.context.uuid;
     const filePath = sessionDir + '/clipboard-history.log';
     const mediaDir = sessionDir + '/clipboard-media';
@@ -69,6 +70,12 @@ export class ClipboardHistory extends Module {
       this._monitor?.start();
       return GLib.SOURCE_REMOVE;
     });
+    const startupIdleId = this._startupIdleId;
+    this._cleanup.source(startupIdleId, (id) => {
+      if (this._startupIdleId !== id) return;
+      GLib.source_remove(id);
+      this._startupIdleId = 0;
+    });
 
     try {
       Main.wm.addKeybinding(
@@ -78,28 +85,25 @@ export class ClipboardHistory extends Module {
         Shell.ActionMode.ALL,
         () => this.togglePanel(),
       );
+      this._cleanup.add(() => {
+        try {
+          Main.wm.removeKeybinding(KEYBINDING_KEY);
+        } catch {
+          // The Shell may already have removed it during shutdown.
+        }
+      });
     } catch (e) {
       logger.error('Failed to register keybinding:', { prefix: LOG_PREFIX }, e as Error);
     }
 
-    this._settingsIds = [
-      rawSettings.connect('changed::clipboard-history-poll-interval', () => {
-        this._monitor?.setInterval(rawSettings.get_int('clipboard-history-poll-interval'));
-      }),
-    ];
+    this._cleanup.connect(rawSettings, 'changed::clipboard-history-poll-interval', () => {
+      this._monitor?.setInterval(rawSettings.get_int('clipboard-history-poll-interval'));
+    });
   }
 
   override disable(): void {
-    if (this._startupIdleId !== 0) {
-      GLib.source_remove(this._startupIdleId);
-      this._startupIdleId = 0;
-    }
-
-    try {
-      Main.wm.removeKeybinding(KEYBINDING_KEY);
-    } catch (_e) {
-      // ignore if not registered
-    }
+    this._cleanup?.dispose();
+    this._cleanup = null;
 
     this._panel?.close();
     this._panel?.destroy();
@@ -110,12 +114,6 @@ export class ClipboardHistory extends Module {
 
     this._store?.save();
     this._store = null;
-
-    const rawSettings = this.context.settings.getRawSettings();
-    for (const id of this._settingsIds) {
-      rawSettings.disconnect(id);
-    }
-    this._settingsIds = [];
   }
 
   openPanel(): boolean {
@@ -200,28 +198,3 @@ export class ClipboardHistory extends Module {
     this._panel?.refresh();
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'clipboard-history',
-  settingsKey: 'module-clipboard-history',
-  section: 'privacy-clipboard',
-  title: _('Clipboard History'),
-  subtitle: _('Searchable clipboard history with pinning and keyboard navigation'),
-  options: [
-    {
-      key: 'clipboard-history-shortcut',
-      title: _('Open Shortcut'),
-      subtitle: _('Keyboard shortcut to open the clipboard history panel'),
-      type: 'shortcut',
-    },
-    {
-      key: 'clipboard-history-poll-interval',
-      title: _('Poll Interval (ms)'),
-      subtitle: _('How often to check the clipboard for changes'),
-      type: 'spin',
-      min: 250,
-      max: 5000,
-    },
-  ],
-  factory: (ctx) => new ClipboardHistory(ctx),
-};
