@@ -1,12 +1,10 @@
 import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
-import * as Main from '@girs/gnome-shell/ui/main';
-
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import { attachToQuickSettings } from '~/shared/quickSettings.ts';
+import { attachToQuickSettings, getQuickSettingsGrid } from '~/shared/quickSettings.ts';
 import { BluetoothDeviceItemPatcher } from '~/panel/bluetoothMenu/deviceItem.ts';
 
 const LOG_PREFIX = 'BluetoothMenu';
@@ -58,7 +56,7 @@ export class BluetoothMenu extends Module {
   }
 
   private _findBluetoothToggle(): any {
-    const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
+    const grid = getQuickSettingsGrid();
     if (!grid) return null;
 
     for (const child of grid.get_children()) {

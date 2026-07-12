@@ -17,7 +17,9 @@ import type { CleanupBag } from '~/core/cleanupBag.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
+import { getQuickSettingsGrid } from '~/shared/quickSettings.ts';
 
+import { appIdCandidates } from './appIdentity.ts';
 import { TrayContainer } from './trayContainer.ts';
 import { BackgroundAppsSource } from './backgroundAppsSource.ts';
 import { SniWatcher } from './sniWatcher.ts';
@@ -225,8 +227,8 @@ export class TrayIcons extends Module {
       if (covered) return true;
     }
 
-    const appIdCandidates = this._appIdCandidates(appId, app);
-    for (const candidate of appIdCandidates) {
+    const candidates = appIdCandidates([appId, app.get_id()]);
+    for (const candidate of candidates) {
       if (candidate === appId) continue;
       const candidateOwner = await this._getUniqueName(candidate);
       if (!candidateOwner) continue;
@@ -244,7 +246,7 @@ export class TrayIcons extends Module {
     if (coveredByPid) return true;
 
     const coveredByMetadata =
-      [...appIdCandidates].some((candidate) => this._sniHost?.hasSniForAppId(candidate)) ?? false;
+      [...candidates].some((candidate) => this._sniHost?.hasSniForAppId(candidate)) ?? false;
     logger.debug(`SNI covers ${appId}? owner=none, metadata-match=${coveredByMetadata}`, {
       prefix: LOG_PREFIX,
     });
@@ -252,7 +254,7 @@ export class TrayIcons extends Module {
   }
 
   private async _sniCoversAppPid(appId: string, app: Shell.App): Promise<boolean> {
-    const appIdCandidates = this._appIdCandidates(appId, app);
+    const candidates = appIdCandidates([appId, app.get_id()]);
     const appPids = app.get_pids?.() ?? [];
     if (appPids.length === 0) {
       logger.debug(`SNI covers ${appId}? pid-match=false app-pids=[]`, { prefix: LOG_PREFIX });
@@ -267,7 +269,7 @@ export class TrayIcons extends Module {
       const ancestorMatch = directMatch ? true : await this._pidHasAncestor(sniPid, appPidSet);
       const trackerMatch = this._trackedPidMatchesApp(sniPid, appId, app);
       const flatpakAppId = await this._getFlatpakAppId(sniPid);
-      const flatpakMatch = flatpakAppId ? appIdCandidates.has(flatpakAppId.toLowerCase()) : false;
+      const flatpakMatch = flatpakAppId ? candidates.has(flatpakAppId.toLowerCase()) : false;
       const covered = ancestorMatch || trackerMatch || flatpakMatch;
       logger.debug(
         `SNI covers ${appId}? sni-bus=${busName} sni-pid=${sniPid} flatpak=${flatpakAppId ?? 'none'} app-pids=[${appPids.join(', ')}] pid-match=${covered}`,
@@ -301,7 +303,7 @@ export class TrayIcons extends Module {
       const trackedApp = Shell.WindowTracker.get_default().get_app_from_pid(pid);
       if (!trackedApp) return false;
       const trackedId = trackedApp.get_id();
-      return this._appIdCandidates(appId, app).has(trackedId.toLowerCase());
+      return appIdCandidates([appId, app.get_id()]).has(trackedId.toLowerCase());
     } catch {
       return false;
     }
@@ -328,19 +330,6 @@ export class TrayIcons extends Module {
     const match = /^PPid:\s+(\d+)$/m.exec(text);
     if (!match) return null;
     return Number.parseInt(match[1]!, 10);
-  }
-
-  private _appIdCandidates(appId: string, app: Shell.App): Set<string> {
-    const candidates = new Set<string>();
-    for (const rawCandidate of [appId, app.get_id()]) {
-      let candidate = rawCandidate.toLowerCase();
-      while (candidate) {
-        candidates.add(candidate);
-        if (!candidate.endsWith('.desktop')) break;
-        candidate = candidate.slice(0, -'.desktop'.length);
-      }
-    }
-    return candidates;
   }
 
   private async _removeBgItemsCoveredBySni(): Promise<void> {
@@ -406,7 +395,7 @@ export class TrayIcons extends Module {
     );
     if (backgroundAppsItem) return backgroundAppsItem;
 
-    return this._findBgAppsQuickSettingsToggleInActor(quickSettings?.menu?._grid);
+    return this._findBgAppsQuickSettingsToggleInActor(getQuickSettingsGrid());
   }
 
   private _findBgAppsQuickSettingsToggleInActor(actor: any): any {
@@ -426,7 +415,7 @@ export class TrayIcons extends Module {
   }
 
   private _watchBgAppsQuickSettingsGrid(): void {
-    const grid = (Main.panel.statusArea.quickSettings as any)?.menu?._grid;
+    const grid = getQuickSettingsGrid();
     if (!grid) return;
     if (this._bgAppsGrid === grid && this._bgAppsGridChildAddedId) return;
 

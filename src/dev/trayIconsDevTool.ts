@@ -1,8 +1,14 @@
 import '@girs/gjs';
 
-import St from '@girs/st-18';
+import type St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
+import {
+  createDevToolActionButton,
+  createDevToolActionRow,
+  createDevToolModulePanel,
+  createDevToolSummary,
+} from '~/dev/devToolUi.ts';
 import type { TrayItem } from '~/desktop/trayIcons/trayState.ts';
 
 const TRAY_ID = 'aurora-tray-icons';
@@ -39,40 +45,22 @@ export class TrayIconsDevTool {
     const tray = this._getTray();
     const hasFakeItems = this._fakeItems.size > 0;
 
-    const panel = new St.BoxLayout({
-      vertical: true,
-      style_class: 'aurora-devtool-module-panel',
-    });
-
-    const summary = new St.BoxLayout({
-      style_class: 'aurora-devtool-summary',
-    });
-    summary.add_child(
-      new St.Icon({
-        icon_name: this.iconName,
-        icon_size: 18,
-        style_class: 'aurora-devtool-summary-icon',
-      }),
+    const panel = createDevToolModulePanel();
+    panel.add_child(
+      createDevToolSummary(
+        this.iconName,
+        tray ? `${this._fakeItems.size} fake icons` : 'Tray unavailable',
+      ),
     );
-    summary.add_child(
-      new St.Label({
-        text: tray ? `${this._fakeItems.size} fake icons` : 'Tray unavailable',
-        style_class: 'aurora-devtool-summary-label',
-        x_expand: true,
-      }),
-    );
-    panel.add_child(summary);
 
-    const primaryRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const primaryRow = createDevToolActionRow();
     primaryRow.add_child(
-      this._createActionButton('list-add-symbolic', 'Add Random Icon', () => {
+      createDevToolActionButton('list-add-symbolic', 'Add Random Icon', () => {
         this.addRandomFakeIcon();
       }),
     );
     primaryRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'dialog-warning-symbolic',
         this._attentionEnabled ? 'Alerts On' : 'Alert Icons',
         () => this.toggleAttentionOnAll(),
@@ -82,11 +70,9 @@ export class TrayIconsDevTool {
     );
     panel.add_child(primaryRow);
 
-    const secondaryRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const secondaryRow = createDevToolActionRow();
     secondaryRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'user-trash-symbolic',
         'Remove All',
         () => this.removeAllFakeIcons(),
@@ -224,38 +210,5 @@ export class TrayIconsDevTool {
     }
 
     return tray;
-  }
-
-  private _createActionButton(
-    iconName: string,
-    label: string,
-    onClick: () => void,
-    disabled = false,
-    active = false,
-  ): St.Button {
-    const content = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-content',
-    });
-    content.add_child(
-      new St.Icon({
-        icon_name: iconName,
-        icon_size: 16,
-      }),
-    );
-    content.add_child(new St.Label({ text: label }));
-
-    const button = new St.Button({
-      child: content,
-      style_class: active
-        ? 'button aurora-devtool-action-button active'
-        : 'button aurora-devtool-action-button',
-      can_focus: !disabled,
-      reactive: !disabled,
-      x_expand: true,
-      accessible_name: label,
-    });
-    if (disabled) button.opacity = 120;
-    button.connect('clicked', onClick);
-    return button;
   }
 }

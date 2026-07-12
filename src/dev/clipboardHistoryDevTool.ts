@@ -1,10 +1,16 @@
 import '@girs/gjs';
 
 import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
+import type St from '@girs/st-18';
 
 import { ClipboardHistory } from '~/clipboard/clipboardHistory.ts';
 import { fingerprintBytes } from '~/clipboard/clipboardMonitor.ts';
+import {
+  createDevToolActionButton,
+  createDevToolActionRow,
+  createDevToolModulePanel,
+  createDevToolSummary,
+} from '~/dev/devToolUi.ts';
 import type { Module } from '~/module.ts';
 
 const RANDOM_MESSAGES = [
@@ -38,35 +44,17 @@ export class ClipboardHistoryDevTool {
 
   buildPanel(): St.Widget {
     const clipboard = this._getClipboardHistory();
-    const panel = new St.BoxLayout({
-      vertical: true,
-      style_class: 'aurora-devtool-module-panel',
-    });
-
-    const summary = new St.BoxLayout({
-      style_class: 'aurora-devtool-summary',
-    });
-    summary.add_child(
-      new St.Icon({
-        icon_name: this.iconName,
-        icon_size: 18,
-        style_class: 'aurora-devtool-summary-icon',
-      }),
+    const panel = createDevToolModulePanel();
+    panel.add_child(
+      createDevToolSummary(
+        this.iconName,
+        clipboard ? `${clipboard.entryCount} history entries` : 'Clipboard History disabled',
+      ),
     );
-    summary.add_child(
-      new St.Label({
-        text: clipboard ? `${clipboard.entryCount} history entries` : 'Clipboard History disabled',
-        style_class: 'aurora-devtool-summary-label',
-        x_expand: true,
-      }),
-    );
-    panel.add_child(summary);
 
-    const primaryRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const primaryRow = createDevToolActionRow();
     primaryRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'document-open-symbolic',
         'Open Panel',
         () => this.openPanel(),
@@ -74,7 +62,7 @@ export class ClipboardHistoryDevTool {
       ),
     );
     primaryRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'list-add-symbolic',
         'Add Message',
         () => this.addRandomMessage(),
@@ -83,11 +71,9 @@ export class ClipboardHistoryDevTool {
     );
     panel.add_child(primaryRow);
 
-    const secondaryRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const secondaryRow = createDevToolActionRow();
     secondaryRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'format-justify-fill-symbolic',
         'Add 5 Messages',
         () => this.addRandomMessages(5),
@@ -95,7 +81,7 @@ export class ClipboardHistoryDevTool {
       ),
     );
     secondaryRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'user-trash-symbolic',
         'Clear History',
         () => this.clearHistory(),
@@ -104,11 +90,9 @@ export class ClipboardHistoryDevTool {
     );
     panel.add_child(secondaryRow);
 
-    const sampleRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const sampleRow = createDevToolActionRow();
     sampleRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'image-x-generic-symbolic',
         'Add Image',
         () => void this.addSampleImage(),
@@ -116,7 +100,7 @@ export class ClipboardHistoryDevTool {
       ),
     );
     sampleRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'insert-link-symbolic',
         'Add Link',
         () => this.addSampleLink(),
@@ -124,7 +108,7 @@ export class ClipboardHistoryDevTool {
       ),
     );
     sampleRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'accessories-text-editor-symbolic',
         'Add Code',
         () => this.addSampleCode(),
@@ -218,35 +202,5 @@ export class ClipboardHistoryDevTool {
   private _makeRandomMessage(): string {
     const base = RANDOM_MESSAGES[Math.floor(Math.random() * RANDOM_MESSAGES.length)]!;
     return `${base} #${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  }
-
-  private _createActionButton(
-    iconName: string,
-    label: string,
-    onClick: () => void,
-    disabled = false,
-  ): St.Button {
-    const content = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-content',
-    });
-    content.add_child(
-      new St.Icon({
-        icon_name: iconName,
-        icon_size: 16,
-      }),
-    );
-    content.add_child(new St.Label({ text: label }));
-
-    const button = new St.Button({
-      child: content,
-      style_class: 'button aurora-devtool-action-button',
-      can_focus: !disabled,
-      reactive: !disabled,
-      x_expand: true,
-      accessible_name: label,
-    });
-    if (disabled) button.opacity = 120;
-    button.connect('clicked', onClick);
-    return button;
   }
 }

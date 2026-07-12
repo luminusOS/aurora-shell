@@ -178,7 +178,7 @@ export class AuroraMenu extends Module {
       () =>
         this._addCommandIfVisible(menu, SHOW_DOWNLOADS_KEY, {
           title: _('Downloads'),
-          argv: ['xdg-open', getDownloadsDirectory() ?? GLib.get_home_dir()],
+          argv: ['xdg-open', this._getDownloadsDirectory() ?? GLib.get_home_dir()],
           iconName: 'folder-download-symbolic',
         }),
       () => this._addRecentItems(menu),
@@ -257,7 +257,7 @@ export class AuroraMenu extends Module {
     let added = false;
 
     for (const command of commands) {
-      const argv = parseCommandLine(command.command, CUSTOM_ITEMS_KEY);
+      const argv = this._parseCommandLine(command.command, CUSTOM_ITEMS_KEY);
       if (argv.length === 0) continue;
 
       this._addCommand(menu, {
@@ -335,7 +335,7 @@ export class AuroraMenu extends Module {
 
         const body = match[3] ?? '';
         const title = this._extractRecentTitle(body, uri);
-        const modified = parseIsoTime(match[2] ?? '');
+        const modified = this._parseIsoTime(match[2] ?? '');
         items.push({
           title,
           uri,
@@ -346,7 +346,7 @@ export class AuroraMenu extends Module {
 
       return items.sort((a, b) => b.modified - a.modified).slice(0, RECENT_LIMIT);
     } catch (e) {
-      if (isGioError(e, Gio.IOErrorEnum.NOT_FOUND)) return [];
+      if (this._isGioError(e, Gio.IOErrorEnum.NOT_FOUND)) return [];
 
       logger.warn(`Failed to read recent items: ${e}`, { prefix: LOG_PREFIX });
       return [];
@@ -407,7 +407,7 @@ export class AuroraMenu extends Module {
     if (!this._panelIcon) return;
 
     const requested = this.context.settings.getString(MENU_ICON_KEY);
-    const iconKey = isMenuIconKey(requested) ? requested : 'aurora';
+    const iconKey = this._isMenuIconKey(requested) ? requested : 'aurora';
     const icon = MENU_ICONS[iconKey];
 
     this._panelIcon.icon_name = null;
@@ -441,7 +441,10 @@ export class AuroraMenu extends Module {
     if (GLib.find_program_in_path('gnome-extensions-app')) return ['gnome-extensions-app'];
     if (GLib.find_program_in_path('gnome-shell-extension-prefs'))
       return ['gnome-shell-extension-prefs'];
-    if (GLib.find_program_in_path('flatpak') && desktopFileExists(EXTENSION_MANAGER_DESKTOP_ID))
+    if (
+      GLib.find_program_in_path('flatpak') &&
+      this._desktopFileExists(EXTENSION_MANAGER_DESKTOP_ID)
+    )
       return ['flatpak', 'run', EXTENSION_MANAGER_FLATPAK_ID];
 
     return null;
@@ -463,7 +466,7 @@ export class AuroraMenu extends Module {
     const raw = this.context.settings.getString(key).trim();
     if (!raw) return fallback;
 
-    const argv = parseCommandLine(raw, key);
+    const argv = this._parseCommandLine(raw, key);
     return argv.length > 0 ? argv : fallback;
   }
 
@@ -504,6 +507,53 @@ export class AuroraMenu extends Module {
   private _getMenu(): PopupMenu.PopupMenu | null {
     return (this._button?.menu as PopupMenu.PopupMenu | null | undefined) ?? null;
   }
+
+  private _parseIsoTime(value: string): number {
+    const dateTime = GLib.DateTime.new_from_iso8601(value, null);
+    return dateTime?.to_unix() ?? 0;
+  }
+
+  private _isGioError(error: unknown, code: number): boolean {
+    return error instanceof GLib.Error && error.matches(Gio.io_error_quark(), code);
+  }
+
+  private _getDownloadsDirectory(): string | null {
+    const path = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD);
+    return path || null;
+  }
+
+  private _desktopFileExists(desktopId: string): boolean {
+    return this._getApplicationDataDirs().some((dir) =>
+      GLib.file_test(GLib.build_filenamev([dir, desktopId]), GLib.FileTest.EXISTS),
+    );
+  }
+
+  private _getApplicationDataDirs(): string[] {
+    return [
+      GLib.build_filenamev([GLib.get_user_data_dir(), 'applications']),
+      GLib.build_filenamev([
+        GLib.get_home_dir(),
+        '.local/share/flatpak/exports/share/applications',
+      ]),
+      ...GLib.get_system_data_dirs().map((dir) => GLib.build_filenamev([dir, 'applications'])),
+      '/var/lib/flatpak/exports/share/applications',
+    ];
+  }
+
+  private _isMenuIconKey(value: string): value is MenuIconKey {
+    return value in MENU_ICONS;
+  }
+
+  private _parseCommandLine(raw: string, key: string): string[] {
+    try {
+      const [ok, argv] = GLib.shell_parse_argv(raw);
+      if (ok && argv && argv.length > 0) return argv;
+    } catch (e) {
+      logger.warn(`Invalid command in ${key}: ${e}`, { prefix: LOG_PREFIX });
+    }
+
+    return [];
+  }
 }
 
 const MENU_VISIBILITY_KEYS = [
@@ -515,52 +565,3 @@ const MENU_VISIBILITY_KEYS = [
   SHOW_SOFTWARE_KEY,
   SHOW_EXTENSIONS_KEY,
 ];
-
-function parseIsoTime(value: string): number {
-  const dateTime = GLib.DateTime.new_from_iso8601(value, null);
-  return dateTime?.to_unix() ?? 0;
-}
-
-function isGioError(error: unknown, code: number): boolean {
-  return Boolean(
-    (error as { matches?: (domain: unknown, code: unknown) => boolean })?.matches?.(
-      Gio.IOErrorEnum,
-      code,
-    ),
-  );
-}
-
-function getDownloadsDirectory(): string | null {
-  const path = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD);
-  return path || null;
-}
-
-function desktopFileExists(desktopId: string): boolean {
-  return getApplicationDataDirs().some((dir) =>
-    GLib.file_test(GLib.build_filenamev([dir, desktopId]), GLib.FileTest.EXISTS),
-  );
-}
-
-function getApplicationDataDirs(): string[] {
-  return [
-    GLib.build_filenamev([GLib.get_user_data_dir(), 'applications']),
-    GLib.build_filenamev([GLib.get_home_dir(), '.local/share/flatpak/exports/share/applications']),
-    ...GLib.get_system_data_dirs().map((dir) => GLib.build_filenamev([dir, 'applications'])),
-    '/var/lib/flatpak/exports/share/applications',
-  ];
-}
-
-function isMenuIconKey(value: string): value is MenuIconKey {
-  return value in MENU_ICONS;
-}
-
-function parseCommandLine(raw: string, key: string): string[] {
-  try {
-    const [ok, argv] = GLib.shell_parse_argv(raw);
-    if (ok && argv && argv.length > 0) return argv;
-  } catch (e) {
-    logger.warn(`Invalid command in ${key}: ${e}`, { prefix: LOG_PREFIX });
-  }
-
-  return [];
-}

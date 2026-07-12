@@ -176,10 +176,10 @@ export class ClipboardItem extends St.Button {
     if (entry.kind === 'image') {
       this._initImageCard(entry);
     } else {
-      const url = _parseUrl(entry.text);
+      const url = this._parseUrl(entry.text);
       if (url) {
         this._initLinkCard(entry.text.trim(), url);
-      } else if (_isCode(entry.text)) {
+      } else if (this._isCode(entry.text)) {
         this._initCodeCard(entry);
       } else {
         this._initTextCard(entry);
@@ -324,7 +324,7 @@ export class ClipboardItem extends St.Button {
     }
 
     if (meta.description && this._linkDescription) {
-      this._linkDescription.text = _truncate(meta.description, MAX_DESCRIPTION_CHARS);
+      this._linkDescription.text = this._truncate(meta.description, MAX_DESCRIPTION_CHARS);
       this._linkDescription.visible = true;
     }
 
@@ -415,7 +415,7 @@ export class ClipboardItem extends St.Button {
     });
 
     const label = new St.Label({
-      text: _truncate(entry.text.replace(/\s+/g, ' ').trim(), MAX_LABEL_CHARS),
+      text: this._truncate(entry.text.replace(/\s+/g, ' ').trim(), MAX_LABEL_CHARS),
       style_class: 'aurora-clipboard-item-label',
       x_expand: true,
       x_align: Clutter.ActorAlign.FILL,
@@ -485,52 +485,52 @@ export class ClipboardItem extends St.Button {
     this._menu.destroy();
     this._menu = null;
   }
-}
 
-function _parseUrl(text: string): { host: string; path: string } | null {
-  const trimmed = text.trim();
-  if (trimmed.includes('\n') || trimmed.includes(' ') || trimmed.length > 2048) return null;
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return null;
+  private _parseUrl(text: string): { host: string; path: string } | null {
+    const trimmed = text.trim();
+    if (trimmed.includes('\n') || trimmed.includes(' ') || trimmed.length > 2048) return null;
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return null;
 
-  try {
-    const withoutScheme = trimmed.replace(/^https?:\/\//, '');
-    const slashIdx = withoutScheme.indexOf('/');
-    const host = slashIdx === -1 ? withoutScheme : withoutScheme.slice(0, slashIdx);
-    const rawPath = slashIdx === -1 ? '' : withoutScheme.slice(slashIdx);
-    const path = rawPath.split('?')[0]!;
+    try {
+      const withoutScheme = trimmed.replace(/^https?:\/\//, '');
+      const slashIdx = withoutScheme.indexOf('/');
+      const host = slashIdx === -1 ? withoutScheme : withoutScheme.slice(0, slashIdx);
+      const rawPath = slashIdx === -1 ? '' : withoutScheme.slice(slashIdx);
+      const path = rawPath.split('?')[0]!;
 
-    if (!host || !host.includes('.')) return null;
-    return { host, path };
-  } catch {
-    return null;
+      if (!host || !host.includes('.')) return null;
+      return { host, path };
+    } catch {
+      return null;
+    }
   }
-}
 
-function _isCode(text: string): boolean {
-  const lines = text.split('\n');
-  if (lines.length < 2) return false;
+  private _isCode(text: string): boolean {
+    const lines = text.split('\n');
+    if (lines.length < 2) return false;
 
-  let score = 0;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^\s{2,}/.test(line)) score++;
-    if (/[{};]\s*$/.test(line)) score++;
-    if (/\\$/.test(trimmed)) score++;
-    if (/^\s*(\/\/|#|\/\*|\*)/.test(line)) score++;
-    if (/^(curl|wget|git|npm|yarn|pnpm|just|docker|kubectl|ssh|sudo)\b/.test(trimmed)) score += 2;
-    if (/^-[A-Za-z]/.test(trimmed)) score++;
-    if (/^(https?:\/\/|\/[\w.-]+|\w+=)/.test(trimmed)) score++;
-    if (
-      /^\s*(function|class|def|import|export|const|let|var|return|if|else|for|while|try|catch|async|await|public|private|protected)\b/.test(
-        line,
+    let score = 0;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (/^\s{2,}/.test(line)) score++;
+      if (/[{};]\s*$/.test(line)) score++;
+      if (/\\$/.test(trimmed)) score++;
+      if (/^\s*(\/\/|#|\/\*|\*)/.test(line)) score++;
+      if (/^(curl|wget|git|npm|yarn|pnpm|just|docker|kubectl|ssh|sudo)\b/.test(trimmed)) score += 2;
+      if (/^-[A-Za-z]/.test(trimmed)) score++;
+      if (/^(https?:\/\/|\/[\w.-]+|\w+=)/.test(trimmed)) score++;
+      if (
+        /^\s*(function|class|def|import|export|const|let|var|return|if|else|for|while|try|catch|async|await|public|private|protected)\b/.test(
+          line,
+        )
       )
-    )
-      score += 2;
+        score += 2;
+    }
+
+    return score >= 3;
   }
 
-  return score >= 3;
-}
-
-function _truncate(text: string, maxChars: number): string {
-  return text.length > maxChars ? text.slice(0, maxChars) + '…' : text;
+  private _truncate(text: string, maxChars: number): string {
+    return text.length > maxChars ? text.slice(0, maxChars) + '…' : text;
+  }
 }

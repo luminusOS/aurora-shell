@@ -1,6 +1,13 @@
 import '@girs/gjs';
 
-import St from '@girs/st-18';
+import type St from '@girs/st-18';
+
+import {
+  createDevToolActionButton,
+  createDevToolActionRow,
+  createDevToolModulePanel,
+  createDevToolSummary,
+} from '~/dev/devToolUi.ts';
 
 export class GeneralDevTool {
   readonly key = 'general';
@@ -10,35 +17,12 @@ export class GeneralDevTool {
   constructor(private readonly _openPreferences: () => void) {}
 
   buildPanel(): St.Widget {
-    const panel = new St.BoxLayout({
-      vertical: true,
-      style_class: 'aurora-devtool-module-panel',
-    });
+    const panel = createDevToolModulePanel();
+    panel.add_child(createDevToolSummary(this.iconName, 'Extension tools'));
 
-    const summary = new St.BoxLayout({
-      style_class: 'aurora-devtool-summary',
-    });
-    summary.add_child(
-      new St.Icon({
-        icon_name: this.iconName,
-        icon_size: 18,
-        style_class: 'aurora-devtool-summary-icon',
-      }),
-    );
-    summary.add_child(
-      new St.Label({
-        text: 'Extension tools',
-        style_class: 'aurora-devtool-summary-label',
-        x_expand: true,
-      }),
-    );
-    panel.add_child(summary);
-
-    const row = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const row = createDevToolActionRow();
     row.add_child(
-      this._createActionButton('emblem-system-symbolic', 'Open Settings', () =>
+      createDevToolActionButton('emblem-system-symbolic', 'Open Settings', () =>
         this.openPreferences(),
       ),
     );
@@ -51,29 +35,5 @@ export class GeneralDevTool {
 
   openPreferences(): void {
     this._openPreferences();
-  }
-
-  private _createActionButton(iconName: string, label: string, onClick: () => void): St.Button {
-    const content = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-content',
-    });
-    content.add_child(
-      new St.Icon({
-        icon_name: iconName,
-        icon_size: 16,
-      }),
-    );
-    content.add_child(new St.Label({ text: label }));
-
-    const button = new St.Button({
-      child: content,
-      style_class: 'button aurora-devtool-action-button',
-      can_focus: true,
-      reactive: true,
-      x_expand: true,
-      accessible_name: label,
-    });
-    button.connect('clicked', onClick);
-    return button;
   }
 }

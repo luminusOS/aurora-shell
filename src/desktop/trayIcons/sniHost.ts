@@ -7,6 +7,7 @@ import St from '@girs/st-18';
 
 import type { TrayItem, TrayItemStatus } from './trayState.ts';
 import type { SniWatcher } from './sniWatcher.ts';
+import { appIdCandidates } from './appIdentity.ts';
 import { logger } from '~/core/logger.ts';
 
 const SNI_ITEM_XML = `
@@ -543,7 +544,7 @@ export class SniHost {
   // Used when the app doesn't own a D-Bus well-known name matching its app ID
   // (common for Flatpak apps that register SNI under a unique bus name).
   hasSniForAppId(appId: string): boolean {
-    const appIds = this._appIdCandidates(appId);
+    const appIds = appIdCandidates([appId]);
     const appComponents = new Set(
       [...appIds]
         .map((candidate) => candidate.split('.').at(-1) ?? candidate)
@@ -574,17 +575,6 @@ export class SniHost {
     }
 
     return false;
-  }
-
-  private _appIdCandidates(appId: string): Set<string> {
-    const candidates = new Set<string>();
-    let candidate = appId.toLowerCase();
-    while (candidate) {
-      candidates.add(candidate);
-      if (!candidate.endsWith('.desktop')) break;
-      candidate = candidate.slice(0, -'.desktop'.length);
-    }
-    return candidates;
   }
 
   private _isSpecificAppComponent(component: string): boolean {

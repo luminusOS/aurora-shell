@@ -1,7 +1,13 @@
 import '@girs/gjs';
 
-import St from '@girs/st-18';
+import type St from '@girs/st-18';
 
+import {
+  createDevToolActionButton,
+  createDevToolActionRow,
+  createDevToolModulePanel,
+  createDevToolSummary,
+} from '~/dev/devToolUi.ts';
 import type { Module } from '~/module.ts';
 import { MeetingClock } from '~/panel/clock/meetingClock/meetingClock.ts';
 import type { MeetingEvent } from '~/panel/clock/meetingClock/meetingClockLogic.ts';
@@ -23,37 +29,19 @@ export class MeetingClockDevTool {
 
   buildPanel(): St.Widget {
     const meetingClock = this._getMeetingClock();
-    const panel = new St.BoxLayout({
-      vertical: true,
-      style_class: 'aurora-devtool-module-panel',
-    });
-
-    const summary = new St.BoxLayout({
-      style_class: 'aurora-devtool-summary',
-    });
-    summary.add_child(
-      new St.Icon({
-        icon_name: this.iconName,
-        icon_size: 18,
-        style_class: 'aurora-devtool-summary-icon',
-      }),
-    );
-    summary.add_child(
-      new St.Label({
-        text: meetingClock
+    const panel = createDevToolModulePanel();
+    panel.add_child(
+      createDevToolSummary(
+        this.iconName,
+        meetingClock
           ? `${this._events.length} fake meetings, ${meetingClock.eventCount} visible`
           : 'Meeting Clock disabled',
-        style_class: 'aurora-devtool-summary-label',
-        x_expand: true,
-      }),
+      ),
     );
-    panel.add_child(summary);
 
-    const firstRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const firstRow = createDevToolActionRow();
     firstRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'appointment-new-symbolic',
         'Add Soon',
         () => this.addSoonMeeting(),
@@ -61,7 +49,7 @@ export class MeetingClockDevTool {
       ),
     );
     firstRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'media-playback-start-symbolic',
         'Add Now',
         () => this.addCurrentMeeting(),
@@ -70,11 +58,9 @@ export class MeetingClockDevTool {
     );
     panel.add_child(firstRow);
 
-    const secondRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const secondRow = createDevToolActionRow();
     secondRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'insert-link-symbolic',
         'No Link',
         () => this.addNoLinkMeeting(),
@@ -82,7 +68,7 @@ export class MeetingClockDevTool {
       ),
     );
     secondRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'dialog-warning-symbolic',
         'Trigger Alert',
         () => this.triggerAlert(),
@@ -91,11 +77,9 @@ export class MeetingClockDevTool {
     );
     panel.add_child(secondRow);
 
-    const thirdRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const thirdRow = createDevToolActionRow();
     thirdRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'document-open-symbolic',
         'Open Calendar',
         () => this.openCalendar(),
@@ -103,7 +87,7 @@ export class MeetingClockDevTool {
       ),
     );
     thirdRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'user-trash-symbolic',
         'Clear Fake',
         () => this.clearMeetings(),
@@ -185,35 +169,5 @@ export class MeetingClockDevTool {
     meetingClock.setSourceEvents(DEVTOOL_SOURCE_KEY, this._events);
     this._requestMenuRebuild();
     return id;
-  }
-
-  private _createActionButton(
-    iconName: string,
-    label: string,
-    onClick: () => void,
-    disabled = false,
-  ): St.Button {
-    const content = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-content',
-    });
-    content.add_child(
-      new St.Icon({
-        icon_name: iconName,
-        icon_size: 16,
-      }),
-    );
-    content.add_child(new St.Label({ text: label }));
-
-    const button = new St.Button({
-      child: content,
-      style_class: 'button aurora-devtool-action-button',
-      can_focus: !disabled,
-      reactive: !disabled,
-      x_expand: true,
-      accessible_name: label,
-    });
-    if (disabled) button.opacity = 120;
-    button.connect('clicked', onClick);
-    return button;
   }
 }

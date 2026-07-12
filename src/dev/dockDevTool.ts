@@ -6,6 +6,12 @@ import Clutter from '@girs/clutter-18';
 import type { Module } from '~/module.ts';
 import { Dock, type ManagedDockBinding } from '~/dock/dock.ts';
 import { OverlapStatus } from '~/dock/intellihide.ts';
+import {
+  createDevToolActionButton,
+  createDevToolActionRow,
+  createDevToolModulePanel,
+  createDevToolSummary,
+} from '~/dev/devToolUi.ts';
 
 export class DockDevTool {
   readonly key = 'dock';
@@ -19,52 +25,32 @@ export class DockDevTool {
 
   buildPanel(): St.Widget {
     const dock = this._getDock();
-    const panel = new St.BoxLayout({
-      vertical: true,
-      style_class: 'aurora-devtool-module-panel',
-    });
-
-    const summary = new St.BoxLayout({
-      style_class: 'aurora-devtool-summary',
-    });
-    summary.add_child(
-      new St.Icon({
-        icon_name: this.iconName,
-        icon_size: 18,
-        style_class: 'aurora-devtool-summary-icon',
-      }),
-    );
-    summary.add_child(
-      new St.Label({
-        text: dock
+    const panel = createDevToolModulePanel();
+    panel.add_child(
+      createDevToolSummary(
+        this.iconName,
+        dock
           ? `Bindings: ${dock.bindings.length} · Always-show: ${dock.alwaysShow ? 'on' : 'off'}`
           : 'Dock disabled',
-        style_class: 'aurora-devtool-summary-label',
-        x_expand: true,
-      }),
+      ),
     );
-    panel.add_child(summary);
 
     if (dock) {
       for (const binding of dock.bindings) panel.add_child(this._buildMonitorPanel(binding));
     }
 
-    const firstRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const firstRow = createDevToolActionRow();
     firstRow.add_child(
-      this._createActionButton('go-up-symbolic', 'Reveal All', () => this.revealAll(), !dock),
+      createDevToolActionButton('go-up-symbolic', 'Reveal All', () => this.revealAll(), !dock),
     );
     firstRow.add_child(
-      this._createActionButton('go-down-symbolic', 'Hide All', () => this.hideAll(), !dock),
+      createDevToolActionButton('go-down-symbolic', 'Hide All', () => this.hideAll(), !dock),
     );
     panel.add_child(firstRow);
 
-    const secondRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const secondRow = createDevToolActionRow();
     secondRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'input-touchpad-symbolic',
         'Hot Area',
         () => this.triggerHotArea(),
@@ -72,7 +58,7 @@ export class DockDevTool {
       ),
     );
     secondRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'view-pin-symbolic',
         `Always Show: ${dock?.alwaysShow ? 'On' : 'Off'}`,
         () => this.toggleAlwaysShow(),
@@ -150,21 +136,19 @@ export class DockDevTool {
       }),
     );
 
-    const actions = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const actions = createDevToolActionRow();
     actions.add_child(
-      this._createActionButton('go-up-symbolic', 'Show', () =>
+      createDevToolActionButton('go-up-symbolic', 'Show', () =>
         this.showMonitor(binding.monitorIndex),
       ),
     );
     actions.add_child(
-      this._createActionButton('go-down-symbolic', 'Hide', () =>
+      createDevToolActionButton('go-down-symbolic', 'Hide', () =>
         this.hideMonitor(binding.monitorIndex),
       ),
     );
     actions.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'input-touchpad-symbolic',
         'Hot Area',
         () => this.triggerMonitorHotArea(binding.monitorIndex),
@@ -192,35 +176,5 @@ export class DockDevTool {
   private _getDock(): Dock | null {
     const module = this._getModule('dock');
     return module instanceof Dock ? module : null;
-  }
-
-  private _createActionButton(
-    iconName: string,
-    label: string,
-    onClick: () => void,
-    disabled = false,
-  ): St.Button {
-    const content = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-content',
-    });
-    content.add_child(
-      new St.Icon({
-        icon_name: iconName,
-        icon_size: 16,
-      }),
-    );
-    content.add_child(new St.Label({ text: label }));
-
-    const button = new St.Button({
-      child: content,
-      style_class: 'button aurora-devtool-action-button',
-      can_focus: !disabled,
-      reactive: !disabled,
-      x_expand: true,
-      accessible_name: label,
-    });
-    if (disabled) button.opacity = 120;
-    button.connect('clicked', onClick);
-    return button;
   }
 }
