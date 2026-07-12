@@ -1,7 +1,6 @@
 uuid := "aurora-shell@luminusos.github.io"
 ext_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
 toolbox_name := env_var_or_default("AURORA_TOOLBOX_NAME", "aurora-shell-devel")
-toolbox_image := env_var_or_default("AURORA_TOOLBOX_IMAGE", "ghcr.io/luminusos/aurora-shell-dev:fedora44-gnome50")
 vagrant_name := "aurora-shell-devel"
 
 default:
@@ -158,8 +157,9 @@ toolbox action *args:
     set -e
     case "{{ action }}" in
         "create")
-            echo "Creating toolbox '{{ toolbox_name }}' from '{{ toolbox_image }}'..."
-            toolbox create --image {{ toolbox_image }} {{ toolbox_name }}
+            IMAGE="${AURORA_TOOLBOX_IMAGE:-$(bash scripts/ci-image-name.sh)}"
+            echo "Creating toolbox '{{ toolbox_name }}' from '$IMAGE'..."
+            toolbox create --image "$IMAGE" {{ toolbox_name }}
             ;;
         "run")
             just install

@@ -6,20 +6,28 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: pre-release-main
   cancel-in-progress: true
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   pre-release:
     name: Create nightly pre-release
     runs-on: ubuntu-latest
+    needs: [ci]
     steps:
       - uses: actions/checkout@v7
 
-      - name: Package extension
-        uses: ./.github/actions/package-extension
+      - name: Download extension zip
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zip
+          path: dist/target/
 
       - name: Read version metadata
         id: metadata

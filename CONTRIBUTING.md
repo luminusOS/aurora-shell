@@ -125,15 +125,25 @@ The CI pipeline runs all tests and, if they pass, publishes the GitHub Release a
 - **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
 
 For a full test environment, create the Fedora toolbox with `just toolbox create` and run
-`just toolbox test-all` (preferred over `just test-all`). The toolbox uses the public
-`ghcr.io/luminusos/aurora-shell-dev:fedora44-gnome50` image shared with CI. Set
+`just toolbox test-all` (preferred over `just test-all`). The toolbox uses the public,
+versioned GNOME image from `ghcr.io/luminusos/aurora-shell-ci` shared with CI. Set
 `AURORA_TOOLBOX_IMAGE` to test a locally built replacement.
 
-The image is defined by `Containerfile`. Changes to the container, Yarn toolchain, or lockfile are
-validated on pull requests and published automatically from `main` for amd64 and arm64. The GHCR
-package must remain public so forked pull requests and Toolbox can pull it without repository
-credentials. Set `AURORA_TOOLBOX_NAME` when maintaining more than one Aurora development toolbox.
-`Vagrantfile` remains available for manual testing against other GNOME environments.
+The image is defined by `Containerfile`; its tag is derived from the first `shell-version` in
+`metadata.json` and a hash of the container inputs. CI publishes a missing tag automatically for
+amd64 and arm64. The GHCR package must remain public so forked pull requests and Toolbox can pull it
+without repository credentials. Set `AURORA_TOOLBOX_NAME` when maintaining more than one Aurora
+development toolbox. `Vagrantfile` remains available for manual testing against other GNOME
+environments.
+
+The first CI job derives a content-addressed tag from the GNOME metadata and container inputs. If
+that tag does not exist, the job builds and publishes it to GHCR for amd64 and arm64; all remaining
+jobs then run directly inside that exact image. No local-build fallback or separate image workflow
+is involved.
+
+To advance to a new GNOME generation, update `metadata.json`, the GNOME type dependencies, and the
+single `FEDORA_VERSION` argument in `Containerfile`. Those changes produce a new image tag, which CI
+publishes before starting validation and tests; Toolbox resolves the same tag automatically.
 
 ## GNOME Extensions Review
 
@@ -151,18 +161,17 @@ The recipe depends on `just package` and scans the generated
 
 ## CI
 
-Every pull request and release runs the CI pipeline defined in `.github/workflows/ci.yml`. Its four
-jobs use the same Fedora 44/GNOME 50 image as Toolbox:
+Every pull request and release runs the CI pipeline defined in `.github/workflows/ci.yml`. Its first
+job ensures the CI image exists; the four validation jobs then run inside that same image:
 
 1. **Validate** — runs tsc, ESLint, Prettier check, and Stylelint via `just validate`
 2. **Unit & regression tests** — runs the Node test suite without GNOME Shell
 3. **Build** — runs `just package` and uploads the extension `.zip` as an artifact (depends on lint)
 4. **Integration tests** — runs the shared Shell-test runner against headless GNOME Shell (depends on build + unit tests)
 
-Until the GHCR image exists or when it cannot be pulled, each job can bootstrap itself from the
-checked-out `Containerfile`; after publication, jobs only pull the prepared environment. The private
-`XDG_RUNTIME_DIR`, system D-Bus, and logind mock in this job belong only to the isolated headless
-runtime. Toolbox does not replace the host XDG directories or install fake D-Bus services.
+The private `XDG_RUNTIME_DIR`, system D-Bus, and logind mock in the integration job belong only to
+the isolated headless runtime. Toolbox does not replace the host XDG directories or install fake
+D-Bus services.
 
 All jobs must pass before a PR can be merged.
 

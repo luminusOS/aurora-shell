@@ -93,7 +93,7 @@ Do not leave a task incomplete if either command reports errors or failures.
   - `unit/` — Node test-runner unit tests (`node --test` via `tsx`), auto-discovered by the `tests/unit/*.test.ts` glob — just drop a new `*.test.ts` file in here, no `package.json` edit needed. For pure logic that does not import shell internals.
   - `shell/` — GNOME Shell integration test scripts (run via `gnome-shell-test-tool`) — exercise modules against a real headless GNOME Shell
 - `.github/workflows/ci.yml` — CI pipeline (lint + type-check → unit tests + build → integration tests)
-- `Containerfile` — shared Fedora 44/GNOME 50 build and integration-test environment used by CI and Toolbox
+- `Containerfile` — shared Fedora/GNOME build and integration-test environment used by CI and Toolbox
 - `scripts/` — focused helpers for GNOME Shell tests, Toolbox devkit, and Vagrant devkit
 - `esbuild.ts` — esbuild bundler configuration
 - `sass.config.ts` — Sass compiler configuration
