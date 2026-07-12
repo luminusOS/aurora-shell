@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { copyFileSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { format, resolveConfig } from 'prettier';
@@ -51,8 +51,6 @@ try {
 
     writeFileSync(filePath, addBlankLinesBetweenMembers(formatted));
   }
-
-  copyFileSync(resolve(currentDir, 'metadata.json'), resolve(distDir, 'metadata.json'));
 
   console.log('Build complete.');
   process.exit(0);

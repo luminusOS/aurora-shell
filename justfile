@@ -1,57 +1,41 @@
 uuid := "aurora-shell@luminusos.github.io"
 ext_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
-toolbox_name := "aurora-shell-devel"
-toolbox_image := "registry.fedoraproject.org/fedora-toolbox:44"
-vagrant_name  := "aurora-shell-devel"
+toolbox_name := env_var_or_default("AURORA_TOOLBOX_NAME", "aurora-shell-devel")
+toolbox_image := env_var_or_default("AURORA_TOOLBOX_IMAGE", "ghcr.io/luminusos/aurora-shell-dev:fedora44-gnome50")
+vagrant_name := "aurora-shell-devel"
 
 default:
     @just --list
 
 deps:
-    yarn install
+    yarn install --immutable
 
 build:
     yarn build
     cp metadata.json dist/
-    cp -r data/schemas dist/ 2>/dev/null || true
+    cp -r data/schemas dist/
     glib-compile-schemas dist/schemas/
-    cp -r data/icons dist/ 2>/dev/null || true
-    cp -r data/media dist/ 2>/dev/null || true
+    cp -r data/icons dist/
+    cp -r data/media dist/
     just compile-mo
-
-build-gjsify:
-    yarn build:gjsify
-
-package-gjsify:
-    yarn package:gjsify
-
-validate-gjsify:
-    yarn validate:gjsify
 
 package: build
     #!/usr/bin/env bash
     set -e
     mkdir -p dist/target
     cd dist
+    EXTRA_SOURCES=()
+    while IFS= read -r source; do
+        case "$source" in
+            extension.js|metadata.json|schemas|target) continue ;;
+        esac
+        EXTRA_SOURCES+=("--extra-source=$source")
+    done < <(find . -mindepth 1 -maxdepth 1 -printf '%P\n' | sort)
+
     gnome-extensions pack . \
         --force \
         --out-dir=target \
-        $(find . -maxdepth 1 -name '*.js' ! -name 'extension.js' -printf '--extra-source=%f ') \
-        $(find . -maxdepth 1 -name '*.css' -printf '--extra-source=%f ') \
-        --extra-source=core \
-        --extra-source=clipboard \
-        --extra-source=dev \
-        --extra-source=desktop \
-        --extra-source=device \
-        --extra-source=dock \
-        --extra-source=panel \
-        --extra-source=patches \
-        --extra-source=privacy \
-        --extra-source=shared \
-        --extra-source=theme \
-        --extra-source=icons \
-        --extra-source=media \
-        --extra-source=locale \
+        "${EXTRA_SOURCES[@]}" \
         --schema=schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml
     echo "Packing Done!"
 
@@ -73,9 +57,6 @@ shexli *args: package
 
 validate:
     yarn validate
-    yarn lint
-    yarn prettier:check
-    yarn stylelint
 
 lint:
     yarn lint
@@ -83,12 +64,10 @@ lint:
 watch:
     yarn watch:css
 
-install:
+install: package
     gnome-extensions install --force dist/target/{{ uuid }}.shell-extension.zip
     glib-compile-schemas {{ ext_dir }}/schemas/
     @echo "Installed at: {{ ext_dir }}"
-
-full-install: package install
 
 uninstall:
     gnome-extensions uninstall {{ uuid }}
@@ -149,9 +128,6 @@ compile-mo:
         echo "Compiled $po -> $outdir/$DOMAIN.mo"
     done
 
-all: clean full-install
-    @echo "Complete installation finished."
-
 unit-test:
     yarn test:unit
 
@@ -160,32 +136,15 @@ coverage:
 
 # Run a single test script with gnome-shell-test-tool (headless).
 # Wrapped in dbus-run-session to avoid conflicting with any running GNOME session.
+
 # Usage: just test tests/shell/auroraBasic.js
 test script: package
-    GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas dbus-run-session gnome-shell-test-tool --headless \
-        --extension dist/target/{{ uuid }}.shell-extension.zip \
-        {{ script }}
+    bash scripts/run-shell-tests.sh dist/target/{{ uuid }}.shell-extension.zip {{ script }}
 
 test-all: package
-    #!/usr/bin/env bash
-    set -e
-    EXT="dist/target/{{ uuid }}.shell-extension.zip"
-    PASS=0; FAIL=0
-    for script in tests/shell/aurora*.js; do
-        echo "==> Running $script"
-        if GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas dbus-run-session gnome-shell-test-tool --headless --extension "$EXT" "$script"; then
-            echo "    PASS: $script"
-            PASS=$((PASS + 1))
-        else
-            echo "    FAIL: $script"
-            FAIL=$((FAIL + 1))
-        fi
-    done
-    echo ""
-    echo "Results: $PASS passed, $FAIL failed"
-    [ "$FAIL" -eq 0 ]
+    bash scripts/run-shell-tests.sh dist/target/{{ uuid }}.shell-extension.zip
 
-run:
+run: install
     #!/usr/bin/env bash
     set -e
     SHELL_ENV=(
@@ -199,9 +158,11 @@ toolbox action *args:
     set -e
     case "{{ action }}" in
         "create")
-            bash scripts/create-toolbox.sh {{ toolbox_name }} {{ toolbox_image }}
+            echo "Creating toolbox '{{ toolbox_name }}' from '{{ toolbox_image }}'..."
+            toolbox create --image {{ toolbox_image }} {{ toolbox_name }}
             ;;
         "run")
+            just install
             bash scripts/run-gnome-shell.sh {{ toolbox_name }}
             ;;
         "remove")
@@ -218,26 +179,19 @@ toolbox action *args:
                 echo "Example: just toolbox test tests/shell/auroraBasic.js"
                 exit 1
             fi
-            bash scripts/run-toolbox-shell-test.sh {{ toolbox_name }} "$EXT" "$SCRIPT"
+            PROJECT_DIR="$(pwd -P)"
+            toolbox --container {{ toolbox_name }} run \
+                bash "$PROJECT_DIR/scripts/run-shell-tests.sh" \
+                "$PROJECT_DIR/$EXT" \
+                "$PROJECT_DIR/$SCRIPT"
             ;;
         "test-all")
             just package
             EXT="dist/target/{{ uuid }}.shell-extension.zip"
-            PASS=0; FAIL=0
-            for script in tests/shell/aurora*.js; do
-                echo "==> Running $script"
-                if bash scripts/run-toolbox-shell-test.sh \
-                        {{ toolbox_name }} "$EXT" "$script"; then
-                    echo "    PASS: $script"
-                    PASS=$((PASS + 1))
-                else
-                    echo "    FAIL: $script"
-                    FAIL=$((FAIL + 1))
-                fi
-            done
-            echo ""
-            echo "Results: $PASS passed, $FAIL failed"
-            [ "$FAIL" -eq 0 ]
+            PROJECT_DIR="$(pwd -P)"
+            toolbox --container {{ toolbox_name }} run \
+                bash "$PROJECT_DIR/scripts/run-shell-tests.sh" \
+                "$PROJECT_DIR/$EXT"
             ;;
         *)
             echo "Unknown toolbox action: {{ action }}"
@@ -246,7 +200,8 @@ toolbox action *args:
             ;;
     esac
 
-# Vagrant-based devkit VM (mirrors 'toolbox' but uses a full Fedora VM via Vagrant).
+# Vagrant-based devkit VM (mirrors 'toolbox' but uses a full VM via Vagrant).
+
 # Actions: create | run | ssh | remove
 vagrant action *args:
     #!/usr/bin/env bash

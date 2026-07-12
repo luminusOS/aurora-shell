@@ -106,17 +106,15 @@ The CI pipeline runs all tests and, if they pass, publishes the GitHub Release a
 
 ## Build System & Commands
 
-- **Install deps:** `just deps` — runs `yarn install`; use once or when updating packages
+- **Install deps:** `just deps` — runs an immutable Yarn install; use once or after changing branches
 - **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, compiles `.mo` files
 - **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
-- **Install:** `just install` — installs the already-packaged `.zip` to GNOME Shell (requires `just package` first)
-- **Full install:** `just full-install` — packages + installs in one step
-- **All:** `just all` — clean + full-install
+- **Install:** `just install` — packages and installs the `.zip` to GNOME Shell
 - **Uninstall:** `just uninstall` — disables and removes the extension
 - **Run (host):** `just run` — launches a devkit GNOME Shell session (headless, Wayland)
 - **Validate:** `just validate` — runs tsc, ESLint, Prettier check, and Stylelint
 - **Lint:** `just lint` — runs ESLint only
-- **Unit tests:** `just unit-test` — runs unit tests via vitest (no GNOME Shell required)
+- **Unit tests:** `just unit-test` — runs unit tests with Node's test runner (no GNOME Shell required)
 - **Coverage:** `just coverage` — runs unit tests with coverage report
 - **Single integration test:** `just test <script>` — packages and runs one shell test headlessly
 - **All integration tests:** `just test-all` — packages and runs all shell tests on the host, printing a pass/fail summary
@@ -126,7 +124,16 @@ The CI pipeline runs all tests and, if they pass, publishes the GitHub Release a
 - **Clean:** `just clean` — removes `dist/`
 - **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
 
-_For a full test environment, create a Fedora toolbox via `just toolbox create` and run tests inside it using `just toolbox test-all` (preferred over `just test-all`)._
+For a full test environment, create the Fedora toolbox with `just toolbox create` and run
+`just toolbox test-all` (preferred over `just test-all`). The toolbox uses the public
+`ghcr.io/luminusos/aurora-shell-dev:fedora44-gnome50` image shared with CI. Set
+`AURORA_TOOLBOX_IMAGE` to test a locally built replacement.
+
+The image is defined by `Containerfile`. Changes to the container, Yarn toolchain, or lockfile are
+validated on pull requests and published automatically from `main` for amd64 and arm64. The GHCR
+package must remain public so forked pull requests and Toolbox can pull it without repository
+credentials. Set `AURORA_TOOLBOX_NAME` when maintaining more than one Aurora development toolbox.
+`Vagrantfile` remains available for manual testing against other GNOME environments.
 
 ## GNOME Extensions Review
 
@@ -144,12 +151,18 @@ The recipe depends on `just package` and scans the generated
 
 ## CI
 
-Every push to `main` and every pull request runs the CI pipeline defined in `.github/workflows/ci.yml`. It has four jobs:
+Every pull request and release runs the CI pipeline defined in `.github/workflows/ci.yml`. Its four
+jobs use the same Fedora 44/GNOME 50 image as Toolbox:
 
 1. **Validate** — runs tsc, ESLint, Prettier check, and Stylelint via `just validate`
-2. **Unit & regression tests** — runs `yarn test:unit` (vitest, no GNOME Shell needed)
+2. **Unit & regression tests** — runs the Node test suite without GNOME Shell
 3. **Build** — runs `just package` and uploads the extension `.zip` as an artifact (depends on lint)
-4. **Integration tests** — runs all `tests/shell/aurora*.js` scripts against a headless GNOME Shell inside a Fedora container (depends on build + unit tests)
+4. **Integration tests** — runs the shared Shell-test runner against headless GNOME Shell (depends on build + unit tests)
+
+Until the GHCR image exists or when it cannot be pulled, each job can bootstrap itself from the
+checked-out `Containerfile`; after publication, jobs only pull the prepared environment. The private
+`XDG_RUNTIME_DIR`, system D-Bus, and logind mock in this job belong only to the isolated headless
+runtime. Toolbox does not replace the host XDG directories or install fake D-Bus services.
 
 All jobs must pass before a PR can be merged.
 

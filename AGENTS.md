@@ -29,16 +29,14 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 ## Commands
 
-- **Install deps:** `just deps` — runs `yarn install`; use once or when updating packages
+- **Install deps:** `just deps` — runs `yarn install --immutable`; use once or after changing branches
 - **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, and compiles `.mo` files
 - **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
-- **Install:** `just install` — installs the already-packaged `.zip` to GNOME Shell (requires `just package` first)
-- **Full install:** `just full-install` — packages + installs in one step
-- **All:** `just all` — clean + full-install
+- **Install:** `just install` — packages and installs the `.zip` to GNOME Shell
 - **Uninstall:** `just uninstall` — disables and removes the extension
 - **Run (host):** `just run` — packages, installs, then launches a devkit GNOME Shell session
 - **Run (toolbox):** `just toolbox run` — packages/installs on the host, then runs GNOME Shell inside the Fedora toolbox
-- **Create toolbox:** `just toolbox create` — create the `aurora-shell-devel` Fedora toolbox
+- **Create toolbox:** `just toolbox create` — creates `aurora-shell-devel` from the same Fedora/GNOME image used by CI
 - **Remove toolbox:** `just toolbox remove` — delete the toolbox
 - **Validate:** `just validate` — runs tsc, ESLint, Prettier check, and Stylelint
 - **Shexli:** `just shexli` — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP
@@ -47,13 +45,13 @@ Do not leave a task incomplete if either command reports errors or failures.
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
 - **Clean:** `just clean` — removes `dist/`
 - **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
-- **Unit tests:** `just unit-test` — runs unit tests via `yarn test:unit` (vitest)
+- **Unit tests:** `just unit-test` — runs unit tests with Node's test runner
 - **Coverage:** `just coverage` — runs unit tests with coverage report
 - **Single integration test:** `just test <script>` — packages and runs one shell test script headlessly (e.g., `just test tests/shell/auroraTrayIcons.js`)
 - **All integration tests:** `just test-all` — packages and runs all `tests/shell/aurora*.js` on the host, printing a pass/fail summary
 - **All integration tests (toolbox):** `just toolbox test-all` — same as above but inside the Fedora toolbox (preferred; use this instead of `just test-all`)
 - **Single integration test (toolbox):** `just toolbox test <script>` — packages and runs one test inside the toolbox
-- **Vagrant VM:** `just vagrant create|run|ssh|remove` — Vagrant-based devkit VM (mirrors `toolbox` but uses a full Fedora VM via Vagrant)
+- **Vagrant VM:** `just vagrant create|run|ssh|remove` — full Arch VM kept for manual GNOME environment testing
 
 ### Translation commands
 
@@ -95,7 +93,8 @@ Do not leave a task incomplete if either command reports errors or failures.
   - `unit/` — Node test-runner unit tests (`node --test` via `tsx`), auto-discovered by the `tests/unit/*.test.ts` glob — just drop a new `*.test.ts` file in here, no `package.json` edit needed. For pure logic that does not import shell internals.
   - `shell/` — GNOME Shell integration test scripts (run via `gnome-shell-test-tool`) — exercise modules against a real headless GNOME Shell
 - `.github/workflows/ci.yml` — CI pipeline (lint + type-check → unit tests + build → integration tests)
-- `scripts/` — helper shell scripts (`create-toolbox.sh`, `run-gnome-shell.sh`, `run-vagrant-gnome-shell.sh`)
+- `Containerfile` — shared Fedora 44/GNOME 50 build and integration-test environment used by CI and Toolbox
+- `scripts/` — focused helpers for GNOME Shell tests, Toolbox devkit, and Vagrant devkit
 - `esbuild.ts` — esbuild bundler configuration
 - `sass.config.ts` — Sass compiler configuration
 - `justfile` — all project commands

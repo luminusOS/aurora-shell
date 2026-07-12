@@ -11,14 +11,11 @@
   "scripts": {
     "clear": "rm -rf dist",
     "check": "tsc --noEmit",
-    "build:ts": "yarn check && yarn lint && tsx esbuild.ts",
+    "build:ts": "tsx esbuild.ts",
     "build:css": "tsx sass.config.ts",
     "build": "yarn clear && yarn build:css && yarn build:ts",
-    "build:gjsify": "tsx scripts/build-gjsify.ts",
-    "package:gjsify": "tsx scripts/build-gjsify.ts --package",
     "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",
-    "validate": "tsc --noEmit",
-    "validate:gjsify": "gjsify check --no-parallel",
+    "validate": "yarn check && yarn lint && yarn prettier:check && yarn stylelint",
     "prettier:check": "prettier --check \"src/**/*.{ts,scss}\"",
     "stylelint": "stylelint \"src/styles/**/*.scss\"",
     "watch:css": "tsx sass.config.ts --watch",
@@ -27,7 +24,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@gjsify/cli": "^0.5.0",
     "@stylistic/eslint-plugin": "^2.6.4",
     "@tsconfig/strictest": "^2.0.6",
     "@types/adm-zip": "^0.5.7",
@@ -53,6 +49,7 @@
     "@girs/gnome-shell": "^50.0.0",
     "@girs/gobject-2.0": "^2.88.0-4.0.0-rc.15",
     "@girs/shell-18": "^18.0.0-4.0.0-rc.15",
+    "@girs/soup-3.0": "3.6.6-4.0.0-rc.15",
     "@girs/st-18": "^18.0.0-4.0.0-rc.15"
   },
   "packageManager": "yarn@4.14.1"
