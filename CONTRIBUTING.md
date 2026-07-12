@@ -4,123 +4,46 @@ Thank you for your interest in contributing to Aurora Shell! This document outli
 
 ## Architecture Overview
 
-Aurora Shell is designed to be highly modular. Each feature is an independent module that can be enabled or disabled by the user without affecting other features.
+Aurora Shell keeps GNOME integration close to each functional area. `extension.ts` creates the
+context and delegates module lifecycle to `ModuleManager`. The ordered `moduleCatalog.ts` is shared by
+runtime and preferences; `registry.ts` only associates each manifest with its implementation factory.
 
-```mermaid
-graph TD
-    classDef core fill:#f9f2f4,stroke:#e83e8c,stroke-width:2px,color:#c7254e;
-    classDef adapter fill:#e7f3ff,stroke:#007bff,stroke-width:2px;
-
-    A["extension.ts"] -->|Injects| B["ExtensionContext"]:::core
-    B -->|Provides| C["SettingsManager"]:::core
-    B -->|Provides| D["DeviceService"]:::adapter
-
-    E["Module"]:::core -->|uses| B
-
-    M["semantic folders<br/>(class + definition)"]:::core -->|definition export| F["registry.ts"]:::core
-    F -->|Definitions + factory| A
-    P["prefsMetadata.ts"]:::core -->|Metadata mirror| G["prefs.ts (Generic UI)"]
-```
-
-1.  **Dependency Injection:** `extension.ts` instantiates an `ExtensionContext` and injects it into every module. Modules read Aurora settings through `this.context.settings`; direct imports of GNOME Shell APIs such as `Main` are expected for Shell UI integration.
-2.  **Abstractions:**
-    - Use `this.context.settings` to interact with GSettings.
-    - Use `this.context.device` for runtime target and hardware capabilities.
-    - Keep pure logic outside Shell imports when it needs unit coverage.
-3.  **Layering:** Separate UI orchestration (Clutter actors) from pure business logic. Complex logic should be extracted into standalone TypeScript functions or classes.
-4.  **Self-Registering Modules:** Each module file exports a `definition: ModuleDefinition` co-located with its class, including the factory that constructs it. `src/registry.ts` is a pure aggregator — it imports every `definition` and returns them in UI order. `extension.ts` iterates the registry and calls `def.factory(ctx)` directly; no central factory map exists.
-5.  **Metadata-Driven Preferences:** The preferences UI is generated dynamically from `src/prefsMetadata.ts`, a hand-maintained metadata mirror. Prefs cannot import `registry.ts` because it runs in `gnome-extensions-app` (GTK/Adw), which cannot resolve `resource:///org/gnome/shell/*` imports pulled in transitively by module classes. Parity between `registry.ts`, `prefsMetadata.ts`, and the GSettings schema is enforced by `tests/unit/registry.test.ts`.
+Module descriptions live in Shell-free `*.manifest.ts` files. Implementations contain behavior and
+lifecycle only. Pure calculations should be extracted when they are independently testable, while direct
+`Main`/St/Clutter integration remains idiomatic for a GNOME Shell extension.
 
 ## Adding a Module
 
-1. Choose the semantic source area, then create a `Module` subclass **and** a co-located `definition` export. Single-file modules can live directly in their area, for example `src/patches/myPatch.ts`; complex modules should use a subfolder, for example `src/panel/myPanelFeature/myPanelFeature.ts`.
+1. Create `feature.manifest.ts` and the `Module` implementation in the appropriate functional area.
+2. Add the manifest to `moduleCatalog.ts` in preference order.
+3. Associate the manifest key with its factory in `registry.ts`.
+4. Add every module, option, and internal setting key to the GSettings schema.
+5. Add unit coverage for pure logic and a Shell test for GNOME integration.
 
-Current source areas are `dock`, `panel`, `desktop`, `patches`, `theme`, `privacy`, and `clipboard`. Use `desktop` for desktop-only features such as tray icons. Add future hardware probes under `device`, not inside feature modules.
+A minimal manifest looks like:
 
 ```typescript
 import { gettext as _ } from 'gettext';
+import type { ModuleManifest } from '~/module.ts';
 
-import type { ExtensionContext } from '~/core/context.ts';
-import type { ModuleDefinition } from '~/module.ts';
-import { Module } from '~/module.ts';
-
-export class MyModule extends Module {
-  constructor(context: ExtensionContext) {
-    super(context);
-  }
-
-  override enable(): void {
-    // setup using this.context (e.g., this.context.settings.getBoolean('...'))
-  }
-
-  override disable(): void {
-    // cleanup
-  }
-}
-
-export const definition: ModuleDefinition = {
+export const manifest: ModuleManifest = {
   key: 'my-module',
   settingsKey: 'module-my-module',
   section: 'behavior',
   title: _('My Module'),
   subtitle: _('Description'),
-  runtime: { targets: ['desktop'] },
-  options: [
-    // (Optional) add sub-settings here
-    { key: 'my-sub-key', title: _('Sub Setting'), subtitle: _('...'), type: 'switch' },
-  ],
-  factory: (ctx) => new MyModule(ctx),
+  runtime: { roles: ['desktop'], scope: 'session' },
+  options: [{ key: 'my-option', title: _('Option'), subtitle: _('Description'), type: 'switch' }],
 };
 ```
 
-2. Register the definition in `src/registry.ts` — one import line plus one array entry (preserve UI order):
+The runtime implementation keeps the small `enable()`/`disable()` contract. Use
+`this.context.createCleanupBag()` for repetitive signals, source IDs, D-Bus watches, and arbitrary
+cleanup; keep explicit teardown where stateful GNOME APIs make it clearer.
 
-```typescript
-import { definition as myModule } from '~/patches/myPatch.ts';
-
-export function getModuleRegistry(): ModuleDefinition[] {
-  return [
-    // …existing modules…
-    myModule,
-  ];
-}
-```
-
-3. Mirror the metadata into `src/prefsMetadata.ts`. Prefs runs in a separate process that cannot statically import module source files — see the comment at the top of `prefsMetadata.ts` for the full explanation:
-
-```typescript
-{
-  key: 'my-module',
-  settingsKey: 'module-my-module',
-  section: 'behavior',
-  title: _('My Module'),
-  subtitle: _('Description'),
-  options: [
-    { key: 'my-sub-key', title: _('Sub Setting'), subtitle: _('...'), type: 'switch' },
-  ],
-},
-```
-
-4. Add a GSettings toggle key (`data/schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`):
-
-```xml
-<key name="module-my-module" type="b">
-  <default>true</default>
-  <summary>Enable My Module</summary>
-  <description>What this module does</description>
-</key>
-```
-
-5. Build and verify:
-
-```bash
-just build
-just unit-test
-```
-
-`tests/unit/registry.test.ts` parses each module's `definition`, `prefsMetadata.ts`, `registry.ts`, and the schema XML. It fails if any of the four drift out of sync (missing key, duplicate settingsKey, mismatched order, missing schema entry, etc.), so a half-finished module addition is caught immediately.
-
-After these steps, your module appears in Preferences and respects the runtime enable/disable toggles.
+`tests/unit/registry.test.ts` verifies catalog order, uniqueness, known sections, and factory
+coverage through the TypeScript AST. `tests/unit/schema.test.ts` structurally validates XML and
+requires catalog settings and schema keys to match exactly.
 
 ## Branching & Release Model
 
@@ -128,11 +51,11 @@ Aurora Shell follows a branching model aligned with GNOME Shell's own release cy
 
 ### Branches
 
-| Branch | Purpose |
-|--------|---------|
-| `main` | Active development targeting the next GNOME release |
-| `release/v50.x` | Maintenance branch for GNOME 50 |
-| `release/v51.x` | Maintenance branch for GNOME 51 |
+| Branch          | Purpose                                             |
+| --------------- | --------------------------------------------------- |
+| `main`          | Active development targeting the next GNOME release |
+| `release/v50.x` | Maintenance branch for GNOME 50                     |
+| `release/v51.x` | Maintenance branch for GNOME 51                     |
 
 Maintenance branches are created automatically when the first tag for a new major version is pushed.
 
@@ -183,17 +106,15 @@ The CI pipeline runs all tests and, if they pass, publishes the GitHub Release a
 
 ## Build System & Commands
 
-- **Install deps:** `just deps` — runs `yarn install`; use once or when updating packages
+- **Install deps:** `just deps` — runs an immutable Yarn install; use once or after changing branches
 - **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, compiles `.mo` files
 - **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
-- **Install:** `just install` — installs the already-packaged `.zip` to GNOME Shell (requires `just package` first)
-- **Full install:** `just full-install` — packages + installs in one step
-- **All:** `just all` — clean + full-install
+- **Install:** `just install` — packages and installs the `.zip` to GNOME Shell
 - **Uninstall:** `just uninstall` — disables and removes the extension
 - **Run (host):** `just run` — launches a devkit GNOME Shell session (headless, Wayland)
 - **Validate:** `just validate` — runs tsc, ESLint, Prettier check, and Stylelint
 - **Lint:** `just lint` — runs ESLint only
-- **Unit tests:** `just unit-test` — runs unit tests via vitest (no GNOME Shell required)
+- **Unit tests:** `just unit-test` — runs unit tests with Node's test runner (no GNOME Shell required)
 - **Coverage:** `just coverage` — runs unit tests with coverage report
 - **Single integration test:** `just test <script>` — packages and runs one shell test headlessly
 - **All integration tests:** `just test-all` — packages and runs all shell tests on the host, printing a pass/fail summary
@@ -203,7 +124,26 @@ The CI pipeline runs all tests and, if they pass, publishes the GitHub Release a
 - **Clean:** `just clean` — removes `dist/`
 - **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
 
-*For a full test environment, create a Fedora toolbox via `just toolbox create` and run tests inside it using `just toolbox test-all` (preferred over `just test-all`).*
+For a full test environment, create the Fedora toolbox with `just toolbox create` and run
+`just toolbox test-all` (preferred over `just test-all`). The toolbox uses the public,
+versioned GNOME image from `ghcr.io/luminusos/aurora-shell-ci` shared with CI. Set
+`AURORA_TOOLBOX_IMAGE` to test a locally built replacement.
+
+The image is defined by `Containerfile`; its tag is derived from the first `shell-version` in
+`metadata.json` and a hash of the container inputs. CI publishes a missing tag automatically for
+amd64 and arm64. The GHCR package must remain public so forked pull requests and Toolbox can pull it
+without repository credentials. Set `AURORA_TOOLBOX_NAME` when maintaining more than one Aurora
+development toolbox. `Vagrantfile` remains available for manual testing against other GNOME
+environments.
+
+The first CI job derives a content-addressed tag from the GNOME metadata and container inputs. If
+that tag does not exist, the job builds and publishes it to GHCR for amd64 and arm64; all remaining
+jobs then run directly inside that exact image. No local-build fallback or separate image workflow
+is involved.
+
+To advance to a new GNOME generation, update `metadata.json`, the GNOME type dependencies, and the
+single `FEDORA_VERSION` argument in `Containerfile`. Those changes produce a new image tag, which CI
+publishes before starting validation and tests; Toolbox resolves the same tag automatically.
 
 ## GNOME Extensions Review
 
@@ -221,12 +161,17 @@ The recipe depends on `just package` and scans the generated
 
 ## CI
 
-Every push to `main` and every pull request runs the CI pipeline defined in `.github/workflows/ci.yml`. It has four jobs:
+Every pull request and release runs the CI pipeline defined in `.github/workflows/ci.yml`. Its first
+job ensures the CI image exists; the four validation jobs then run inside that same image:
 
 1. **Validate** — runs tsc, ESLint, Prettier check, and Stylelint via `just validate`
-2. **Unit & regression tests** — runs `yarn test:unit` (vitest, no GNOME Shell needed)
+2. **Unit & regression tests** — runs the Node test suite without GNOME Shell
 3. **Build** — runs `just package` and uploads the extension `.zip` as an artifact (depends on lint)
-4. **Integration tests** — runs all `tests/shell/aurora*.js` scripts against a headless GNOME Shell inside a Fedora container (depends on build + unit tests)
+4. **Integration tests** — runs the shared Shell-test runner against headless GNOME Shell (depends on build + unit tests)
+
+The private `XDG_RUNTIME_DIR`, system D-Bus, and logind mock in the integration job belong only to
+the isolated headless runtime. Toolbox does not replace the host XDG directories or install fake
+D-Bus services.
 
 All jobs must pass before a PR can be merged.
 

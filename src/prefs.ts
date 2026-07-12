@@ -8,11 +8,11 @@ import Gtk from '@girs/gtk-4.0';
 
 import { ExtensionPreferences, gettext as _ } from '@girs/gnome-shell/extensions/prefs';
 import {
-  getModuleMetadata,
+  getModuleCatalog,
   getSections,
-  type ModuleMetadata,
+  type ModuleManifest,
   type ModuleOption,
-} from '~/prefsMetadata.ts';
+} from '~/moduleCatalog.ts';
 
 const OTHER_SECTION_ID = '__other__';
 const LOGO_FILENAME = 'aurora-shell-logo.svg';
@@ -28,7 +28,7 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
       icon_name: 'dialog-information-symbolic',
     });
 
-    const modules = getModuleMetadata();
+    const modules = getModuleCatalog();
     const sections = [...getSections(), { id: OTHER_SECTION_ID, title: _('Other') }];
     const knownIds = new Set(getSections().map((s) => s.id));
 
@@ -115,7 +115,7 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
     }
   }
 
-  private _buildModuleRow(def: ModuleMetadata, settings: Gio.Settings): Adw.PreferencesRow {
+  private _buildModuleRow(def: ModuleManifest, settings: Gio.Settings): Adw.PreferencesRow {
     if (def.options && def.options.length > 0) {
       return this._buildExpanderRow(def, settings);
     }
@@ -128,7 +128,7 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
     return row;
   }
 
-  private _buildExpanderRow(def: ModuleMetadata, settings: Gio.Settings): Adw.ExpanderRow {
+  private _buildExpanderRow(def: ModuleManifest, settings: Gio.Settings): Adw.ExpanderRow {
     const expander = new Adw.ExpanderRow({
       title: def.title,
       subtitle: def.subtitle,

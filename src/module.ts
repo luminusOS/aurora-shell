@@ -1,6 +1,6 @@
 import type { ExtensionContext } from './core/context.ts';
 
-export type RuntimeTarget = 'desktop' | 'mobile' | 'shared';
+export type DisplayRole = 'desktop' | 'mobile' | 'unknown';
 
 export type RuntimeCapability =
   | 'touch'
@@ -8,12 +8,12 @@ export type RuntimeCapability =
   | 'light-sensor'
   | 'proximity-sensor'
   | 'cellular'
-  | 'backlight'
-  | 'hardware-alert-slider';
+  | 'backlight';
 
 export type ModuleRuntimePolicy = {
-  targets?: RuntimeTarget[];
+  roles?: DisplayRole[];
   requires?: RuntimeCapability[];
+  scope?: 'session' | 'monitor';
 };
 
 export type ModuleOption = {
@@ -34,29 +34,31 @@ export type ModuleOptionChoice = {
   iconName?: string;
 };
 
-export type ModuleMetadata = {
+export type ModuleManifest = {
   key: string;
   settingsKey: string;
   section: string;
   title: string;
   subtitle: string;
   options?: ModuleOption[];
+  internalSettings?: string[];
   runtime?: ModuleRuntimePolicy;
 };
 
-export type ModuleDefinition = ModuleMetadata & {
+export type ModuleDefinition = {
+  manifest: ModuleManifest;
   factory: (context: ExtensionContext) => Module;
 };
 
 export function moduleSupportsRuntime(
-  definition: ModuleDefinition,
-  target: RuntimeTarget,
+  manifest: ModuleManifest,
+  roles: ReadonlySet<DisplayRole>,
   capabilities: ReadonlySet<RuntimeCapability>,
 ): boolean {
-  const targets = definition.runtime?.targets ?? ['desktop'];
-  if (!targets.includes('shared') && !targets.includes(target)) return false;
+  const supportedRoles = manifest.runtime?.roles ?? ['desktop'];
+  if (!supportedRoles.some((role) => roles.has(role))) return false;
 
-  for (const capability of definition.runtime?.requires ?? []) {
+  for (const capability of manifest.runtime?.requires ?? []) {
     if (!capabilities.has(capability)) return false;
   }
 

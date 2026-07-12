@@ -6,7 +6,7 @@ import Meta from '@girs/meta-18';
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
+import { normalize, scoreIconWeaveCandidate } from '~/patches/iconWeaveScoring.ts';
 
 const WINDOW_INSPECT_DELAY_MS = 500;
 const MIN_MATCH_SCORE = 50;
@@ -524,7 +524,7 @@ export class IconWeave extends Module {
     if (!steamMatch) return false;
 
     const gameId = steamMatch[1];
-    const nWm = this._normalize(wmClass);
+    const nWm = normalize(wmClass);
 
     if (nWm === `steamapp${gameId}`) return true;
 
@@ -540,79 +540,9 @@ export class IconWeave extends Module {
   private _scoreCandidate(app: any, wmClass: string, appId: string, title: string): number {
     const desktopId = (app.get_id() ?? '').toLowerCase().replace(/\.desktop$/, '');
     const appName = String(app.get_name() ?? '').toLowerCase();
-    const shortId = desktopId.split('.').pop() ?? desktopId;
-
-    // Prevent subprocess IDs (e.g. steam_app_1234) matching a parent (steam.desktop)
-    if (
-      wmClass &&
-      (wmClass.startsWith(`${desktopId}_`) ||
-        wmClass.startsWith(`${shortId}_`) ||
-        wmClass.startsWith(`${desktopId}-`) ||
-        wmClass.startsWith(`${shortId}-`))
-    )
-      return 0;
 
     if (this._isSteamGame(app, wmClass)) return 99;
 
-    let score = 0;
-
-    const words = appName.split(/[^a-z0-9]/).filter((w: string) => w.length > 0);
-    const abbreviation = words.map((w: string) => w[0]).join('');
-
-    const nWm = this._normalize(wmClass);
-    const nAppName = this._normalize(appName);
-    const nDesktopId = this._normalize(desktopId);
-    const nShortId = this._normalize(shortId);
-
-    if (wmClass) {
-      const wm = wmClass.toLowerCase();
-      if (desktopId === wm) score = Math.max(score, 93);
-      if (desktopId.includes(wm) && wm.length >= 3) score = Math.max(score, 80);
-      if (wm.includes(desktopId) && desktopId.length >= 3) score = Math.max(score, 70);
-      if (shortId && wm.includes(shortId) && shortId.length >= 3) score = Math.max(score, 66);
-      if (appName === wm) score = Math.max(score, 85);
-      if (appName.includes(wm) && wm.length >= 3) score = Math.max(score, 60);
-      if (wm.includes(appName) && appName.length >= 3) score = Math.max(score, 55);
-
-      if (nWm === abbreviation && abbreviation.length >= 2) {
-        score = Math.max(score, 88);
-      }
-
-      // Check normalized includes
-      if (nAppName.includes(nWm) && nWm.length >= 3) score = Math.max(score, 62);
-      if (nDesktopId.includes(nWm) && nWm.length >= 3) score = Math.max(score, 61);
-    }
-
-    if (appId) {
-      const aId = appId.toLowerCase();
-      const nAId = this._normalize(appId);
-      if (desktopId.includes(aId) && aId.length >= 3) score = Math.max(score, 75);
-      if (nAId === abbreviation && abbreviation.length >= 2) score = Math.max(score, 88);
-    }
-
-    const tNorm = this._normalize(title);
-
-    if (tNorm && tNorm.length >= 3) {
-      if (tNorm === nDesktopId) score = Math.max(score, 98);
-      if (tNorm === nAppName) score = Math.max(score, 95);
-      if (tNorm === nShortId) score = Math.max(score, 94);
-      if (nAppName.includes(tNorm)) score = Math.max(score, 65);
-      if (tNorm.includes(nDesktopId)) score = Math.max(score, 68);
-    }
-
-    return score;
-  }
-
-  private _normalize(str: string): string {
-    return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    return scoreIconWeaveCandidate({ desktopId, appName, wmClass, appId, title });
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'icon-weave',
-  settingsKey: 'module-icon-weave',
-  section: 'appearance',
-  title: _('Icon Weave'),
-  subtitle: _('Automatically fixes missing app icons using an in-memory approach'),
-  factory: (ctx) => new IconWeave(ctx),
-};

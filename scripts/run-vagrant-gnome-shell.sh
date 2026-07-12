@@ -15,8 +15,7 @@ vagrant ssh -- -t '
   set -e
   cd /home/vagrant/aurora-shell
 
-  echo "==> Rebuilding & installing extension..."
-  just build
+  echo "==> Building & installing extension..."
   just install
 
   echo "==> Starting GNOME Shell devkit session..."

@@ -5,22 +5,76 @@ on:
   merge_group:
   workflow_call:
 
+permissions:
+  contents: read
+  packages: write
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Validate
+  ci-image:
+    name: CI image
     runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.image.outputs.name }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup Yarn
-        uses: ./.github/actions/setup-yarn
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install just
-        uses: extractions/setup-just@v4
+      - name: Resolve CI image
+        id: image
+        run: |
+          IMAGE="$(bash scripts/ci-image-name.sh)"
+          echo "name=$IMAGE" >> "$GITHUB_OUTPUT"
+
+          if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-qemu-action@v4
+        if: steps.image.outputs.exists != 'true'
+
+      - uses: docker/setup-buildx-action@v4
+        if: steps.image.outputs.exists != 'true'
+
+      - name: Build and publish CI image
+        if: steps.image.outputs.exists != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}
+            ghcr.io/luminusos/aurora-shell-ci:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  lint:
+    name: Validate
+    runs-on: ubuntu-latest
+    needs: [ci-image]
+    container:
+      image: ${{ needs.ci-image.outputs.name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: just deps
 
       - name: Validate
         run: just validate
@@ -28,116 +82,79 @@ jobs:
   unit-tests:
     name: Unit & regression tests
     runs-on: ubuntu-latest
+    needs: [ci-image]
+    container:
+      image: ${{ needs.ci-image.outputs.name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup Yarn
-        uses: ./.github/actions/setup-yarn
+      - name: Install dependencies
+        run: just deps
 
       - name: Run unit tests
-        run: yarn test:unit
+        run: just unit-test
 
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [ci-image, lint]
+    container:
+      image: ${{ needs.ci-image.outputs.name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Package extension
-        uses: ./.github/actions/package-extension
+      - name: Install dependencies
+        run: just deps
+
+      - name: Build extension package
+        run: just package
 
       - name: Upload extension zip
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extension-zip
           path: dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
           retention-days: 1
 
   integration-tests:
-    name: Integration tests (GNOME ${{ matrix.gnome-version }})
+    name: Integration tests
     runs-on: ubuntu-latest
-    needs: [build, unit-tests]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - gnome-version: '50'
-            container: 'fedora:44'
+    needs: [ci-image, build, unit-tests]
     container:
-      image: ${{ matrix.container }}
+      image: ${{ needs.ci-image.outputs.name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
       options: --privileged
     steps:
       - uses: actions/checkout@v7
 
       - name: Download extension zip
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: extension-zip
           path: dist/target/
 
-      - name: Install gnome-shell and test dependencies
-        run: |
-          dnf upgrade -y
-          dnf install -y --setopt=install_weak_deps=False \
-            gnome-shell \
-            dbus-daemon \
-            mesa-dri-drivers \
-            xorg-x11-server-Xvfb \
-            python3-dbusmock
-
       - name: Run integration tests
         env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          XDG_RUNTIME_DIR: /tmp/xdg-runtime
           DISPLAY: ':0'
-          WAYLAND_DISPLAY: 'gnome-shell-test-display'
-          # gnome-shell-perf-helper is a GTK4 app that times out (~25 s) trying
-          # to reach org.freedesktop.host.portal.Registry, which is not
-          # available in a headless test environment.  no-portals skips that
-          # lookup so the helper connects directly to the Wayland display and
-          # can exit gnome-shell cleanly.
-          GDK_DEBUG: 'no-portals'
+          GDK_DEBUG: no-portals
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          WAYLAND_DISPLAY: gnome-shell-test-display
+          XDG_RUNTIME_DIR: /tmp/xdg-runtime
         run: |
-          mkdir -p /tmp/xdg-runtime
-          chmod 700 /tmp/xdg-runtime
-
-          # Start a system D-Bus so GNOME Shell can reach Gio.DBus.system.
+          install -d -m 0700 "$XDG_RUNTIME_DIR"
           mkdir -p /run/dbus
           dbus-daemon --system --fork --nopidfile
-
-          # Mock org.freedesktop.login1 on the system bus. GNOME Shell 50's
-          # LoginManagerSystemd and EndSessionDialog create a proxy for this
-          # name synchronously at startup; without it the session crashes with
-          # "Launch helper exited with unknown return code 1".
           python3 -m dbusmock --system --template logind &
+          logind_pid=$!
+          trap 'kill "$logind_pid" 2>/dev/null || true' EXIT
           sleep 1
-
-          PASS=0; FAIL=0
-          for script in tests/shell/aurora*.js; do
-            echo "==> $script"
-            # dbus-update-activation-environment pushes display vars into the
-            # session bus daemon so that D-Bus-activated services (e.g.
-            # xdg-desktop-portal-gtk) inherit them and can connect to the
-            # Wayland compositor.  GDK_DEBUG=no-portals is also propagated so
-            # that gnome-shell-perf-helper (GTK4) skips the portal registry
-            # lookup that would otherwise time out in a headless environment.
-            if dbus-run-session bash -c '
-              dbus-update-activation-environment \
-                DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR LIBGL_ALWAYS_SOFTWARE \
-                GDK_DEBUG
-              exec gnome-shell-test-tool \
-                --headless \
-                --extension dist/target/aurora-shell@luminusos.github.io.shell-extension.zip \
-                "$1"
-            ' -- "$script"; then
-              echo "    PASS"
-              PASS=$((PASS + 1))
-            else
-              echo "    FAIL"
-              FAIL=$((FAIL + 1))
-            fi
-          done
-          echo ""
-          echo "Results: $PASS passed, $FAIL failed"
-          [ "$FAIL" -eq 0 ]
+          bash scripts/run-shell-tests.sh \
+            dist/target/aurora-shell@luminusos.github.io.shell-extension.zip

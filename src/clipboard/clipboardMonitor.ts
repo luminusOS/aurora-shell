@@ -57,7 +57,9 @@ export class ClipboardMonitor {
 
   private _tick(): void {
     const clipboard = St.Clipboard.get_default();
-    const imageMimeType = _findImageMimeType(clipboard.get_mimetypes(St.ClipboardType.CLIPBOARD));
+    const imageMimeType = this._findImageMimeType(
+      clipboard.get_mimetypes(St.ClipboardType.CLIPBOARD),
+    );
 
     if (imageMimeType) {
       clipboard.get_content(St.ClipboardType.CLIPBOARD, imageMimeType, (_clipboard, bytes) => {
@@ -86,14 +88,14 @@ export class ClipboardMonitor {
       },
     );
   }
-}
 
-function _findImageMimeType(mimeTypes: string[]): string | null {
-  for (const preferred of IMAGE_MIME_TYPES) {
-    if (mimeTypes.includes(preferred)) return preferred;
+  private _findImageMimeType(mimeTypes: string[]): string | null {
+    for (const preferred of IMAGE_MIME_TYPES) {
+      if (mimeTypes.includes(preferred)) return preferred;
+    }
+
+    return mimeTypes.find((mimeType) => mimeType.startsWith('image/')) ?? null;
   }
-
-  return mimeTypes.find((mimeType) => mimeType.startsWith('image/')) ?? null;
 }
 
 export function fingerprintBytes(bytes: GLib.Bytes): string {

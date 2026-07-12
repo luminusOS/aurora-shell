@@ -12,8 +12,6 @@ node_modules/
 
 # Build output
 dist/
-dist-gjsify/
-dist-gjsify-probe/
 
 # npm (legacy)
 package-lock.json

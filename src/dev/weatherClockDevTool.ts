@@ -1,7 +1,13 @@
 import '@girs/gjs';
 
-import St from '@girs/st-18';
+import type St from '@girs/st-18';
 
+import {
+  createDevToolActionButton,
+  createDevToolActionRow,
+  createDevToolModulePanel,
+  createDevToolSummary,
+} from '~/dev/devToolUi.ts';
 import type { Module } from '~/module.ts';
 import { WeatherClock } from '~/panel/clock/weatherClock/weatherClock.ts';
 
@@ -19,37 +25,19 @@ export class WeatherClockDevTool {
 
   buildPanel(): St.Widget {
     const weatherClock = this._getWeatherClock();
-    const panel = new St.BoxLayout({
-      vertical: true,
-      style_class: 'aurora-devtool-module-panel',
-    });
-
-    const summary = new St.BoxLayout({
-      style_class: 'aurora-devtool-summary',
-    });
-    summary.add_child(
-      new St.Icon({
-        icon_name: this.iconName,
-        icon_size: 18,
-        style_class: 'aurora-devtool-summary-icon',
-      }),
-    );
-    summary.add_child(
-      new St.Label({
-        text: weatherClock
+    const panel = createDevToolModulePanel();
+    panel.add_child(
+      createDevToolSummary(
+        this.iconName,
+        weatherClock
           ? `Visible: ${weatherClock.isVisible ? 'yes' : 'no'}`
           : 'Weather Clock disabled',
-        style_class: 'aurora-devtool-summary-label',
-        x_expand: true,
-      }),
+      ),
     );
-    panel.add_child(summary);
 
-    const firstRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const firstRow = createDevToolActionRow();
     firstRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'weather-clear-symbolic',
         'Sunny',
         () => this.showSunny(),
@@ -57,7 +45,7 @@ export class WeatherClockDevTool {
       ),
     );
     firstRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'weather-showers-symbolic',
         'Rain',
         () => this.showRain(),
@@ -66,11 +54,9 @@ export class WeatherClockDevTool {
     );
     panel.add_child(firstRow);
 
-    const secondRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const secondRow = createDevToolActionRow();
     secondRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'network-offline-symbolic',
         'Offline',
         () => this.showOffline(),
@@ -79,11 +65,9 @@ export class WeatherClockDevTool {
     );
     panel.add_child(secondRow);
 
-    const thirdRow = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-row',
-    });
+    const thirdRow = createDevToolActionRow();
     thirdRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'dialog-warning-symbolic',
         'Unavailable',
         () => this.showUnavailable(),
@@ -91,7 +75,7 @@ export class WeatherClockDevTool {
       ),
     );
     thirdRow.add_child(
-      this._createActionButton(
+      createDevToolActionButton(
         'user-trash-symbolic',
         'Clear Fake',
         () => this.clearWeather(),
@@ -156,35 +140,5 @@ export class WeatherClockDevTool {
   private _getWeatherClock(): WeatherClock | null {
     const module = this._getModule('weather-clock');
     return module instanceof WeatherClock ? module : null;
-  }
-
-  private _createActionButton(
-    iconName: string,
-    label: string,
-    onClick: () => void,
-    disabled = false,
-  ): St.Button {
-    const content = new St.BoxLayout({
-      style_class: 'aurora-devtool-action-content',
-    });
-    content.add_child(
-      new St.Icon({
-        icon_name: iconName,
-        icon_size: 16,
-      }),
-    );
-    content.add_child(new St.Label({ text: label }));
-
-    const button = new St.Button({
-      child: content,
-      style_class: 'button aurora-devtool-action-button',
-      can_focus: !disabled,
-      reactive: !disabled,
-      x_expand: true,
-      accessible_name: label,
-    });
-    if (disabled) button.opacity = 120;
-    button.connect('clicked', onClick);
-    return button;
   }
 }

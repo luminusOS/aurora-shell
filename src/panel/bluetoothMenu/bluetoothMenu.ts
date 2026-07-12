@@ -1,13 +1,10 @@
 import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
-import * as Main from '@girs/gnome-shell/ui/main';
-
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
-import { attachToQuickSettings } from '~/shared/quickSettings.ts';
+import { attachToQuickSettings, getQuickSettingsGrid } from '~/shared/quickSettings.ts';
 import { BluetoothDeviceItemPatcher } from '~/panel/bluetoothMenu/deviceItem.ts';
 
 const LOG_PREFIX = 'BluetoothMenu';
@@ -59,7 +56,7 @@ export class BluetoothMenu extends Module {
   }
 
   private _findBluetoothToggle(): any {
-    const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
+    const grid = getQuickSettingsGrid();
     if (!grid) return null;
 
     for (const child of grid.get_children()) {
@@ -101,12 +98,3 @@ export class BluetoothMenu extends Module {
     this._destroyIds.set(item, id);
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'bluetooth-menu',
-  settingsKey: 'module-bluetooth-menu',
-  section: 'dock-panel',
-  title: _('Bluetooth Menu'),
-  subtitle: _('Shows battery level and animated icons in the Bluetooth Quick Settings panel'),
-  factory: (ctx) => new BluetoothMenu(ctx),
-};

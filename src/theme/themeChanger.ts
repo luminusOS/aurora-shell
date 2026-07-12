@@ -5,7 +5,6 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
-import type { ModuleDefinition } from '~/module.ts';
 
 const LOG_PREFIX = 'ThemeChanger';
 
@@ -69,12 +68,3 @@ export class ThemeChanger extends Module {
     this._settings = null;
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'theme-changer',
-  settingsKey: 'module-theme-changer',
-  section: 'appearance',
-  title: _('Theme Changer'),
-  subtitle: _('Monitors and synchronizes GNOME color scheme'),
-  factory: (ctx) => new ThemeChanger(ctx),
-};

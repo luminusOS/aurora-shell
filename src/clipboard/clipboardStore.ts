@@ -134,7 +134,7 @@ export class ClipboardStore {
     if (payload.bytes.get_size() === 0) return false;
 
     try {
-      _validateImageBytes(payload.mimeType, payload.bytes);
+      this._validateImageBytes(payload.mimeType, payload.bytes);
     } catch (e) {
       logger.warn(
         `Rejected invalid clipboard image: ${payload.mimeType}, ${payload.bytes.get_size()} bytes`,
@@ -155,7 +155,7 @@ export class ClipboardStore {
     }
 
     const id = String(this._nextId++);
-    const filePath = this._mediaDir + '/' + id + _extensionForMimeType(payload.mimeType);
+    const filePath = this._mediaDir + '/' + id + this._extensionForMimeType(payload.mimeType);
     await this._writeImage(filePath, payload.bytes);
 
     const entry: ClipboardEntry = {
@@ -238,13 +238,13 @@ export class ClipboardStore {
   filterPinned(query: string): ClipboardEntry[] {
     if (!query) return this._pinned;
     const q = query.toLowerCase();
-    return this._pinned.filter((e) => _searchText(e).includes(q));
+    return this._pinned.filter((e) => this._searchText(e).includes(q));
   }
 
   filterHistory(query: string): ClipboardEntry[] {
     if (!query) return this._history;
     const q = query.toLowerCase();
-    return this._history.filter((e) => _searchText(e).includes(q));
+    return this._history.filter((e) => this._searchText(e).includes(q));
   }
 
   private _moveToFront(entry: ClipboardEntry): void {
@@ -279,7 +279,7 @@ export class ClipboardStore {
       if (entry.kind !== 'image') return true;
 
       try {
-        _validateImageFile(entry);
+        this._validateImageFile(entry);
         return true;
       } catch (e) {
         removed++;
@@ -408,50 +408,50 @@ export class ClipboardStore {
       // Runtime files are session-scoped; deletion here is best effort.
     }
   }
-}
 
-function _extensionForMimeType(mimeType: string): string {
-  if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') return '.jpg';
-  if (mimeType === 'image/webp') return '.webp';
-  if (mimeType === 'image/gif') return '.gif';
-  if (mimeType === 'image/bmp') return '.bmp';
-  if (mimeType === 'image/tiff') return '.tiff';
-  return '.png';
-}
-
-function _validateImageBytes(mimeType: string, bytes: GLib.Bytes): void {
-  let loader: GdkPixbuf.PixbufLoader | null = null;
-
-  try {
-    loader = GdkPixbuf.PixbufLoader.new_with_mime_type(mimeType);
-    loader.write_bytes(bytes);
-    loader.close();
-
-    if (!loader.get_pixbuf() && !loader.get_animation()) {
-      throw new Error('Image decoder did not produce a pixbuf or animation');
-    }
-  } catch (e) {
-    if (loader) {
-      try {
-        loader.close();
-      } catch (_closeError) {
-        // The original decoder error is the useful one.
-      }
-    }
-    throw e;
+  private _extensionForMimeType(mimeType: string): string {
+    if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') return '.jpg';
+    if (mimeType === 'image/webp') return '.webp';
+    if (mimeType === 'image/gif') return '.gif';
+    if (mimeType === 'image/bmp') return '.bmp';
+    if (mimeType === 'image/tiff') return '.tiff';
+    return '.png';
   }
-}
 
-function _validateImageFile(entry: ClipboardEntry): void {
-  if (!entry.filePath) throw new Error('Image entry has no file path');
+  private _validateImageBytes(mimeType: string, bytes: GLib.Bytes): void {
+    let loader: GdkPixbuf.PixbufLoader | null = null;
 
-  const file = Gio.File.new_for_path(entry.filePath);
-  if (!file.query_exists(null)) throw new Error('Image file is missing');
+    try {
+      loader = GdkPixbuf.PixbufLoader.new_with_mime_type(mimeType);
+      loader.write_bytes(bytes);
+      loader.close();
 
-  GdkPixbuf.Pixbuf.new_from_file(entry.filePath);
-}
+      if (!loader.get_pixbuf() && !loader.get_animation()) {
+        throw new Error('Image decoder did not produce a pixbuf or animation');
+      }
+    } catch (e) {
+      if (loader) {
+        try {
+          loader.close();
+        } catch (_closeError) {
+          // The original decoder error is the useful one.
+        }
+      }
+      throw e;
+    }
+  }
 
-function _searchText(entry: ClipboardEntry): string {
-  if (entry.kind === 'image') return 'image imagem picture photo foto';
-  return entry.text.toLowerCase();
+  private _validateImageFile(entry: ClipboardEntry): void {
+    if (!entry.filePath) throw new Error('Image entry has no file path');
+
+    const file = Gio.File.new_for_path(entry.filePath);
+    if (!file.query_exists(null)) throw new Error('Image file is missing');
+
+    GdkPixbuf.Pixbuf.new_from_file(entry.filePath);
+  }
+
+  private _searchText(entry: ClipboardEntry): string {
+    if (entry.kind === 'image') return 'image imagem picture photo foto';
+    return entry.text.toLowerCase();
+  }
 }

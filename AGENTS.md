@@ -13,13 +13,14 @@ or `just shexli` unless the task specifically requires that validation.
 1.  **Run `just validate`** — type-checks the source, lints, and checks formatting. Fix any reported errors.
 2.  **Run `just shexli`** — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP. Review every finding. Some `warning` or `manual_review` findings can be false positives or accepted GNOME-review tradeoffs, but they must be called out explicitly; fix any real regression before finishing.
 3.  **Run targeted integration tests:**
-    *   If you modified only **one module**, run only the integration test for that module (e.g., `just test tests/shell/auroraTrayIcons.js`).
-    *   If you made **formatting-only changes** (Prettier) and have already passed the tests in a previous turn, you only need to run `just validate` and `just shexli`.
-    *   If you made **architectural or cross-cutting changes**, run `just toolbox test-all`.
+    - If you modified only **one module**, run only the integration test for that module (e.g., `just test tests/shell/auroraTrayIcons.js`).
+    - If you made **formatting-only changes** (Prettier) and have already passed the tests in a previous turn, you only need to run `just validate` and `just shexli`.
+    - If you made **architectural or cross-cutting changes**, run `just toolbox test-all`.
 
 **IMPORTANT:** Never execute the `test` command (or `test-all`) chained with another command using `&&`. Always run it as a separate standalone turn.
 
 To read only the relevant output from a `test-all` run (pass/fail summary):
+
 ```sh
 just toolbox test-all 2>&1 | grep -E "PASS:|FAIL:|Results:"
 ```
@@ -28,16 +29,14 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 ## Commands
 
-- **Install deps:** `just deps` — runs `yarn install`; use once or when updating packages
+- **Install deps:** `just deps` — runs `yarn install --immutable`; use once or after changing branches
 - **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, and compiles `.mo` files
 - **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
-- **Install:** `just install` — installs the already-packaged `.zip` to GNOME Shell (requires `just package` first)
-- **Full install:** `just full-install` — packages + installs in one step
-- **All:** `just all` — clean + full-install
+- **Install:** `just install` — packages and installs the `.zip` to GNOME Shell
 - **Uninstall:** `just uninstall` — disables and removes the extension
 - **Run (host):** `just run` — packages, installs, then launches a devkit GNOME Shell session
 - **Run (toolbox):** `just toolbox run` — packages/installs on the host, then runs GNOME Shell inside the Fedora toolbox
-- **Create toolbox:** `just toolbox create` — create the `aurora-shell-devel` Fedora toolbox
+- **Create toolbox:** `just toolbox create` — creates `aurora-shell-devel` from the same Fedora/GNOME image used by CI
 - **Remove toolbox:** `just toolbox remove` — delete the toolbox
 - **Validate:** `just validate` — runs tsc, ESLint, Prettier check, and Stylelint
 - **Shexli:** `just shexli` — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP
@@ -46,13 +45,13 @@ Do not leave a task incomplete if either command reports errors or failures.
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
 - **Clean:** `just clean` — removes `dist/`
 - **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
-- **Unit tests:** `just unit-test` — runs unit tests via `yarn test:unit` (vitest)
+- **Unit tests:** `just unit-test` — runs unit tests with Node's test runner
 - **Coverage:** `just coverage` — runs unit tests with coverage report
 - **Single integration test:** `just test <script>` — packages and runs one shell test script headlessly (e.g., `just test tests/shell/auroraTrayIcons.js`)
 - **All integration tests:** `just test-all` — packages and runs all `tests/shell/aurora*.js` on the host, printing a pass/fail summary
 - **All integration tests (toolbox):** `just toolbox test-all` — same as above but inside the Fedora toolbox (preferred; use this instead of `just test-all`)
 - **Single integration test (toolbox):** `just toolbox test <script>` — packages and runs one test inside the toolbox
-- **Vagrant VM:** `just vagrant create|run|ssh|remove` — Vagrant-based devkit VM (mirrors `toolbox` but uses a full Fedora VM via Vagrant)
+- **Vagrant VM:** `just vagrant create|run|ssh|remove` — full Arch VM kept for manual GNOME environment testing
 
 ### Translation commands
 
@@ -63,12 +62,13 @@ Do not leave a task incomplete if either command reports errors or failures.
 ## Repository Structure
 
 - `src/` — TypeScript source root
-  - `extension.ts` — entry point; iterates the registry and instantiates modules via each definition's `factory`
-  - `module.ts` — base `Module` class plus the shared `ModuleOption` / `ModuleMetadata` / `ModuleDefinition` / runtime policy types
-  - `registry.ts` — aggregator; imports each module's `definition` export and returns them in UI order (used by `extension.ts`)
-  - `prefsMetadata.ts` — pure metadata mirror for the prefs UI; cannot import modules because prefs runs in `gnome-extensions-app` (no `resource:///org/gnome/shell/*` available). Also exports `getSections()` (the ordered list of prefs sections)
-  - `prefs.ts` — generic extension preferences UI driven by `prefsMetadata.ts`; renders one `Adw.PreferencesGroup` per section
-  - `core/` — Clean Architecture core
+  - `extension.ts` — entry point; creates the context and delegates lifecycle to `ModuleManager`
+  - `module.ts` — base `Module` plus manifest, option, factory, and runtime policy types
+  - `moduleCatalog.ts` — ordered Shell-free manifest catalog shared by runtime and preferences
+  - `moduleManager.ts` — settings/runtime reconciliation, failure isolation, and teardown
+  - `registry.ts` — associates every catalog manifest with its runtime factory
+  - `prefs.ts` — generic preferences UI driven directly by `moduleCatalog.ts`
+  - `core/` — small shared context, cleanup, logging, and settings utilities
     - `context.ts` — `ExtensionContext` interface and implementation
     - `logger.ts` — Abstracted logging
     - `settings.ts` — `SettingsManager` abstraction for GSettings
@@ -93,7 +93,8 @@ Do not leave a task incomplete if either command reports errors or failures.
   - `unit/` — Node test-runner unit tests (`node --test` via `tsx`), auto-discovered by the `tests/unit/*.test.ts` glob — just drop a new `*.test.ts` file in here, no `package.json` edit needed. For pure logic that does not import shell internals.
   - `shell/` — GNOME Shell integration test scripts (run via `gnome-shell-test-tool`) — exercise modules against a real headless GNOME Shell
 - `.github/workflows/ci.yml` — CI pipeline (lint + type-check → unit tests + build → integration tests)
-- `scripts/` — helper shell scripts (`create-toolbox.sh`, `run-gnome-shell.sh`, `run-vagrant-gnome-shell.sh`)
+- `Containerfile` — shared Fedora/GNOME build and integration-test environment used by CI and Toolbox
+- `scripts/` — focused helpers for GNOME Shell tests, Toolbox devkit, and Vagrant devkit
 - `esbuild.ts` — esbuild bundler configuration
 - `sass.config.ts` — Sass compiler configuration
 - `justfile` — all project commands
@@ -105,80 +106,42 @@ Do not leave a task incomplete if either command reports errors or failures.
 1. **Settings via context:** Modules receive an `ExtensionContext` in their constructor and read configuration through `this.context.settings` (the `SettingsManager` abstraction) rather than touching `Gio.Settings` directly.
 2. **`Main` is fair game:** Importing `Main` (`resource:///org/gnome/shell/ui/main.js`) directly is the idiomatic GNOME-extension way and is expected — there is no shell adapter. Confidence in shell interactions comes from the `tests/shell/` integration suite running a real headless GNOME Shell, not from mocking `Main`.
 3. **Layering & testability:** Keep UI logic (Clutter/St) separated from pure domain logic. Extract complex algorithms into pure TypeScript files with no shell imports (e.g., `src/dock/monitorTopology.ts`, `src/desktop/trayIcons/trayState.ts`) so they can be unit-tested with `node --test`. UI/shell glue is covered by integration tests instead.
-4. **Metadata-Driven UI:** The preferences window is generated dynamically from `src/prefsMetadata.ts` (a hand-maintained mirror of each module's metadata, kept in parity by `tests/unit/registry.test.ts`). If a module needs options, define them in the `options` array of its `ModuleDefinition` and mirror them into `prefsMetadata.ts`.
-5. **Self-Registering Modules:** Each module file exports a `definition: ModuleDefinition` co-located with its class. The factory that constructs the module lives on the definition itself — `src/registry.ts` is a pure aggregator and never references module classes directly.
+4. **Metadata-Driven UI:** Each feature owns a Shell-free `*.manifest.ts`. `moduleCatalog.ts` is the single ordered metadata source consumed by preferences and runtime.
+5. **Factories:** Runtime implementations export their classes. `registry.ts` is the explicit association between catalog keys and factories; implementation files contain no preference metadata.
 
 ## Adding a Module
 
-1. Create a module in the appropriate semantic area with a `Module` subclass **and** a co-located `definition` export. Single-file patches can live directly in `src/patches/`; complex modules should use a feature folder such as `src/panel/myModule/myModule.ts`.
+1. Create a Shell-free `*.manifest.ts` beside the implementation:
 
 ```typescript
 import { gettext as _ } from 'gettext';
+import type { ModuleManifest } from '~/module.ts';
 
-import type { ExtensionContext } from '~/core/context.ts';
-import type { ModuleDefinition } from '~/module.ts';
-import { Module } from '~/module.ts';
-
-export class MyModule extends Module {
-  constructor(context: ExtensionContext) {
-    super(context);
-  }
-  override enable(): void { /* setup using this.context */ }
-  override disable(): void { /* cleanup */ }
-}
-
-export const definition: ModuleDefinition = {
-  key: 'my-module',
-  settingsKey: 'module-my-module',
-  section: 'behavior', // must match an id from getSections() in prefsMetadata.ts
-  title: _('My Module'),
-  subtitle: _('Description'),
-  runtime: { targets: ['desktop'] }, // optional; omitted modules default to desktop-only
-  options: [
-    { key: 'my-option', title: _('Option'), subtitle: _('Desc'), type: 'switch' },
-  ],
-  factory: (ctx) => new MyModule(ctx),
-};
-```
-
-2. Register the definition in `src/registry.ts` (one import + one array entry, preserving UI order):
-
-```typescript
-import { definition as myModule } from '~/patches/myModule.ts';
-// …inside getModuleRegistry():
-return [/* …, */ myModule];
-```
-
-3. Mirror the metadata into `src/prefsMetadata.ts` (prefs cannot import modules — see the file header). Include the same `section`:
-
-```typescript
-{
+export const manifest: ModuleManifest = {
   key: 'my-module',
   settingsKey: 'module-my-module',
   section: 'behavior',
   title: _('My Module'),
   subtitle: _('Description'),
-  options: [
-    { key: 'my-option', title: _('Option'), subtitle: _('Desc'), type: 'switch' },
-  ],
-},
+  runtime: { roles: ['desktop'], scope: 'session' },
+  options: [{ key: 'my-option', title: _('Option'), subtitle: _('Desc'), type: 'switch' }],
+};
 ```
 
-4. Add a GSettings key (`data/schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml`):
+2. Export the `Module` implementation class from its behavior file. Keep preference metadata out of
+   that implementation.
+3. Add the manifest to `moduleCatalog.ts` in display order and associate its class factory in
+   `registry.ts`.
+4. Add every declared module, option, and internal setting key to the GSettings schema.
+5. Add unit and Shell integration coverage as appropriate.
 
-```xml
-<key name="module-my-module" type="b">
-  <default>true</default>
-  <summary>Enable My Module</summary>
-  <description>What this module does</description>
-</key>
-```
-
-`tests/unit/registry.test.ts` enforces that steps 2, 3, and 4 stay in parity — including that every module's `section` is a known section id and matches between the registry and `prefsMetadata.ts`. A half-finished addition will fail CI.
+`registry.test.ts` checks the catalog/factory relationship through the TypeScript AST.
+`schema.test.ts` structurally validates that every catalog setting is present in the XML and
+that no stale schema setting remains.
 
 ### Prefs sections
 
-The prefs window groups modules by `section`. The ordered section list lives in `getSections()` in `src/prefsMetadata.ts`:
+The prefs window groups modules by `section`. The ordered section list lives in `getSections()` in `src/moduleCatalog.ts`:
 
 ```typescript
 export function getSections(): ModuleSection[] {
@@ -213,7 +176,7 @@ Avoid code that only looks plausible. A human reviewer should be able to read a 
 - Keep runtime capability checks honest. Hardware-specific modules must detect missing services/devices at runtime and stay inactive or degrade explicitly.
 - Do not scatter `as unknown as ...` casts through feature modules. If GObject construction or Shell internals require a cast, isolate it in a small shared helper/factory with a clear name.
 - Do not leave placeholder helpers, legacy duplicates, or unused compatibility functions after a refactor. Remove dead code instead of keeping it “just in case”.
-- Keep strings and metadata truthful and synchronized across module `definition`, `src/prefsMetadata.ts`, schema XML, README/architecture docs, and `.po` files when strings change.
+- Keep strings and metadata truthful and synchronized across `*.manifest.ts`, `moduleCatalog.ts`, schema XML, README/architecture docs, and `.po` files when strings change.
 - Search for obvious generated-code artifacts before finishing: broken joined words in docs, stale project names, obsolete env vars, and UI descriptions that exceed what is implemented.
 - Prefer explicit D-Bus/property handling over no-op calls that only log success. If a feature cannot be safely implemented yet, make the limitation visible in the title/subtitle/docs rather than implying it works.
 
@@ -253,8 +216,6 @@ gresource extract /usr/share/gnome-shell/gnome-shell-theme.gresource /org/gnome/
 ```
 
 Extract css file:
-
-
 
 Common files of interest:
 

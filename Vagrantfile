@@ -106,10 +106,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     echo "==> Installing Node dependencies..."
     yarn install --immutable 2>/dev/null || yarn install
 
-    echo "==> Building extension..."
-    just build
-
-    echo "==> Installing extension..."
+    echo "==> Building and installing extension..."
     just install
 
     echo ""

@@ -3,7 +3,6 @@ import Meta from '@girs/meta-18';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 
 const PIP_TITLES = ['Picture-in-Picture', 'Picture in picture', 'Picture-in-picture'];
 
@@ -111,12 +110,3 @@ export class PipOnTop extends Module {
     }
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'pip-on-top',
-  settingsKey: 'module-pip-on-top',
-  section: 'behavior',
-  title: _('Pip On Top'),
-  subtitle: _('Keeps Picture-in-Picture windows always on top'),
-  factory: (ctx) => new PipOnTop(ctx),
-};

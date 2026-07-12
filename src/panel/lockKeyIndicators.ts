@@ -10,7 +10,6 @@ import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 
 const LOG_PREFIX = 'LockKeyIndicators';
 const STATUS_AREA_ID = 'aurora-lock-key-indicators';
@@ -111,12 +110,3 @@ export class LockKeyIndicators extends Module {
     this._button.visible = capsActive || numActive;
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'lock-key-indicators',
-  settingsKey: 'module-lock-key-indicators',
-  section: 'dock-panel',
-  title: _('Lock Key Indicators'),
-  subtitle: _('Shows Caps Lock and Num Lock indicators in the top panel'),
-  factory: (ctx) => new LockKeyIndicators(ctx),
-};

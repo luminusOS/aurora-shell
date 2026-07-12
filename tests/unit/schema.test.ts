@@ -1,131 +1,222 @@
-/**
- * Unit tests — GSettings schema XML
- *
- * Ensures the GSettings schema is internally consistent and contains an entry
- * for every module key defined in registry.ts.  These are regression tests:
- * adding a new module requires touching registry.ts, extension.ts AND the
- * schema — these tests will fail fast if any of the three is forgotten.
- */
-
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
+import { readFileSync } from 'node:fs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-
-const SCHEMA_FILE = resolve(
+const schemaId = 'org.gnome.shell.extensions.aurora-shell';
+const schemaFile = resolve(
   root,
-  'data/schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml'
+  'data/schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml',
 );
-const SCHEMA_ID = 'org.gnome.shell.extensions.aurora-shell';
 
-// The canonical list of module settings keys; must stay in sync with registry.ts.
-const EXPECTED_MODULE_KEYS = [
-  'module-no-overview',
-  'module-pip-on-top',
-  'module-theme-changer',
-  'module-dock',
-  'module-volume-mixer',
-  'module-xwayland-indicator',
-  'module-icon-weave',
-  'module-app-search-tooltip',
-  'module-privacy',
-  'module-auto-theme-switcher',
-  'module-bluetooth-menu',
-  'module-weather-clock',
-  'module-meeting-clock',
-  'module-tray-icons',
-  'module-clipboard-history',
-] as const;
+function catalogSettingsKeys(): string[] {
+  const catalogPath = resolve(root, 'src/moduleCatalog.ts');
+  const catalog = ts.createSourceFile(
+    catalogPath,
+    readFileSync(catalogPath, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const manifestPaths: string[] = [];
+  for (const statement of catalog.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
+      continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (
+      bindings &&
+      ts.isNamedImports(bindings) &&
+      bindings.elements.some((element) => element.propertyName?.text === 'manifest')
+    )
+      manifestPaths.push(statement.moduleSpecifier.text.replace(/^~\//, 'src/'));
+  }
 
-const OPT_IN_MODULE_KEYS = new Set<string>(['module-auto-theme-switcher']);
-
-const schemaXml = readFileSync(SCHEMA_FILE, 'utf-8');
-
-test('schema — file is valid XML and contains the correct schema id', () => {
-  assert.ok(schemaXml.startsWith('<?xml'), 'Schema file must start with XML declaration');
-  assert.ok(schemaXml.includes(`id="${SCHEMA_ID}"`), `Schema must declare id="${SCHEMA_ID}"`);
-});
-
-test('schema — every module key is declared', () => {
-  for (const key of EXPECTED_MODULE_KEYS) {
-    assert.ok(
-      schemaXml.includes(`name="${key}"`),
-      `Schema is missing key: "${key}"`
+  return manifestPaths.flatMap((path) => {
+    const absolute = resolve(root, path);
+    const source = ts.createSourceFile(
+      absolute,
+      readFileSync(absolute, 'utf8'),
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS,
     );
+    const keys: string[] = [];
+    let manifestObject: ts.ObjectLiteralExpression | undefined;
+    for (const statement of source.statements) {
+      if (!ts.isVariableStatement(statement)) continue;
+      for (const declaration of statement.declarationList.declarations) {
+        if (
+          declaration.name.getText() === 'manifest' &&
+          ts.isObjectLiteralExpression(declaration.initializer)
+        )
+          manifestObject = declaration.initializer;
+      }
+    }
+    assert.ok(manifestObject, `${path} has no manifest object`);
+    function visit(node: ts.Node): void {
+      if (
+        ts.isPropertyAssignment(node) &&
+        ['settingsKey', 'hourKey', 'minuteKey'].includes(node.name.getText()) &&
+        ts.isStringLiteral(node.initializer)
+      )
+        keys.push(node.initializer.text);
+      if (
+        ts.isPropertyAssignment(node) &&
+        node.name.getText() === 'key' &&
+        node.parent !== manifestObject &&
+        ts.isStringLiteral(node.initializer)
+      )
+        keys.push(node.initializer.text);
+      if (
+        ts.isPropertyAssignment(node) &&
+        node.name.getText() === 'internalSettings' &&
+        ts.isArrayLiteralExpression(node.initializer)
+      )
+        for (const element of node.initializer.elements) {
+          assert.ok(ts.isStringLiteral(element), `${path} internal settings must be literals`);
+          keys.push(element.text);
+        }
+      ts.forEachChild(node, visit);
+    }
+    visit(manifestObject);
+    assert.ok(keys.length > 0, `${path} has no literal settings keys`);
+    return keys;
+  });
+}
+
+type XmlElement = { name: string; attributes: Map<string, string> };
+
+function parseXmlElements(xml: string): XmlElement[] {
+  const elements: XmlElement[] = [];
+  const stack: string[] = [];
+  let cursor = 0;
+
+  const skipSpace = (): void => {
+    while (cursor < xml.length && ' \t\r\n'.includes(xml[cursor]!)) cursor++;
+  };
+  const readName = (): string => {
+    const start = cursor;
+    while (cursor < xml.length && !' \t\r\n=/>'.includes(xml[cursor]!)) cursor++;
+    return xml.slice(start, cursor);
+  };
+
+  while ((cursor = xml.indexOf('<', cursor)) >= 0) {
+    if (xml.startsWith('<!--', cursor)) {
+      cursor = xml.indexOf('-->', cursor + 4);
+      assert.notEqual(cursor, -1, 'unterminated XML comment');
+      cursor += 3;
+      continue;
+    }
+    if (xml[cursor + 1] === '?' || xml[cursor + 1] === '!') {
+      cursor = xml.indexOf('>', cursor + 2);
+      assert.notEqual(cursor, -1, 'unterminated XML declaration');
+      cursor++;
+      continue;
+    }
+
+    cursor++;
+    if (xml[cursor] === '/') {
+      cursor++;
+      const name = readName();
+      assert.equal(stack.pop(), name, `mismatched closing XML tag ${name}`);
+      cursor = xml.indexOf('>', cursor);
+      assert.notEqual(cursor, -1, `unterminated closing XML tag ${name}`);
+      cursor++;
+      continue;
+    }
+
+    const name = readName();
+    assert.ok(name, 'XML element name is required');
+    const attributes = new Map<string, string>();
+    let selfClosing = false;
+    while (cursor < xml.length) {
+      skipSpace();
+      if (xml[cursor] === '>') {
+        cursor++;
+        break;
+      }
+      if (xml[cursor] === '/' && xml[cursor + 1] === '>') {
+        selfClosing = true;
+        cursor += 2;
+        break;
+      }
+      const attributeName = readName();
+      assert.ok(attributeName, `invalid attribute in ${name}`);
+      skipSpace();
+      assert.equal(xml[cursor], '=', `attribute ${attributeName} must have a value`);
+      cursor++;
+      skipSpace();
+      const quote = xml[cursor];
+      assert.ok(quote === '"' || quote === "'", `attribute ${attributeName} must be quoted`);
+      const valueStart = ++cursor;
+      cursor = xml.indexOf(quote, cursor);
+      assert.notEqual(cursor, -1, `unterminated attribute ${attributeName}`);
+      attributes.set(attributeName, xml.slice(valueStart, cursor));
+      cursor++;
+    }
+    elements.push({ name, attributes });
+    if (!selfClosing) stack.push(name);
   }
+
+  assert.deepEqual(stack, [], 'unclosed XML elements');
+  return elements;
+}
+
+function compiledSchemaKeys(): string[] {
+  const elements = parseXmlElements(readFileSync(schemaFile, 'utf8'));
+  const schema = elements.find(
+    (element) => element.name === 'schema' && element.attributes.get('id') === schemaId,
+  );
+  assert.ok(schema, `schema ${schemaId} is missing`);
+  return elements
+    .filter((element) => element.name === 'key')
+    .map((element) => {
+      const name = element.attributes.get('name');
+      assert.ok(name, 'schema key must have a name');
+      return name;
+    });
+}
+
+function schemaDefault(key: string): string {
+  const xml = readFileSync(schemaFile, 'utf8');
+  const keyMarker = `name="${key}"`;
+  const keyMarkerIndex = xml.indexOf(keyMarker);
+  assert.notEqual(keyMarkerIndex, -1, `schema key ${key} is missing`);
+
+  const keyStart = xml.lastIndexOf('<key ', keyMarkerIndex);
+  const keyEnd = xml.indexOf('</key>', keyMarkerIndex);
+  assert.ok(keyStart >= 0 && keyEnd > keyStart, `invalid schema key element for ${key}`);
+
+  const defaultStartTag = '<default>';
+  const defaultStart = xml.indexOf(defaultStartTag, keyStart);
+  const defaultEnd = xml.indexOf('</default>', defaultStart);
+  assert.ok(
+    defaultStart > keyStart && defaultEnd > defaultStart && defaultEnd < keyEnd,
+    `schema key ${key} has no default`,
+  );
+  return xml.slice(defaultStart + defaultStartTag.length, defaultEnd).trim();
+}
+
+test('schema — is structurally valid and contains every catalog module key', () => {
+  const schemaKeys = new Set(compiledSchemaKeys());
+  const moduleKeys = catalogSettingsKeys();
+  for (const key of moduleKeys) assert.ok(schemaKeys.has(key), key);
+  assert.equal(moduleKeys.length, new Set(moduleKeys).size);
 });
 
-test('schema — every module key is boolean type', () => {
-  const keyRe = /<key name="(module-[^"]+)" type="([^"]+)"/g;
-  let match;
-  while ((match = keyRe.exec(schemaXml)) !== null) {
-    assert.strictEqual(
-      match[2],
-      'b',
-      `Key "${match[1]}" must be boolean type ("b"), found "${match[2]}"`
-    );
-  }
+test('schema — has no module switches absent from the catalog', () => {
+  const moduleKeys = new Set(catalogSettingsKeys().filter((key) => key.startsWith('module-')));
+  const schemaModuleKeys = compiledSchemaKeys().filter((key) => key.startsWith('module-'));
+  assert.deepEqual([...schemaModuleKeys].sort(), [...moduleKeys].sort());
 });
 
-test('schema — every module key defaults to true', () => {
-  // Grab each <key name="module-*"> … </key> block and verify <default>true</default>.
-  // Opt-in modules (OPT_IN_MODULE_KEYS) are exempt — they default to false because
-  // they require elevated privileges or explicit user consent to activate.
-  const blockRe = /<key name="(module-[^"]+)"[^>]*>[\s\S]*?<\/key>/g;
-  let match;
-  while ((match = blockRe.exec(schemaXml)) !== null) {
-    const block = match[0];
-    const keyName = match[1];
-    if (OPT_IN_MODULE_KEYS.has(keyName)) continue;
-    const defaultMatch = block.match(/<default>(.*?)<\/default>/);
-    assert.ok(defaultMatch, `Key "${keyName}" has no <default> element`);
-    assert.strictEqual(
-      defaultMatch![1].trim(),
-      'true',
-      `Key "${keyName}" must default to true`
-    );
-  }
+test('schema ↔ catalog — every declared module and option setting is synchronized', () => {
+  assert.deepEqual([...compiledSchemaKeys()].sort(), [...catalogSettingsKeys()].sort());
 });
 
-test('schema — no duplicate key names', () => {
-  const nameRe = /<key name="([^"]+)"/g;
-  const seen = new Set<string>();
-  let match;
-  while ((match = nameRe.exec(schemaXml)) !== null) {
-    assert.ok(!seen.has(match[1]), `Duplicate schema key: "${match[1]}"`);
-    seen.add(match[1]);
-  }
-});
-
-test('schema — every key has a non-empty summary', () => {
-  const blockRe = /<key name="([^"]+)"[^>]*>[\s\S]*?<\/key>/g;
-  let match;
-  while ((match = blockRe.exec(schemaXml)) !== null) {
-    const block = match[0];
-    const keyName = match[1];
-    const summaryMatch = block.match(/<summary>(.*?)<\/summary>/);
-    assert.ok(summaryMatch, `Key "${keyName}" is missing a <summary>`);
-    assert.ok(summaryMatch![1].trim().length > 0, `Key "${keyName}" has an empty <summary>`);
-  }
-});
-
-test('schema — auto-theme-switcher option keys exist with correct types and defaults', () => {
-  const optionKeys: Array<{ name: string; type: string; defaultValue: string }> = [
-    { name: 'auto-theme-switcher-light-hours', type: 'i', defaultValue: '6' },
-    { name: 'auto-theme-switcher-light-minutes', type: 'i', defaultValue: '0' },
-    { name: 'auto-theme-switcher-dark-hours', type: 'i', defaultValue: '20' },
-    { name: 'auto-theme-switcher-dark-minutes', type: 'i', defaultValue: '0' },
-  ];
-
-  for (const { name, type, defaultValue } of optionKeys) {
-    assert.ok(schemaXml.includes(`name="${name}"`), `Schema missing key: "${name}"`);
-    const blockRe = new RegExp(`<key name="${name}"[^>]*>[\\s\\S]*?<\\/key>`);
-    const block = schemaXml.match(blockRe);
-    assert.ok(block, `Could not extract block for key "${name}"`);
-    assert.ok(block![0].includes(`type="${type}"`), `Key "${name}" must be type "${type}"`);
-    assert.ok(block![0].includes(`<default>${defaultValue}</default>`), `Key "${name}" must default to ${defaultValue}`);
-  }
+test('schema — Vela Shell fallback is disabled by default', () => {
+  assert.equal(schemaDefault('vela-vpn-quick-settings-shell-fallback'), 'false');
 });

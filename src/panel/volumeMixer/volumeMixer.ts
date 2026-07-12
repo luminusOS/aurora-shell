@@ -12,7 +12,6 @@ import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { ModuleDefinition } from '~/module.ts';
 import { attachToQuickSettings } from '~/shared/quickSettings.ts';
 import { VolumeMixerPanel } from '~/panel/volumeMixer/mixerPanel.ts';
 import { loadIcon } from '~/shared/icons.ts';
@@ -171,12 +170,3 @@ export class VolumeMixer extends Module {
     });
   }
 }
-
-export const definition: ModuleDefinition = {
-  key: 'volume-mixer',
-  settingsKey: 'module-volume-mixer',
-  section: 'dock-panel',
-  title: _('Volume Mixer'),
-  subtitle: _('Per-application volume control in Quick Settings'),
-  factory: (ctx) => new VolumeMixer(ctx),
-};

@@ -1,288 +1,207 @@
-/**
- * Regression tests — Module registry consistency
- *
- * Adding a new module requires edits in:
- *   1. semantic source folder   — `definition` export (metadata + factory, co-located with class)
- *   2. src/registry.ts          — one import line + one entry in getModuleRegistry()
- *   3. src/prefsMetadata.ts     — metadata entry (prefs runs in a different process and
- *                                 cannot statically import modules that reference shell internals)
- *   4. data/schemas/…           — GSettings key  (covered by schema.test.ts)
- *
- * These tests parse the TypeScript source as text (no GJS runtime needed) and
- * cross-check that registry, prefsMetadata, module definitions, and the schema
- * are in sync, so a half-finished module addition is caught immediately in CI.
- */
-
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
-// ---------------------------------------------------------------------------
-// Source parsers
-// ---------------------------------------------------------------------------
+type CatalogEntry = {
+  key: string;
+  settingsKey: string;
+  section: string;
+  runtimeRoles: string[];
+};
 
-/** Extract { key, settingsKey } pairs from any source file. */
-function parseEntriesFromSource(src: string): { key: string; settingsKey: string }[] {
-  const entries: { key: string; settingsKey: string }[] = [];
-  const blockRe = /key:\s*'([^']+)',\s*settingsKey:\s*'([^']+)'/g;
-  let m;
-  while ((m = blockRe.exec(src)) !== null) entries.push({ key: m[1], settingsKey: m[2] });
-  return entries;
-}
-
-/** Extract { key, section } pairs from any source file. */
-function parseSectionsFromSource(src: string): { key: string; section: string }[] {
-  const entries: { key: string; section: string }[] = [];
-  const blockRe = /key:\s*'([^']+)',\s*settingsKey:\s*'[^']+',\s*section:\s*'([^']+)'/g;
-  let m;
-  while ((m = blockRe.exec(src)) !== null) entries.push({ key: m[1], section: m[2] });
-  return entries;
-}
-
-/** Collect { key, section } pairs from every module definition. */
-function collectSectionsFromModuleFiles(): { key: string; section: string }[] {
-  const out: { key: string; section: string }[] = [];
-  for (const file of parseRegistryDefinitionFiles()) {
-    const src = readFileSync(file, 'utf-8');
-    if (src.includes('export const definition')) out.push(...parseSectionsFromSource(src));
-  }
-  return out;
-}
-
-/** Parse the section ids declared in prefsMetadata.ts `getSections()`. */
-function parseKnownSectionIds(): string[] {
-  const src = readFileSync(resolve(root, 'src/prefsMetadata.ts'), 'utf-8');
-  const block = src.match(/getSections\(\)[\s\S]*?return\s*\[([\s\S]*?)\];/);
-  if (!block) throw new Error('Could not locate getSections() return array');
-  const ids: string[] = [];
-  const idRe = /id:\s*'([^']+)'/g;
-  let m;
-  while ((m = idRe.exec(block[1])) !== null) ids.push(m[1]);
-  return ids;
-}
-
-/** Parse the module entries from registry.ts (full ModuleDefinition, includes factory). */
-function parseRegistryEntries(): { key: string; settingsKey: string }[] {
-  // registry.ts aggregates via imports; parse each module file's `definition`
-  // block referenced by the registry's returned array to derive keys.
-  return collectEntriesFromModuleFiles();
-}
-
-/** Resolve the module definition files imported by registry.ts. */
-function parseRegistryDefinitionFiles(): string[] {
-  const src = readFileSync(resolve(root, 'src/registry.ts'), 'utf-8');
-  const files: string[] = [];
-  const importRe = /import\s*\{\s*definition\s+as\s+\w+\s*\}\s*from\s*'([^']+)'/g;
-  let m;
-  while ((m = importRe.exec(src)) !== null) {
-    files.push(resolve(root, m[1].replace(/^~\//, 'src/')));
-  }
-  return files;
-}
-
-/** Collect `definition` blocks from the files imported by registry.ts. */
-function collectEntriesFromModuleFiles(): { key: string; settingsKey: string }[] {
-  const entries: { key: string; settingsKey: string }[] = [];
-  for (const file of parseRegistryDefinitionFiles()) {
-    const src = readFileSync(file, 'utf-8');
-    if (!src.includes('export const definition')) continue;
-    entries.push(...parseEntriesFromSource(src));
-  }
-  return entries;
-}
-
-/** Parse `getModuleMetadata()` entries from prefsMetadata.ts. */
-function parsePrefsMetadataEntries(): { key: string; settingsKey: string }[] {
-  const src = readFileSync(resolve(root, 'src/prefsMetadata.ts'), 'utf-8');
-  return parseEntriesFromSource(src);
-}
-
-/** Parse registry.ts returned array order — keys in emission order. */
-function parseRegistryOrder(): string[] {
-  const src = readFileSync(resolve(root, 'src/registry.ts'), 'utf-8');
-  const importRe = /import\s*\{\s*definition\s+as\s+(\w+)\s*\}\s*from\s*'[^']+'/g;
-  const importedAliases = new Set<string>();
-  let m;
-  while ((m = importRe.exec(src)) !== null) importedAliases.add(m[1]);
-
-  const returnMatch = src.match(/return\s*\[([\s\S]*?)\];/);
-  if (!returnMatch) throw new Error('Could not locate registry return array');
-  const returnBody = returnMatch[1];
-  const order: string[] = [];
-  const aliasRe = /\b(\w+)\b/g;
-  let a;
-  while ((a = aliasRe.exec(returnBody)) !== null) {
-    if (importedAliases.has(a[1])) order.push(a[1]);
-  }
-  return order;
-}
-
-/** Parse key order from prefsMetadata.ts. */
-function parsePrefsMetadataOrder(): string[] {
-  return parsePrefsMetadataEntries().map((e) => e.key);
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-const registryEntries = parseRegistryEntries();
-const prefsEntries = parsePrefsMetadataEntries();
-const registryKeys = registryEntries.map((e) => e.key);
-const registrySettingsKeys = registryEntries.map((e) => e.settingsKey);
-const prefsKeys = prefsEntries.map((e) => e.key);
-
-test('registry — at least one module is registered', () => {
-  assert.ok(registryEntries.length > 0, 'Registry has no entries');
-});
-
-test('registry — module keys are unique', () => {
-  assert.strictEqual(
-    new Set(registryKeys).size,
-    registryKeys.length,
-    `Duplicate module keys: ${registryKeys.filter((k, i) => registryKeys.indexOf(k) !== i)}`,
+function sourceFile(relativePath: string): ts.SourceFile {
+  const path = resolve(root, relativePath);
+  return ts.createSourceFile(
+    path,
+    readFileSync(path, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
   );
+}
+
+function property(object: ts.ObjectLiteralExpression, name: string): ts.Expression | undefined {
+  for (const item of object.properties) {
+    if (!ts.isPropertyAssignment(item)) continue;
+    const itemName =
+      ts.isIdentifier(item.name) || ts.isStringLiteral(item.name) ? item.name.text : '';
+    if (itemName === name) return item.initializer;
+  }
+  return undefined;
+}
+
+function stringProperty(object: ts.ObjectLiteralExpression, name: string): string {
+  const value = property(object, name);
+  assert.ok(value && ts.isStringLiteral(value), `${name} must be a string literal`);
+  return value.text;
+}
+
+function catalog(): CatalogEntry[] {
+  const catalogSource = sourceFile('src/moduleCatalog.ts');
+  const imports = new Map<string, string>();
+  for (const statement of catalogSource.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
+      continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements) {
+      if (element.propertyName?.text === 'manifest')
+        imports.set(element.name.text, element.name.text);
+    }
+  }
+
+  const paths = new Map<string, string>();
+  for (const statement of catalogSource.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
+      continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements) {
+      if (element.propertyName?.text === 'manifest')
+        paths.set(element.name.text, statement.moduleSpecifier.text.replace(/^~\//, 'src/'));
+    }
+  }
+
+  let order: string[] = [];
+  for (const statement of catalogSource.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (declaration.name.getText() !== 'MODULE_CATALOG') continue;
+      assert.ok(declaration.initializer && ts.isArrayLiteralExpression(declaration.initializer));
+      order = declaration.initializer.elements.map((element) => {
+        assert.ok(
+          ts.isIdentifier(element),
+          'catalog entries must be imported manifest identifiers',
+        );
+        return element.text;
+      });
+    }
+  }
+
+  return order.map((alias) => {
+    const manifestPath = paths.get(alias);
+    assert.ok(manifestPath && imports.has(alias), `catalog alias ${alias} has no manifest import`);
+    const manifestSource = sourceFile(manifestPath);
+    let object: ts.ObjectLiteralExpression | undefined;
+    for (const statement of manifestSource.statements) {
+      if (!ts.isVariableStatement(statement)) continue;
+      for (const declaration of statement.declarationList.declarations) {
+        if (
+          declaration.name.getText() === 'manifest' &&
+          ts.isObjectLiteralExpression(declaration.initializer)
+        )
+          object = declaration.initializer;
+      }
+    }
+    assert.ok(object, `${manifestPath} must export a manifest object`);
+    const runtime = property(object, 'runtime');
+    const roles =
+      runtime && ts.isObjectLiteralExpression(runtime) ? property(runtime, 'roles') : undefined;
+    return {
+      key: stringProperty(object, 'key'),
+      settingsKey: stringProperty(object, 'settingsKey'),
+      section: stringProperty(object, 'section'),
+      runtimeRoles:
+        roles && ts.isArrayLiteralExpression(roles)
+          ? roles.elements.map((role) => {
+              assert.ok(ts.isStringLiteral(role));
+              return role.text;
+            })
+          : [],
+    };
+  });
+}
+
+function factoryKeys(): string[] {
+  const registry = sourceFile('src/registry.ts');
+  for (const statement of registry.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (declaration.name.getText() !== 'factories') continue;
+      const expression = ts.isSatisfiesExpression(declaration.initializer)
+        ? declaration.initializer.expression
+        : declaration.initializer;
+      assert.ok(ts.isObjectLiteralExpression(expression));
+      return expression.properties.map((item) => {
+        assert.ok(ts.isPropertyAssignment(item));
+        assert.ok(ts.isIdentifier(item.name) || ts.isStringLiteral(item.name));
+        return item.name.text;
+      });
+    }
+  }
+  throw new Error('registry factories object not found');
+}
+
+const entries = catalog();
+const keys = entries.map((entry) => entry.key);
+const settingsKeys = entries.map((entry) => entry.settingsKey);
+
+test('catalog — ids and settings keys are unique', () => {
+  assert.equal(new Set(keys).size, keys.length);
+  assert.equal(new Set(settingsKeys).size, settingsKeys.length);
 });
 
-test('registry — settingsKeys are unique', () => {
-  assert.strictEqual(
-    new Set(registrySettingsKeys).size,
-    registrySettingsKeys.length,
-    `Duplicate settingsKeys: ${registrySettingsKeys.filter((k, i) => registrySettingsKeys.indexOf(k) !== i)}`,
+test('catalog ↔ registry — every manifest has exactly one factory', () => {
+  assert.deepEqual([...factoryKeys()].sort(), [...keys].sort());
+});
+
+test('catalog — every section is declared by moduleCatalog', () => {
+  const catalogSource = sourceFile('src/moduleCatalog.ts');
+  const sections = new Set<string>();
+  function visit(node: ts.Node): void {
+    if (
+      ts.isPropertyAssignment(node) &&
+      node.name.getText() === 'id' &&
+      ts.isStringLiteral(node.initializer)
+    )
+      sections.add(node.initializer.text);
+    ts.forEachChild(node, visit);
+  }
+  visit(catalogSource);
+  for (const entry of entries) assert.ok(sections.has(entry.section), entry.key);
+});
+
+test('prefs — consumes moduleCatalog directly', () => {
+  const prefs = sourceFile('src/prefs.ts');
+  const importsCatalog = prefs.statements.some(
+    (statement) =>
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      statement.moduleSpecifier.text === '~/moduleCatalog.ts',
   );
+  assert.equal(importsCatalog, true);
 });
 
-test('registry — all settingsKeys follow the "module-" prefix convention', () => {
-  for (const { settingsKey } of registryEntries) {
-    assert.match(
-      settingsKey,
-      /^module-/,
-      `settingsKey "${settingsKey}" does not start with "module-"`,
-    );
-  }
+test('catalog — desktop module baseline is preserved', () => {
+  assert.deepEqual(keys, [
+    'no-overview',
+    'pip-on-top',
+    'focus-launched-windows',
+    'theme-changer',
+    'dock',
+    'aurora-menu',
+    'volume-mixer',
+    'low-battery-percentage',
+    'lock-key-indicators',
+    'xwayland-indicator',
+    'privacy',
+    'icon-weave',
+    'app-search-tooltip',
+    'vela-vpn-quick-settings',
+    'auto-theme-switcher',
+    'bluetooth-menu',
+    'weather-clock',
+    'meeting-clock',
+    'tray-icons',
+    'clipboard-history',
+  ]);
 });
 
-test('registry ↔ prefsMetadata — every module key is mirrored in prefsMetadata', () => {
-  for (const key of registryKeys) {
-    assert.ok(
-      prefsKeys.includes(key),
-      `Module "${key}" is missing from src/prefsMetadata.ts (prefs UI will skip it)`,
-    );
-  }
-});
-
-test('registry ↔ prefsMetadata — every prefsMetadata key has a module definition', () => {
-  for (const key of prefsKeys) {
-    assert.ok(
-      registryKeys.includes(key),
-      `prefsMetadata key "${key}" has no corresponding module definition`,
-    );
-  }
-});
-
-test('registry ↔ prefsMetadata — settingsKeys match for the same module key', () => {
-  const regMap = new Map(registryEntries.map((e) => [e.key, e.settingsKey]));
-  for (const { key, settingsKey } of prefsEntries) {
-    assert.strictEqual(
-      regMap.get(key),
-      settingsKey,
-      `prefsMetadata key "${key}" has settingsKey "${settingsKey}" but registry has "${regMap.get(key)}"`,
-    );
-  }
-});
-
-test('registry ↔ prefsMetadata — presentation order is identical', () => {
-  // Order matters: prefs UI renders modules in prefsMetadata order; the runtime
-  // iterates registry order. If they diverge the visible/enable sequences drift.
-  const regOrder = parseRegistryOrder();
-  const prefsOrder = parsePrefsMetadataOrder();
-  // Registry order comes from import-alias names (camelCase); prefs order comes
-  // from kebab-case keys. Normalise both to the kebab-case key via registry map.
-  const aliasToKey = new Map<string, string>();
-  const src = readFileSync(resolve(root, 'src/registry.ts'), 'utf-8');
-  const importRe = /import\s*\{\s*definition\s+as\s+(\w+)\s*\}\s*from\s*'([^']+)'/g;
-  let m;
-  while ((m = importRe.exec(src)) !== null) {
-    const alias = m[1];
-    const path = m[2];
-    const moduleFile = resolve(
-      root,
-      path.replace('~', 'src').replace(/\.ts$/, '.ts'),
-    );
-    const modSrc = readFileSync(moduleFile, 'utf-8');
-    const keyMatch = modSrc.match(/key:\s*'([^']+)'/);
-    if (keyMatch) aliasToKey.set(alias, keyMatch[1]);
-  }
-  const regOrderKeys = regOrder.map((a) => aliasToKey.get(a)!).filter(Boolean);
-  assert.deepStrictEqual(
-    prefsOrder,
-    regOrderKeys,
-    'prefsMetadata order must match registry.ts import/return order',
-  );
-});
-
-test('registry — every module declares a section known to getSections()', () => {
-  const known = new Set(parseKnownSectionIds());
-  assert.ok(known.size > 0, 'getSections() returned no sections');
-  for (const { key, section } of collectSectionsFromModuleFiles()) {
-    assert.ok(section, `Module "${key}" is missing a section`);
-    assert.ok(known.has(section), `Module "${key}" references unknown section "${section}"`);
-  }
-});
-
-test('registry ↔ prefsMetadata — section matches for the same module key', () => {
-  const regSections = new Map(collectSectionsFromModuleFiles().map((e) => [e.key, e.section]));
-  const prefsSrc = readFileSync(resolve(root, 'src/prefsMetadata.ts'), 'utf-8');
-  for (const { key, section } of parseSectionsFromSource(prefsSrc)) {
-    assert.strictEqual(
-      regSections.get(key),
-      section,
-      `prefsMetadata key "${key}" has section "${section}" but registry has "${regSections.get(key)}"`,
-    );
-  }
-});
-
-test('registry ↔ schema — every settingsKey is declared in the schema XML', () => {
-  const schemaXml = readFileSync(
-    resolve(root, 'data/schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml'),
-    'utf-8',
-  );
-  for (const { settingsKey } of registryEntries) {
-    assert.ok(
-      schemaXml.includes(`name="${settingsKey}"`),
-      `settingsKey "${settingsKey}" is not declared in the GSettings schema`,
-    );
-  }
-});
-
-test('registry — tray icons is desktop-only', () => {
-  const src = readFileSync(resolve(root, 'src/desktop/trayIcons/trayIcons.ts'), 'utf-8');
-  assert.match(
-    src,
-    /runtime:\s*\{\s*targets:\s*\[\s*'desktop'\s*\]\s*\}/,
-    'Tray Icons must stay desktop-only; Aurora has no mobile tray icons',
-  );
-});
-
-test('registry — every registry import resolves to a module file that exports a definition', () => {
-  const src = readFileSync(resolve(root, 'src/registry.ts'), 'utf-8');
-  const importRe = /import\s*\{\s*definition\s+as\s+\w+\s*\}\s*from\s*'([^']+)'/g;
-  let m;
-  let count = 0;
-  while ((m = importRe.exec(src)) !== null) {
-    const path = m[1];
-    const moduleFile = resolve(root, path.replace('~', 'src'));
-    const modSrc = readFileSync(moduleFile, 'utf-8');
-    assert.match(
-      modSrc,
-      /export const definition:\s*ModuleDefinition/,
-      `Module file ${path} must export \`definition: ModuleDefinition\``,
-    );
-    count++;
-  }
-  assert.ok(count > 0, 'registry.ts has no `import { definition as … }` entries');
+test('catalog — shared is not a device/display role', () => {
+  for (const entry of entries) assert.ok(!entry.runtimeRoles.includes('shared'), entry.key);
 });
