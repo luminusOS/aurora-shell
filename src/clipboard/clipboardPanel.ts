@@ -4,15 +4,13 @@ import { gettext as _ } from 'gettext';
 import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-18';
-import type Meta from '@girs/meta-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ClipboardEntry, ClipboardStore } from '~/clipboard/clipboardStore.ts';
 import { ClipboardList } from '~/clipboard/clipboardList.ts';
 import {
+  findClipboardPanelMonitorAtPoint,
   placeClipboardPanelNearPointer,
-  resolveClipboardPanelAnchor,
-  type ClipboardPanelWindowPlacement,
 } from '~/clipboard/clipboardPosition.ts';
 
 const PANEL_WIDTH = 360;
@@ -101,10 +99,10 @@ export class ClipboardPanel extends St.BoxLayout {
       return Clutter.EVENT_STOP;
     });
 
-    Main.uiGroup.add_child(this._overlay);
-    Main.uiGroup.add_child(this); // panel sits above overlay
+    Main.layoutManager.addTopChrome(this._overlay, { trackFullscreen: false });
+    Main.layoutManager.addTopChrome(this, { trackFullscreen: false }); // panel sits above overlay
 
-    this._positionNearCurrentAnchor();
+    this._positionNearPointer();
 
     this.show();
     this._isOpen = true;
@@ -149,12 +147,12 @@ export class ClipboardPanel extends St.BoxLayout {
     }
 
     if (this._overlay) {
-      Main.uiGroup.remove_child(this._overlay);
+      Main.layoutManager.removeChrome(this._overlay);
       this._overlay.destroy();
       this._overlay = null;
     }
 
-    Main.uiGroup.remove_child(this);
+    Main.layoutManager.removeChrome(this);
     this.hide();
     this._isOpen = false;
   }
@@ -235,22 +233,13 @@ export class ClipboardPanel extends St.BoxLayout {
     }
   }
 
-  private _positionNearCurrentAnchor(): void {
+  private _positionNearPointer(): void {
     const [pointerX, pointerY] = global.get_pointer();
-    const pointerMonitorIndex = this._findMonitorIndexAt(pointerX, pointerY);
-    const anchor = resolveClipboardPanelAnchor(
-      pointerX,
-      pointerY,
-      pointerMonitorIndex,
-      this._getFocusedWindowPlacement(),
-    );
-    const monitorIndex = this._isMonitorValid(anchor.monitorIndex)
-      ? anchor.monitorIndex
-      : pointerMonitorIndex;
+    const monitorIndex = this._findMonitorIndexAt(pointerX, pointerY);
     const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex);
     const bounds = placeClipboardPanelNearPointer(
-      anchor.x,
-      anchor.y,
+      pointerX,
+      pointerY,
       workArea,
       PANEL_WIDTH,
       PANEL_HEIGHT,
@@ -263,43 +252,11 @@ export class ClipboardPanel extends St.BoxLayout {
   }
 
   private _findMonitorIndexAt(x: number, y: number): number {
-    const monitors = Main.layoutManager.monitors;
-    for (let i = 0; i < monitors.length; i++) {
-      const monitor = monitors[i]!;
-      if (
-        x >= monitor.x &&
-        x < monitor.x + monitor.width &&
-        y >= monitor.y &&
-        y < monitor.y + monitor.height
-      ) {
-        return i;
-      }
-    }
-
-    return Main.layoutManager.primaryIndex;
-  }
-
-  private _getFocusedWindowPlacement(): ClipboardPanelWindowPlacement | null {
-    const win = global.display.focus_window as Meta.Window | null;
-    if (!win || win.minimized) return null;
-
-    const monitorIndex = win.get_monitor();
-    if (!this._isMonitorValid(monitorIndex)) return null;
-
-    const frame = win.get_frame_rect();
-    return {
-      monitorIndex,
-      frame: {
-        x: frame.x,
-        y: frame.y,
-        width: frame.width,
-        height: frame.height,
-      },
-    };
-  }
-
-  private _isMonitorValid(monitorIndex: number): boolean {
-    const monitors = Main.layoutManager.monitors ?? [];
-    return monitorIndex >= 0 && monitorIndex < monitors.length;
+    return findClipboardPanelMonitorAtPoint(
+      x,
+      y,
+      Main.layoutManager.monitors,
+      Main.layoutManager.primaryIndex,
+    );
   }
 }

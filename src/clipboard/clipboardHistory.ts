@@ -19,6 +19,8 @@ import { ClipboardMonitor } from '~/clipboard/clipboardMonitor.ts';
 import { ClipboardPanel } from '~/clipboard/clipboardPanel.ts';
 
 const KEYBINDING_KEY = 'clipboard-history-shortcut';
+const AUTO_PASTE_KEY = 'clipboard-history-auto-paste';
+const AUTO_PASTE_DELAY_MS = 100;
 const LOG_PREFIX = 'ClipboardHistory';
 
 // @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
@@ -30,6 +32,8 @@ export class ClipboardHistory extends Module {
   private _panel: ClipboardPanel | null = null;
   private _cleanup: CleanupBag | null = null;
   private _startupIdleId: number = 0;
+  private _autoPasteTimeoutId: number = 0;
+  private _pasteTargetWindow: Meta.Window | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -102,6 +106,9 @@ export class ClipboardHistory extends Module {
   }
 
   override disable(): void {
+    this._cancelScheduledAutoPaste();
+    this._pasteTargetWindow = null;
+
     this._cleanup?.dispose();
     this._cleanup = null;
 
@@ -118,6 +125,7 @@ export class ClipboardHistory extends Module {
 
   openPanel(): boolean {
     if (!this._panel) return false;
+    if (!this._panel.isOpen) this._pasteTargetWindow = global.display.focus_window;
     this._panel.open();
     return true;
   }
@@ -125,6 +133,7 @@ export class ClipboardHistory extends Module {
   closePanel(): boolean {
     if (!this._panel) return false;
     this._panel.close();
+    this._pasteTargetWindow = null;
     return true;
   }
 
@@ -165,8 +174,12 @@ export class ClipboardHistory extends Module {
       return;
     }
 
+    const pasteTarget = this.context.settings.getBoolean(AUTO_PASTE_KEY)
+      ? this._pasteTargetWindow
+      : null;
     St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, entry.text);
     this.closePanel();
+    if (pasteTarget) this._scheduleAutoPaste(pasteTarget, entry.text);
     logger.debug(`Restored clipboard entry: ${entry.text.slice(0, 40)}`, { prefix: LOG_PREFIX });
   }
 
@@ -180,6 +193,34 @@ export class ClipboardHistory extends Module {
     } catch (e) {
       logger.warn('Failed to restore clipboard image:', { prefix: LOG_PREFIX }, e as Error);
     }
+  }
+
+  private _scheduleAutoPaste(targetWindow: Meta.Window, text: string): void {
+    if (!this._cleanup) return;
+
+    this._cancelScheduledAutoPaste();
+    try {
+      targetWindow.activate(global.get_current_time());
+    } catch (e) {
+      logger.warn(
+        'Failed to restore focus before automatic paste:',
+        { prefix: LOG_PREFIX },
+        e as Error,
+      );
+      return;
+    }
+
+    this._autoPasteTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTO_PASTE_DELAY_MS, () => {
+      this._autoPasteTimeoutId = 0;
+      if (this._cleanup && Main.inputMethod.currentFocus) Main.inputMethod.commit(text);
+      return GLib.SOURCE_REMOVE;
+    });
+  }
+
+  private _cancelScheduledAutoPaste(): void {
+    if (this._autoPasteTimeoutId === 0) return;
+    GLib.source_remove(this._autoPasteTimeoutId);
+    this._autoPasteTimeoutId = 0;
   }
 
   private _onRemove(id: string): void {

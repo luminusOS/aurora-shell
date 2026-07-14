@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  findClipboardPanelMonitorAtPoint,
   placeClipboardPanelNearPointer,
-  resolveClipboardPanelAnchor,
 } from '../../src/clipboard/clipboardPosition.ts';
 
 const AREA = { x: 0, y: 24, width: 1280, height: 696 };
@@ -11,6 +11,21 @@ const WIDTH = 380;
 const HEIGHT = 460;
 const MARGIN = 12;
 const OFFSET = 12;
+
+test('findClipboardPanelMonitorAtPoint selects the monitor containing the pointer', () => {
+  const monitors = [
+    { x: 0, y: 0, width: 1920, height: 1080 },
+    { x: 1920, y: 0, width: 2560, height: 1440 },
+  ];
+
+  assert.equal(findClipboardPanelMonitorAtPoint(2400, 400, monitors, 0), 1);
+});
+
+test('findClipboardPanelMonitorAtPoint falls back when the pointer is outside all monitors', () => {
+  const monitors = [{ x: 0, y: 0, width: 1920, height: 1080 }];
+
+  assert.equal(findClipboardPanelMonitorAtPoint(-100, 400, monitors, 0), 0);
+});
 
 test('placeClipboardPanelNearPointer places panel below and right of pointer', () => {
   const bounds = placeClipboardPanelNearPointer(200, 120, AREA, WIDTH, HEIGHT, MARGIN, OFFSET);
@@ -50,31 +65,5 @@ test('placeClipboardPanelNearPointer clamps and shrinks in narrow work areas', (
     y: 62,
     width: 216,
     height: 236,
-  });
-});
-
-test('resolveClipboardPanelAnchor prefers focused window center and monitor', () => {
-  const anchor = resolveClipboardPanelAnchor(100, 120, 0, {
-    monitorIndex: 1,
-    frame: { x: 1920, y: 80, width: 1000, height: 700 },
-  });
-
-  assert.deepEqual(anchor, {
-    x: 2420,
-    y: 430,
-    monitorIndex: 1,
-  });
-});
-
-test('resolveClipboardPanelAnchor falls back to pointer for invalid focused window frame', () => {
-  const anchor = resolveClipboardPanelAnchor(100, 120, 0, {
-    monitorIndex: 1,
-    frame: { x: 1920, y: 80, width: 0, height: 700 },
-  });
-
-  assert.deepEqual(anchor, {
-    x: 100,
-    y: 120,
-    monitorIndex: 0,
   });
 });
