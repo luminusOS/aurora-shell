@@ -4,11 +4,16 @@ import { gettext as _ } from 'gettext';
 import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-18';
+import type Meta from '@girs/meta-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ClipboardEntry, ClipboardStore } from '~/clipboard/clipboardStore.ts';
 import { ClipboardList } from '~/clipboard/clipboardList.ts';
-import { placeClipboardPanelNearPointer } from '~/clipboard/clipboardPosition.ts';
+import {
+  placeClipboardPanelNearPointer,
+  resolveClipboardPanelAnchor,
+  type ClipboardPanelWindowPlacement,
+} from '~/clipboard/clipboardPosition.ts';
 
 const PANEL_WIDTH = 360;
 const PANEL_HEIGHT = 480;
@@ -99,7 +104,7 @@ export class ClipboardPanel extends St.BoxLayout {
     Main.uiGroup.add_child(this._overlay);
     Main.uiGroup.add_child(this); // panel sits above overlay
 
-    this._positionNearPointer();
+    this._positionNearCurrentAnchor();
 
     this.show();
     this._isOpen = true;
@@ -230,13 +235,22 @@ export class ClipboardPanel extends St.BoxLayout {
     }
   }
 
-  private _positionNearPointer(): void {
+  private _positionNearCurrentAnchor(): void {
     const [pointerX, pointerY] = global.get_pointer();
-    const monitorIndex = this._findMonitorIndexAt(pointerX, pointerY);
-    const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex);
-    const bounds = placeClipboardPanelNearPointer(
+    const pointerMonitorIndex = this._findMonitorIndexAt(pointerX, pointerY);
+    const anchor = resolveClipboardPanelAnchor(
       pointerX,
       pointerY,
+      pointerMonitorIndex,
+      this._getFocusedWindowPlacement(),
+    );
+    const monitorIndex = this._isMonitorValid(anchor.monitorIndex)
+      ? anchor.monitorIndex
+      : pointerMonitorIndex;
+    const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex);
+    const bounds = placeClipboardPanelNearPointer(
+      anchor.x,
+      anchor.y,
       workArea,
       PANEL_WIDTH,
       PANEL_HEIGHT,
@@ -263,5 +277,29 @@ export class ClipboardPanel extends St.BoxLayout {
     }
 
     return Main.layoutManager.primaryIndex;
+  }
+
+  private _getFocusedWindowPlacement(): ClipboardPanelWindowPlacement | null {
+    const win = global.display.focus_window as Meta.Window | null;
+    if (!win || win.minimized) return null;
+
+    const monitorIndex = win.get_monitor();
+    if (!this._isMonitorValid(monitorIndex)) return null;
+
+    const frame = win.get_frame_rect();
+    return {
+      monitorIndex,
+      frame: {
+        x: frame.x,
+        y: frame.y,
+        width: frame.width,
+        height: frame.height,
+      },
+    };
+  }
+
+  private _isMonitorValid(monitorIndex: number): boolean {
+    const monitors = Main.layoutManager.monitors ?? [];
+    return monitorIndex >= 0 && monitorIndex < monitors.length;
   }
 }
