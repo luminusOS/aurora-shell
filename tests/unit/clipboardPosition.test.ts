@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { placeClipboardPanelNearPointer } from '../../src/clipboard/clipboardPosition.ts';
+import {
+  placeClipboardPanelNearPointer,
+  resolveClipboardPanelAnchor,
+} from '../../src/clipboard/clipboardPosition.ts';
 
 const AREA = { x: 0, y: 24, width: 1280, height: 696 };
 const WIDTH = 380;
@@ -47,5 +50,31 @@ test('placeClipboardPanelNearPointer clamps and shrinks in narrow work areas', (
     y: 62,
     width: 216,
     height: 236,
+  });
+});
+
+test('resolveClipboardPanelAnchor prefers focused window center and monitor', () => {
+  const anchor = resolveClipboardPanelAnchor(100, 120, 0, {
+    monitorIndex: 1,
+    frame: { x: 1920, y: 80, width: 1000, height: 700 },
+  });
+
+  assert.deepEqual(anchor, {
+    x: 2420,
+    y: 430,
+    monitorIndex: 1,
+  });
+});
+
+test('resolveClipboardPanelAnchor falls back to pointer for invalid focused window frame', () => {
+  const anchor = resolveClipboardPanelAnchor(100, 120, 0, {
+    monitorIndex: 1,
+    frame: { x: 1920, y: 80, width: 0, height: 700 },
+  });
+
+  assert.deepEqual(anchor, {
+    x: 100,
+    y: 120,
+    monitorIndex: 0,
   });
 });
