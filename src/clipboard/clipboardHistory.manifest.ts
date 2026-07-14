@@ -15,6 +15,12 @@ export const manifest: ModuleManifest = {
       type: 'shortcut',
     },
     {
+      key: 'clipboard-history-auto-paste',
+      title: _('Paste Automatically'),
+      subtitle: _('Insert the selected text into the previously focused input'),
+      type: 'switch',
+    },
+    {
       key: 'clipboard-history-poll-interval',
       title: _('Poll Interval (ms)'),
       subtitle: _('How often to check the clipboard for changes'),

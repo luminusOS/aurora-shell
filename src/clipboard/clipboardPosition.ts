@@ -5,32 +5,21 @@ export type ClipboardPanelBounds = {
   height: number;
 };
 
-export type ClipboardPanelAnchor = {
-  x: number;
-  y: number;
-  monitorIndex: number;
-};
+export function findClipboardPanelMonitorAtPoint(
+  x: number,
+  y: number,
+  monitors: readonly ClipboardPanelBounds[],
+  fallbackMonitorIndex: number,
+): number {
+  const monitorIndex = monitors.findIndex(
+    (monitor) =>
+      x >= monitor.x &&
+      x < monitor.x + monitor.width &&
+      y >= monitor.y &&
+      y < monitor.y + monitor.height,
+  );
 
-export type ClipboardPanelWindowPlacement = {
-  monitorIndex: number;
-  frame: ClipboardPanelBounds;
-};
-
-export function resolveClipboardPanelAnchor(
-  pointerX: number,
-  pointerY: number,
-  pointerMonitorIndex: number,
-  focusedWindow: ClipboardPanelWindowPlacement | null,
-): ClipboardPanelAnchor {
-  if (focusedWindow && focusedWindow.monitorIndex >= 0 && hasUsableFrame(focusedWindow.frame)) {
-    return {
-      x: focusedWindow.frame.x + Math.floor(focusedWindow.frame.width / 2),
-      y: focusedWindow.frame.y + Math.floor(focusedWindow.frame.height / 2),
-      monitorIndex: focusedWindow.monitorIndex,
-    };
-  }
-
-  return { x: pointerX, y: pointerY, monitorIndex: pointerMonitorIndex };
+  return monitorIndex >= 0 ? monitorIndex : fallbackMonitorIndex;
 }
 
 export function placeClipboardPanelNearPointer(
@@ -70,8 +59,4 @@ export function placeClipboardPanelNearPointer(
 function clamp(value: number, min: number, max: number): number {
   if (max < min) return min;
   return Math.max(min, Math.min(max, value));
-}
-
-function hasUsableFrame(frame: ClipboardPanelBounds): boolean {
-  return frame.width > 0 && frame.height > 0;
 }

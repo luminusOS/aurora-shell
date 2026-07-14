@@ -112,6 +112,13 @@ function assertPanelInsideWorkArea(panel) {
   }
 }
 
+function assertPanelTrackedAboveFullscreen(panel) {
+  const trackedPanel = Main.layoutManager._trackedActors?.find((data) => data.actor === panel);
+  if (!trackedPanel || trackedPanel.trackFullscreen !== false) {
+    throw new Error('Clipboard panel is not registered as top chrome visible in fullscreen');
+  }
+}
+
 export var METRICS = {};
 
 export function init() {
@@ -123,6 +130,8 @@ export function init() {
   Scripting.defineScriptEvent('textCardLayoutOk', 'Text card wraps without growing horizontally');
   Scripting.defineScriptEvent('codeBadgeLayoutOk', 'Code line badge does not increase card height');
   Scripting.defineScriptEvent('panelOpened', 'Clipboard panel opened inside work area');
+  Scripting.defineScriptEvent('autoPasteOk', 'Automatic paste honors its setting and restores focus');
+  Scripting.defineScriptEvent('workspacePanelOk', 'Clipboard panel opens on the active workspace');
 }
 
 export async function run() {
@@ -150,6 +159,36 @@ export async function run() {
   await Scripting.sleep(400);
 
   Scripting.scriptEvent('lifecycleOk');
+
+  const workspaceManager = global.workspace_manager;
+  const originalWorkspace = workspaceManager.get_active_workspace();
+  const testWorkspace = workspaceManager.append_new_workspace(false, global.get_current_time());
+  try {
+    testWorkspace.activate(global.get_current_time());
+    await Scripting.waitLeisure();
+    await Scripting.sleep(300);
+
+    if (workspaceManager.get_active_workspace_index() !== testWorkspace.index()) {
+      throw new Error('Could not activate the workspace used by the Clipboard panel test');
+    }
+
+    const workspaceClipboardModule = getClipboardModule();
+    workspaceClipboardModule.openPanel();
+    await Scripting.waitLeisure();
+    await Scripting.sleep(200);
+
+    const workspacePanel = findClipboardPanel();
+    if (!workspacePanel?.visible || !workspacePanel.mapped) {
+      throw new Error('Clipboard panel is not visible on the active workspace');
+    }
+    workspaceClipboardModule.closePanel();
+  } finally {
+    originalWorkspace.activate(global.get_current_time());
+    await Scripting.waitLeisure();
+    await Scripting.sleep(300);
+    workspaceManager.remove_workspace(testWorkspace, global.get_current_time());
+  }
+  Scripting.scriptEvent('workspacePanelOk');
 
   // write something to the clipboard so the monitor has something to pick up
   St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, 'aurora-test-clipboard-entry');
@@ -202,6 +241,7 @@ export async function run() {
     throw new Error(`"${PANEL_CSS}" did not open`);
   }
   assertPanelInsideWorkArea(panel);
+  assertPanelTrackedAboveFullscreen(panel);
 
   const list = panel._list;
   const shortItem = list?._items?.find((item) => item.entry.text === 'Short clipboard entry');
@@ -312,6 +352,45 @@ export async function run() {
   }
   Scripting.scriptEvent('codeBadgeLayoutOk');
 
+  let targetActivationCount = 0;
+  const pasteProbe = new St.Entry({ can_focus: true });
+  Main.layoutManager.addTopChrome(pasteProbe, { trackFullscreen: false });
+  try {
+    const pasteTarget = {
+      activate() {
+        targetActivationCount++;
+        pasteProbe.clutter_text.grab_key_focus();
+      },
+    };
+
+    auroraSettings.set_boolean('clipboard-history-auto-paste', true);
+    pasteProbe.set_text('');
+    clipboardModule._pasteTargetWindow = pasteTarget;
+    clipboardModule._onActivate({ kind: 'text', text: 'aurora-auto-paste-enabled' });
+    await Scripting.sleep(200);
+
+    if (targetActivationCount !== 1 || pasteProbe.get_text() !== 'aurora-auto-paste-enabled') {
+      throw new Error(
+        `Automatic paste did not restore and fill the focused input: activations=${targetActivationCount}, text=${pasteProbe.get_text()}`,
+      );
+    }
+
+    auroraSettings.set_boolean('clipboard-history-auto-paste', false);
+    pasteProbe.set_text('');
+    clipboardModule._pasteTargetWindow = pasteTarget;
+    clipboardModule._onActivate({ kind: 'text', text: 'aurora-auto-paste-disabled' });
+    await Scripting.sleep(200);
+
+    if (targetActivationCount !== 1 || pasteProbe.get_text() !== '') {
+      throw new Error('Automatic paste ran while its setting was disabled');
+    }
+  } finally {
+    auroraSettings.set_boolean('clipboard-history-auto-paste', true);
+    Main.layoutManager.removeChrome(pasteProbe);
+    pasteProbe.destroy();
+  }
+  Scripting.scriptEvent('autoPasteOk');
+
   panel.close?.();
   Scripting.scriptEvent('panelOpened');
 
@@ -340,6 +419,8 @@ let _clipboardImageWritten = false;
 let _textCardLayoutOk = false;
 let _codeBadgeLayoutOk = false;
 let _panelOpened = false;
+let _autoPasteOk = false;
+let _workspacePanelOk = false;
 
 export function script_moduleEnabled() {
   _moduleEnabled = true;
@@ -365,6 +446,12 @@ export function script_codeBadgeLayoutOk() {
 export function script_panelOpened() {
   _panelOpened = true;
 }
+export function script_autoPasteOk() {
+  _autoPasteOk = true;
+}
+export function script_workspacePanelOk() {
+  _workspacePanelOk = true;
+}
 
 export function finish() {
   if (!_moduleEnabled) throw new Error('ClipboardHistory module did not enable');
@@ -374,5 +461,7 @@ export function finish() {
   if (!_textCardLayoutOk) throw new Error('Clipboard text card layout check did not complete');
   if (!_codeBadgeLayoutOk) throw new Error('Clipboard code badge layout check did not complete');
   if (!_panelOpened) throw new Error('Clipboard panel did not open inside the work area');
+  if (!_autoPasteOk) throw new Error('Clipboard automatic paste check did not complete');
+  if (!_workspacePanelOk) throw new Error('Clipboard workspace visibility check did not complete');
   if (!_panelClean) throw new Error(`"${PANEL_CSS}" was not cleaned up after module disable`);
 }

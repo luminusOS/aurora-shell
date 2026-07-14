@@ -220,3 +220,7 @@ test('schema ↔ catalog — every declared module and option setting is synchro
 test('schema — Vela Shell fallback is disabled by default', () => {
   assert.equal(schemaDefault('vela-vpn-quick-settings-shell-fallback'), 'false');
 });
+
+test('schema — Clipboard History automatic paste is enabled by default', () => {
+  assert.equal(schemaDefault('clipboard-history-auto-paste'), 'true');
+});
