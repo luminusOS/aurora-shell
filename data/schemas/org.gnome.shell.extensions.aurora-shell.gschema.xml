@@ -310,7 +310,7 @@
     <key name="clipboard-history-auto-paste" type="b">
       <default>true</default>
       <summary>Insert clipboard text automatically</summary>
-      <description>Insert the selected clipboard text into the input that was focused before opening the panel</description>
+      <description>Insert the selected clipboard text into the input that was focused before opening the panel. Warning: requires an active Wayland field that supports text-input-v3</description>
     </key>
     <key name="clipboard-history-poll-interval" type="i">
       <range min="250" max="5000"/>

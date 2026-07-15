@@ -2,6 +2,28 @@
 
 set -uo pipefail
 
+run_wrapped_shell() {
+  local extra_monitors="${AURORA_TEST_EXTRA_MONITORS:-}"
+  if [[ ! "$extra_monitors" =~ ^[0-9]+$ ]]; then
+    echo "Invalid AURORA_TEST_EXTRA_MONITORS value: $extra_monitors" >&2
+    exit 2
+  fi
+
+  local shell="$1"
+  shift
+  local monitor_args=()
+  local index
+  for ((index = 0; index < extra_monitors; index++)); do
+    monitor_args+=(--virtual-monitor 1280x720)
+  done
+
+  exec "$shell" "$@" "${monitor_args[@]}"
+}
+
+if [[ -n "${AURORA_TEST_EXTRA_MONITORS:-}" ]]; then
+  run_wrapped_shell "$@"
+fi
+
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 EXTENSION_ZIP="${1:-$PROJECT_DIR/dist/target/aurora-shell@luminusos.github.io.shell-extension.zip}"
 shift || true
@@ -54,11 +76,24 @@ run_test() {
           GDK_DEBUG >/dev/null
       fi
 
-      exec gnome-shell-test-tool \
-        --headless \
-        --extension "$1" \
-        "$2"
-    ' -- "$EXTENSION_ZIP" "$script"
+      test_args=(--headless --extension "$1")
+      extra_monitors=0
+      case "$(basename "$2")" in
+        auroraClipboardHistory.js)
+          extra_monitors=1
+          ;;
+        auroraDock.js)
+          extra_monitors=2
+          ;;
+      esac
+
+      if (( extra_monitors > 0 )); then
+        export AURORA_TEST_EXTRA_MONITORS="$extra_monitors"
+        test_args+=(--wrap "$3")
+      fi
+
+      exec gnome-shell-test-tool "${test_args[@]}" "$2"
+    ' -- "$EXTENSION_ZIP" "$script" "$PROJECT_DIR/scripts/run-shell-tests.sh"
 }
 
 PASS=0

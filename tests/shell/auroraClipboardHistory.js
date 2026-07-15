@@ -98,8 +98,8 @@ function deleteFileIfExists(file) {
   }
 }
 
-function assertPanelInsideWorkArea(panel) {
-  const workArea = Main.layoutManager.getWorkAreaForMonitor(Main.layoutManager.primaryIndex);
+function assertPanelInsideWorkArea(panel, monitorIndex = Main.layoutManager.primaryIndex) {
+  const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex);
   if (
     panel.x < workArea.x ||
     panel.y < workArea.y ||
@@ -108,6 +108,54 @@ function assertPanelInsideWorkArea(panel) {
   ) {
     throw new Error(
       `Clipboard panel is outside work area: panel=${panel.x},${panel.y},${panel.width}x${panel.height} workArea=${workArea.x},${workArea.y},${workArea.width}x${workArea.height}`,
+    );
+  }
+}
+
+async function lockAndUnlockSession() {
+  if (!Main.screenShield) throw new Error('GNOME Screen Shield is unavailable');
+
+  Main.screenShield.activate(false);
+  await Scripting.sleep(400);
+  if (Main.sessionMode.currentMode !== 'unlock-dialog') {
+    throw new Error(`Session did not enter unlock-dialog mode: ${Main.sessionMode.currentMode}`);
+  }
+
+  // Authentication is outside this integration test; continue through the
+  // same Screen Shield teardown that runs after successful authentication.
+  Main.screenShield._continueDeactivate(false);
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (!Main.screenShield.active && Main.sessionMode.currentMode !== 'unlock-dialog') return;
+    await Scripting.sleep(100);
+  }
+
+  throw new Error(`Session did not unlock: mode=${Main.sessionMode.currentMode}`);
+}
+
+async function waitForWindowState(window, monitorIndex, timeoutMs = 5000) {
+  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
+  while (
+    window.get_monitor() !== monitorIndex ||
+    !window.maximized_horizontally ||
+    !window.maximized_vertically
+  ) {
+    if (GLib.get_monotonic_time() >= deadline) {
+      throw new Error(
+        `Window state did not settle on external monitor ${monitorIndex}: monitor=${window.get_monitor()} horizontal=${window.maximized_horizontally} vertical=${window.maximized_vertically}`,
+      );
+    }
+    await Scripting.sleep(100);
+  }
+}
+
+function assertPanelAboveWindows(panel) {
+  const children = Main.uiGroup.get_children();
+  const panelIndex = children.indexOf(panel);
+  const windowGroupIndex = children.indexOf(global.window_group);
+  const topWindowGroupIndex = children.indexOf(global.top_window_group);
+  if (panelIndex <= windowGroupIndex || panelIndex <= topWindowGroupIndex) {
+    throw new Error(
+      `Clipboard panel is behind a window group: panel=${panelIndex}, windows=${windowGroupIndex}, topWindows=${topWindowGroupIndex}`,
     );
   }
 }
@@ -130,8 +178,15 @@ export function init() {
   Scripting.defineScriptEvent('textCardLayoutOk', 'Text card wraps without growing horizontally');
   Scripting.defineScriptEvent('codeBadgeLayoutOk', 'Code line badge does not increase card height');
   Scripting.defineScriptEvent('panelOpened', 'Clipboard panel opened inside work area');
-  Scripting.defineScriptEvent('autoPasteOk', 'Automatic paste honors its setting and restores focus');
+  Scripting.defineScriptEvent(
+    'autoPasteOk',
+    'Automatic paste honors its setting and restores focus',
+  );
   Scripting.defineScriptEvent('workspacePanelOk', 'Clipboard panel opens on the active workspace');
+  Scripting.defineScriptEvent(
+    'postUnlockExternalPanelOk',
+    'Clipboard panel opens above a maximized window on an external monitor after unlock',
+  );
 }
 
 export async function run() {
@@ -159,6 +214,78 @@ export async function run() {
   await Scripting.sleep(400);
 
   Scripting.scriptEvent('lifecycleOk');
+
+  if (Main.layoutManager.monitors.length < 2) {
+    throw new Error(
+      `Post-unlock Clipboard test requires 2 monitors, got ${Main.layoutManager.monitors.length}`,
+    );
+  }
+
+  const externalMonitorIndex = Main.layoutManager.monitors.findIndex(
+    (_monitor, index) => index !== Main.layoutManager.primaryIndex,
+  );
+
+  const windowsBeforeUnlockTest = new Set(
+    global.get_window_actors().map((actor) => actor.meta_window),
+  );
+  try {
+    await Scripting.createTestWindow({ width: 900, height: 650, maximized: false });
+    await Scripting.waitTestWindows();
+    await Scripting.sleep(200);
+
+    const externalWindow = global
+      .get_window_actors()
+      .map((actor) => actor.meta_window)
+      .find((window) => !windowsBeforeUnlockTest.has(window));
+    if (!externalWindow) throw new Error('Could not create the external-monitor test window');
+
+    externalWindow.move_to_monitor(externalMonitorIndex);
+    externalWindow.activate(global.get_current_time());
+    externalWindow.maximize();
+    await waitForWindowState(externalWindow, externalMonitorIndex);
+
+    await lockAndUnlockSession();
+    await waitForWindowState(externalWindow, externalMonitorIndex);
+
+    const unlockedClipboardModule = getClipboardModule();
+    const unlockedPanelActor = unlockedClipboardModule._panel;
+    const originalGetPointerPosition = unlockedPanelActor._getPointerPosition;
+    const originalGetCurrentMonitorIndex = unlockedPanelActor._getCurrentMonitorIndex;
+    const primaryMonitor = Main.layoutManager.monitors[Main.layoutManager.primaryIndex];
+    unlockedPanelActor._getPointerPosition = () => [
+      primaryMonitor.x + Math.floor(primaryMonitor.width / 2),
+      primaryMonitor.y + Math.floor(primaryMonitor.height / 2),
+    ];
+    unlockedPanelActor._getCurrentMonitorIndex = () => externalMonitorIndex;
+    try {
+      unlockedClipboardModule.openPanel();
+      await Scripting.waitLeisure();
+      await Scripting.sleep(300);
+
+      const unlockedPanel = findClipboardPanel();
+      if (
+        !unlockedPanel?.visible ||
+        !unlockedPanel.mapped ||
+        !unlockedPanel.get_paint_visibility()
+      ) {
+        throw new Error(
+          `Clipboard panel is not painted after unlock: visible=${unlockedPanel?.visible} mapped=${unlockedPanel?.mapped} paint=${unlockedPanel?.get_paint_visibility?.()}`,
+        );
+      }
+      assertPanelInsideWorkArea(unlockedPanel, externalMonitorIndex);
+      assertPanelAboveWindows(unlockedPanel);
+    } finally {
+      unlockedPanelActor._getPointerPosition = originalGetPointerPosition;
+      unlockedPanelActor._getCurrentMonitorIndex = originalGetCurrentMonitorIndex;
+      unlockedClipboardModule.closePanel();
+    }
+  } finally {
+    getClipboardModule().closePanel();
+    await Scripting.destroyTestWindows();
+    await Scripting.waitLeisure();
+    await Scripting.sleep(300);
+  }
+  Scripting.scriptEvent('postUnlockExternalPanelOk');
 
   const workspaceManager = global.workspace_manager;
   const originalWorkspace = workspaceManager.get_active_workspace();
@@ -239,6 +366,11 @@ export async function run() {
   const panel = findClipboardPanel();
   if (!panel) {
     throw new Error(`"${PANEL_CSS}" did not open`);
+  }
+  if (!panel.mapped || !panel._unredirectInhibitor?.inhibited) {
+    throw new Error(
+      `Mapped Clipboard panel did not inhibit unredirect: mapped=${panel.mapped} inhibited=${panel._unredirectInhibitor?.inhibited}`,
+    );
   }
   assertPanelInsideWorkArea(panel);
   assertPanelTrackedAboveFullscreen(panel);
@@ -354,30 +486,45 @@ export async function run() {
 
   let targetActivationCount = 0;
   const pasteProbe = new St.Entry({ can_focus: true });
+  const focusThief = new St.Entry({ can_focus: true });
   Main.layoutManager.addTopChrome(pasteProbe, { trackFullscreen: false });
+  Main.layoutManager.addTopChrome(focusThief, { trackFullscreen: false });
   try {
     const pasteTarget = {
       activate() {
         targetActivationCount++;
         pasteProbe.clutter_text.grab_key_focus();
       },
+      has_focus() {
+        return true;
+      },
     };
 
     auroraSettings.set_boolean('clipboard-history-auto-paste', true);
     pasteProbe.set_text('');
+    pasteProbe.clutter_text.grab_key_focus();
+    const pasteTargetInputFocus = Main.inputMethod.currentFocus;
+    if (!pasteTargetInputFocus) throw new Error('Could not capture the target input focus');
+    focusThief.clutter_text.grab_key_focus();
     clipboardModule._pasteTargetWindow = pasteTarget;
+    clipboardModule._pasteTargetInputFocus = pasteTargetInputFocus;
     clipboardModule._onActivate({ kind: 'text', text: 'aurora-auto-paste-enabled' });
     await Scripting.sleep(200);
 
-    if (targetActivationCount !== 1 || pasteProbe.get_text() !== 'aurora-auto-paste-enabled') {
+    if (
+      targetActivationCount !== 1 ||
+      Main.inputMethod.currentFocus !== pasteTargetInputFocus ||
+      pasteProbe.get_text() !== 'aurora-auto-paste-enabled'
+    ) {
       throw new Error(
-        `Automatic paste did not restore and fill the focused input: activations=${targetActivationCount}, text=${pasteProbe.get_text()}`,
+        `Automatic paste did not restore and fill the Wayland input focus: activations=${targetActivationCount}, focusRestored=${Main.inputMethod.currentFocus === pasteTargetInputFocus}, text=${pasteProbe.get_text()}`,
       );
     }
 
     auroraSettings.set_boolean('clipboard-history-auto-paste', false);
     pasteProbe.set_text('');
     clipboardModule._pasteTargetWindow = pasteTarget;
+    clipboardModule._pasteTargetInputFocus = pasteTargetInputFocus;
     clipboardModule._onActivate({ kind: 'text', text: 'aurora-auto-paste-disabled' });
     await Scripting.sleep(200);
 
@@ -386,12 +533,17 @@ export async function run() {
     }
   } finally {
     auroraSettings.set_boolean('clipboard-history-auto-paste', true);
+    Main.layoutManager.removeChrome(focusThief);
+    focusThief.destroy();
     Main.layoutManager.removeChrome(pasteProbe);
     pasteProbe.destroy();
   }
   Scripting.scriptEvent('autoPasteOk');
 
   panel.close?.();
+  if (panel._unredirectInhibitor?.inhibited) {
+    throw new Error('Closed Clipboard panel retained its unredirect inhibitor');
+  }
   Scripting.scriptEvent('panelOpened');
 
   // disable again and verify no panel leaked into the scene graph
@@ -421,6 +573,7 @@ let _codeBadgeLayoutOk = false;
 let _panelOpened = false;
 let _autoPasteOk = false;
 let _workspacePanelOk = false;
+let _postUnlockExternalPanelOk = false;
 
 export function script_moduleEnabled() {
   _moduleEnabled = true;
@@ -452,6 +605,9 @@ export function script_autoPasteOk() {
 export function script_workspacePanelOk() {
   _workspacePanelOk = true;
 }
+export function script_postUnlockExternalPanelOk() {
+  _postUnlockExternalPanelOk = true;
+}
 
 export function finish() {
   if (!_moduleEnabled) throw new Error('ClipboardHistory module did not enable');
@@ -463,5 +619,7 @@ export function finish() {
   if (!_panelOpened) throw new Error('Clipboard panel did not open inside the work area');
   if (!_autoPasteOk) throw new Error('Clipboard automatic paste check did not complete');
   if (!_workspacePanelOk) throw new Error('Clipboard workspace visibility check did not complete');
+  if (!_postUnlockExternalPanelOk)
+    throw new Error('Clipboard post-unlock external monitor check did not complete');
   if (!_panelClean) throw new Error(`"${PANEL_CSS}" was not cleaned up after module disable`);
 }

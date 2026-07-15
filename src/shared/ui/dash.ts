@@ -9,6 +9,7 @@ import * as DND from '@girs/gnome-shell/ui/dnd';
 import { Dash } from '@girs/gnome-shell/ui/dash';
 
 import { logger } from '~/core/logger.ts';
+import { UnredirectInhibitor } from '~/core/unredirectInhibitor.ts';
 import { TrashIcon, type TrashIconInstance } from '~/dock/trashIcon.ts';
 import { canLaunchTrash, NAUTILUS_APP_ID } from '~/dock/trashLauncher.ts';
 import {
@@ -78,6 +79,7 @@ export class AuroraDash extends Dash {
   declare private _trashIcon: TrashIconInstance | null;
   private _externalStorageMonitor: ExternalStorageMonitor | null = null;
   declare private _externalStorageIcons: ExternalStorageIconInstance[];
+  declare private _unredirectInhibitor: UnredirectInhibitor;
 
   override _init(params: AuroraDashParams = {}): void {
     super._init();
@@ -87,6 +89,8 @@ export class AuroraDash extends Dash {
     this._trashIcon = null;
     this._externalStorageIcons = [];
     this._monitorIndex = params.monitorIndex ?? Main.layoutManager.primaryIndex;
+    this._unredirectInhibitor = new UnredirectInhibitor(global.compositor);
+    this.connect('notify::mapped', () => this._unredirectInhibitor.setInhibited(this.mapped));
 
     const button = (this as any).showAppsButton;
     button?.set_toggle_mode?.(false);
@@ -282,6 +286,7 @@ export class AuroraDash extends Dash {
 
   override destroy(): void {
     this._isDestroyed = true;
+    this._unredirectInhibitor.release();
     this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
     this._delayEnsureAutoHideId = this._removeSource(this._delayEnsureAutoHideId);
     this._blockAutoHideDelayId = this._removeSource(this._blockAutoHideDelayId);
@@ -1104,7 +1109,13 @@ export class AuroraDash extends Dash {
         this._autohideTimeoutId = 0;
         return GLib.SOURCE_REMOVE;
       }
-      if (this._dashContainerHasHover() || this._blockAutoHide || this._isMenuOpen()) {
+      // `notify::hover` calls _onHover() again. Stop polling so transient
+      // hover loss during relayout cannot hide the dock.
+      if (this._dashContainerHasHover()) {
+        this._autohideTimeoutId = 0;
+        return GLib.SOURCE_REMOVE;
+      }
+      if (this._blockAutoHide || this._isMenuOpen()) {
         return GLib.SOURCE_CONTINUE;
       }
 

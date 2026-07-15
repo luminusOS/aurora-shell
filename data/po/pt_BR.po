@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-07-14 13:44-0300\n"
+"POT-Creation-Date: 2026-07-15 09:44-0300\n"
 "PO-Revision-Date: 2026-03-09 18:00-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -36,15 +36,19 @@ msgstr ""
 msgid "Paste Automatically"
 msgstr "Colar automaticamente"
 
-#: dist/clipboard/clipboardHistory.manifest.js:20
-msgid "Insert the selected text into the previously focused input"
-msgstr "Insere o texto selecionado no campo que estava em foco anteriormente"
+#: dist/clipboard/clipboardHistory.manifest.js:21
+msgid ""
+"Insert the selected text into the previously focused input. Warning: "
+"requires an active Wayland field that supports text-input-v3"
+msgstr ""
+"Insere o texto selecionado no campo que estava em foco anteriormente. "
+"Atenção: requer um campo Wayland ativo compatível com text-input-v3"
 
-#: dist/clipboard/clipboardHistory.manifest.js:25
+#: dist/clipboard/clipboardHistory.manifest.js:27
 msgid "Poll Interval (ms)"
 msgstr ""
 
-#: dist/clipboard/clipboardHistory.manifest.js:26
+#: dist/clipboard/clipboardHistory.manifest.js:28
 msgid "How often to check the clipboard for changes"
 msgstr ""
 
@@ -77,7 +81,7 @@ msgstr "O histórico da área de transferência está vazio"
 msgid "Copy text, links, code, or images to see them here."
 msgstr "Copie textos, links, códigos ou imagens para vê-los aqui."
 
-#: dist/clipboard/clipboardPanel.js:38
+#: dist/clipboard/clipboardPanel.js:40
 msgid "Search…"
 msgstr "Pesquisar…"
 

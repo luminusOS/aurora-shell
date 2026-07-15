@@ -162,7 +162,6 @@ toolbox action *args:
             toolbox create --image "$IMAGE" {{ toolbox_name }}
             ;;
         "run")
-            just install
             bash scripts/run-gnome-shell.sh {{ toolbox_name }}
             ;;
         "remove")

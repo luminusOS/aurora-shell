@@ -3,6 +3,7 @@ import { gettext as _ } from 'gettext';
 
 import GLib from '@girs/glib-2.0';
 import Gio from '@girs/gio-2.0';
+import type Clutter from '@girs/clutter-18';
 import St from '@girs/st-18';
 import Meta from '@girs/meta-18';
 import Shell from '@girs/shell-18';
@@ -34,6 +35,7 @@ export class ClipboardHistory extends Module {
   private _startupIdleId: number = 0;
   private _autoPasteTimeoutId: number = 0;
   private _pasteTargetWindow: Meta.Window | null = null;
+  private _pasteTargetInputFocus: Clutter.InputFocus | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -108,6 +110,7 @@ export class ClipboardHistory extends Module {
   override disable(): void {
     this._cancelScheduledAutoPaste();
     this._pasteTargetWindow = null;
+    this._pasteTargetInputFocus = null;
 
     this._cleanup?.dispose();
     this._cleanup = null;
@@ -125,7 +128,10 @@ export class ClipboardHistory extends Module {
 
   openPanel(): boolean {
     if (!this._panel) return false;
-    if (!this._panel.isOpen) this._pasteTargetWindow = global.display.focus_window;
+    if (!this._panel.isOpen) {
+      this._pasteTargetWindow = global.display.focus_window;
+      this._pasteTargetInputFocus = Main.inputMethod.currentFocus;
+    }
     this._panel.open();
     return true;
   }
@@ -134,6 +140,7 @@ export class ClipboardHistory extends Module {
     if (!this._panel) return false;
     this._panel.close();
     this._pasteTargetWindow = null;
+    this._pasteTargetInputFocus = null;
     return true;
   }
 
@@ -177,9 +184,11 @@ export class ClipboardHistory extends Module {
     const pasteTarget = this.context.settings.getBoolean(AUTO_PASTE_KEY)
       ? this._pasteTargetWindow
       : null;
+    const pasteTargetInputFocus = pasteTarget ? this._pasteTargetInputFocus : null;
     St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, entry.text);
     this.closePanel();
-    if (pasteTarget) this._scheduleAutoPaste(pasteTarget, entry.text);
+    if (pasteTarget && pasteTargetInputFocus)
+      this._scheduleAutoPaste(pasteTarget, pasteTargetInputFocus, entry.text);
     logger.debug(`Restored clipboard entry: ${entry.text.slice(0, 40)}`, { prefix: LOG_PREFIX });
   }
 
@@ -195,7 +204,11 @@ export class ClipboardHistory extends Module {
     }
   }
 
-  private _scheduleAutoPaste(targetWindow: Meta.Window, text: string): void {
+  private _scheduleAutoPaste(
+    targetWindow: Meta.Window,
+    targetInputFocus: Clutter.InputFocus,
+    text: string,
+  ): void {
     if (!this._cleanup) return;
 
     this._cancelScheduledAutoPaste();
@@ -212,7 +225,12 @@ export class ClipboardHistory extends Module {
 
     this._autoPasteTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTO_PASTE_DELAY_MS, () => {
       this._autoPasteTimeoutId = 0;
-      if (this._cleanup && Main.inputMethod.currentFocus) Main.inputMethod.commit(text);
+      if (!this._cleanup) return GLib.SOURCE_REMOVE;
+      if (!targetWindow.has_focus()) return GLib.SOURCE_REMOVE;
+
+      // Restore the Wayland input focus stolen by the panel search entry
+      Main.inputMethod.focus_in(targetInputFocus);
+      if (Main.inputMethod.currentFocus === targetInputFocus) Main.inputMethod.commit(text);
       return GLib.SOURCE_REMOVE;
     });
   }
