@@ -57,6 +57,11 @@ export default class AuroraShellExtension extends Extension {
       });
       this._devTool.enable();
     } catch (error) {
+      try {
+        this._devTool?.disable();
+      } catch {
+        // Preserve the original enable error.
+      }
       logger.error(`Failed to enable DevTool: ${String(error)}`, { prefix: LOG_PREFIX });
       this._devTool = null;
     }

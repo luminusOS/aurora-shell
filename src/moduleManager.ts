@@ -1,4 +1,5 @@
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { activeDisplayRoles } from '~/device/runtime.ts';
 import type { Module, ModuleDefinition } from '~/module.ts';
 import { moduleSupportsRuntime } from '~/module.ts';
@@ -10,8 +11,7 @@ export type ModuleManagerLogger = {
 
 export class ModuleManager {
   private readonly _modules = new Map<string, Module>();
-  private readonly _settingSignalIds: number[] = [];
-  private _unsubscribeDevice: (() => void) | null = null;
+  private _lifecycle: LifecycleScope | null = null;
   private _started = false;
 
   constructor(
@@ -31,13 +31,15 @@ export class ModuleManager {
   start(): void {
     if (this._started) return;
     this._started = true;
+    const lifecycle = new LifecycleScope();
+    this._lifecycle = lifecycle;
+
     for (const definition of this._definitions) {
-      const id = this._context.settings.connect(`changed::${definition.manifest.settingsKey}`, () =>
+      lifecycle.connect(this._context.settings, `changed::${definition.manifest.settingsKey}`, () =>
         this.reconcile(),
       );
-      this._settingSignalIds.push(id);
     }
-    this._unsubscribeDevice = this._context.device.subscribeChanged(() => this.reconcile());
+    lifecycle.onDispose(this._context.device.subscribeChanged(() => this.reconcile()));
     this.reconcile();
   }
 
@@ -61,10 +63,8 @@ export class ModuleManager {
   stop(): void {
     if (!this._started) return;
     this._started = false;
-    this._unsubscribeDevice?.();
-    this._unsubscribeDevice = null;
-    for (const id of this._settingSignalIds) this._context.settings.disconnect(id);
-    this._settingSignalIds.length = 0;
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
 
     for (const [key, module] of [...this._modules].reverse()) this._disable(key, module);
   }

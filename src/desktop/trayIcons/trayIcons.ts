@@ -13,7 +13,7 @@ Gio._promisify(Gio.DBusConnection.prototype, 'call');
 Gio._promisify(Gio.File.prototype, 'load_contents_async');
 
 import type { ExtensionContext } from '~/core/context.ts';
-import type { CleanupBag } from '~/core/cleanupBag.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
@@ -39,7 +39,7 @@ export class TrayIcons extends Module {
   private _sniWatcher: SniWatcher | null = null;
   private _sniHost: SniHost | null = null;
   private _bgSource: BackgroundAppsSource | null = null;
-  private _cleanup: CleanupBag | null = null;
+  private _lifecycle: LifecycleScope | null = null;
   private _bgItemAppIds = new Map<string, BgTrayEntry>();
   private _dedupBgApps = true;
   private _bgAppsToggle: any = null;
@@ -52,7 +52,7 @@ export class TrayIcons extends Module {
   }
 
   override enable(): void {
-    this._cleanup = this.context.createCleanupBag();
+    this._lifecycle = new LifecycleScope();
     const settings = this.context.settings.getRawSettings();
     this._desktopSettings = this.context.settings.getSchema('org.gnome.desktop.interface');
     const iconSize = settings.get_int('tray-icons-icon-size');
@@ -99,7 +99,7 @@ export class TrayIcons extends Module {
       },
     );
     this._sniWatcher.start();
-    this._cleanup.connect(this._desktopSettings, 'changed::color-scheme', () => {
+    this._lifecycle.connect(this._desktopSettings, 'changed::color-scheme', () => {
       const scheme = this._desktopSettings?.getString('color-scheme') ?? 'unknown';
       logger.debug(`Color scheme changed to ${scheme}; refreshing SNI icons`, {
         prefix: LOG_PREFIX,
@@ -115,16 +115,16 @@ export class TrayIcons extends Module {
       .start()
       .catch((e) => logger.warn(`bg source start failed: ${e}`, { prefix: LOG_PREFIX }));
 
-    this._cleanup.connect(settings, 'changed::tray-icons-limit', () => {
+    this._lifecycle.connect(settings, 'changed::tray-icons-limit', () => {
       this._container?.setLimit(settings.get_int('tray-icons-limit'));
     });
-    this._cleanup.connect(settings, 'changed::tray-icons-icon-size', () => {
+    this._lifecycle.connect(settings, 'changed::tray-icons-icon-size', () => {
       this._container?.setIconSize(settings.get_int('tray-icons-icon-size'));
     });
-    this._cleanup.connect(settings, 'changed::tray-icons-attention-timeout', () => {
+    this._lifecycle.connect(settings, 'changed::tray-icons-attention-timeout', () => {
       this._container?.setAttentionTimeout(settings.get_int('tray-icons-attention-timeout'));
     });
-    this._cleanup.connect(settings, 'changed::tray-icons-dedup-bg-apps', () => {
+    this._lifecycle.connect(settings, 'changed::tray-icons-dedup-bg-apps', () => {
       this._dedupBgApps = settings.get_boolean('tray-icons-dedup-bg-apps');
       if (this._dedupBgApps) {
         for (const [appId, entry] of [...this._bgItemAppIds]) {
@@ -139,14 +139,14 @@ export class TrayIcons extends Module {
         }
       }
     });
-    this._cleanup.connect(settings, 'changed::tray-icons-hide-bg-quick-settings', () => {
+    this._lifecycle.connect(settings, 'changed::tray-icons-hide-bg-quick-settings', () => {
       if (settings.get_boolean('tray-icons-hide-bg-quick-settings')) {
         this._hideBgAppsQuickSettings();
       } else {
         this._restoreBgAppsQuickSettings();
       }
     });
-    this._cleanup.connect(settings, 'changed::tray-icons-recolor-symbolic-pixmaps', () => {
+    this._lifecycle.connect(settings, 'changed::tray-icons-recolor-symbolic-pixmaps', () => {
       logger.debug(
         `Recolor symbolic SNI pixmaps=${settings.get_boolean('tray-icons-recolor-symbolic-pixmaps')}; refreshing SNI icons`,
         { prefix: LOG_PREFIX },
@@ -455,8 +455,8 @@ export class TrayIcons extends Module {
   }
 
   override disable(): void {
-    this._cleanup?.dispose();
-    this._cleanup = null;
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
     this._desktopSettings = null;
 
     this._restoreBgAppsQuickSettings();
@@ -471,7 +471,6 @@ export class TrayIcons extends Module {
     this._sniWatcher?.destroy();
     this._sniWatcher = null;
 
-    (Main.panel.statusArea as Record<string, unknown>)[PANEL_INDICATOR_ID] = null;
     this._container?.destroy();
     this._container = null;
   }

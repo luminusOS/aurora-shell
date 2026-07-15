@@ -38,8 +38,9 @@ export const manifest: ModuleManifest = {
 ```
 
 The runtime implementation keeps the small `enable()`/`disable()` contract. Use
-`this.context.createCleanupBag()` for repetitive signals, source IDs, D-Bus watches, and arbitrary
-cleanup; keep explicit teardown where stateful GNOME APIs make it clearer.
+a fresh `LifecycleScope` to own signal connections and register teardown callbacks for each
+enable/disable cycle; keep timers, D-Bus subscriptions, and other stateful GNOME APIs explicit at
+their call sites.
 
 `tests/unit/registry.test.ts` verifies catalog order, uniqueness, known sections, and factory
 coverage through the TypeScript AST. `tests/unit/schema.test.ts` structurally validates XML and

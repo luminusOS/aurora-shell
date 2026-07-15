@@ -13,6 +13,7 @@ import {
   encodePinOp,
   encodeUnpinOp,
   parseClipboardLog,
+  type ClipboardEntrySnapshot,
 } from '~/clipboard/clipboardLog.ts';
 
 // @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
@@ -32,16 +33,7 @@ const LOG_PREFIX = 'ClipboardHistory';
 const WRITE_PRIORITY = GLib.PRIORITY_DEFAULT_IDLE;
 const MAX_WASTED_OPS = 500;
 
-export type ClipboardEntry = {
-  id: string;
-  kind: 'text' | 'image';
-  text: string;
-  pinned: boolean;
-  timestamp: number;
-  mimeType?: string;
-  filePath?: string;
-  contentKey: string;
-};
+export type ClipboardEntry = ClipboardEntrySnapshot;
 
 export type ClipboardImagePayload = {
   mimeType: string;

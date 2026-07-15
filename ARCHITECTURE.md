@@ -30,9 +30,9 @@ from manifest keys to runtime factories.
 isolation, reconciliation after device/topology changes, and reverse-order teardown. Modules keep
 the intentionally small `enable()` / `disable()` contract.
 
-`CleanupBag` is available through `ExtensionContext.createCleanupBag()` for repetitive signals,
-source IDs, D-Bus watches, and arbitrary cleanup. Cleanup is reverse-order and idempotent. Dynamic
-resources may remain explicit when their lifecycle needs module-specific state.
+`LifecycleScope` owns signal connections and explicit teardown callbacks for one enable/disable
+cycle. Teardown is reverse-order and idempotent. Timers, D-Bus subscriptions, and other stateful
+resources remain explicit at their call sites.
 
 ## Device And Display Runtime
 
@@ -57,7 +57,7 @@ src/
   moduleCatalog.ts      Ordered preference/runtime manifest catalog and sections
   moduleManager.ts      Runtime lifecycle and reconciliation
   registry.ts           Manifest-to-factory association
-  core/                  Context, CleanupBag, settings, and logging
+  core/                  Context, LifecycleScope, settings, and logging
   device/                Reactive detection plus pure classification
   clipboard/             Clipboard history module and UI
   desktop/               Desktop-only modules such as tray icons

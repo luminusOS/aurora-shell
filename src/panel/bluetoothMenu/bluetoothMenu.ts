@@ -2,6 +2,7 @@ import '@girs/gjs';
 import { gettext as _ } from 'gettext';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import { attachToQuickSettings, getQuickSettingsGrid } from '~/shared/quickSettings.ts';
@@ -9,50 +10,42 @@ import { BluetoothDeviceItemPatcher } from '~/panel/bluetoothMenu/deviceItem.ts'
 
 const LOG_PREFIX = 'BluetoothMenu';
 
+type PatchedItem = {
+  patcher: BluetoothDeviceItemPatcher;
+  destroyId: number;
+};
+
 export class BluetoothMenu extends Module {
-  private _toggle: any = null;
-  private _patchers = new Map<any, BluetoothDeviceItemPatcher>();
-  private _destroyIds = new Map<any, number>();
-  private _actorAddedId = 0;
-  private _detachQuickSettings: (() => void) | null = null;
+  private _patchedItems = new Map<any, PatchedItem>();
+  private _lifecycle: LifecycleScope | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
   }
 
   override enable(): void {
-    this._detachQuickSettings = attachToQuickSettings(
+    this.disable();
+    this._lifecycle = new LifecycleScope();
+    const detachQuickSettings = attachToQuickSettings(
       () => this._findBluetoothToggle(),
       (toggle) => this._attach(toggle),
     );
-    if (!this._detachQuickSettings) {
+    if (!detachQuickSettings) {
       logger.error('Could not find quick settings grid', { prefix: LOG_PREFIX });
+    } else {
+      this._lifecycle.onDispose(detachQuickSettings);
     }
   }
 
   override disable(): void {
-    this._detachQuickSettings?.();
-    this._detachQuickSettings = null;
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
 
-    if (this._actorAddedId && this._toggle) {
-      this._toggle._deviceSection?.actor?.disconnect(this._actorAddedId);
-      this._actorAddedId = 0;
-    }
-
-    for (const [item, id] of this._destroyIds) {
-      item?.disconnect?.(id);
-    }
-    this._destroyIds.clear();
-
-    for (const patcher of this._patchers.values()) {
+    for (const [item, { patcher, destroyId }] of this._patchedItems) {
+      item?.disconnect?.(destroyId);
       patcher.disable();
     }
-    this._patchers.clear();
-
-    if (this._toggle) {
-      this._toggle.menu?.actor?.remove_style_class_name('aurora-bt-menu');
-      this._toggle = null;
-    }
+    this._patchedItems.clear();
   }
 
   private _findBluetoothToggle(): any {
@@ -66,14 +59,17 @@ export class BluetoothMenu extends Module {
   }
 
   private _attach(toggle: any): void {
-    this._toggle = toggle;
+    const lifecycle = this._lifecycle;
+    if (!lifecycle) return;
+
     toggle.menu.actor.add_style_class_name('aurora-bt-menu');
+    lifecycle.onDispose(() => toggle.menu.actor.remove_style_class_name('aurora-bt-menu'));
 
     for (const item of toggle._deviceItems.values()) {
       this._patchItem(item);
     }
 
-    this._actorAddedId = toggle._deviceSection.actor.connect(
+    const actorAddedId = toggle._deviceSection.actor.connect(
       'child-added',
       (_container: any, child: any) => {
         if (child.constructor.name === 'BluetoothDeviceItem') {
@@ -81,20 +77,19 @@ export class BluetoothMenu extends Module {
         }
       },
     );
+    lifecycle.onDispose(() => toggle._deviceSection.actor.disconnect(actorAddedId));
   }
 
   private _patchItem(item: any): void {
-    if (this._patchers.has(item) || item.__auroraBtPatched) return;
+    if (this._patchedItems.has(item) || item.__auroraBtPatched) return;
     item.__auroraBtPatched = true;
     const patcher = new BluetoothDeviceItemPatcher(item);
     patcher.enable();
-    this._patchers.set(item, patcher);
 
-    const id = item.connect('destroy', () => {
+    const destroyId = item.connect('destroy', () => {
       patcher.disable({ restoreOriginalChildren: false });
-      this._patchers.delete(item);
-      this._destroyIds.delete(item);
+      this._patchedItems.delete(item);
     });
-    this._destroyIds.set(item, id);
+    this._patchedItems.set(item, { patcher, destroyId });
   }
 }

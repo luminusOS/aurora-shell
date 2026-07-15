@@ -11,6 +11,7 @@ import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import { loadIcon } from '~/shared/icons.ts';
@@ -78,8 +79,7 @@ type RecentSubmenuItem = PopupMenu.PopupSubMenuMenuItem & {
 export class AuroraMenu extends Module {
   private _button: PanelMenu.Button | null = null;
   private _panelIcon: St.Icon | null = null;
-  private _settingsIds: number[] = [];
-  private _menuOpenStateId = 0;
+  private _lifecycle: LifecycleScope | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -87,6 +87,7 @@ export class AuroraMenu extends Module {
 
   override enable(): void {
     this.disable();
+    this._lifecycle = new LifecycleScope();
 
     this._button = new PanelMenu.Button(0.0, 'Aurora Menu');
     this._button.add_style_class_name('aurora-menu-button');
@@ -101,26 +102,32 @@ export class AuroraMenu extends Module {
     menu?.setSourceAlignment?.(0.0);
     if (menu) this._lockMenuWidth(menu);
 
-    this._menuOpenStateId =
-      menu?.connect('open-state-changed', (_menu, open) => {
+    if (menu) {
+      const menuOpenStateId = menu.connect('open-state-changed', (_menu, open) => {
         if (open) this._rebuildMenu();
         return undefined;
-      }) ?? 0;
+      });
+      this._lifecycle.onDispose(() => menu.disconnect(menuOpenStateId));
+    }
 
-    this._settingsIds = [
-      this.context.settings.connect(`changed::${MENU_ICON_KEY}`, () => this._syncPanelIcon()),
-      this.context.settings.connect(`changed::${APP_STORE_COMMAND_KEY}`, () => this._rebuildMenu()),
-      this.context.settings.connect(`changed::${CUSTOM_ITEMS_KEY}`, () => this._rebuildMenu()),
-      this.context.settings.connect(`changed::${CUSTOM_ENABLED_KEY}`, () => this._rebuildMenu()),
-      this.context.settings.connect(`changed::${CUSTOM_LABEL_KEY}`, () => this._rebuildMenu()),
-      this.context.settings.connect(`changed::${CUSTOM_COMMAND_KEY}`, () => this._rebuildMenu()),
-      ...MENU_VISIBILITY_KEYS.map((key) =>
-        this.context.settings.connect(`changed::${key}`, () => this._rebuildMenu()),
-      ),
-      this.context.settings.connect(`changed::${HIDE_ACTIVITIES_KEY}`, () =>
-        this._syncActivitiesButton(),
-      ),
-    ];
+    const settings = this.context.settings;
+    const rebuildMenu = () => this._rebuildMenu();
+    this._lifecycle.connect(settings, `changed::${MENU_ICON_KEY}`, () => this._syncPanelIcon());
+    this._lifecycle.connect(settings, `changed::${APP_STORE_COMMAND_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${CUSTOM_ITEMS_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${CUSTOM_ENABLED_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${CUSTOM_LABEL_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${CUSTOM_COMMAND_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${SHOW_ABOUT_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${SHOW_HOME_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${SHOW_DOWNLOADS_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${SHOW_RECENT_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${SHOW_SETTINGS_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${SHOW_SOFTWARE_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${SHOW_EXTENSIONS_KEY}`, rebuildMenu);
+    this._lifecycle.connect(settings, `changed::${HIDE_ACTIVITIES_KEY}`, () =>
+      this._syncActivitiesButton(),
+    );
 
     this._syncActivitiesButton();
     this._rebuildMenu();
@@ -133,16 +140,10 @@ export class AuroraMenu extends Module {
   }
 
   override disable(): void {
-    for (const id of this._settingsIds) this.context.settings.disconnect(id);
-    this._settingsIds = [];
-
-    if (this._menuOpenStateId && this._button) {
-      this._getMenu()?.disconnect(this._menuOpenStateId);
-      this._menuOpenStateId = 0;
-    }
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
 
     this._showActivitiesButton();
-    (Main.panel.statusArea as Record<string, unknown>)[STATUS_AREA_ID] = null;
     this._panelIcon?.destroy();
     this._panelIcon = null;
     this._button?.destroy();
@@ -555,13 +556,3 @@ export class AuroraMenu extends Module {
     return [];
   }
 }
-
-const MENU_VISIBILITY_KEYS = [
-  SHOW_ABOUT_KEY,
-  SHOW_HOME_KEY,
-  SHOW_DOWNLOADS_KEY,
-  SHOW_RECENT_KEY,
-  SHOW_SETTINGS_KEY,
-  SHOW_SOFTWARE_KEY,
-  SHOW_EXTENSIONS_KEY,
-];

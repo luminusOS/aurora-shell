@@ -1,7 +1,6 @@
 import GObject from '@girs/gobject-2.0';
 import type { SettingsManager } from './settings.ts';
 import type { DeviceService } from '~/device/device.ts';
-import { CleanupBag } from '~/core/cleanupBag.ts';
 
 /**
  * Global signal bus for Aurora Shell modules
@@ -19,22 +18,15 @@ export interface ExtensionContext {
   readonly settings: SettingsManager;
   readonly signals: AuroraSignals;
   readonly device: DeviceService;
-  createCleanupBag(): CleanupBag;
 }
 
 export class DefaultExtensionContext implements ExtensionContext {
-  public readonly signals: AuroraSignals;
+  public readonly signals = new AuroraSignals();
 
   constructor(
     public readonly uuid: string,
     public readonly path: string,
     public readonly settings: SettingsManager,
     public readonly device: DeviceService,
-  ) {
-    this.signals = new AuroraSignals();
-  }
-
-  createCleanupBag(): CleanupBag {
-    return new CleanupBag();
-  }
+  ) {}
 }
