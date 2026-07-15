@@ -10,8 +10,8 @@ import type { ClipboardEntry, ClipboardStore } from '~/clipboard/clipboardStore.
 import { ClipboardList } from '~/clipboard/clipboardList.ts';
 import { UnredirectInhibitor } from '~/core/unredirectInhibitor.ts';
 import {
-  findClipboardPanelMonitorAtPoint,
   placeClipboardPanelNearPointer,
+  resolveClipboardPanelMonitor,
 } from '~/clipboard/clipboardPosition.ts';
 
 const PANEL_WIDTH = 360;
@@ -37,7 +37,6 @@ export class ClipboardPanel extends St.BoxLayout {
   private _overlay: St.Bin | null = null;
   declare private _unredirectInhibitor: UnredirectInhibitor;
 
-  // Signal IDs
   private _capturedEventId: number = 0;
   private _searchChangedId: number = 0;
   private _monitorsChangedId: number = 0;
@@ -239,7 +238,7 @@ export class ClipboardPanel extends St.BoxLayout {
   }
 
   private _positionNearPointer(): void {
-    const [pointerX, pointerY] = global.get_pointer();
+    const [pointerX, pointerY] = this._getPointerPosition();
     const monitorIndex = this._findMonitorIndexAt(pointerX, pointerY);
     const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex);
     const bounds = placeClipboardPanelNearPointer(
@@ -256,8 +255,17 @@ export class ClipboardPanel extends St.BoxLayout {
     this.set_position(bounds.x, bounds.y);
   }
 
+  private _getPointerPosition(): [number, number, Clutter.ModifierType] {
+    return global.get_pointer();
+  }
+
+  private _getCurrentMonitorIndex(): number {
+    return global.display.get_current_monitor();
+  }
+
   private _findMonitorIndexAt(x: number, y: number): number {
-    return findClipboardPanelMonitorAtPoint(
+    return resolveClipboardPanelMonitor(
+      this._getCurrentMonitorIndex(),
       x,
       y,
       Main.layoutManager.monitors,

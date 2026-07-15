@@ -17,7 +17,9 @@ export const manifest: ModuleManifest = {
     {
       key: 'clipboard-history-auto-paste',
       title: _('Paste Automatically'),
-      subtitle: _('Insert the selected text into the previously focused input'),
+      subtitle: _(
+        'Insert the selected text into the previously focused input. Warning: requires an active Wayland field that supports text-input-v3',
+      ),
       type: 'switch',
     },
     {

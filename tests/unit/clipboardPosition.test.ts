@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   findClipboardPanelMonitorAtPoint,
   placeClipboardPanelNearPointer,
+  resolveClipboardPanelMonitor,
 } from '../../src/clipboard/clipboardPosition.ts';
 
 const AREA = { x: 0, y: 24, width: 1280, height: 696 };
@@ -25,6 +26,24 @@ test('findClipboardPanelMonitorAtPoint falls back when the pointer is outside al
   const monitors = [{ x: 0, y: 0, width: 1920, height: 1080 }];
 
   assert.equal(findClipboardPanelMonitorAtPoint(-100, 400, monitors, 0), 0);
+});
+
+test('resolveClipboardPanelMonitor trusts Mutter when pointer coordinates are stale after unlock', () => {
+  const monitors = [
+    { x: 0, y: 0, width: 1920, height: 1080 },
+    { x: 1920, y: 0, width: 2560, height: 1440 },
+  ];
+
+  assert.equal(resolveClipboardPanelMonitor(1, 800, 400, monitors, 0), 1);
+});
+
+test('resolveClipboardPanelMonitor falls back to coordinates for an invalid Mutter monitor', () => {
+  const monitors = [
+    { x: 0, y: 0, width: 1920, height: 1080 },
+    { x: 1920, y: 0, width: 2560, height: 1440 },
+  ];
+
+  assert.equal(resolveClipboardPanelMonitor(-1, 2400, 400, monitors, 0), 1);
 });
 
 test('placeClipboardPanelNearPointer places panel below and right of pointer', () => {
