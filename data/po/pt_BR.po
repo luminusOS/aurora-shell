@@ -18,19 +18,19 @@ msgstr ""
 
 #: dist/clipboard/clipboardHistory.manifest.js:8
 msgid "Clipboard History"
-msgstr ""
+msgstr "Histórico da área de transferência"
 
 #: dist/clipboard/clipboardHistory.manifest.js:9
 msgid "Searchable clipboard history with pinning and keyboard navigation"
-msgstr ""
+msgstr "Histórico pesquisável da área de transferência, com fixação e navegação por teclado"
 
 #: dist/clipboard/clipboardHistory.manifest.js:13
 msgid "Open Shortcut"
-msgstr ""
+msgstr "Atalho para abrir"
 
 #: dist/clipboard/clipboardHistory.manifest.js:14
 msgid "Keyboard shortcut to open the clipboard history panel"
-msgstr ""
+msgstr "Atalho de teclado para abrir o painel do histórico da área de transferência"
 
 #: dist/clipboard/clipboardHistory.manifest.js:19
 msgid "Paste Automatically"
@@ -46,32 +46,32 @@ msgstr ""
 
 #: dist/clipboard/clipboardHistory.manifest.js:27
 msgid "Poll Interval (ms)"
-msgstr ""
+msgstr "Intervalo de verificação (ms)"
 
 #: dist/clipboard/clipboardHistory.manifest.js:28
 msgid "How often to check the clipboard for changes"
-msgstr ""
+msgstr "Frequência de verificação de alterações na área de transferência"
 
 #: dist/clipboard/clipboardItem.js:323
 #, javascript-format
 msgid "%d lines"
-msgstr ""
+msgstr "%d linhas"
 
 #: dist/clipboard/clipboardItem.js:382
 msgid "Copy"
-msgstr ""
+msgstr "Copiar"
 
 #: dist/clipboard/clipboardItem.js:385
 msgid "Unpin"
-msgstr ""
+msgstr "Desafixar"
 
 #: dist/clipboard/clipboardItem.js:385
 msgid "Pin"
-msgstr ""
+msgstr "Fixar"
 
 #: dist/clipboard/clipboardItem.js:388
 msgid "Delete"
-msgstr ""
+msgstr "Excluir"
 
 #: dist/clipboard/clipboardList.js:36
 msgid "Clipboard history is empty"
@@ -88,67 +88,67 @@ msgstr "Pesquisar…"
 #: dist/desktop/trayIcons/backgroundAppsSource.js:109
 #: dist/dock/externalStorageIcon.js:237 dist/dock/trashIcon.js:94
 msgid "Open"
-msgstr ""
+msgstr "Abrir"
 
 #: dist/desktop/trayIcons/backgroundAppsSource.js:111
 msgid "Quit"
-msgstr ""
+msgstr "Sair"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:8
 msgid "Tray Icons"
-msgstr ""
+msgstr "Ícones da bandeja"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:9
 msgid "System tray with SNI and background app icons"
-msgstr ""
+msgstr "Bandeja do sistema com ícones SNI e de aplicativos em segundo plano"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:14
 msgid "Visible Icon Limit"
-msgstr ""
+msgstr "Limite de ícones visíveis"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:15
 msgid "Maximum number of icons shown before the expand button appears"
-msgstr ""
+msgstr "Número máximo de ícones exibidos antes de aparecer o botão de expansão"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:22
 msgid "Icon Size"
-msgstr ""
+msgstr "Tamanho do ícone"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:23
 msgid "Tray icon size in pixels (14–24)"
-msgstr ""
+msgstr "Tamanho do ícone da bandeja em pixels (14–24)"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:30
 msgid "Attention Auto-Collapse (seconds)"
-msgstr ""
+msgstr "Recolhimento automático de atenção (segundos)"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:31
 msgid "Seconds before the tray collapses after a notification icon appears"
-msgstr ""
+msgstr "Segundos até a bandeja ser recolhida após aparecer um ícone de notificação"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:38
 msgid "Hide Background App When Tray Icon Present"
-msgstr ""
+msgstr "Ocultar aplicativo em segundo plano quando houver ícone na bandeja"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:39
 msgid "Remove the background app icon when the same app has an SNI tray icon"
-msgstr ""
+msgstr "Remove o ícone do aplicativo em segundo plano quando o mesmo aplicativo tiver um ícone SNI na bandeja"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:44
 msgid "Hide Background Apps from Quick Settings"
-msgstr ""
+msgstr "Ocultar aplicativos em segundo plano das Configurações Rápidas"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:45
 msgid "Hide the Background Apps section from the Quick Settings dropdown"
-msgstr ""
+msgstr "Oculta a seção Aplicativos em segundo plano do menu suspenso de Configurações Rápidas"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:50
 msgid "Recolor Symbolic Tray Icons"
-msgstr ""
+msgstr "Recolorir ícones simbólicos da bandeja"
 
 #: dist/desktop/trayIcons/trayIcons.manifest.js:51
 msgid "Automatically recolor monochrome SNI icons to match the panel theme"
-msgstr ""
+msgstr "Recolore automaticamente ícones SNI monocromáticos para corresponder ao tema do painel"
 
 #: dist/dock/dock.manifest.js:8
 msgid "Dock"
@@ -160,368 +160,366 @@ msgstr "Dock personalizado com ocultação automática e inteligente"
 
 #: dist/dock/dock.manifest.js:13
 msgid "Always Show Dock"
-msgstr ""
+msgstr "Sempre mostrar dock"
 
 #: dist/dock/dock.manifest.js:14
 msgid ""
 "Keep dock permanently visible and shrink windows so they never overlap it"
-msgstr ""
+msgstr "Mantém o dock sempre visível e reduz as janelas para que nunca o sobreponham"
 
 #: dist/dock/dock.manifest.js:19
 msgid "Show Trash Icon"
-msgstr ""
+msgstr "Mostrar ícone da lixeira"
 
 #: dist/dock/dock.manifest.js:20
 msgid "Show a trash can in the dock; click to open it, right-click to empty it"
-msgstr ""
+msgstr "Mostra uma lixeira no dock; clique para abri-la e clique com o botão direito para esvaziá-la"
 
 #: dist/dock/dock.manifest.js:25
 msgid "Show External Storage"
-msgstr ""
+msgstr "Mostrar armazenamento externo"
 
 #: dist/dock/dock.manifest.js:26
 msgid "Show removable drives in the dock when they are connected"
-msgstr ""
+msgstr "Mostra unidades removíveis no dock quando estão conectadas"
 
 #: dist/dock/externalStorageIcon.js:237
 msgid "Mount and Open"
-msgstr ""
+msgstr "Montar e abrir"
 
 #: dist/dock/externalStorageIcon.js:241
 msgid "Eject"
-msgstr ""
+msgstr "Ejetar"
 
 #: dist/dock/externalStorageIcon.js:241
 msgid "Unmount"
-msgstr ""
+msgstr "Desmontar"
 
 #: dist/dock/externalStorageIcon.js:267
 #, javascript-format
 msgid "Failed to open “%s”"
-msgstr ""
+msgstr "Falha ao abrir “%s”"
 
 #: dist/dock/externalStorageIcon.js:318
 #, javascript-format
 msgid "Failed to eject “%s”"
-msgstr ""
+msgstr "Falha ao ejetar “%s”"
 
 #: dist/dock/trashIcon.js:39 dist/dock/trashIcon.js:49
 msgid "Trash"
-msgstr ""
+msgstr "Lixeira"
 
 #: dist/dock/trashIcon.js:97
 msgid "Empty Trash"
-msgstr ""
+msgstr "Esvaziar lixeira"
 
 #: dist/moduleCatalog.js:26
 msgid "Dock &amp; Panel"
-msgstr ""
+msgstr "Dock e painel"
 
 #: dist/moduleCatalog.js:27
 msgid "Appearance"
-msgstr ""
+msgstr "Aparência"
 
 #: dist/moduleCatalog.js:28
 msgid "Behavior"
-msgstr ""
+msgstr "Comportamento"
 
 #: dist/moduleCatalog.js:29
 msgid "Privacy &amp; Clipboard"
-msgstr ""
+msgstr "Privacidade e área de transferência"
 
 #: dist/panel/auroraMenu.js:119
 msgid "About This PC"
-msgstr ""
+msgstr "Sobre este computador"
 
 #: dist/panel/auroraMenu.js:126
 msgid "Home Folder"
-msgstr ""
+msgstr "Pasta pessoal"
 
 #: dist/panel/auroraMenu.js:132
 msgid "Downloads"
-msgstr ""
+msgstr "Downloads"
 
 #: dist/panel/auroraMenu.js:142
 msgid "System Settings"
-msgstr ""
+msgstr "Configurações do sistema"
 
 #: dist/panel/auroraMenu.js:148
 msgid "Software"
-msgstr ""
+msgstr "Aplicativos"
 
 #: dist/panel/auroraMenu.js:154
 msgid "Extensions"
-msgstr ""
+msgstr "Extensões"
 
 #: dist/panel/auroraMenu.js:211
 msgid "Recent Items"
-msgstr ""
+msgstr "Itens recentes"
 
 #: dist/panel/auroraMenu.js:217
 msgid "No recent items"
-msgstr ""
+msgstr "Nenhum item recente"
 
 #: dist/panel/auroraMenu.js:339 dist/panel/auroraMenu.js:352
 #: dist/panel/auroraMenu.js:374 dist/panel/auroraMenu.manifest.js:8
 msgid "Aurora Menu"
-msgstr ""
+msgstr "Menu Aurora"
 
 #: dist/panel/auroraMenu.js:339 dist/panel/auroraMenu.js:352
 msgid "Could not launch the selected command."
-msgstr ""
+msgstr "Não foi possível iniciar o comando selecionado."
 
 #: dist/panel/auroraMenu.js:374
 msgid "Could not open the selected recent item."
-msgstr ""
+msgstr "Não foi possível abrir o item recente selecionado."
 
 #: dist/panel/auroraMenu.manifest.js:9
 msgid "Aurora panel menu with recent items and useful shortcuts"
-msgstr ""
+msgstr "Menu Aurora no painel, com itens recentes e atalhos úteis"
 
 #: dist/panel/auroraMenu.manifest.js:18
 msgid "Menu Icon"
-msgstr ""
+msgstr "Ícone do menu"
 
 #: dist/panel/auroraMenu.manifest.js:19
 msgid "Choose the icon shown in the top panel"
-msgstr ""
+msgstr "Escolha o ícone exibido no painel superior"
 
 #: dist/panel/auroraMenu.manifest.js:22
-#, fuzzy
 msgid "Aurora Shell"
-msgstr "Logo do Aurora Shell"
+msgstr "Aurora Shell"
 
 #: dist/panel/auroraMenu.manifest.js:23
 msgid "GNOME"
-msgstr ""
+msgstr "GNOME"
 
 #: dist/panel/auroraMenu.manifest.js:24
 msgid "Luminus OS"
-msgstr ""
+msgstr "Luminus OS"
 
 #: dist/panel/auroraMenu.manifest.js:29
 msgid "Hide Activities Button"
-msgstr ""
+msgstr "Ocultar botão Atividades"
 
 #: dist/panel/auroraMenu.manifest.js:30
 msgid "Hide the Activities button while Aurora Menu is enabled"
-msgstr ""
+msgstr "Oculta o botão Atividades enquanto o Menu Aurora estiver ativado"
 
 #: dist/panel/auroraMenu.manifest.js:35
 msgid "Show About This PC"
-msgstr ""
+msgstr "Mostrar Sobre este computador"
 
 #: dist/panel/auroraMenu.manifest.js:36
 msgid "Show the About This PC item in Aurora Menu"
-msgstr ""
+msgstr "Mostra o item Sobre este computador no Menu Aurora"
 
 #: dist/panel/auroraMenu.manifest.js:41
 msgid "Show Home Folder"
-msgstr ""
+msgstr "Mostrar pasta pessoal"
 
 #: dist/panel/auroraMenu.manifest.js:42
 msgid "Show the Home Folder item in Aurora Menu"
-msgstr ""
+msgstr "Mostra o item Pasta pessoal no Menu Aurora"
 
 #: dist/panel/auroraMenu.manifest.js:47
 msgid "Show Downloads"
-msgstr ""
+msgstr "Mostrar Downloads"
 
 #: dist/panel/auroraMenu.manifest.js:48
 msgid "Show the Downloads item in Aurora Menu"
-msgstr ""
+msgstr "Mostra o item Downloads no Menu Aurora"
 
 #: dist/panel/auroraMenu.manifest.js:53
 msgid "Show Recent Items"
-msgstr ""
+msgstr "Mostrar itens recentes"
 
 #: dist/panel/auroraMenu.manifest.js:54
 msgid "Show the Recent Items submenu in Aurora Menu"
-msgstr ""
+msgstr "Mostra o submenu Itens recentes no Menu Aurora"
 
 #: dist/panel/auroraMenu.manifest.js:59
 msgid "Show System Settings"
-msgstr ""
+msgstr "Mostrar Configurações do sistema"
 
 #: dist/panel/auroraMenu.manifest.js:60
 msgid "Show the System Settings item in Aurora Menu"
-msgstr ""
+msgstr "Mostra o item Configurações do sistema no Menu Aurora"
 
 #: dist/panel/auroraMenu.manifest.js:65
 msgid "Show Software"
-msgstr ""
+msgstr "Mostrar Aplicativos"
 
 #: dist/panel/auroraMenu.manifest.js:66
 msgid "Show the Software item in Aurora Menu"
-msgstr ""
+msgstr "Mostra o item Aplicativos no Menu Aurora"
 
 #: dist/panel/auroraMenu.manifest.js:71
 msgid "Show Extensions"
-msgstr ""
+msgstr "Mostrar extensões"
 
 #: dist/panel/auroraMenu.manifest.js:72
 msgid "Show the Extensions item in Aurora Menu"
-msgstr ""
+msgstr "Mostra o item Extensões no Menu Aurora"
 
 #: dist/panel/auroraMenu.manifest.js:77
 msgid "Software Command"
-msgstr ""
+msgstr "Comando de aplicativos"
 
 #: dist/panel/auroraMenu.manifest.js:78
 msgid "Command used by the Software menu item"
-msgstr ""
+msgstr "Comando usado pelo item Aplicativos do menu"
 
 #: dist/panel/auroraMenu.manifest.js:83
 msgid "Custom Menu Commands"
-msgstr ""
+msgstr "Comandos de menu personalizados"
 
 #: dist/panel/auroraMenu.manifest.js:84
 msgid "One command per line, using “Label | command”"
-msgstr ""
+msgstr "Um comando por linha, usando “Rótulo | comando”"
 
 #: dist/panel/bluetoothMenu/bluetoothMenu.manifest.js:8
 msgid "Bluetooth Menu"
-msgstr ""
+msgstr "Menu Bluetooth"
 
 #: dist/panel/bluetoothMenu/bluetoothMenu.manifest.js:9
 msgid ""
 "Shows battery level and animated icons in the Bluetooth Quick Settings panel"
-msgstr ""
+msgstr "Mostra o nível da bateria e ícones animados no painel de Configurações Rápidas do Bluetooth"
 
 #: dist/panel/clock/meetingClock/meetingClock.js:325
 msgid "Meeting starting soon"
-msgstr ""
+msgstr "Reunião começará em breve"
 
 #: dist/panel/clock/meetingClock/meetingClock.js:333
 msgid "Join"
-msgstr ""
+msgstr "Participar"
 
 #: dist/panel/clock/meetingClock/meetingClock.js:334
 msgid "Snooze"
-msgstr ""
+msgstr "Adiar"
 
 #: dist/panel/clock/meetingClock/meetingClock.js:335
 msgid "Dismiss"
-msgstr ""
+msgstr "Dispensar"
 
 #: dist/panel/clock/meetingClock/meetingClock.js:336
 msgid "Ignore"
-msgstr ""
+msgstr "Ignorar"
 
 #: dist/panel/clock/meetingClock/meetingClock.js:497
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:8
 msgid "Meeting Clock"
-msgstr ""
+msgstr "Relógio de reuniões"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:9
 msgid "Shows upcoming calendar events next to the clock"
-msgstr ""
+msgstr "Mostra os próximos eventos do calendário ao lado do relógio"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:13
 msgid "Meeting Alerts"
-msgstr ""
+msgstr "Alertas de reunião"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:14
 msgid "Show a notification when a meeting is about to start"
-msgstr ""
+msgstr "Mostra uma notificação quando uma reunião está prestes a começar"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:19
 msgid "Alert Lead Time (minutes)"
-msgstr ""
+msgstr "Antecedência do alerta (minutos)"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:20
 msgid "Minutes before a meeting starts to show the alert"
-msgstr ""
+msgstr "Minutos antes do início da reunião para mostrar o alerta"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:27
 msgid "Snooze Duration (minutes)"
-msgstr ""
+msgstr "Duração do adiamento (minutos)"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:28
 msgid "Minutes to wait before showing a snoozed alert again"
-msgstr ""
+msgstr "Minutos de espera antes de mostrar novamente um alerta adiado"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:35
 msgid "Alert Events Without Links"
-msgstr ""
+msgstr "Alertar eventos sem links"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:36
 msgid "Show meeting alerts for calendar events that do not include a join link"
-msgstr ""
+msgstr "Mostra alertas de reunião para eventos do calendário que não incluem um link para participar"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:41
 msgid "Panel Reveal Interval (minutes)"
-msgstr ""
+msgstr "Intervalo de revelação do painel (minutos)"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:42
 msgid "Minutes between automatic Meeting Clock slide reveals in the panel"
-msgstr ""
+msgstr "Minutos entre as revelações automáticas deslizantes do Relógio de reuniões no painel"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:49
 msgid "Panel Lookahead (minutes)"
-msgstr ""
+msgstr "Antecedência do painel (minutos)"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:50
 msgid ""
 "Maximum minutes before an event starts for it to appear in the panel clock"
-msgstr ""
+msgstr "Máximo de minutos antes do início de um evento para ele aparecer no relógio do painel"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:57
 msgid "Hide All-Day Events"
-msgstr ""
+msgstr "Ocultar eventos de dia inteiro"
 
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:58
 msgid "Exclude all-day events from the clock and alerts"
-msgstr ""
+msgstr "Exclui eventos de dia inteiro do relógio e dos alertas"
 
 #: dist/panel/clock/weatherClock/weatherClock.manifest.js:8
 msgid "Weather Clock"
-msgstr ""
+msgstr "Relógio meteorológico"
 
 #: dist/panel/clock/weatherClock/weatherClock.manifest.js:9
 msgid "Shows GNOME Weather next to the clock"
-msgstr ""
+msgstr "Mostra o GNOME Clima ao lado do relógio"
 
 #: dist/panel/clock/weatherClock/weatherClock.manifest.js:13
 msgid "Show Weather After Clock"
-msgstr ""
+msgstr "Mostrar clima após o relógio"
 
 #: dist/panel/clock/weatherClock/weatherClock.manifest.js:14
 msgid "Place the weather indicator after the clock instead of before it"
-msgstr ""
+msgstr "Posiciona o indicador meteorológico depois do relógio, em vez de antes"
 
 #: dist/panel/lockKeyIndicators.manifest.js:8
 msgid "Lock Key Indicators"
-msgstr ""
+msgstr "Indicadores de teclas de bloqueio"
 
 #: dist/panel/lockKeyIndicators.manifest.js:9
 msgid "Shows Caps Lock and Num Lock indicators in the top panel"
-msgstr ""
+msgstr "Mostra indicadores de Caps Lock e Num Lock no painel superior"
 
 #: dist/panel/lowBatteryPercentage.manifest.js:8
 msgid "Low Battery Percentage"
-msgstr ""
+msgstr "Porcentagem de bateria baixa"
 
 #: dist/panel/lowBatteryPercentage.manifest.js:9
 msgid "Shows battery percentage in the panel while below 20%"
-msgstr ""
+msgstr "Mostra a porcentagem da bateria no painel enquanto estiver abaixo de 20%"
 
 #: dist/panel/volumeMixer/mixerItem.js:94
 msgid "Unknown"
-msgstr ""
+msgstr "Desconhecido"
 
 #: dist/panel/volumeMixer/mixerPanel.js:18
 msgid "No audio playing"
-msgstr ""
+msgstr "Nenhum áudio em reprodução"
 
 #: dist/panel/volumeMixer/streamSlider.js:108
-#, fuzzy
 msgid "Volume changed"
-msgstr "Mixer de Volume"
+msgstr "Volume alterado"
 
 #: dist/panel/volumeMixer/volumeMixer.js:90
 msgid "Sound Settings"
-msgstr ""
+msgstr "Configurações de som"
 
 #: dist/panel/volumeMixer/volumeMixer.js:108
 #: dist/panel/volumeMixer/volumeMixer.js:117
@@ -531,7 +529,7 @@ msgstr "Mixer de Volume"
 
 #: dist/panel/volumeMixer/volumeMixer.js:126
 msgid "Sound Output"
-msgstr ""
+msgstr "Saída de som"
 
 #: dist/panel/volumeMixer/volumeMixer.manifest.js:9
 msgid "Per-application volume control in Quick Settings"
@@ -539,36 +537,36 @@ msgstr "Controle de volume por aplicativo nas Configurações Rápidas"
 
 #: dist/patches/appSearchTooltip.manifest.js:8
 msgid "App Search Tooltip"
-msgstr ""
+msgstr "Dica de pesquisa de aplicativos"
 
 #: dist/patches/appSearchTooltip.manifest.js:9
 msgid "Shows app name on hover in the overview search results"
-msgstr ""
+msgstr "Mostra o nome do aplicativo ao passar o cursor sobre os resultados da pesquisa na visão geral"
 
 #: dist/patches/focusLaunchedWindows.manifest.js:8
 msgid "Focus Launched Windows"
-msgstr ""
+msgstr "Focar janelas iniciadas"
 
 #: dist/patches/focusLaunchedWindows.manifest.js:9
 msgid ""
 "Focuses newly launched windows instead of showing window-ready notifications"
-msgstr ""
+msgstr "Foca janelas recém-iniciadas em vez de mostrar notificações de janela pronta"
 
 #: dist/patches/iconWeave.manifest.js:8
 msgid "Icon Weave"
-msgstr ""
+msgstr "Trama de ícones"
 
 #: dist/patches/iconWeave.manifest.js:9
 msgid "Automatically fixes missing app icons using an in-memory approach"
-msgstr ""
+msgstr "Corrige automaticamente ícones de aplicativos ausentes usando uma abordagem em memória"
 
 #: dist/patches/noOverview.manifest.js:8
 msgid "Skip Overview on Login"
-msgstr ""
+msgstr "Pular visão geral ao iniciar sessão"
 
 #: dist/patches/noOverview.manifest.js:9
 msgid "Goes directly to the desktop when GNOME Shell starts"
-msgstr ""
+msgstr "Vai diretamente para a área de trabalho quando o GNOME Shell é iniciado"
 
 #: dist/patches/pipOnTop.manifest.js:8
 msgid "Pip On Top"
@@ -580,29 +578,29 @@ msgstr "Mantém janelas Picture-in-Picture sempre no topo"
 
 #: dist/patches/velaVpnQuickSettings.manifest.js:8
 msgid "Vela VPN Quick Settings"
-msgstr ""
+msgstr "Configurações Rápidas da VPN Vela"
 
 #: dist/patches/velaVpnQuickSettings.manifest.js:9
 msgid "Routes VPN Quick Settings activation through Vela"
-msgstr ""
+msgstr "Direciona a ativação das Configurações Rápidas de VPN pelo Vela"
 
 #: dist/patches/velaVpnQuickSettings.manifest.js:13
 msgid "Use GNOME Shell Fallback"
-msgstr ""
+msgstr "Usar alternativa do GNOME Shell"
 
 #: dist/patches/velaVpnQuickSettings.manifest.js:14
 msgid ""
 "Use GNOME Shell only when the Vela D-Bus service or control API is "
 "unavailable"
-msgstr ""
+msgstr "Usa o GNOME Shell apenas quando o serviço D-Bus ou a API de controle do Vela não estiver disponível"
 
 #: dist/patches/xwaylandIndicator.manifest.js:8
 msgid "XWayland Indicator"
-msgstr ""
+msgstr "Indicador XWayland"
 
 #: dist/patches/xwaylandIndicator.manifest.js:9
 msgid "Shows an X11 badge on XWayland apps in the Alt+Tab switcher"
-msgstr ""
+msgstr "Mostra um emblema X11 em aplicativos XWayland no alternador Alt+Tab"
 
 #: dist/prefs.js:22
 msgid "General"
@@ -610,7 +608,7 @@ msgstr "Geral"
 
 #: dist/prefs.js:26
 msgid "Other"
-msgstr ""
+msgstr "Outros"
 
 #: dist/prefs.js:49
 msgid "Aurora Shell logo"
@@ -622,60 +620,60 @@ msgstr "Acessar website"
 
 #: dist/prefs.js:328 dist/prefs.js:362 dist/prefs.js:369 dist/prefs.js:379
 msgid "Disabled"
-msgstr ""
+msgstr "Desativado"
 
 #: dist/prefs.js:357
 msgid "Press a shortcut…"
-msgstr ""
+msgstr "Pressione um atalho…"
 
 #: dist/privacy/privacy.manifest.js:8
 msgid "Privacy"
-msgstr ""
+msgstr "Privacidade"
 
 #: dist/privacy/privacy.manifest.js:9
 msgid "Screen sharing privacy features"
-msgstr ""
+msgstr "Recursos de privacidade para compartilhamento de tela"
 
 #: dist/privacy/privacy.manifest.js:13
 msgid "DND on Screen Share"
-msgstr ""
+msgstr "Não perturbe ao compartilhar a tela"
 
 #: dist/privacy/privacy.manifest.js:14
 msgid "Automatically enables Do Not Disturb mode when screen sharing"
-msgstr ""
+msgstr "Ativa automaticamente o modo Não perturbe ao compartilhar a tela"
 
 #: dist/privacy/privacy.manifest.js:19
 msgid "Privacy Panel"
-msgstr ""
+msgstr "Painel de privacidade"
 
 #: dist/privacy/privacy.manifest.js:20
 msgid ""
 "Hides panel content during screen sharing; shows only the sharing indicator"
-msgstr ""
+msgstr "Oculta o conteúdo do painel durante o compartilhamento de tela; mostra apenas o indicador de compartilhamento"
 
 #: dist/theme/autoThemeSwitcher.manifest.js:8
 msgid "Auto Theme Switcher"
-msgstr ""
+msgstr "Alternador automático de tema"
 
 #: dist/theme/autoThemeSwitcher.manifest.js:9
 msgid "Automatically switches between light and dark theme based on time"
-msgstr ""
+msgstr "Alterna automaticamente entre os temas claro e escuro com base no horário"
 
 #: dist/theme/autoThemeSwitcher.manifest.js:14
 msgid "Light Time"
-msgstr ""
+msgstr "Horário claro"
 
 #: dist/theme/autoThemeSwitcher.manifest.js:15
 msgid "Time to switch to light theme (HH:MM)"
-msgstr ""
+msgstr "Horário para alternar para o tema claro (HH:MM)"
 
 #: dist/theme/autoThemeSwitcher.manifest.js:21
 msgid "Dark Time"
-msgstr ""
+msgstr "Horário escuro"
 
 #: dist/theme/autoThemeSwitcher.manifest.js:22
 msgid "Time to switch to dark theme (HH:MM)"
-msgstr ""
+msgstr "Horário para alternar para o tema escuro (HH:MM)"
 
 #: dist/theme/themeChanger.manifest.js:8
 msgid "Theme Changer"
