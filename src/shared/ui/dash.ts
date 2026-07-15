@@ -1104,7 +1104,13 @@ export class AuroraDash extends Dash {
         this._autohideTimeoutId = 0;
         return GLib.SOURCE_REMOVE;
       }
-      if (this._dashContainerHasHover() || this._blockAutoHide || this._isMenuOpen()) {
+      // `notify::hover` calls _onHover() again. Stop polling so transient
+      // hover loss during relayout cannot hide the dock.
+      if (this._dashContainerHasHover()) {
+        this._autohideTimeoutId = 0;
+        return GLib.SOURCE_REMOVE;
+      }
+      if (this._blockAutoHide || this._isMenuOpen()) {
         return GLib.SOURCE_CONTINUE;
       }
 

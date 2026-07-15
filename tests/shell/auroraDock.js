@@ -103,6 +103,10 @@ export function init() {
     'Transient geometry flaps coalesce into a single settled status',
   );
   Scripting.defineScriptEvent(
+    'externalWorkspaceActorStable',
+    'Intellihide keeps the dock actor stable on external monitors in workspace two',
+  );
+  Scripting.defineScriptEvent(
     'externalStorageDisabled',
     'External storage dock icons are absent when disabled',
   );
@@ -291,6 +295,118 @@ export async function run() {
 
   Scripting.scriptEvent('hiddenDockInputReleased');
 
+  // Exercise autohide on real multi-monitor/workspace topology: reveal each
+  // external dock over a maximized window in workspace 2, keep the pointer on
+  // the dock, and verify its actor state remains stable. This intentionally
+  // does not claim to validate physical scanout, which headless stage capture
+  // cannot observe. The runner provides one primary plus two external monitors.
+  if (Main.layoutManager.monitors.length < 3) {
+    throw new Error(
+      `External workspace test requires 3 monitors, got ${Main.layoutManager.monitors.length}`,
+    );
+  }
+
+  const workspaceManager = global.workspace_manager;
+  const originalWorkspace = workspaceManager.get_active_workspace();
+  const mutterSettings = new Gio.Settings({ schema_id: 'org.gnome.mutter' });
+  const wmSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' });
+  const originalDynamicWorkspaces = mutterSettings.get_boolean('dynamic-workspaces');
+  const originalWorkspaceCount = wmSettings.get_int('num-workspaces');
+  mutterSettings.set_boolean('dynamic-workspaces', false);
+  wmSettings.set_int('num-workspaces', Math.max(2, originalWorkspaceCount));
+  await Scripting.waitLeisure();
+  await Scripting.sleep(200);
+
+  const testWorkspace = workspaceManager.get_workspace_by_index(1);
+  if (!testWorkspace) throw new Error('Could not create the second workspace');
+  try {
+    testWorkspace.activate(global.get_current_time());
+    await Scripting.waitLeisure();
+    await Scripting.sleep(300);
+
+    const externalBindings = dock.bindings.filter(
+      (candidate) => candidate.monitorIndex !== Main.layoutManager.primaryIndex,
+    );
+    if (externalBindings.length !== 2) {
+      throw new Error(`Expected 2 external Dock bindings, got ${externalBindings.length}`);
+    }
+
+    for (const externalBinding of externalBindings) {
+      const windowsBefore = new Set(
+        global.get_window_actors().map((actor) => actor.meta_window),
+      );
+      await Scripting.createTestWindow({ width: 900, height: 650, maximized: false });
+      await Scripting.waitTestWindows();
+      await Scripting.sleep(200);
+
+      const testWindow = global
+        .get_window_actors()
+        .map((actor) => actor.meta_window)
+        .find((window) => !windowsBefore.has(window));
+      if (!testWindow) throw new Error('Could not create an external-monitor test window');
+
+      testWindow.move_to_monitor(externalBinding.monitorIndex);
+      testWindow.maximize();
+      await Scripting.waitLeisure();
+      await Scripting.sleep(1000);
+
+      const originalExternalHover = externalBinding.dash._dashContainerHasHover;
+      externalBinding.dash.hide(false);
+      externalBinding.hotAreaActive = false;
+      externalBinding.dash._dashContainerHasHover = () => true;
+      try {
+        if (!dock.revealMonitorFromHotArea(externalBinding.monitorIndex)) {
+          throw new Error(`Could not reveal Dock on monitor ${externalBinding.monitorIndex}`);
+        }
+        await Scripting.sleep(1900);
+
+        const stableBounds = externalBinding.dash.targetBox;
+        if (!stableBounds) {
+          throw new Error(
+            `Dock on monitor ${externalBinding.monitorIndex} lost its target bounds`,
+          );
+        }
+
+        for (let sample = 0; sample < 8; sample++) {
+          const externalDash = externalBinding.dash;
+          const currentBounds = externalDash.targetBox;
+          if (
+            !externalDash.visible ||
+            !externalDash.mapped ||
+            !externalDash.get_paint_visibility() ||
+            externalDash.opacity !== 255 ||
+            externalDash.translation_y !== 0 ||
+            externalDash.scale_x !== 1 ||
+            externalDash.scale_y !== 1 ||
+            !externalBinding.container.visible ||
+            !currentBounds ||
+            currentBounds.x !== stableBounds.x ||
+            currentBounds.y !== stableBounds.y ||
+            currentBounds.width !== stableBounds.width ||
+            currentBounds.height !== stableBounds.height
+          ) {
+            throw new Error(
+              `Dock actor changed on monitor ${externalBinding.monitorIndex}: visible=${externalDash.visible} mapped=${externalDash.mapped} paint=${externalDash.get_paint_visibility()} opacity=${externalDash.opacity} translation=${externalDash.translation_y} scale=${externalDash.scale_x}/${externalDash.scale_y} container=${externalBinding.container.visible} bounds=${JSON.stringify(currentBounds)}`,
+            );
+          }
+          await Scripting.sleep(120);
+        }
+      } finally {
+        externalBinding.dash._dashContainerHasHover = originalExternalHover;
+      }
+      await Scripting.sleep(450);
+    }
+  } finally {
+    originalWorkspace.activate(global.get_current_time());
+    await Scripting.waitLeisure();
+    await Scripting.destroyTestWindows();
+    await Scripting.sleep(300);
+    wmSettings.set_int('num-workspaces', originalWorkspaceCount);
+    mutterSettings.set_boolean('dynamic-workspaces', originalDynamicWorkspaces);
+  }
+
+  Scripting.scriptEvent('externalWorkspaceActorStable');
+
   // I6 — repeated topology/intellihide updates must not restart the show
   // animation from the hidden pose and make the dock flash.
   dash.hide(false);
@@ -331,6 +447,7 @@ export async function run() {
       throw new Error('Intellihide BLOCKED hid the dock while the pointer stayed over it');
 
     dash._dashContainerHasHover = () => false;
+    dash._onHover();
     await Scripting.sleep(450);
   } finally {
     dash._dashContainerHasHover = originalDashContainerHasHover;
@@ -418,6 +535,7 @@ export async function run() {
 
     // Pointer leaves the dock: native hover autohide must now retract it.
     dash._dashContainerHasHover = () => false;
+    dash._onHover();
     await Scripting.sleep(450);
   } finally {
     dash._dashContainerHasHover = originalBlockedDashContainerHasHover;
@@ -497,6 +615,7 @@ export async function run() {
 
     // Pointer leaves the dock: native hover autohide must retract it.
     dash._dashContainerHasHover = () => false;
+    dash._onHover();
     await Scripting.sleep(450);
   } finally {
     dash._dashContainerHasHover = originalReassertHasHover;
@@ -596,6 +715,7 @@ let _hotAreaActiveClearShowsDock = false;
 let _dockRemoved = false;
 let _externalStorageDisabled = false;
 let _iconResizeCountsFixedIcons = false;
+let _externalWorkspaceActorStable = false;
 
 /** @returns {void} */
 export function script_dockPresent() {
@@ -673,6 +793,11 @@ export function script_iconResizeCountsFixedIcons() {
 }
 
 /** @returns {void} */
+export function script_externalWorkspaceActorStable() {
+  _externalWorkspaceActorStable = true;
+}
+
+/** @returns {void} */
 export function finish() {
   if (!_dockPresent)
     throw new Error('Dock actor was not found in the stage after extension enable');
@@ -697,5 +822,7 @@ export function finish() {
     throw new Error('External storage icons were not verified disabled');
   if (!_iconResizeCountsFixedIcons)
     throw new Error('Automatic icon resize did not account for fixed dock icons');
+  if (!_externalWorkspaceActorStable)
+    throw new Error('External-monitor Dock actor did not remain stable in workspace two');
   if (!_dockRemoved) throw new Error('Dock actor was not removed after module was disabled');
 }
