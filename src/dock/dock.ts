@@ -13,7 +13,7 @@ import { Module } from '~/module.ts';
 import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
 import { DockHotArea } from '~/dock/hotArea.ts';
 import { DockIntellihide, OverlapStatus } from '~/dock/intellihide.ts';
-import { hasDefinedBottom } from '~/dock/monitorTopology.ts';
+import { getDockMonitorIndexes } from '~/dock/monitorTopology.ts';
 
 const HOT_AREA_REVEAL_DURATION = 1500;
 const HOT_AREA_STRIP_HEIGHT = 1;
@@ -21,6 +21,7 @@ const LOG_PREFIX = 'Dock';
 
 export type ManagedDockBinding = {
   monitorIndex: number;
+  mode: 'always-show' | 'always-autohide' | 'intellihide';
   container: St.Bin;
   dash: AuroraDash;
   intellihide: InstanceType<typeof DockIntellihide> | null;
@@ -37,6 +38,8 @@ export class Dock extends Module {
   private _pendingRebuild = false;
   private _dockSettings: any = null;
   private _alwaysShow = false;
+  private _alwaysAutoHide = false;
+  private _showOnAllMonitors = false;
   private _showTrash = true;
   private _showExternalStorage = true;
 
@@ -48,11 +51,17 @@ export class Dock extends Module {
     this._lifecycle = new LifecycleScope();
     this._dockSettings = this.context.settings.getRawSettings();
     this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
+    this._alwaysAutoHide = this._dockSettings?.get_boolean('dock-always-autohide') ?? false;
+    if (this._alwaysShow && this._alwaysAutoHide) {
+      this._alwaysAutoHide = false;
+      this._dockSettings?.set_boolean('dock-always-autohide', false);
+    }
+    this._showOnAllMonitors = this._dockSettings?.get_boolean('dock-show-on-all-monitors') ?? false;
     this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
     this._showExternalStorage =
       this._dockSettings?.get_boolean('dock-show-external-storage') ?? true;
     logger.debug(
-      `enable alwaysShow=${this._alwaysShow} showTrash=${this._showTrash} showExternalStorage=${this._showExternalStorage} monitors=${Main.layoutManager.monitors?.length ?? 0}`,
+      `enable alwaysShow=${this._alwaysShow} alwaysAutoHide=${this._alwaysAutoHide} showOnAllMonitors=${this._showOnAllMonitors} showTrash=${this._showTrash} showExternalStorage=${this._showExternalStorage} monitors=${Main.layoutManager.monitors?.length ?? 0}`,
       { prefix: LOG_PREFIX },
     );
 
@@ -89,6 +98,25 @@ export class Dock extends Module {
       'changed::dock-always-show',
       () => {
         this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
+        if (this._alwaysShow && this._alwaysAutoHide) {
+          this._dockSettings?.set_boolean('dock-always-autohide', false);
+          return;
+        }
+        this._rebuildBindings();
+      },
+      'changed::dock-always-autohide',
+      () => {
+        this._alwaysAutoHide = this._dockSettings?.get_boolean('dock-always-autohide') ?? false;
+        if (this._alwaysAutoHide && this._alwaysShow) {
+          this._dockSettings?.set_boolean('dock-always-show', false);
+          return;
+        }
+        this._rebuildBindings();
+      },
+      'changed::dock-show-on-all-monitors',
+      () => {
+        this._showOnAllMonitors =
+          this._dockSettings?.get_boolean('dock-show-on-all-monitors') ?? false;
         this._rebuildBindings();
       },
       'changed::dock-show-trash',
@@ -125,6 +153,10 @@ export class Dock extends Module {
 
   get alwaysShow(): boolean {
     return this.context.settings.getBoolean('dock-always-show');
+  }
+
+  get alwaysAutoHide(): boolean {
+    return this.context.settings.getBoolean('dock-always-autohide');
   }
 
   toggleAlwaysShow(): boolean {
@@ -201,25 +233,28 @@ export class Dock extends Module {
     this._clearBindings();
 
     const monitors: DashBounds[] = Main.layoutManager.monitors ?? [];
+    const primaryIndex = Main.layoutManager.primaryIndex;
+    const monitorIndexes = getDockMonitorIndexes(monitors, primaryIndex, this._showOnAllMonitors);
     logger.debug(
-      `rebuild monitors=[${monitors.map((monitor, index) => `${index}:${monitor.x},${monitor.y} ${monitor.width}x${monitor.height}`).join(';')}]`,
+      `rebuild primary=${primaryIndex} showOnAllMonitors=${this._showOnAllMonitors} selected=[${monitorIndexes.join(',')}] monitors=[${monitors.map((monitor, index) => `${index}:${monitor.x},${monitor.y} ${monitor.width}x${monitor.height}`).join(';')}]`,
       { prefix: LOG_PREFIX },
     );
-    monitors.forEach((monitor, index) => {
-      if (hasDefinedBottom(monitors, index)) {
-        const binding = this._createBinding(monitor, index);
-        if (binding) this._bindings.set(index, binding);
-      } else {
-        logger.debug(`monitor=${index} skipped because another monitor is below it`, {
-          prefix: LOG_PREFIX,
-        });
-      }
+    monitorIndexes.forEach((monitorIndex) => {
+      const monitor = monitors[monitorIndex];
+      if (!monitor) return;
+      const binding = this._createBinding(monitor, monitorIndex);
+      if (binding) this._bindings.set(monitorIndex, binding);
     });
 
     this._refreshWorkAreas();
   }
 
   private _createBinding(monitor: DashBounds, monitorIndex: number): ManagedDockBinding | null {
+    const mode = this._alwaysShow
+      ? 'always-show'
+      : this._alwaysAutoHide
+        ? 'always-autohide'
+        : 'intellihide';
     // In always-show mode the strutActor must be added to uiGroup BEFORE the
     // container. Both are inserted via addChrome (→ uiGroup.add_child), so the
     // one added first sits lower in Z-order. The DnD system uses PickMode.ALL
@@ -240,10 +275,12 @@ export class Dock extends Module {
 
     const dash = new (AuroraDash as unknown as new (p: {
       monitorIndex: number;
+      isolateMonitor: boolean;
       showTrash: boolean;
       showExternalStorage: boolean;
     }) => AuroraDash)({
       monitorIndex,
+      isolateMonitor: this._showOnAllMonitors,
       showTrash: this._showTrash,
       showExternalStorage: this._showExternalStorage,
     });
@@ -252,6 +289,7 @@ export class Dock extends Module {
 
     const binding: ManagedDockBinding = {
       monitorIndex,
+      mode,
       container,
       dash,
       intellihide: null,
@@ -262,7 +300,7 @@ export class Dock extends Module {
       hotAreaActive: false,
     };
     logger.debug(
-      `monitor=${monitorIndex} binding created geometry=${monitor.x},${monitor.y} ${monitor.width}x${monitor.height} mode=${this._alwaysShow ? 'always-show' : 'intellihide'}`,
+      `monitor=${monitorIndex} binding created geometry=${monitor.x},${monitor.y} ${monitor.width}x${monitor.height} mode=${mode}`,
       { prefix: LOG_PREFIX },
     );
 
@@ -276,11 +314,17 @@ export class Dock extends Module {
         this,
       );
     } else {
+      binding.hotArea = this._createHotArea(binding, monitor);
+
+      if (this._alwaysAutoHide) {
+        dash.forceAutoHide(false);
+        this._enableHotAreaWhenDockHidden(binding);
+        return binding;
+      }
+
       const intellihide = new DockIntellihide(monitorIndex);
       binding.intellihide = intellihide;
       dash.setTargetBoxListener((box) => intellihide.updateTargetBox(box));
-
-      binding.hotArea = this._createHotArea(binding, monitor);
 
       intellihide.connectObject(
         'status-changed',
@@ -533,7 +577,7 @@ export class Dock extends Module {
   // dash's native hover-based autohide (stays while hovered, hides on leave);
   // when nothing is blocking, keep it pinned visible.
   private _releaseHotAreaToAutoHide(binding: ManagedDockBinding): void {
-    if (binding.intellihide?.status === OverlapStatus.CLEAR) {
+    if (binding.mode === 'intellihide' && binding.intellihide?.status === OverlapStatus.CLEAR) {
       logger.debug(`monitor=${binding.monitorIndex} hot-area reveal kept visible: CLEAR`, {
         prefix: LOG_PREFIX,
       });
@@ -592,6 +636,9 @@ export class Dock extends Module {
         this._updateWorkArea(binding);
         if (this._alwaysShow) {
           binding.dash.blockAutoHide(true);
+        } else if (this._alwaysAutoHide) {
+          binding.dash.forceAutoHide(false);
+          this._enableHotAreaWhenDockHidden(binding);
         } else {
           binding.intellihide?.refresh('overview-hidden', true);
         }

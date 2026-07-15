@@ -30,7 +30,7 @@ export class DockDevTool {
       createDevToolSummary(
         this.iconName,
         dock
-          ? `Bindings: ${dock.bindings.length} · Always-show: ${dock.alwaysShow ? 'on' : 'off'}`
+          ? `Bindings: ${dock.bindings.length} · Always-show: ${dock.alwaysShow ? 'on' : 'off'} · Always-autohide: ${dock.alwaysAutoHide ? 'on' : 'off'}`
           : 'Dock disabled',
       ),
     );
@@ -162,7 +162,7 @@ export class DockDevTool {
   private _monitorStatus(binding: ManagedDockBinding): string {
     let intellihide: string;
     if (!binding.intellihide) {
-      intellihide = 'always-show';
+      intellihide = binding.mode;
     } else if (binding.intellihide.status === OverlapStatus.CLEAR) {
       intellihide = 'clear';
     } else {

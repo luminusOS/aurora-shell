@@ -15,6 +15,20 @@ export const manifest: ModuleManifest = {
       type: 'switch',
     },
     {
+      key: 'dock-always-autohide',
+      title: _('Always Auto-Hide Dock'),
+      subtitle: _('Keep the dock hidden until the pointer reaches the screen edge'),
+      type: 'switch',
+    },
+    {
+      key: 'dock-show-on-all-monitors',
+      title: _('Show Dock on All Monitors'),
+      subtitle: _(
+        'Create a separate dock for each monitor; otherwise, the primary dock shows all workspace apps',
+      ),
+      type: 'switch',
+    },
+    {
       key: 'dock-show-trash',
       title: _('Show Trash Icon'),
       subtitle: _('Show a trash can in the dock; click to open it, right-click to empty it'),

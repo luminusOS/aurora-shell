@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { hasDefinedBottom } from '../../src/dock/monitorTopology.ts';
+import { getDockMonitorIndexes, hasDefinedBottom } from '../../src/dock/monitorTopology.ts';
 
 const mon = (x: number, y: number, width: number, height: number) => ({
   x,
@@ -49,4 +49,33 @@ test('hasDefinedBottom — out-of-bounds index returns false', () => {
   const monitors = [mon(0, 0, 1920, 1080)];
   assert.strictEqual(hasDefinedBottom(monitors, -1), false);
   assert.strictEqual(hasDefinedBottom(monitors, 5), false);
+});
+
+test('getDockMonitorIndexes — primary-only mode selects only the primary monitor', () => {
+  const monitors = [mon(0, 0, 1920, 1080), mon(1920, 0, 1920, 1080)];
+  assert.deepEqual(getDockMonitorIndexes(monitors, 1, false), [1]);
+});
+
+test('getDockMonitorIndexes — primary-only mode follows a changed primary monitor', () => {
+  const monitors = [mon(0, 0, 1920, 1080), mon(1920, 0, 1920, 1080)];
+  assert.deepEqual(getDockMonitorIndexes(monitors, 0, false), [0]);
+  assert.deepEqual(getDockMonitorIndexes(monitors, 1, false), [1]);
+});
+
+test('getDockMonitorIndexes — primary-only mode keeps a primary with a monitor below it', () => {
+  const monitors = [mon(0, 0, 1920, 1080), mon(0, 1080, 1920, 1080)];
+  assert.deepEqual(getDockMonitorIndexes(monitors, 0, false), [0]);
+});
+
+test('getDockMonitorIndexes — all-monitors mode excludes internal bottom edges', () => {
+  const monitors = [
+    mon(0, 0, 1920, 1080),
+    mon(0, 1080, 1920, 1080),
+    mon(1920, 0, 1920, 1080),
+  ];
+  assert.deepEqual(getDockMonitorIndexes(monitors, 0, true), [1, 2]);
+});
+
+test('getDockMonitorIndexes — invalid primary produces no dock in primary-only mode', () => {
+  assert.deepEqual(getDockMonitorIndexes([mon(0, 0, 1920, 1080)], -1, false), []);
 });
