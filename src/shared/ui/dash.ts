@@ -43,6 +43,7 @@ type VisibilityTarget = 'shown' | 'hidden';
 
 interface AuroraDashParams {
   monitorIndex?: number;
+  isolateMonitor?: boolean;
   showTrash?: boolean;
   showExternalStorage?: boolean;
 }
@@ -57,6 +58,7 @@ type DashInternals = {
 @GObject.registerClass
 export class AuroraDash extends Dash {
   declare private _monitorIndex: number;
+  declare private _isolateMonitor: boolean;
   private _workArea: DashBounds | null = null;
   private _container: St.Bin | null = null;
   private _autohideTimeoutId = 0;
@@ -89,6 +91,7 @@ export class AuroraDash extends Dash {
     this._trashIcon = null;
     this._externalStorageIcons = [];
     this._monitorIndex = params.monitorIndex ?? Main.layoutManager.primaryIndex;
+    this._isolateMonitor = params.isolateMonitor ?? true;
     this._unredirectInhibitor = new UnredirectInhibitor(global.compositor);
     this.connect('notify::mapped', () => this._unredirectInhibitor.setInhibited(this.mapped));
 
@@ -799,10 +802,11 @@ export class AuroraDash extends Dash {
       }
     }
 
-    // Temporarily patch get_running() so the base Dash only sees apps with
-    // windows on this monitor and active workspace. _globallyRunningIds is set
-    // so the _createAppItem.destroy patch can distinguish actual closes (animate
-    // out) from workspace-filter removals (instant destroy, no ghost icons).
+    // Temporarily patch get_running() so the base Dash only sees apps in the
+    // active workspace. Per-monitor docks also isolate their apps by monitor;
+    // the single primary dock aggregates apps from every monitor instead.
+    // _globallyRunningIds lets the _createAppItem.destroy patch distinguish
+    // actual closes from scope-filter removals (instant destroy, no ghost icons).
     const appSystem = dashAny._appSystem;
     const origGetRunning = appSystem?.get_running;
     if (appSystem && origGetRunning) {
@@ -885,7 +889,7 @@ export class AuroraDash extends Dash {
 
   private _isWindowRelevant(w: any): boolean {
     return (
-      w.get_monitor() === this._monitorIndex &&
+      (!this._isolateMonitor || w.get_monitor() === this._monitorIndex) &&
       (w.is_on_all_workspaces?.() ||
         w.get_workspace() === global.workspace_manager.get_active_workspace())
     );

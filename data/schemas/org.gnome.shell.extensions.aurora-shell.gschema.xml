@@ -76,6 +76,16 @@
       <summary>Always show dock</summary>
       <description>Keep the dock permanently visible and reserve screen space so windows never overlap it</description>
     </key>
+    <key name="dock-always-autohide" type="b">
+      <default>false</default>
+      <summary>Always auto-hide dock</summary>
+      <description>Keep the dock hidden until the pointer reaches the screen edge, regardless of window overlap</description>
+    </key>
+    <key name="dock-show-on-all-monitors" type="b">
+      <default>false</default>
+      <summary>Show dock on all monitors</summary>
+      <description>Show the dock on every eligible monitor instead of only on the primary monitor</description>
+    </key>
     <key name="dock-show-trash" type="b">
       <default>true</default>
       <summary>Show trash icon</summary>

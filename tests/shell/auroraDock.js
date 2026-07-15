@@ -107,6 +107,18 @@ export function init() {
     'Intellihide keeps the dock actor stable on external monitors in workspace two',
   );
   Scripting.defineScriptEvent(
+    'primaryMonitorOnly',
+    'Primary-only Dock aggregates active-workspace apps from every monitor',
+  );
+  Scripting.defineScriptEvent(
+    'allMonitorsEnabled',
+    'Per-monitor Docks isolate active-workspace apps to their own monitor',
+  );
+  Scripting.defineScriptEvent(
+    'alwaysAutoHideIndependent',
+    'Always auto-hide remains hidden without relying on window overlap',
+  );
+  Scripting.defineScriptEvent(
     'externalStorageDisabled',
     'External storage dock icons are absent when disabled',
   );
@@ -126,9 +138,13 @@ export async function run() {
   const originalShowTrash = settings.get_boolean('dock-show-trash');
   const originalShowExternalStorage = settings.get_boolean('dock-show-external-storage');
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
+  const originalAlwaysAutoHide = settings.get_boolean('dock-always-autohide');
+  const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
   settings.set_boolean('dock-show-trash', true);
   settings.set_boolean('dock-show-external-storage', false);
   settings.set_boolean('dock-always-show', false);
+  settings.set_boolean('dock-always-autohide', false);
+  settings.set_boolean('dock-show-on-all-monitors', false);
 
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
@@ -151,6 +167,53 @@ export async function run() {
   // I3 — trash uses the regular icon and sits directly before Show Apps
   const extension = Main.extensionManager.lookup(EXTENSION_UUID);
   const dock = extension?.stateObj?._modules?.get('dock');
+
+  if (
+    dock?.bindings?.length !== 1 ||
+    dock.bindings[0]?.monitorIndex !== Main.layoutManager.primaryIndex
+  ) {
+    throw new Error(
+      `Primary-only Dock expected one binding on monitor ${Main.layoutManager.primaryIndex}, got ${dock?.bindings?.map((binding) => binding.monitorIndex).join(',')}`,
+    );
+  }
+
+  const externalMonitorIndex = Main.layoutManager.monitors.findIndex(
+    (_monitor, index) => index !== Main.layoutManager.primaryIndex,
+  );
+  if (externalMonitorIndex < 0)
+    throw new Error('Primary-only Dock scope test requires an external monitor');
+
+  const externalWorkspaceWindow = {
+    get_monitor: () => externalMonitorIndex,
+    is_on_all_workspaces: () => false,
+    get_workspace: () => global.workspace_manager.get_active_workspace(),
+  };
+  if (!dock.bindings[0].dash._isWindowRelevant(externalWorkspaceWindow))
+    throw new Error('Primary-only Dock excluded an app from an external monitor');
+  Scripting.scriptEvent('primaryMonitorOnly');
+
+  settings.set_boolean('dock-show-on-all-monitors', true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(400);
+  if (dock.bindings.length !== Main.layoutManager.monitors.length) {
+    throw new Error(
+      `All-monitors Dock expected ${Main.layoutManager.monitors.length} bindings, got ${dock.bindings.length}`,
+    );
+  }
+  const primaryBinding = dock.bindings.find(
+    (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
+  );
+  const externalBinding = dock.bindings.find(
+    (candidate) => candidate.monitorIndex === externalMonitorIndex,
+  );
+  if (!primaryBinding || !externalBinding)
+    throw new Error('All-monitors Dock did not create the bindings needed for scope validation');
+  if (primaryBinding.dash._isWindowRelevant(externalWorkspaceWindow))
+    throw new Error('Primary per-monitor Dock included an app from an external monitor');
+  if (!externalBinding.dash._isWindowRelevant(externalWorkspaceWindow))
+    throw new Error('External per-monitor Dock excluded an app from its own monitor');
+  Scripting.scriptEvent('allMonitorsEnabled');
+
   const dash = dock?.bindings?.[0]?.dash;
   const showAppsIcon = dash?._showAppsIcon;
   const dashChildren = dash?._dashContainer?.get_children?.() ?? [];
@@ -689,6 +752,40 @@ export async function run() {
   clearIntellihideQueuedRefreshes(binding.intellihide);
   Scripting.scriptEvent('intellihideFlapDebounced');
 
+  // Always auto-hide must bypass intellihide completely: with no overlap
+  // decision involved, it starts hidden and only appears through the hot area.
+  settings.set_boolean('dock-always-autohide', true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(400);
+  const alwaysAutoHideBinding = dock.bindings.find(
+    (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
+  );
+  if (!alwaysAutoHideBinding)
+    throw new Error('Always auto-hide did not retain a binding on the primary monitor');
+  if (alwaysAutoHideBinding.mode !== 'always-autohide' || alwaysAutoHideBinding.intellihide)
+    throw new Error('Always auto-hide still depends on intellihide window state');
+  if (alwaysAutoHideBinding.dash.visible)
+    throw new Error('Always auto-hide Dock was visible before an edge reveal');
+
+  const originalAlwaysAutoHideHover = alwaysAutoHideBinding.dash._dashContainerHasHover;
+  alwaysAutoHideBinding.dash._dashContainerHasHover = () => false;
+  try {
+    if (!dock.revealMonitorFromHotArea(alwaysAutoHideBinding.monitorIndex))
+      throw new Error('Always auto-hide Dock could not be revealed from its hot area');
+    await Scripting.sleep(100);
+    if (!alwaysAutoHideBinding.dash.visible)
+      throw new Error('Always auto-hide Dock did not appear after an edge reveal');
+
+    dock._clearHotAreaReveal(alwaysAutoHideBinding);
+    dock._releaseHotAreaToAutoHide(alwaysAutoHideBinding);
+    await Scripting.sleep(500);
+    if (alwaysAutoHideBinding.dash.visible)
+      throw new Error('Always auto-hide Dock stayed visible after the reveal ended');
+  } finally {
+    alwaysAutoHideBinding.dash._dashContainerHasHover = originalAlwaysAutoHideHover;
+  }
+  Scripting.scriptEvent('alwaysAutoHideIndependent');
+
   // I11 — disable dock, actor must be removed
   const originalValue = settings.get_boolean('module-dock');
   settings.set_boolean('module-dock', false);
@@ -707,6 +804,8 @@ export async function run() {
   settings.set_boolean('dock-show-trash', originalShowTrash);
   settings.set_boolean('dock-show-external-storage', originalShowExternalStorage);
   settings.set_boolean('dock-always-show', originalAlwaysShow);
+  settings.set_boolean('dock-always-autohide', originalAlwaysAutoHide);
+  settings.set_boolean('dock-show-on-all-monitors', originalShowOnAllMonitors);
   settings.set_boolean('module-dock', originalValue);
   await Scripting.waitLeisure();
   await Scripting.sleep(300);
@@ -728,6 +827,9 @@ let _dockRemoved = false;
 let _externalStorageDisabled = false;
 let _iconResizeCountsFixedIcons = false;
 let _externalWorkspaceActorStable = false;
+let _primaryMonitorOnly = false;
+let _allMonitorsEnabled = false;
+let _alwaysAutoHideIndependent = false;
 
 /** @returns {void} */
 export function script_dockPresent() {
@@ -810,6 +912,21 @@ export function script_externalWorkspaceActorStable() {
 }
 
 /** @returns {void} */
+export function script_primaryMonitorOnly() {
+  _primaryMonitorOnly = true;
+}
+
+/** @returns {void} */
+export function script_allMonitorsEnabled() {
+  _allMonitorsEnabled = true;
+}
+
+/** @returns {void} */
+export function script_alwaysAutoHideIndependent() {
+  _alwaysAutoHideIndependent = true;
+}
+
+/** @returns {void} */
 export function finish() {
   if (!_dockPresent)
     throw new Error('Dock actor was not found in the stage after extension enable');
@@ -836,5 +953,11 @@ export function finish() {
     throw new Error('Automatic icon resize did not account for fixed dock icons');
   if (!_externalWorkspaceActorStable)
     throw new Error('External-monitor Dock actor did not remain stable in workspace two');
+  if (!_primaryMonitorOnly)
+    throw new Error('Dock primary-monitor-only behavior was not verified');
+  if (!_allMonitorsEnabled)
+    throw new Error('Dock all-monitors opt-in behavior was not verified');
+  if (!_alwaysAutoHideIndependent)
+    throw new Error('Dock always auto-hide behavior was not verified');
   if (!_dockRemoved) throw new Error('Dock actor was not removed after module was disabled');
 }

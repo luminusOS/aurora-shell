@@ -224,3 +224,11 @@ test('schema — Vela Shell fallback is disabled by default', () => {
 test('schema — Clipboard History automatic paste is enabled by default', () => {
   assert.equal(schemaDefault('clipboard-history-auto-paste'), 'true');
 });
+
+test('schema — Dock defaults to the primary monitor only', () => {
+  assert.equal(schemaDefault('dock-show-on-all-monitors'), 'false');
+});
+
+test('schema — Dock always auto-hide is disabled by default', () => {
+  assert.equal(schemaDefault('dock-always-autohide'), 'false');
+});
