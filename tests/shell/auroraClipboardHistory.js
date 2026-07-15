@@ -132,6 +132,22 @@ async function lockAndUnlockSession() {
   throw new Error(`Session did not unlock: mode=${Main.sessionMode.currentMode}`);
 }
 
+async function waitForWindowState(window, monitorIndex, timeoutMs = 5000) {
+  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
+  while (
+    window.get_monitor() !== monitorIndex ||
+    !window.maximized_horizontally ||
+    !window.maximized_vertically
+  ) {
+    if (GLib.get_monotonic_time() >= deadline) {
+      throw new Error(
+        `Window state did not settle on external monitor ${monitorIndex}: monitor=${window.get_monitor()} horizontal=${window.maximized_horizontally} vertical=${window.maximized_vertically}`,
+      );
+    }
+    await Scripting.sleep(100);
+  }
+}
+
 function assertPanelAboveWindows(panel) {
   const children = Main.uiGroup.get_children();
   const panelIndex = children.indexOf(panel);
@@ -208,7 +224,6 @@ export async function run() {
   const externalMonitorIndex = Main.layoutManager.monitors.findIndex(
     (_monitor, index) => index !== Main.layoutManager.primaryIndex,
   );
-  await lockAndUnlockSession();
 
   const windowsBeforeUnlockTest = new Set(
     global.get_window_actors().map((actor) => actor.meta_window),
@@ -222,22 +237,15 @@ export async function run() {
       .get_window_actors()
       .map((actor) => actor.meta_window)
       .find((window) => !windowsBeforeUnlockTest.has(window));
-    if (!externalWindow) throw new Error('Could not create the post-unlock test window');
+    if (!externalWindow) throw new Error('Could not create the external-monitor test window');
 
     externalWindow.move_to_monitor(externalMonitorIndex);
-    externalWindow.maximize();
     externalWindow.activate(global.get_current_time());
-    await Scripting.waitLeisure();
-    await Scripting.sleep(600);
-    if (
-      externalWindow.get_monitor() !== externalMonitorIndex ||
-      !externalWindow.maximized_horizontally ||
-      !externalWindow.maximized_vertically
-    ) {
-      throw new Error(
-        `Post-unlock window is not maximized on external monitor ${externalMonitorIndex}`,
-      );
-    }
+    externalWindow.maximize();
+    await waitForWindowState(externalWindow, externalMonitorIndex);
+
+    await lockAndUnlockSession();
+    await waitForWindowState(externalWindow, externalMonitorIndex);
 
     const unlockedClipboardModule = getClipboardModule();
     const unlockedPanelActor = unlockedClipboardModule._panel;
