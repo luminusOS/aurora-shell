@@ -7,7 +7,7 @@ import GLib from '@girs/glib-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import type { CleanupBag } from '~/core/cleanupBag.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
@@ -33,7 +33,7 @@ export type ManagedDockBinding = {
 
 export class Dock extends Module {
   private _bindings = new Map<number, ManagedDockBinding>();
-  private _cleanup: CleanupBag | null = null;
+  private _lifecycle: LifecycleScope | null = null;
   private _pendingRebuild = false;
   private _dockSettings: any = null;
   private _alwaysShow = false;
@@ -45,7 +45,7 @@ export class Dock extends Module {
   }
 
   override enable(): void {
-    this._cleanup = this.context.createCleanupBag();
+    this._lifecycle = new LifecycleScope();
     this._dockSettings = this.context.settings.getRawSettings();
     this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
     this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
@@ -59,33 +59,31 @@ export class Dock extends Module {
     Main.overview.dash.hide();
 
     this._rebuildBindings();
-    this._cleanup.connectObject(Main.layoutManager, this, () =>
-      Main.layoutManager.connectObject(
-        'monitors-changed',
-        () => this._rebuildBindings(),
-        'hot-corners-changed',
-        () => this._rebuildBindings(),
-        'startup-complete',
-        () => this._rebuildBindings(),
-        this,
-      ),
+    Main.layoutManager.connectObject(
+      'monitors-changed',
+      () => this._rebuildBindings(),
+      'hot-corners-changed',
+      () => this._rebuildBindings(),
+      'startup-complete',
+      () => this._rebuildBindings(),
+      this,
     );
-    this._cleanup.connectObject(global.display, this, () =>
-      global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this),
-    );
-    this._cleanup.connectObject(Main.sessionMode, this, () =>
-      Main.sessionMode.connectObject('updated', () => this._refreshBindingsLayout(), this),
-    );
+    this._lifecycle.onDispose(() => Main.layoutManager.disconnectObject(this));
 
-    this._cleanup.connectObject(Main.overview, this, () =>
-      Main.overview.connectObject(
-        'showing',
-        () => this._setOverviewVisible(true),
-        'hidden',
-        () => this._setOverviewVisible(false),
-        this,
-      ),
+    global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this);
+    this._lifecycle.onDispose(() => global.display.disconnectObject(this));
+
+    Main.sessionMode.connectObject('updated', () => this._refreshBindingsLayout(), this);
+    this._lifecycle.onDispose(() => Main.sessionMode.disconnectObject(this));
+
+    Main.overview.connectObject(
+      'showing',
+      () => this._setOverviewVisible(true),
+      'hidden',
+      () => this._setOverviewVisible(false),
+      this,
     );
+    this._lifecycle.onDispose(() => Main.overview.disconnectObject(this));
 
     this._dockSettings?.connectObject?.(
       'changed::dock-always-show',
@@ -107,16 +105,15 @@ export class Dock extends Module {
       this,
     );
 
-    this._cleanup.connectObject(this.context.signals, this, () =>
-      this.context.signals.connectObject('icons-woven', () => this._refreshBindingsLayout(), this),
-    );
-    this._cleanup.add(() => this._dockSettings?.disconnectObject?.(this));
+    this.context.signals.connectObject('icons-woven', () => this._refreshBindingsLayout(), this);
+    this._lifecycle.onDispose(() => this.context.signals.disconnectObject(this));
+    this._lifecycle.onDispose(() => this._dockSettings?.disconnectObject?.(this));
   }
 
   override disable(): void {
     Main.overview.dash.show();
-    this._cleanup?.dispose();
-    this._cleanup = null;
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
     this._dockSettings = null;
     this._pendingRebuild = false;
     this._clearBindings();

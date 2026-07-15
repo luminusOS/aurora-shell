@@ -10,7 +10,7 @@ import Shell from '@girs/shell-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import type { CleanupBag } from '~/core/cleanupBag.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 
@@ -31,7 +31,7 @@ export class ClipboardHistory extends Module {
   private _store: ClipboardStore | null = null;
   private _monitor: ClipboardMonitor | null = null;
   private _panel: ClipboardPanel | null = null;
-  private _cleanup: CleanupBag | null = null;
+  private _lifecycle: LifecycleScope | null = null;
   private _startupIdleId: number = 0;
   private _autoPasteTimeoutId: number = 0;
   private _pasteTargetWindow: Meta.Window | null = null;
@@ -42,7 +42,7 @@ export class ClipboardHistory extends Module {
   }
 
   override enable(): void {
-    this._cleanup = this.context.createCleanupBag();
+    this._lifecycle = new LifecycleScope();
     const sessionDir = GLib.get_user_runtime_dir() + '/aurora-shell/' + this.context.uuid;
     const filePath = sessionDir + '/clipboard-history.log';
     const mediaDir = sessionDir + '/clipboard-media';
@@ -77,9 +77,9 @@ export class ClipboardHistory extends Module {
       return GLib.SOURCE_REMOVE;
     });
     const startupIdleId = this._startupIdleId;
-    this._cleanup.source(startupIdleId, (id) => {
-      if (this._startupIdleId !== id) return;
-      GLib.source_remove(id);
+    this._lifecycle.onDispose(() => {
+      if (this._startupIdleId !== startupIdleId) return;
+      GLib.source_remove(startupIdleId);
       this._startupIdleId = 0;
     });
 
@@ -91,7 +91,7 @@ export class ClipboardHistory extends Module {
         Shell.ActionMode.ALL,
         () => this.togglePanel(),
       );
-      this._cleanup.add(() => {
+      this._lifecycle.onDispose(() => {
         try {
           Main.wm.removeKeybinding(KEYBINDING_KEY);
         } catch {
@@ -102,7 +102,7 @@ export class ClipboardHistory extends Module {
       logger.error('Failed to register keybinding:', { prefix: LOG_PREFIX }, e as Error);
     }
 
-    this._cleanup.connect(rawSettings, 'changed::clipboard-history-poll-interval', () => {
+    this._lifecycle.connect(rawSettings, 'changed::clipboard-history-poll-interval', () => {
       this._monitor?.setInterval(rawSettings.get_int('clipboard-history-poll-interval'));
     });
   }
@@ -112,8 +112,8 @@ export class ClipboardHistory extends Module {
     this._pasteTargetWindow = null;
     this._pasteTargetInputFocus = null;
 
-    this._cleanup?.dispose();
-    this._cleanup = null;
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
 
     this._panel?.close();
     this._panel?.destroy();
@@ -209,7 +209,7 @@ export class ClipboardHistory extends Module {
     targetInputFocus: Clutter.InputFocus,
     text: string,
   ): void {
-    if (!this._cleanup) return;
+    if (!this._lifecycle) return;
 
     this._cancelScheduledAutoPaste();
     try {
@@ -225,7 +225,7 @@ export class ClipboardHistory extends Module {
 
     this._autoPasteTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTO_PASTE_DELAY_MS, () => {
       this._autoPasteTimeoutId = 0;
-      if (!this._cleanup) return GLib.SOURCE_REMOVE;
+      if (!this._lifecycle) return GLib.SOURCE_REMOVE;
       if (!targetWindow.has_focus()) return GLib.SOURCE_REMOVE;
 
       // Restore the Wayland input focus stolen by the panel search entry

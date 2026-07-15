@@ -29,6 +29,11 @@ const ALLOWED_WINDOW_TYPES = [
 
 type TimeoutId = number;
 
+type ActorSignalIds = {
+  frameId: number;
+  destroyId: number;
+};
+
 /**
  * Automatically matches untracked application windows with their corresponding
  * .desktop files using an in-memory approach.
@@ -37,8 +42,7 @@ export class IconWeave extends Module {
   private _displayConnectionId = 0;
   private _processed = new Set<string>();
   private _pendingConnections = new Map<any, number>();
-  private _actorConnections = new Map<any, number>();
-  private _actorDestroyConnections = new Map<any, number>();
+  private _actorConnections = new Map<any, ActorSignalIds>();
   private _timeoutSources = new Set<TimeoutId>();
 
   // Maps a window to an app
@@ -191,23 +195,19 @@ export class IconWeave extends Module {
     }
     this._pendingConnections.clear();
 
-    for (const [actor, id] of this._actorConnections) {
+    for (const [actor, { frameId, destroyId }] of this._actorConnections) {
       try {
-        actor.disconnect(id);
+        actor.disconnect(frameId);
+      } catch (_e) {
+        // actor may already be gone
+      }
+      try {
+        actor.disconnect(destroyId);
       } catch (_e) {
         // actor may already be gone
       }
     }
     this._actorConnections.clear();
-
-    for (const [actor, id] of this._actorDestroyConnections) {
-      try {
-        actor.disconnect(id);
-      } catch (_e) {
-        // actor may already be gone
-      }
-    }
-    this._actorDestroyConnections.clear();
 
     this._processed.clear();
     this._windowAppMap.clear();
@@ -278,7 +278,6 @@ export class IconWeave extends Module {
       } catch (_e) {
         /* actor may already be gone */
       }
-      this._actorDestroyConnections.delete(actor);
       if (currentTimeoutId) {
         this._timeoutSources.delete(currentTimeoutId);
         GLib.source_remove(currentTimeoutId);
@@ -286,21 +285,19 @@ export class IconWeave extends Module {
       }
       this._inspectWindow(win);
     });
-    this._actorConnections.set(actor, frameId);
 
     // When the actor is destroyed, cancel any pending timeout so we never
     // attempt to disconnect a disposed actor.
     destroyId = actor.connect('destroy', () => {
       done = true;
       this._actorConnections.delete(actor);
-      this._actorDestroyConnections.delete(actor);
       if (currentTimeoutId) {
         this._timeoutSources.delete(currentTimeoutId);
         GLib.source_remove(currentTimeoutId);
         currentTimeoutId = 0;
       }
     });
-    this._actorDestroyConnections.set(actor, destroyId);
+    this._actorConnections.set(actor, { frameId, destroyId });
 
     // Fallback: if first-frame never fires (e.g. override-redirect windows),
     // inspect after the normal delay anyway.
@@ -323,7 +320,6 @@ export class IconWeave extends Module {
             /* actor may already be gone */
           }
           this._actorConnections.delete(actor);
-          this._actorDestroyConnections.delete(actor);
           this._inspectWindow(win);
         }
         return GLib.SOURCE_REMOVE;

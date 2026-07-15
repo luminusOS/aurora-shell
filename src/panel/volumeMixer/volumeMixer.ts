@@ -10,6 +10,7 @@ import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import { attachToQuickSettings } from '~/shared/quickSettings.ts';
@@ -40,10 +41,7 @@ export class VolumeMixer extends Module {
   private _toggleButton: St.Button | null = null;
   private _menuSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null = null;
   private _settingsSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null = null;
-  private _outputSlider: QuickSlider | null = null;
-  private _menuClosedId = 0;
-  private _toggleClickedId = 0;
-  private _detachQuickSettings: (() => void) | null = null;
+  private _lifecycle: LifecycleScope | null = null;
   private _quickSettings: QuickSettings | null = null;
 
   constructor(context: ExtensionContext) {
@@ -51,52 +49,33 @@ export class VolumeMixer extends Module {
   }
 
   override enable(): void {
+    this.disable();
+    this._lifecycle = new LifecycleScope();
     this._quickSettings = Main.panel.statusArea.quickSettings;
 
-    this._detachQuickSettings = attachToQuickSettings(
+    const detachQuickSettings = attachToQuickSettings(
       () => this._findOutputSlider(),
       (slider) => this._attachToSlider(slider),
     );
-    if (!this._detachQuickSettings) {
+    if (!detachQuickSettings) {
       logger.error('Could not find quick settings grid', { prefix: LOG_PREFIX });
+    } else {
+      this._lifecycle.onDispose(detachQuickSettings);
     }
   }
 
   override disable(): void {
-    this._detachQuickSettings?.();
-    this._detachQuickSettings = null;
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
 
-    if (this._menuClosedId && this._outputSlider) {
-      this._outputSlider.menu.disconnect(this._menuClosedId);
-      this._menuClosedId = 0;
-    }
-
-    if (this._toggleClickedId && this._toggleButton) {
-      this._toggleButton.disconnect(this._toggleClickedId);
-      this._toggleClickedId = 0;
-    }
-
-    if (this._toggleButton) {
-      this._toggleButton.destroy();
-      this._toggleButton = null;
-    }
-
-    if (this._panel) {
-      this._panel.destroy();
-      this._panel = null;
-    }
-
-    if (this._menuSection) {
-      this._menuSection.destroy();
-      this._menuSection = null;
-    }
-
-    if (this._settingsSection) {
-      this._settingsSection.destroy();
-      this._settingsSection = null;
-    }
-
-    this._outputSlider = null;
+    this._toggleButton?.destroy();
+    this._toggleButton = null;
+    this._panel?.destroy();
+    this._panel = null;
+    this._menuSection?.destroy();
+    this._menuSection = null;
+    this._settingsSection?.destroy();
+    this._settingsSection = null;
   }
 
   private _findOutputSlider(): QuickSlider | null {
@@ -113,7 +92,9 @@ export class VolumeMixer extends Module {
   }
 
   private _attachToSlider(slider: QuickSlider): void {
-    this._outputSlider = slider;
+    const lifecycle = this._lifecycle;
+    if (!lifecycle) return;
+
     this._panel = new (VolumeMixerPanel as unknown as new (
       ctx: ExtensionContext,
     ) => VolumeMixerPanel)(this.context);
@@ -148,7 +129,8 @@ export class VolumeMixer extends Module {
 
     slider.child.add_child(this._toggleButton);
 
-    this._toggleClickedId = this._toggleButton.connect('clicked', () => {
+    const toggleButton = this._toggleButton;
+    const toggleClickedId = toggleButton.connect('clicked', () => {
       if (!this._panel || !this._menuSection || !this._settingsSection) return;
 
       this._menuSection.box.show();
@@ -158,8 +140,9 @@ export class VolumeMixer extends Module {
       slider.menu.setHeader('audio-speakers-symbolic', _('Volume Mixer'));
       slider.menu.open(PopupAnimation.FULL);
     });
+    lifecycle.onDispose(() => toggleButton.disconnect(toggleClickedId));
 
-    this._menuClosedId = slider.menu.connect('menu-closed', () => {
+    const menuClosedId = slider.menu.connect('menu-closed', () => {
       if (!this._menuSection || !this._settingsSection) return undefined;
       this._menuSection.box.hide();
       this._settingsSection.box.hide();
@@ -168,5 +151,6 @@ export class VolumeMixer extends Module {
       slider.menu.setHeader('audio-headphones-symbolic', _('Sound Output'));
       return undefined;
     });
+    lifecycle.onDispose(() => slider.menu.disconnect(menuClosedId));
   }
 }

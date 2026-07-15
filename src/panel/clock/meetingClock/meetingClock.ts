@@ -9,7 +9,7 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import * as MessageTray from '@girs/gnome-shell/ui/messageTray';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import type { CleanupBag } from '~/core/cleanupBag.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import { openClockMenu, type ClockPillRegistration } from '~/shared/clockPill.ts';
@@ -54,7 +54,7 @@ export class MeetingClock extends Module {
   private _activeNotificationDestroyId = 0;
   private _uiAlive = false;
   private _enabled = false;
-  private _cleanup: CleanupBag | null = null;
+  private _lifecycle: LifecycleScope | null = null;
   private _refreshTimerId = 0;
   private _labelTimerId = 0;
   private _alertTimerId = 0;
@@ -72,7 +72,7 @@ export class MeetingClock extends Module {
 
   override enable(): void {
     this.disable();
-    this._cleanup = this.context.createCleanupBag();
+    this._lifecycle = new LifecycleScope();
     this._enabled = true;
 
     this._installClockWidget();
@@ -103,19 +103,25 @@ export class MeetingClock extends Module {
     this._schedulePanelRevealTimer();
 
     const settings = this.context.settings;
-    this._cleanup.connect(settings, `changed::${ALERTS_ENABLED_KEY}`, () => this._scheduleAlerts());
-    this._cleanup.connect(settings, `changed::${ALERT_MINUTES_KEY}`, () => this._scheduleAlerts());
-    this._cleanup.connect(settings, `changed::${SNOOZE_MINUTES_KEY}`, () => this._scheduleAlerts());
-    this._cleanup.connect(settings, `changed::${ALERT_EVENTS_WITHOUT_LINK_KEY}`, () =>
+    this._lifecycle.connect(settings, `changed::${ALERTS_ENABLED_KEY}`, () =>
       this._scheduleAlerts(),
     );
-    this._cleanup.connect(settings, `changed::${PANEL_REVEAL_INTERVAL_MINUTES_KEY}`, () =>
+    this._lifecycle.connect(settings, `changed::${ALERT_MINUTES_KEY}`, () =>
+      this._scheduleAlerts(),
+    );
+    this._lifecycle.connect(settings, `changed::${SNOOZE_MINUTES_KEY}`, () =>
+      this._scheduleAlerts(),
+    );
+    this._lifecycle.connect(settings, `changed::${ALERT_EVENTS_WITHOUT_LINK_KEY}`, () =>
+      this._scheduleAlerts(),
+    );
+    this._lifecycle.connect(settings, `changed::${PANEL_REVEAL_INTERVAL_MINUTES_KEY}`, () =>
       this._schedulePanelRevealTimer(),
     );
-    this._cleanup.connect(settings, `changed::${PANEL_LOOKAHEAD_MINUTES_KEY}`, () =>
+    this._lifecycle.connect(settings, `changed::${PANEL_LOOKAHEAD_MINUTES_KEY}`, () =>
       this._render(),
     );
-    this._cleanup.connect(settings, `changed::${EXCLUDE_ALL_DAY_KEY}`, () => {
+    this._lifecycle.connect(settings, `changed::${EXCLUDE_ALL_DAY_KEY}`, () => {
       this._render();
       this._scheduleAlerts();
     });
@@ -125,8 +131,8 @@ export class MeetingClock extends Module {
     this._enabled = false;
     this._uiAlive = false;
 
-    this._cleanup?.dispose();
-    this._cleanup = null;
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
 
     this._clearRefreshTimer();
     this._clearLabelTimer();

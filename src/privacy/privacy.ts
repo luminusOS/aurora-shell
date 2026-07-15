@@ -1,6 +1,7 @@
 import { gettext as _ } from 'gettext';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { Module } from '~/module.ts';
 import { DndOnShare } from '~/privacy/dndOnShare.ts';
 import { PrivacyPanel } from '~/privacy/privacyPanel.ts';
@@ -11,7 +12,7 @@ const PANEL_KEY = 'privacy-panel';
 export class PrivacyModule extends Module {
   private _dndOnShare: DndOnShare | null = null;
   private _privacyPanel: PrivacyPanel | null = null;
-  private _settingsIds: number[] = [];
+  private _lifecycle: LifecycleScope | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -19,22 +20,19 @@ export class PrivacyModule extends Module {
 
   override enable(): void {
     this.disable();
+    this._lifecycle = new LifecycleScope();
 
     this._applyDnd();
     this._applyPanel();
 
     const settings = this.context.settings;
-    this._settingsIds = [
-      settings.connect(`changed::${DND_KEY}`, () => this._applyDnd()),
-      settings.connect(`changed::${PANEL_KEY}`, () => this._applyPanel()),
-    ];
+    this._lifecycle.connect(settings, `changed::${DND_KEY}`, () => this._applyDnd());
+    this._lifecycle.connect(settings, `changed::${PANEL_KEY}`, () => this._applyPanel());
   }
 
   override disable(): void {
-    for (const id of this._settingsIds) {
-      this.context.settings.disconnect(id);
-    }
-    this._settingsIds = [];
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
 
     this._dndOnShare?.disable();
     this._dndOnShare = null;

@@ -166,7 +166,7 @@ test('catalog — every section is declared by moduleCatalog', () => {
   for (const entry of entries) assert.ok(sections.has(entry.section), entry.key);
 });
 
-test('prefs — consumes moduleCatalog directly', () => {
+test('prefs uses the manifest-only catalog and extension uses the runtime registry', () => {
   const prefs = sourceFile('src/prefs.ts');
   const importsCatalog = prefs.statements.some(
     (statement) =>
@@ -175,6 +175,28 @@ test('prefs — consumes moduleCatalog directly', () => {
       statement.moduleSpecifier.text === '~/moduleCatalog.ts',
   );
   assert.equal(importsCatalog, true);
+  const extension = sourceFile('src/extension.ts');
+  const importsRegistry = extension.statements.some(
+    (statement) =>
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      statement.moduleSpecifier.text === '~/registry.ts',
+  );
+  assert.equal(importsRegistry, true);
+});
+
+test('moduleCatalog — does not import runtime module implementations', () => {
+  const catalogSource = sourceFile('src/moduleCatalog.ts');
+  for (const statement of catalogSource.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
+      continue;
+    if (statement.importClause?.isTypeOnly) continue;
+    const path = statement.moduleSpecifier.text;
+    assert.ok(
+      path === 'gettext' || path.endsWith('.manifest.ts'),
+      `runtime import ${path} is not allowed in moduleCatalog`,
+    );
+  }
 });
 
 test('catalog — desktop module baseline is preserved', () => {

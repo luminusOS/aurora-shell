@@ -9,7 +9,7 @@ import GWeather from 'gi://GWeather';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import type { CleanupBag } from '~/core/cleanupBag.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import { registerClockPillWidget, type ClockPillRegistration } from '~/shared/clockPill.ts';
@@ -60,7 +60,7 @@ export class WeatherClock extends Module {
   private _label: St.Label | null = null;
   private _weatherClient: WeatherClient | null = null;
   private _gweatherSettings: Gio.Settings | null = null;
-  private _cleanup: CleanupBag | null = null;
+  private _lifecycle: LifecycleScope | null = null;
   private _monitor: Gio.NetworkMonitor | null = null;
   private _snapshotsBySource = new Map<string, WeatherSnapshot>();
   private _snapshot: WeatherSnapshot | null = null;
@@ -76,19 +76,19 @@ export class WeatherClock extends Module {
 
   override enable(): void {
     this.disable();
-    this._cleanup = this.context.createCleanupBag();
+    this._lifecycle = new LifecycleScope();
     this._enabled = true;
     this._monitor = Gio.NetworkMonitor.get_default();
     this._gweatherSettings = this._createGWeatherSettings();
     if (this._gweatherSettings)
-      this._cleanup.connect(this._gweatherSettings, `changed::${TEMPERATURE_UNIT_KEY}`, () =>
+      this._lifecycle.connect(this._gweatherSettings, `changed::${TEMPERATURE_UNIT_KEY}`, () =>
         this._onWeatherChanged(),
       );
     this._installClockWidget();
     this._connectWeatherBackend();
     this._startRefreshTimer();
 
-    this._cleanup.connect(this.context.settings, `changed::${AFTER_CLOCK_KEY}`, () =>
+    this._lifecycle.connect(this.context.settings, `changed::${AFTER_CLOCK_KEY}`, () =>
       this._registerClockWidget(),
     );
   }
@@ -97,8 +97,8 @@ export class WeatherClock extends Module {
     this._enabled = false;
     this._uiAlive = false;
 
-    this._cleanup?.dispose();
-    this._cleanup = null;
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
 
     this._clearRefreshTimer();
     this._clearRetryTimer();
@@ -232,7 +232,7 @@ export class WeatherClock extends Module {
     signalName: string,
     callback: (...args: unknown[]) => void,
   ): void {
-    this._cleanup?.connect(obj, signalName, callback);
+    this._lifecycle?.connect(obj, signalName, callback);
   }
 
   private _onConnectivityChanged(): void {

@@ -33,16 +33,19 @@ type DevToolCallbacks = {
   openPreferences(): void;
 };
 
+type DevTools = {
+  general: GeneralDevTool;
+  dock: DockDevTool;
+  clipboardHistory: ClipboardHistoryDevTool;
+  trayIcons: TrayIconsDevTool;
+  weatherClock: WeatherClockDevTool;
+  meetingClock: MeetingClockDevTool;
+};
+
 export class DevTool extends Module {
   private _button: PanelMenu.Button | null = null;
   private _menuOpenStateId = 0;
-  private _generalTool: GeneralDevTool | null = null;
-  private _dockTool: DockDevTool | null = null;
-  private _clipboardHistoryTool: ClipboardHistoryDevTool | null = null;
-  private _trayIconsTool: TrayIconsDevTool | null = null;
-  private _weatherClockTool: WeatherClockDevTool | null = null;
-  private _meetingClockTool: MeetingClockDevTool | null = null;
-  private _sections: DevToolSection[] = [];
+  private _tools: DevTools | null = null;
   private _activeSectionKey = 'general';
   private _sectionDropdownOpen = false;
 
@@ -54,6 +57,8 @@ export class DevTool extends Module {
   }
 
   override enable(): void {
+    this.disable();
+
     this._button = new PanelMenu.Button(1.0, 'Aurora DevTool');
     this._button.add_child(
       new St.Icon({
@@ -63,32 +68,16 @@ export class DevTool extends Module {
       }),
     );
 
-    this._generalTool = new GeneralDevTool(() => this._callbacks.openPreferences());
-    this._dockTool = new DockDevTool(
-      (key) => this._callbacks.getModule(key),
-      () => this._rebuildMenu(),
-    );
-    this._clipboardHistoryTool = new ClipboardHistoryDevTool(
-      (key) => this._callbacks.getModule(key),
-      () => this._rebuildMenu(),
-    );
-    this._trayIconsTool = new TrayIconsDevTool(() => this._rebuildMenu());
-    this._weatherClockTool = new WeatherClockDevTool(
-      (key) => this._callbacks.getModule(key),
-      () => this._rebuildMenu(),
-    );
-    this._meetingClockTool = new MeetingClockDevTool(
-      (key) => this._callbacks.getModule(key),
-      () => this._rebuildMenu(),
-    );
-    this._sections = [
-      this._generalTool,
-      this._dockTool,
-      this._clipboardHistoryTool,
-      this._trayIconsTool,
-      this._weatherClockTool,
-      this._meetingClockTool,
-    ];
+    const getModule = (key: string) => this._callbacks.getModule(key);
+    const rebuildMenu = () => this._rebuildMenu();
+    this._tools = {
+      general: new GeneralDevTool(() => this._callbacks.openPreferences()),
+      dock: new DockDevTool(getModule, rebuildMenu),
+      clipboardHistory: new ClipboardHistoryDevTool(getModule, rebuildMenu),
+      trayIcons: new TrayIconsDevTool(rebuildMenu),
+      weatherClock: new WeatherClockDevTool(getModule, rebuildMenu),
+      meetingClock: new MeetingClockDevTool(getModule, rebuildMenu),
+    };
 
     const menu = this._getMenu();
     if (!menu) return;
@@ -104,49 +93,42 @@ export class DevTool extends Module {
   }
 
   override disable(): void {
-    for (const section of this._sections) {
+    for (const section of this._sections()) {
       section.destroy();
     }
-    this._sections = [];
-    this._generalTool = null;
-    this._dockTool = null;
-    this._clipboardHistoryTool = null;
-    this._trayIconsTool = null;
-    this._weatherClockTool = null;
-    this._meetingClockTool = null;
+    this._tools = null;
 
     if (this._menuOpenStateId && this._button) {
       this._getMenu()?.disconnect(this._menuOpenStateId);
       this._menuOpenStateId = 0;
     }
 
-    (Main.panel.statusArea as Record<string, unknown>)[DEVTOOL_ID] = null;
     this._button?.destroy();
     this._button = null;
   }
 
   get trayIconsTool(): TrayIconsDevTool | null {
-    return this._trayIconsTool;
+    return this._tools?.trayIcons ?? null;
   }
 
   get clipboardHistoryTool(): ClipboardHistoryDevTool | null {
-    return this._clipboardHistoryTool;
+    return this._tools?.clipboardHistory ?? null;
   }
 
   get generalTool(): GeneralDevTool | null {
-    return this._generalTool;
+    return this._tools?.general ?? null;
   }
 
   get dockTool(): DockDevTool | null {
-    return this._dockTool;
+    return this._tools?.dock ?? null;
   }
 
   get meetingClockTool(): MeetingClockDevTool | null {
-    return this._meetingClockTool;
+    return this._tools?.meetingClock ?? null;
   }
 
   get weatherClockTool(): WeatherClockDevTool | null {
-    return this._weatherClockTool;
+    return this._tools?.weatherClock ?? null;
   }
 
   private _rebuildMenu(): void {
@@ -238,7 +220,7 @@ export class DevTool extends Module {
         style_class: 'aurora-devtool-section-menu',
         x_expand: true,
       });
-      for (const section of this._sections) {
+      for (const section of this._sections()) {
         list.add_child(this._buildSectionOption(section));
       }
       dropdown.add_child(list);
@@ -325,7 +307,11 @@ export class DevTool extends Module {
   }
 
   private _activeSection(): DevToolSection | null {
-    return this._sections.find((section) => section.key === this._activeSectionKey) ?? null;
+    return this._sections().find((section) => section.key === this._activeSectionKey) ?? null;
+  }
+
+  private _sections(): DevToolSection[] {
+    return this._tools ? Object.values(this._tools) : [];
   }
 
   private _getMenu(): PopupMenu.PopupMenu | null {

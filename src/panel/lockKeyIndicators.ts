@@ -71,8 +71,6 @@ export class LockKeyIndicators extends Module {
       this._keymap.disconnect(this._stateChangedId);
       this._stateChangedId = 0;
     }
-
-    (Main.panel.statusArea as Record<string, unknown>)[STATUS_AREA_ID] = null;
     this._button?.destroy();
     this._button = null;
     this._capsLabel = null;
