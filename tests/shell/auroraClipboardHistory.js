@@ -240,6 +240,11 @@ export async function run() {
   if (!panel) {
     throw new Error(`"${PANEL_CSS}" did not open`);
   }
+  if (!panel.mapped || !panel._unredirectInhibitor?.inhibited) {
+    throw new Error(
+      `Mapped Clipboard panel did not inhibit unredirect: mapped=${panel.mapped} inhibited=${panel._unredirectInhibitor?.inhibited}`,
+    );
+  }
   assertPanelInsideWorkArea(panel);
   assertPanelTrackedAboveFullscreen(panel);
 
@@ -392,6 +397,9 @@ export async function run() {
   Scripting.scriptEvent('autoPasteOk');
 
   panel.close?.();
+  if (panel._unredirectInhibitor?.inhibited) {
+    throw new Error('Closed Clipboard panel retained its unredirect inhibitor');
+  }
   Scripting.scriptEvent('panelOpened');
 
   // disable again and verify no panel leaked into the scene graph

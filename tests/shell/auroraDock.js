@@ -288,10 +288,20 @@ export async function run() {
   dash.hide(false);
   if (dock.bindings[0].container.reactive)
     throw new Error('Hidden dock container is still reactive and blocks window input');
+  if (dash.mapped || dash._unredirectInhibitor?.inhibited) {
+    throw new Error(
+      `Hidden dock retained unredirect inhibition: mapped=${dash.mapped} inhibited=${dash._unredirectInhibitor?.inhibited}`,
+    );
+  }
 
   dash.show(false);
   if (!dock.bindings[0].container.reactive)
     throw new Error('Shown dock container did not restore input handling');
+  if (!dash.mapped || !dash._unredirectInhibitor?.inhibited) {
+    throw new Error(
+      `Mapped dock did not inhibit unredirect: mapped=${dash.mapped} inhibited=${dash._unredirectInhibitor?.inhibited}`,
+    );
+  }
 
   Scripting.scriptEvent('hiddenDockInputReleased');
 
@@ -688,6 +698,8 @@ export async function run() {
   const actorAfterDisable = findDockActor();
   if (actorAfterDisable)
     throw new Error('Dock actor still present in stage after module was disabled');
+  if (dash._unredirectInhibitor?.inhibited)
+    throw new Error('Destroyed dock retained its unredirect inhibitor');
 
   Scripting.scriptEvent('dockRemoved');
 
