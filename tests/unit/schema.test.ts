@@ -229,6 +229,6 @@ test('schema — Dock defaults to the primary monitor only', () => {
   assert.equal(schemaDefault('dock-show-on-all-monitors'), 'false');
 });
 
-test('schema — Dock always auto-hide is disabled by default', () => {
-  assert.equal(schemaDefault('dock-always-autohide'), 'false');
+test('schema — Dock uses always auto-hide by default', () => {
+  assert.equal(schemaDefault('dock-intellihide'), 'false');
 });

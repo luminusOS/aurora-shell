@@ -15,9 +15,9 @@ export const manifest: ModuleManifest = {
       type: 'switch',
     },
     {
-      key: 'dock-always-autohide',
-      title: _('Always Auto-Hide Dock'),
-      subtitle: _('Keep the dock hidden until the pointer reaches the screen edge'),
+      key: 'dock-intellihide',
+      title: _('Intelligent Auto-Hide Dock'),
+      subtitle: _('Keep the dock visible until a window overlaps it'),
       type: 'switch',
     },
     {

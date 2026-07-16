@@ -38,7 +38,7 @@ export class Dock extends Module {
   private _pendingRebuild = false;
   private _dockSettings: any = null;
   private _alwaysShow = false;
-  private _alwaysAutoHide = false;
+  private _intellihideEnabled = false;
   private _showOnAllMonitors = false;
   private _showTrash = true;
   private _showExternalStorage = true;
@@ -51,17 +51,17 @@ export class Dock extends Module {
     this._lifecycle = new LifecycleScope();
     this._dockSettings = this.context.settings.getRawSettings();
     this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
-    this._alwaysAutoHide = this._dockSettings?.get_boolean('dock-always-autohide') ?? false;
-    if (this._alwaysShow && this._alwaysAutoHide) {
-      this._alwaysAutoHide = false;
-      this._dockSettings?.set_boolean('dock-always-autohide', false);
+    this._intellihideEnabled = this._dockSettings?.get_boolean('dock-intellihide') ?? false;
+    if (this._alwaysShow && this._intellihideEnabled) {
+      this._intellihideEnabled = false;
+      this._dockSettings?.set_boolean('dock-intellihide', false);
     }
     this._showOnAllMonitors = this._dockSettings?.get_boolean('dock-show-on-all-monitors') ?? false;
     this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
     this._showExternalStorage =
       this._dockSettings?.get_boolean('dock-show-external-storage') ?? true;
     logger.debug(
-      `enable alwaysShow=${this._alwaysShow} alwaysAutoHide=${this._alwaysAutoHide} showOnAllMonitors=${this._showOnAllMonitors} showTrash=${this._showTrash} showExternalStorage=${this._showExternalStorage} monitors=${Main.layoutManager.monitors?.length ?? 0}`,
+      `enable alwaysShow=${this._alwaysShow} intellihide=${this._intellihideEnabled} showOnAllMonitors=${this._showOnAllMonitors} showTrash=${this._showTrash} showExternalStorage=${this._showExternalStorage} monitors=${Main.layoutManager.monitors?.length ?? 0}`,
       { prefix: LOG_PREFIX },
     );
 
@@ -98,16 +98,16 @@ export class Dock extends Module {
       'changed::dock-always-show',
       () => {
         this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
-        if (this._alwaysShow && this._alwaysAutoHide) {
-          this._dockSettings?.set_boolean('dock-always-autohide', false);
+        if (this._alwaysShow && this._intellihideEnabled) {
+          this._dockSettings?.set_boolean('dock-intellihide', false);
           return;
         }
         this._rebuildBindings();
       },
-      'changed::dock-always-autohide',
+      'changed::dock-intellihide',
       () => {
-        this._alwaysAutoHide = this._dockSettings?.get_boolean('dock-always-autohide') ?? false;
-        if (this._alwaysAutoHide && this._alwaysShow) {
+        this._intellihideEnabled = this._dockSettings?.get_boolean('dock-intellihide') ?? false;
+        if (this._intellihideEnabled && this._alwaysShow) {
           this._dockSettings?.set_boolean('dock-always-show', false);
           return;
         }
@@ -155,8 +155,8 @@ export class Dock extends Module {
     return this.context.settings.getBoolean('dock-always-show');
   }
 
-  get alwaysAutoHide(): boolean {
-    return this.context.settings.getBoolean('dock-always-autohide');
+  get intellihideEnabled(): boolean {
+    return this.context.settings.getBoolean('dock-intellihide');
   }
 
   toggleAlwaysShow(): boolean {
@@ -252,9 +252,9 @@ export class Dock extends Module {
   private _createBinding(monitor: DashBounds, monitorIndex: number): ManagedDockBinding | null {
     const mode = this._alwaysShow
       ? 'always-show'
-      : this._alwaysAutoHide
-        ? 'always-autohide'
-        : 'intellihide';
+      : this._intellihideEnabled
+        ? 'intellihide'
+        : 'always-autohide';
     // In always-show mode the strutActor must be added to uiGroup BEFORE the
     // container. Both are inserted via addChrome (→ uiGroup.add_child), so the
     // one added first sits lower in Z-order. The DnD system uses PickMode.ALL
@@ -316,7 +316,7 @@ export class Dock extends Module {
     } else {
       binding.hotArea = this._createHotArea(binding, monitor);
 
-      if (this._alwaysAutoHide) {
+      if (!this._intellihideEnabled) {
         dash.forceAutoHide(false);
         this._enableHotAreaWhenDockHidden(binding);
         return binding;
@@ -636,11 +636,11 @@ export class Dock extends Module {
         this._updateWorkArea(binding);
         if (this._alwaysShow) {
           binding.dash.blockAutoHide(true);
-        } else if (this._alwaysAutoHide) {
+        } else if (this._intellihideEnabled) {
+          binding.intellihide?.refresh('overview-hidden', true);
+        } else {
           binding.dash.forceAutoHide(false);
           this._enableHotAreaWhenDockHidden(binding);
-        } else {
-          binding.intellihide?.refresh('overview-hidden', true);
         }
       }
     });

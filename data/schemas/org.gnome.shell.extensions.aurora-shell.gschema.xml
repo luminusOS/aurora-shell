@@ -76,10 +76,10 @@
       <summary>Always show dock</summary>
       <description>Keep the dock permanently visible and reserve screen space so windows never overlap it</description>
     </key>
-    <key name="dock-always-autohide" type="b">
+    <key name="dock-intellihide" type="b">
       <default>false</default>
-      <summary>Always auto-hide dock</summary>
-      <description>Keep the dock hidden until the pointer reaches the screen edge, regardless of window overlap</description>
+      <summary>Use intelligent dock auto-hide</summary>
+      <description>Keep the dock visible until a window overlaps its screen space</description>
     </key>
     <key name="dock-show-on-all-monitors" type="b">
       <default>false</default>

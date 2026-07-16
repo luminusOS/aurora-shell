@@ -138,12 +138,12 @@ export async function run() {
   const originalShowTrash = settings.get_boolean('dock-show-trash');
   const originalShowExternalStorage = settings.get_boolean('dock-show-external-storage');
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
-  const originalAlwaysAutoHide = settings.get_boolean('dock-always-autohide');
+  const originalIntellihide = settings.get_boolean('dock-intellihide');
   const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
   settings.set_boolean('dock-show-trash', true);
   settings.set_boolean('dock-show-external-storage', false);
   settings.set_boolean('dock-always-show', false);
-  settings.set_boolean('dock-always-autohide', false);
+  settings.set_boolean('dock-intellihide', true);
   settings.set_boolean('dock-show-on-all-monitors', false);
 
   await Scripting.waitLeisure();
@@ -754,7 +754,7 @@ export async function run() {
 
   // Always auto-hide must bypass intellihide completely: with no overlap
   // decision involved, it starts hidden and only appears through the hot area.
-  settings.set_boolean('dock-always-autohide', true);
+  settings.set_boolean('dock-intellihide', false);
   await Scripting.waitLeisure();
   await Scripting.sleep(400);
   const alwaysAutoHideBinding = dock.bindings.find(
@@ -804,7 +804,7 @@ export async function run() {
   settings.set_boolean('dock-show-trash', originalShowTrash);
   settings.set_boolean('dock-show-external-storage', originalShowExternalStorage);
   settings.set_boolean('dock-always-show', originalAlwaysShow);
-  settings.set_boolean('dock-always-autohide', originalAlwaysAutoHide);
+  settings.set_boolean('dock-intellihide', originalIntellihide);
   settings.set_boolean('dock-show-on-all-monitors', originalShowOnAllMonitors);
   settings.set_boolean('module-dock', originalValue);
   await Scripting.waitLeisure();
