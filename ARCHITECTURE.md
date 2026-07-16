@@ -58,6 +58,7 @@ src/
   moduleManager.ts      Runtime lifecycle and reconciliation
   registry.ts           Manifest-to-factory association
   core/                  Context, LifecycleScope, settings, and logging
+  capture/               In-capture annotation toolbar and canvas, annotated export, and local OCR
   device/                Reactive detection plus pure classification
   clipboard/             Clipboard history module and UI
   desktop/               Desktop-only modules such as tray icons
@@ -70,7 +71,8 @@ src/
 ```
 
 Complex Shell widgets keep pure calculations in Shell-free files where useful. Current examples
-include device classification, Dash layout, monitor topology, tray state, and clock presentation.
+include device classification, screenshot/OCR geometry, Dash layout, monitor topology, tray state,
+and clock presentation.
 
 ## Adding A Module
 

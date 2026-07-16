@@ -2,6 +2,11 @@ import type Shell from '@girs/shell-18';
 import '@girs/gnome-shell/extensions/global';
 
 declare global {
+  // GJS ESM modules expose import.meta.url (the file:// URI of the current module)
+  interface ImportMeta {
+    url: string;
+  }
+
   /**
    * Global instance of shell.
    * Provides access to stage, display, window manager, etc.
@@ -9,11 +14,6 @@ declare global {
    * @see https://gjs-docs.gnome.org/shell17~17/shell.global
    */
   const global: Shell.Global;
-}
-
-// GJS ESM modules expose import.meta.url (the file:// URI of the current module)
-interface ImportMeta {
-  url: string;
 }
 
 declare global {

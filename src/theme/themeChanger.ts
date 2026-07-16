@@ -1,5 +1,5 @@
 import '@girs/gjs';
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';

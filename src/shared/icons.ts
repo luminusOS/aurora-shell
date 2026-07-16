@@ -3,6 +3,11 @@ import St from '@girs/st-18';
 
 let defaultLoader: IconThemeLoader | null = null;
 
+export type CreateIconOptions = Omit<
+  Partial<St.Icon.ConstructorProps>,
+  'gicon' | 'icon_name' | 'iconName'
+>;
+
 export function initIcons(extensionPath: string): void {
   const iconDir = Gio.File.new_for_path(extensionPath).get_child('icons') as Gio.File;
   defaultLoader = new IconThemeLoader(iconDir);
@@ -41,23 +46,34 @@ export class IconThemeLoader {
   }
 }
 
+function isIconPath(source: string): boolean {
+  return (
+    source.startsWith('/') ||
+    source.startsWith('./') ||
+    source.startsWith('../') ||
+    source.startsWith('file://')
+  );
+}
+
+function loadFileIcon(source: string): Gio.Icon {
+  const file = source.startsWith('file://')
+    ? Gio.File.new_for_uri(source)
+    : Gio.File.new_for_path(source);
+  return file.query_exists(null)
+    ? new Gio.FileIcon({ file })
+    : Gio.Icon.new_for_string('image-missing-symbolic');
+}
+
 /**
- * Loads a Gio.Icon from either a bundled extension icon name or a file path.
+ * Resolves an icon by theme name or explicit file path.
  *
- * - Icon name (e.g. 'volume-mixer-symbolic'): searches the extension's
- * icons directory in order, falling back to a system themed icon with
- * that name if none is found.
- *
- * - File path (starts with '/'): loads the icon directly from disk.
+ * Prefer names such as `volume-mixer-symbolic`: they automatically search
+ * Aurora's bundled hicolor icons and then the current system theme. Absolute
+ * paths, explicit relative paths and file:// URIs remain available for assets
+ * that cannot participate in an icon theme.
  */
 export function loadIcon(nameOrPath: string): Gio.Icon {
-  if (nameOrPath.startsWith('/')) {
-    const file = Gio.File.new_for_path(nameOrPath);
-    if (file.query_exists(null)) {
-      return new Gio.FileIcon({ file });
-    }
-    return Gio.Icon.new_for_string('image-missing-symbolic');
-  }
+  if (isIconPath(nameOrPath)) return loadFileIcon(nameOrPath);
 
   try {
     if (!defaultLoader) throw new Error('Icons not initialized');
@@ -65,4 +81,17 @@ export function loadIcon(nameOrPath: string): Gio.Icon {
   } catch (_e) {
     return Gio.Icon.new_for_string(nameOrPath);
   }
+}
+
+/**
+ * Creates an St.Icon using Aurora's bundled hicolor theme with the system theme
+ * as fallback. Additional St.Icon constructor properties can override the
+ * default 16px size, but not the resolved icon itself.
+ */
+export function createIcon(nameOrPath: string, options: CreateIconOptions = {}): St.Icon {
+  return new St.Icon({
+    icon_size: 16,
+    ...options,
+    gicon: loadIcon(nameOrPath),
+  });
 }

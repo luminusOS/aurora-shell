@@ -1,5 +1,5 @@
 import '@girs/gjs';
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 import Clutter from '@girs/clutter-18';
 import Gio from '@girs/gio-2.0';
@@ -14,7 +14,7 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import { loadIcon } from '~/shared/icons.ts';
+import { createIcon, loadIcon } from '~/shared/icons.ts';
 import {
   decodeXml,
   parseCustomCommand,
@@ -91,7 +91,7 @@ export class AuroraMenu extends Module {
 
     this._button = new PanelMenu.Button(0.0, 'Aurora Menu');
     this._button.add_style_class_name('aurora-menu-button');
-    this._panelIcon = new St.Icon({
+    this._panelIcon = createIcon('aurora-shell-menu-symbolic', {
       style_class: 'system-status-icon aurora-menu-panel-icon',
     });
     this._syncPanelIcon();

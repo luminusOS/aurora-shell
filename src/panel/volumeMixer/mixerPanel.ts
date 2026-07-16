@@ -1,5 +1,5 @@
 import '@girs/gjs';
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';

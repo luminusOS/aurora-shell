@@ -27,6 +27,7 @@ export function init() {
   Scripting.defineScriptEvent('extensionEnabled', 'Extension enabled');
   Scripting.defineScriptEvent('devToolAbsent', 'DevTool absent without AURORA_DEVTOOLS');
   Scripting.defineScriptEvent('devToolFound', 'DevTool found with AURORA_DEVTOOLS');
+  Scripting.defineScriptEvent('captureToolPassed', 'Capture Tool DevTool actions passed');
   Scripting.defineScriptEvent('clipboardToolPassed', 'Clipboard History DevTool actions passed');
   Scripting.defineScriptEvent('trayIconsToolPassed', 'Tray Icons DevTool actions passed');
   Scripting.defineScriptEvent('weatherClockToolPassed', 'Weather Clock DevTool actions passed');
@@ -67,6 +68,47 @@ export async function run() {
   if (!devTool) throw new Error('DevTool instance not found on extension state object');
 
   if (!devTool.generalTool) throw new Error('General DevTool section not found');
+
+  settings.set_boolean('module-capture-tools', true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(500);
+
+  const captureTool = devTool.captureToolsTool;
+  if (!captureTool) throw new Error('Capture Tool DevTool section not found');
+  if (!(await captureTool.openPreview()))
+    throw new Error('Capture Tool DevTool did not open the capture preview');
+  await Scripting.sleep(300);
+  if (!captureTool.state?.captureVisible || !captureTool.state.toolbarVisible)
+    throw new Error('Capture Tool DevTool preview is not visible');
+  if (!captureTool.cycleTool()) throw new Error('Capture Tool DevTool did not change tool');
+  if (!captureTool.cycleColor()) throw new Error('Capture Tool DevTool did not change color');
+  if (!captureTool.cycleWidth()) throw new Error('Capture Tool DevTool did not change width');
+  if (!captureTool.toggleInteraction('selection'))
+    throw new Error('Capture Tool DevTool did not simulate selection movement');
+  await Scripting.sleep(250);
+  if (captureTool.state?.interaction !== 'selection' || captureTool.state.controlsOpacity !== 100)
+    throw new Error('Capture Tool selection simulation did not make controls translucent');
+  if (!captureTool.toggleInteraction('drawing'))
+    throw new Error('Capture Tool DevTool did not simulate drawing');
+  await Scripting.sleep(250);
+  if (captureTool.state?.interaction !== 'drawing' || captureTool.state.controlsOpacity !== 100)
+    throw new Error('Capture Tool drawing simulation did not keep controls translucent');
+  if (!captureTool.setTesseractAvailable(false) || captureTool.state?.ocrAvailable !== false)
+    throw new Error('Capture Tool DevTool did not simulate unavailable Tesseract');
+  if (!captureTool.setTesseractAvailable(true) || captureTool.state?.ocrAvailable !== true)
+    throw new Error('Capture Tool DevTool did not simulate available Tesseract');
+  if (!captureTool.injectOcr() || !captureTool.state?.ocrHasResult)
+    throw new Error('Capture Tool DevTool did not inject an OCR result');
+  if (!captureTool.state.searchUri?.includes('Aurora%20simulated%20OCR%20result'))
+    throw new Error('Capture Tool DevTool did not expose the simulated OCR search URI');
+  if (!captureTool.copyOcr()) throw new Error('Capture Tool DevTool did not copy simulated OCR');
+  if (!captureTool.clearAnnotations())
+    throw new Error('Capture Tool DevTool did not clear annotations');
+  if (!captureTool.reset()) throw new Error('Capture Tool DevTool did not reset its state');
+  if (captureTool.state?.interaction !== 'idle' || captureTool.state.ocrAvailabilityOverridden)
+    throw new Error('Capture Tool DevTool reset left simulated state active');
+  Main.screenshotUI.close(true);
+  Scripting.scriptEvent('captureToolPassed');
 
   settings.set_boolean('module-clipboard-history', true);
   await Scripting.waitLeisure();
@@ -278,6 +320,7 @@ export async function run() {
 let _extensionEnabled = false;
 let _devToolAbsent = false;
 let _devToolFound = false;
+let _captureToolPassed = false;
 let _clipboardToolPassed = false;
 let _trayIconsToolPassed = false;
 let _weatherClockToolPassed = false;
@@ -297,6 +340,11 @@ export function script_devToolAbsent() {
 /** @returns {void} */
 export function script_devToolFound() {
   _devToolFound = true;
+}
+
+/** @returns {void} */
+export function script_captureToolPassed() {
+  _captureToolPassed = true;
 }
 
 /** @returns {void} */
@@ -330,6 +378,7 @@ export function finish() {
 
   if (GLib.getenv('AURORA_DEVTOOLS') === '1') {
     if (!_devToolFound) throw new Error('DevTool was not found with AURORA_DEVTOOLS=1');
+    if (!_captureToolPassed) throw new Error('Capture Tool DevTool actions did not complete');
     if (!_clipboardToolPassed)
       throw new Error('Clipboard History DevTool actions did not complete');
     if (!_trayIconsToolPassed) throw new Error('Tray Icons DevTool actions did not complete');

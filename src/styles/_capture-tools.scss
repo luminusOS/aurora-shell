@@ -1,0 +1,86 @@
+.capture-tools-toolbar {
+  spacing: 8px;
+  margin-top: 12px;
+  padding: 6px;
+  border-radius: 9999px;
+}
+
+.capture-tools-button {
+  min-width: 32px;
+  max-width: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  padding: 0;
+  border-radius: 9999px;
+  background-color: transparent;
+}
+
+.capture-tools-button:checked {
+  background-color: #48484b;
+}
+
+.capture-tools-button:hover,
+.capture-tools-button:focus {
+  background-color: #515155;
+}
+
+.capture-tools-button:active {
+  background-color: #67676c;
+}
+
+.capture-tools-drag-handle:hover {
+  background-color: transparent;
+}
+
+.capture-tools-ring-button {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  max-width: 24px;
+  max-height: 24px;
+  padding: 1px;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-color: transparent;
+}
+
+.capture-tools-ring-button:checked {
+  box-shadow: none;
+}
+
+.capture-tools-swatch {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  max-width: 18px;
+  max-height: 18px;
+  border-radius: 9999px;
+}
+
+.capture-tools-separator {
+  width: 1px;
+  margin: 4px;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.capture-tools-width-slider {
+  width: 80px;
+}
+
+.capture-tools-ocr-panel {
+  spacing: 4px;
+  padding: 6px;
+  border-radius: 9999px;
+}
+
+.capture-tools-text-entry {
+  width: 240px;
+  padding: 7px 10px;
+  border: 2px solid -st-accent-color;
+  border-radius: 5px;
+  color: white;
+  background-color: rgba(28, 30, 34, 0.96);
+  box-shadow: none;
+}

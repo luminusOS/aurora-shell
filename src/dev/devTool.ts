@@ -9,9 +9,10 @@ import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
-import { loadIcon } from '~/shared/icons.ts';
+import { createIcon } from '~/shared/icons.ts';
 
 import { ClipboardHistoryDevTool } from './clipboardHistoryDevTool.ts';
+import { CaptureToolsDevTool } from './captureToolsDevTool.ts';
 import { DockDevTool } from './dockDevTool.ts';
 import { GeneralDevTool } from './generalDevTool.ts';
 import { MeetingClockDevTool } from './meetingClockDevTool.ts';
@@ -35,6 +36,7 @@ type DevToolCallbacks = {
 
 type DevTools = {
   general: GeneralDevTool;
+  captureTools: CaptureToolsDevTool;
   dock: DockDevTool;
   clipboardHistory: ClipboardHistoryDevTool;
   trayIcons: TrayIconsDevTool;
@@ -61,8 +63,7 @@ export class DevTool extends Module {
 
     this._button = new PanelMenu.Button(1.0, 'Aurora DevTool');
     this._button.add_child(
-      new St.Icon({
-        gicon: loadIcon('applications-engineering-symbolic'),
+      createIcon('applications-engineering-symbolic', {
         icon_size: 16,
         style_class: 'system-status-icon',
       }),
@@ -72,6 +73,7 @@ export class DevTool extends Module {
     const rebuildMenu = () => this._rebuildMenu();
     this._tools = {
       general: new GeneralDevTool(() => this._callbacks.openPreferences()),
+      captureTools: new CaptureToolsDevTool(getModule, rebuildMenu),
       dock: new DockDevTool(getModule, rebuildMenu),
       clipboardHistory: new ClipboardHistoryDevTool(getModule, rebuildMenu),
       trayIcons: new TrayIconsDevTool(rebuildMenu),
@@ -113,6 +115,10 @@ export class DevTool extends Module {
 
   get clipboardHistoryTool(): ClipboardHistoryDevTool | null {
     return this._tools?.clipboardHistory ?? null;
+  }
+
+  get captureToolsTool(): CaptureToolsDevTool | null {
+    return this._tools?.captureTools ?? null;
   }
 
   get generalTool(): GeneralDevTool | null {
@@ -159,8 +165,7 @@ export class DevTool extends Module {
     });
 
     header.add_child(
-      new St.Icon({
-        gicon: loadIcon('applications-engineering-symbolic'),
+      createIcon('applications-engineering-symbolic', {
         icon_size: 18,
         style_class: 'aurora-devtool-header-icon',
       }),

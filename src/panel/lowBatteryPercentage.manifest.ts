@@ -1,4 +1,4 @@
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 import type { ModuleManifest } from '~/module.ts';
 
 export const manifest: ModuleManifest = {
@@ -6,5 +6,5 @@ export const manifest: ModuleManifest = {
   settingsKey: 'module-low-battery-percentage',
   section: 'dock-panel',
   title: _('Low Battery Percentage'),
-  subtitle: _('Shows battery percentage in the panel while below 20%'),
+  subtitle: _('Shows battery percentage in the panel while below 30%'),
 };

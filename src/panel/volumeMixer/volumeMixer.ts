@@ -1,5 +1,5 @@
 import '@girs/gjs';
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 import St from '@girs/st-18';
 import Gio from '@girs/gio-2.0';
@@ -15,7 +15,7 @@ import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import { attachToQuickSettings } from '~/shared/quickSettings.ts';
 import { VolumeMixerPanel } from '~/panel/volumeMixer/mixerPanel.ts';
-import { loadIcon } from '~/shared/icons.ts';
+import { createIcon } from '~/shared/icons.ts';
 
 const LOG_PREFIX = 'VolumeMixer';
 
@@ -119,7 +119,7 @@ export class VolumeMixer extends Module {
     this._settingsSection.box.hide();
 
     this._toggleButton = new St.Button({
-      child: new St.Icon({ gicon: loadIcon('volume-mixer-symbolic') }),
+      child: createIcon('volume-mixer-symbolic'),
       style_class: 'icon-button flat',
       can_focus: true,
       x_expand: false,

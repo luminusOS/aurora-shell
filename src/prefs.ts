@@ -6,13 +6,15 @@ import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 import Gtk from '@girs/gtk-4.0';
 
-import { ExtensionPreferences, gettext as _ } from '@girs/gnome-shell/extensions/prefs';
+import { ExtensionPreferences } from '@girs/gnome-shell/extensions/prefs';
 import {
   getModuleCatalog,
   getSections,
   type ModuleManifest,
   type ModuleOption,
 } from '~/moduleCatalog.ts';
+import { buildCommandListRow } from '~/preferences/commandListEditor.ts';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 const OTHER_SECTION_ID = '__other__';
 const LOGO_FILENAME = 'aurora-shell-logo.svg';
@@ -220,72 +222,42 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
         expander.add_row(
           this._buildShortcutRow(option.key!, option.title, option.subtitle, settings),
         );
+      } else if (option.type === 'select') {
+        expander.add_row(this._buildSelectRow(option, settings));
       } else if (option.type === 'icon-select') {
         expander.add_row(this._buildIconSelectRow(option, settings));
       } else if (option.type === 'command-list') {
-        expander.add_row(
-          this._buildCommandListRow(option.key!, option.title, option.subtitle, settings),
-        );
+        expander.add_row(buildCommandListRow(option.key!, option.title, option.subtitle, settings));
       }
     }
 
     return expander;
   }
 
-  private _buildCommandListRow(
-    key: string,
-    title: string,
-    subtitle: string,
-    settings: Gio.Settings,
-  ): Adw.ActionRow {
-    const row = new Adw.ActionRow({ title, subtitle });
-    const textView = new Gtk.TextView({
-      monospace: true,
-      wrap_mode: Gtk.WrapMode.NONE,
-      accepts_tab: false,
-      top_margin: 6,
-      bottom_margin: 6,
-      left_margin: 6,
-      right_margin: 6,
+  private _buildSelectRow(option: ModuleOption, settings: Gio.Settings): Adw.ComboRow {
+    const choices = option.choices ?? [];
+    const row = new Adw.ComboRow({
+      title: option.title,
+      subtitle: option.subtitle,
+      model: Gtk.StringList.new(choices.map((choice) => choice.title)),
     });
-    textView.set_size_request(320, 96);
-
-    const scrolled = new Gtk.ScrolledWindow({
-      min_content_height: 96,
-      max_content_height: 160,
-      hexpand: true,
-      vexpand: false,
-      valign: Gtk.Align.CENTER,
-    });
-    scrolled.set_child(textView);
-
-    const buffer = textView.buffer;
     let syncing = false;
 
-    const syncText = () => {
+    const syncSelection = () => {
+      const current = settings.get_string(option.key!);
+      const selected = choices.findIndex((choice) => choice.value === current);
       syncing = true;
-      buffer.set_text(settings.get_strv(key).join('\n'), -1);
+      row.selected = selected >= 0 ? selected : 0;
       syncing = false;
     };
 
-    buffer.connect('changed', () => {
+    row.connect('notify::selected', () => {
       if (syncing) return;
-
-      const start = buffer.get_start_iter();
-      const end = buffer.get_end_iter();
-      const lines = buffer
-        .get_text(start, end, false)
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-
-      settings.set_strv(key, lines);
+      const choice = choices[row.selected];
+      if (choice) settings.set_string(option.key!, choice.value);
     });
-
-    settings.connect(`changed::${key}`, syncText);
-    syncText();
-
-    row.add_suffix(scrolled);
+    settings.connect(`changed::${option.key!}`, syncSelection);
+    syncSelection();
     return row;
   }
 

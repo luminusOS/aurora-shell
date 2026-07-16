@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-07-15 21:17-0300\n"
-"PO-Revision-Date: 2026-03-09 18:00-0300\n"
+"POT-Creation-Date: 2026-07-16 13:57-0300\n"
+"PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
 "Language: pt_BR\n"
@@ -15,6 +15,180 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: dist/capture/captureTools.js:39
+msgid "Selection"
+msgstr "Seleção"
+
+#: dist/capture/captureTools.js:40
+msgid "Pointer"
+msgstr "Ponteiro"
+
+#: dist/capture/captureTools.js:41
+msgid "Freehand"
+msgstr "Desenho livre"
+
+#: dist/capture/captureTools.js:42
+msgid "Rectangle"
+msgstr "Retângulo"
+
+#: dist/capture/captureTools.js:43
+msgid "Solid rectangle"
+msgstr "Retângulo preenchido"
+
+#: dist/capture/captureTools.js:44
+msgid "Highlighter"
+msgstr "Marca-texto"
+
+#: dist/capture/captureTools.js:45
+msgid "Arrow"
+msgstr "Seta"
+
+#: dist/capture/captureTools.js:46
+msgid "Text"
+msgstr "Texto"
+
+#: dist/capture/captureTools.js:47
+msgid "Numbered marker"
+msgstr "Marcador numerado"
+
+#: dist/capture/captureTools.js:111 dist/capture/captureTools.js:344
+msgid "Extract text"
+msgstr "Extrair texto"
+
+#: dist/capture/captureTools.js:264
+msgid "Screenshot failed"
+msgstr "Falha na captura de tela"
+
+#: dist/capture/captureTools.js:264
+msgid "Could not export the annotated screenshot"
+msgstr "Não foi possível exportar a captura de tela anotada"
+
+#: dist/capture/captureTools.js:279
+msgid "Move toolbar"
+msgstr "Mover barra de ferramentas"
+
+#: dist/capture/captureTools.js:303
+msgid "Annotation color"
+msgstr "Cor da anotação"
+
+#: dist/capture/captureTools.js:319
+msgid "Annotation width"
+msgstr "Espessura da anotação"
+
+#: dist/capture/captureTools.js:331
+msgid "Undo"
+msgstr "Desfazer"
+
+#: dist/capture/captureTools.js:334
+msgid "Clear annotations"
+msgstr "Limpar anotações"
+
+#: dist/capture/captureTools.js:358 dist/capture/captureTools.js:362
+msgid "Copy text"
+msgstr "Copiar texto"
+
+#: dist/capture/captureTools.js:363 dist/capture/captureTools.js:367
+msgid "Search the web"
+msgstr "Pesquisar na web"
+
+#: dist/capture/captureTools.js:478
+msgid "Type annotation text"
+msgstr "Digite o texto da anotação"
+
+#: dist/capture/captureTools.js:520 dist/capture/captureTools.js:551
+#: dist/capture/captureTools.js:574
+msgid "OCR"
+msgstr "OCR"
+
+#: dist/capture/captureTools.js:520
+msgid "No text found in the screenshot"
+msgstr "Nenhum texto encontrado na captura de tela"
+
+#: dist/capture/captureTools.js:534
+msgid "OCR unavailable"
+msgstr "OCR indisponível"
+
+#: dist/capture/captureTools.js:534
+msgid "Tesseract OCR and language data are not installed"
+msgstr "O Tesseract OCR e os dados de idioma não estão instalados"
+
+#: dist/capture/captureTools.js:537
+msgid "OCR failed"
+msgstr "Falha no OCR"
+
+#: dist/capture/captureTools.js:537
+msgid "Text recognition failed"
+msgstr "Falha no reconhecimento de texto"
+
+#: dist/capture/captureTools.js:551
+msgid "Recognized text copied"
+msgstr "Texto reconhecido copiado"
+
+#: dist/capture/captureTools.js:574
+msgid "Could not open the web search"
+msgstr "Não foi possível abrir a pesquisa na web."
+
+#: dist/capture/captureTools.manifest.js:8
+msgid "Capture Tools"
+msgstr "Ferramentas de captura"
+
+#: dist/capture/captureTools.manifest.js:9
+msgid "Show annotation tools when the screenshot interface opens"
+msgstr "Mostra ferramentas de anotação ao abrir a interface de captura de tela"
+
+#: dist/capture/captureTools.manifest.js:13
+msgid "Optical character recognition"
+msgstr "Reconhecimento óptico de caracteres"
+
+#: dist/capture/captureTools.manifest.js:14
+msgid "Show a local Tesseract OCR action beside the pointer control"
+msgstr ""
+"Mostra uma ação local de OCR com Tesseract ao lado do controle do ponteiro"
+
+#: dist/capture/captureTools.manifest.js:19
+msgid "OCR languages"
+msgstr "Idiomas do OCR"
+
+#: dist/capture/captureTools.manifest.js:20
+msgid ""
+"Tesseract language codes separated by +; leave empty for system language"
+msgstr ""
+"Códigos de idioma do Tesseract separados por +; deixe vazio para usar o "
+"idioma do sistema"
+
+#: dist/capture/captureTools.manifest.js:25
+msgid "Web search engine"
+msgstr "Mecanismo de pesquisa na web"
+
+#: dist/capture/captureTools.manifest.js:26
+msgid "Choose the service used to search recognized text"
+msgstr "Escolha o serviço usado para pesquisar o texto reconhecido"
+
+#: dist/capture/captureTools.manifest.js:29
+msgid "Google"
+msgstr "Google"
+
+#: dist/capture/captureTools.manifest.js:30
+msgid "DuckDuckGo"
+msgstr "DuckDuckGo"
+
+#: dist/capture/captureTools.manifest.js:31
+msgid "Bing"
+msgstr "Bing"
+
+#: dist/capture/screenshotCapture.js:23
+msgid "Screenshot taken"
+msgstr "Captura de tela realizada"
+
+#: dist/capture/screenshotCapture.js:204
+msgid "Screenshots"
+msgstr "Capturas de tela"
+
+#: dist/capture/screenshotCapture.js:212
+#, javascript-format
+msgid "Screenshot From %s"
+msgstr "Captura de tela de %s"
 
 #: dist/clipboard/clipboardHistory.manifest.js:8
 msgid "Clipboard History"
@@ -246,19 +420,19 @@ msgstr "Lixeira"
 msgid "Empty Trash"
 msgstr "Esvaziar lixeira"
 
-#: dist/moduleCatalog.js:26
+#: dist/moduleCatalog.js:27
 msgid "Dock &amp; Panel"
 msgstr "Dock e painel"
 
-#: dist/moduleCatalog.js:27
+#: dist/moduleCatalog.js:28
 msgid "Appearance"
 msgstr "Aparência"
 
-#: dist/moduleCatalog.js:28
+#: dist/moduleCatalog.js:29
 msgid "Behavior"
 msgstr "Comportamento"
 
-#: dist/moduleCatalog.js:29
+#: dist/moduleCatalog.js:30
 msgid "Privacy &amp; Clipboard"
 msgstr "Privacidade e área de transferência"
 
@@ -408,8 +582,8 @@ msgid "Custom Menu Commands"
 msgstr "Comandos de menu personalizados"
 
 #: dist/panel/auroraMenu.manifest.js:84
-msgid "One command per line, using “Label | command”"
-msgstr "Um comando por linha, usando “Rótulo | comando”"
+msgid "Add shortcuts that run commands from Aurora Menu"
+msgstr "Adicione atalhos que executam comandos pelo Menu Aurora"
 
 #: dist/panel/bluetoothMenu/bluetoothMenu.manifest.js:8
 msgid "Bluetooth Menu"
@@ -543,9 +717,9 @@ msgid "Low Battery Percentage"
 msgstr "Porcentagem de bateria baixa"
 
 #: dist/panel/lowBatteryPercentage.manifest.js:9
-msgid "Shows battery percentage in the panel while below 20%"
+msgid "Shows battery percentage in the panel while below 30%"
 msgstr ""
-"Mostra a porcentagem da bateria no painel enquanto estiver abaixo de 20%"
+"Mostra a porcentagem da bateria no painel enquanto estiver abaixo de 30%"
 
 #: dist/panel/volumeMixer/mixerItem.js:94
 msgid "Unknown"
@@ -652,27 +826,117 @@ msgstr "Indicador XWayland"
 msgid "Shows an X11 badge on XWayland apps in the Alt+Tab switcher"
 msgstr "Mostra um emblema X11 em aplicativos XWayland no alternador Alt+Tab"
 
-#: dist/prefs.js:22
+#: dist/preferences/commandListEditor.js:28
+msgid "Manage Commands"
+msgstr "Gerenciar comandos"
+
+#: dist/preferences/commandListEditor.js:39
+msgid "No custom commands"
+msgstr "Nenhum comando personalizado"
+
+#: dist/preferences/commandListEditor.js:42
+#, javascript-format
+msgid "%d custom command"
+msgid_plural "%d custom commands"
+msgstr[0] "%d comando personalizado"
+msgstr[1] "%d comandos personalizados"
+
+#: dist/preferences/commandListEditor.js:59
+msgid "Menu Commands"
+msgstr "Comandos do menu"
+
+#: dist/preferences/commandListEditor.js:63
+#: dist/preferences/commandListEditor.js:203
+msgid "Add Command"
+msgstr "Adicionar comando"
+
+#: dist/preferences/commandListEditor.js:75
+msgid "No commands yet"
+msgstr "Nenhum comando ainda"
+
+#: dist/preferences/commandListEditor.js:76
+msgid "Use Add Command to create a shortcut in Aurora Menu"
+msgstr "Use Adicionar comando para criar um atalho no Menu Aurora"
+
+#: dist/preferences/commandListEditor.js:120
+msgid "Move Up"
+msgstr "Mover para cima"
+
+#: dist/preferences/commandListEditor.js:121
+msgid "Move Down"
+msgstr "Mover para baixo"
+
+#: dist/preferences/commandListEditor.js:122
+#: dist/preferences/commandListEditor.js:203
+msgid "Edit Command"
+msgstr "Editar comando"
+
+#: dist/preferences/commandListEditor.js:123
+msgid "Remove Command"
+msgstr "Remover comando"
+
+#: dist/preferences/commandListEditor.js:142
+msgid "Name"
+msgstr "Nome"
+
+#: dist/preferences/commandListEditor.js:147
+msgid "Command"
+msgstr "Comando"
+
+#: dist/preferences/commandListEditor.js:164
+msgid "The name cannot contain “|”"
+msgstr "O nome não pode conter “|”"
+
+#: dist/preferences/commandListEditor.js:179
+msgid "Choose the name shown in Aurora Menu and the command to run."
+msgstr "Escolha o nome exibido no Menu Aurora e o comando a ser executado."
+
+#: dist/preferences/commandListEditor.js:190
+msgid "Save"
+msgstr "Salvar"
+
+#: dist/preferences/commandListEditor.js:190
+msgid "Add"
+msgstr "Adicionar"
+
+#: dist/preferences/commandListEditor.js:239
+msgid "Remove Command?"
+msgstr "Remover comando?"
+
+#: dist/preferences/commandListEditor.js:240
+#, javascript-format
+msgid "“%s” will be removed from Aurora Menu."
+msgstr "“%s” será removido do Menu Aurora."
+
+#: dist/preferences/commandListEditor.js:245
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: dist/preferences/commandListEditor.js:246
+msgid "Remove"
+msgstr "Remover"
+
+#: dist/prefs.js:20
 msgid "General"
 msgstr "Geral"
 
-#: dist/prefs.js:26
+#: dist/prefs.js:24
 msgid "Other"
 msgstr "Outros"
 
-#: dist/prefs.js:49
+#: dist/prefs.js:47
 msgid "Aurora Shell logo"
 msgstr "Logo do Aurora Shell"
 
-#: dist/prefs.js:70
+#: dist/prefs.js:68
 msgid "Access website"
 msgstr "Acessar website"
 
-#: dist/prefs.js:328 dist/prefs.js:362 dist/prefs.js:369 dist/prefs.js:379
+#: dist/prefs.js:307 dist/prefs.js:341 dist/prefs.js:348 dist/prefs.js:358
 msgid "Disabled"
 msgstr "Desativado"
 
-#: dist/prefs.js:357
+#: dist/prefs.js:336
 msgid "Press a shortcut…"
 msgstr "Pressione um atalho…"
 
@@ -736,20 +1000,17 @@ msgstr "Alternador de Tema"
 msgid "Monitors and synchronizes GNOME color scheme"
 msgstr "Monitora e sincroniza o esquema de cores do GNOME"
 
-#~ msgid "Keep the dock hidden until the pointer reaches the screen edge"
-#~ msgstr "Mantém o dock oculto até o ponteiro alcançar a borda da tela"
+#~ msgid "Save Changes"
+#~ msgstr "Salvar alterações"
 
-#~ msgid "When disabled, show the dock only on the primary monitor"
-#~ msgstr "Quando desativado, mostra o dock somente no monitor principal"
+#~ msgid "Manage"
+#~ msgstr "Gerenciar"
 
-#~ msgid "No Overview"
-#~ msgstr "Sem Visão Geral"
+#~ msgid "One command per line, using “Label | command”"
+#~ msgstr "Um comando por linha, usando “Rótulo | comando”"
 
-#~ msgid "Disables the overview at startup"
-#~ msgstr "Desativa a visão geral ao iniciar"
+#~ msgid "Clear OCR result"
+#~ msgstr "Limpar resultado do OCR"
 
-#~ msgid "Modules"
-#~ msgstr "Módulos"
-
-#~ msgid "Enable or disable extension modules"
-#~ msgstr "Ativar ou desativar módulos da extensão"
+#~ msgid "Recognizing text…"
+#~ msgstr "Reconhecendo texto…"

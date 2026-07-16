@@ -225,6 +225,10 @@ test('schema — Clipboard History automatic paste is enabled by default', () =>
   assert.equal(schemaDefault('clipboard-history-auto-paste'), 'true');
 });
 
+test('schema — Capture Tools uses DuckDuckGo by default', () => {
+  assert.equal(schemaDefault('capture-tools-web-search-engine'), "'duckduckgo'");
+});
+
 test('schema — Dock defaults to the primary monitor only', () => {
   assert.equal(schemaDefault('dock-show-on-all-monitors'), 'false');
 });

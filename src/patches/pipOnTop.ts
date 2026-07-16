@@ -1,4 +1,4 @@
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 import Meta from '@girs/meta-18';
 
 import type { ExtensionContext } from '~/core/context.ts';

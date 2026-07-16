@@ -16,6 +16,42 @@
       <summary>Enable Focus Launched Windows module</summary>
       <description>Focuses newly launched windows instead of showing window-ready notifications</description>
     </key>
+    <key name="module-capture-tools" type="b">
+      <default>true</default>
+      <summary>Enable Capture Tools module</summary>
+      <description>Shows a floating annotation toolbar and optional local OCR when the GNOME screenshot interface opens</description>
+    </key>
+    <key name="capture-tools-ocr-enabled" type="b">
+      <default>true</default>
+      <summary>Enable screenshot OCR</summary>
+      <description>Show the local Tesseract OCR action beside the pointer control in the screenshot interface</description>
+    </key>
+    <key name="capture-tools-ocr-languages" type="s">
+      <default>''</default>
+      <summary>OCR languages</summary>
+      <description>Tesseract language codes separated by plus signs; empty uses the session language and English</description>
+    </key>
+    <key name="capture-tools-web-search-engine" type="s">
+      <choices>
+        <choice value="google"/>
+        <choice value="duckduckgo"/>
+        <choice value="bing"/>
+      </choices>
+      <default>'duckduckgo'</default>
+      <summary>OCR web search engine</summary>
+      <description>Search engine used to search recognized screenshot text on the web</description>
+    </key>
+    <key name="capture-tools-color" type="s">
+      <default>'#e01b24'</default>
+      <summary>Screenshot annotation color</summary>
+      <description>Last color selected in the screenshot annotation toolbar</description>
+    </key>
+    <key name="capture-tools-stroke-width" type="i">
+      <range min="1" max="16"/>
+      <default>4</default>
+      <summary>Screenshot annotation width</summary>
+      <description>Last stroke width selected in the screenshot annotation toolbar</description>
+    </key>
     <key name="module-theme-changer" type="b">
       <default>true</default>
       <summary>Enable Theme Changer module</summary>
