@@ -101,30 +101,46 @@ jobs:
           name: extension-zip
           path: dist/target/
 
-      - name: Create nightly pre-release tag
+      - name: Resolve latest stable release
+        id: stable_release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git tag "${{ needs.nightly-state.outputs.tag_name }}" "${{ needs.nightly-state.outputs.head_sha }}"
-          git push origin "refs/tags/${{ needs.nightly-state.outputs.tag_name }}"
+
+          STABLE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          echo "tag=${STABLE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Nightly release notes will start at ${STABLE_TAG}." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create or update GitHub pre-release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.nightly-state.outputs.tag_name }}
           target_commitish: ${{ needs.nightly-state.outputs.head_sha }}
           name: ${{ needs.nightly-state.outputs.release_name }}
           files: dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
           generate_release_notes: true
+          previous_tag: ${{ steps.stable_release.outputs.tag }}
           prerelease: true
           make_latest: false
           overwrite_files: true
 
-      - name: Delete old pre-releases
-        uses: Nats-ji/delete-old-releases@v1
-        with:
-          token: ${{ github.token }}
-          keep-count: 3
-          keep-old-minor-releases: true
-          include-prerelease: true
-          semver-loose: true
-          remove-tags: true
+      - name: Delete superseded nightly releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_NIGHTLY: ${{ needs.nightly-state.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          gh release list \
+            --limit 1000 \
+            --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease and (.tagName | test("-nightly[0-9]+$"))) | .tagName' |
+            while IFS= read -r nightly_tag; do
+              if [[ "$nightly_tag" == "$CURRENT_NIGHTLY" ]]; then
+                continue
+              fi
+
+              gh release delete "$nightly_tag" --cleanup-tag --yes
+              echo "Deleted superseded nightly ${nightly_tag}." >> "$GITHUB_STEP_SUMMARY"
+            done
