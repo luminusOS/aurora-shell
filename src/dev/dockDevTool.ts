@@ -30,7 +30,7 @@ export class DockDevTool {
       createDevToolSummary(
         this.iconName,
         dock
-          ? `Bindings: ${dock.bindings.length} · Always-show: ${dock.alwaysShow ? 'on' : 'off'} · Always-autohide: ${dock.alwaysAutoHide ? 'on' : 'off'}`
+          ? `Bindings: ${dock.bindings.length} · Always-show: ${dock.alwaysShow ? 'on' : 'off'} · Intellihide: ${dock.intellihideEnabled ? 'on' : 'off'}`
           : 'Dock disabled',
       ),
     );

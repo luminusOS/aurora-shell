@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-07-15 17:04-0300\n"
+"POT-Creation-Date: 2026-07-15 21:17-0300\n"
 "PO-Revision-Date: 2026-03-09 18:00-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -179,12 +179,12 @@ msgstr ""
 "Mantém o dock sempre visível e reduz as janelas para que nunca o sobreponham"
 
 #: dist/dock/dock.manifest.js:19
-msgid "Always Auto-Hide Dock"
-msgstr "Sempre ocultar dock automaticamente"
+msgid "Intelligent Auto-Hide Dock"
+msgstr "Ocultação inteligente do dock"
 
 #: dist/dock/dock.manifest.js:20
-msgid "Keep the dock hidden until the pointer reaches the screen edge"
-msgstr "Mantém o dock oculto até o ponteiro alcançar a borda da tela"
+msgid "Keep the dock visible until a window overlaps it"
+msgstr "Mantém o dock visível até que uma janela sobreponha seu espaço"
 
 #: dist/dock/dock.manifest.js:25
 msgid "Show Dock on All Monitors"
@@ -735,6 +735,9 @@ msgstr "Alternador de Tema"
 #: dist/theme/themeChanger.manifest.js:9
 msgid "Monitors and synchronizes GNOME color scheme"
 msgstr "Monitora e sincroniza o esquema de cores do GNOME"
+
+#~ msgid "Keep the dock hidden until the pointer reaches the screen edge"
+#~ msgstr "Mantém o dock oculto até o ponteiro alcançar a borda da tela"
 
 #~ msgid "When disabled, show the dock only on the primary monitor"
 #~ msgstr "Quando desativado, mostra o dock somente no monitor principal"
