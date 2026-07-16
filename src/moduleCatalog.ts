@@ -1,8 +1,9 @@
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 import { manifest as noOverview } from '~/patches/noOverview.manifest.ts';
 import { manifest as pipOnTop } from '~/patches/pipOnTop.manifest.ts';
 import { manifest as focusLaunchedWindows } from '~/patches/focusLaunchedWindows.manifest.ts';
+import { manifest as captureTools } from '~/capture/captureTools.manifest.ts';
 import { manifest as themeChanger } from '~/theme/themeChanger.manifest.ts';
 import { manifest as dock } from '~/dock/dock.manifest.ts';
 import { manifest as auroraMenu } from '~/panel/auroraMenu.manifest.ts';
@@ -38,6 +39,7 @@ const MODULE_CATALOG: readonly ModuleManifest[] = [
   noOverview,
   pipOnTop,
   focusLaunchedWindows,
+  captureTools,
   themeChanger,
   dock,
   auroraMenu,

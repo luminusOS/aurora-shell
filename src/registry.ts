@@ -2,6 +2,7 @@ import { getModuleCatalog } from '~/moduleCatalog.ts';
 import { NoOverview } from '~/patches/noOverview.ts';
 import { PipOnTop } from '~/patches/pipOnTop.ts';
 import { FocusLaunchedWindows } from '~/patches/focusLaunchedWindows.ts';
+import { CaptureTools } from '~/capture/captureTools.ts';
 import { ThemeChanger } from '~/theme/themeChanger.ts';
 import { Dock } from '~/dock/dock.ts';
 import { AuroraMenu } from '~/panel/auroraMenu.ts';
@@ -26,6 +27,7 @@ const factories = {
   'no-overview': (context) => new NoOverview(context),
   'pip-on-top': (context) => new PipOnTop(context),
   'focus-launched-windows': (context) => new FocusLaunchedWindows(context),
+  'capture-tools': (context) => new CaptureTools(context),
   'theme-changer': (context) => new ThemeChanger(context),
   dock: (context) => new Dock(context),
   'aurora-menu': (context) => new AuroraMenu(context),

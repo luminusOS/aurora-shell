@@ -1,5 +1,5 @@
 import '@girs/gjs';
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 import Gio from '@girs/gio-2.0';
 
@@ -9,7 +9,7 @@ import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
 
 const LOG_PREFIX = 'LowBatteryPercentage';
-const LOW_BATTERY_PERCENT = 20;
+const LOW_BATTERY_PERCENT = 30;
 const DESKTOP_INTERFACE_SCHEMA = 'org.gnome.desktop.interface';
 const SHOW_BATTERY_PERCENTAGE_KEY = 'show-battery-percentage';
 const UPOWER_BUS = 'org.freedesktop.UPower';

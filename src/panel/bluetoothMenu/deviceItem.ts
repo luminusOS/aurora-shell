@@ -6,7 +6,7 @@ import St from '@girs/st-18';
 import Clutter from '@girs/clutter-18';
 
 import { logger } from '~/core/logger.ts';
-import { loadIcon } from '~/shared/icons.ts';
+import { createIcon, loadIcon } from '~/shared/icons.ts';
 
 const LOG_PREFIX = 'BluetoothMenu';
 
@@ -65,7 +65,7 @@ export class BluetoothDeviceItemPatcher {
     });
     this._batteryLabel.set_margin_right(4);
 
-    this._stateIcon = new St.Icon({
+    this._stateIcon = createIcon('bbm-bluetooth-symbolic', {
       icon_size: 16,
       style_class: 'popup-menu-icon aurora-bt-state-icon',
       y_align: Clutter.ActorAlign.CENTER,

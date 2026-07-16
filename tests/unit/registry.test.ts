@@ -193,7 +193,7 @@ test('moduleCatalog — does not import runtime module implementations', () => {
     if (statement.importClause?.isTypeOnly) continue;
     const path = statement.moduleSpecifier.text;
     assert.ok(
-      path === 'gettext' || path.endsWith('.manifest.ts'),
+      path === '~/shared/i18n.ts' || path.endsWith('.manifest.ts'),
       `runtime import ${path} is not allowed in moduleCatalog`,
     );
   }
@@ -204,6 +204,7 @@ test('catalog — desktop module baseline is preserved', () => {
     'no-overview',
     'pip-on-top',
     'focus-launched-windows',
+    'capture-tools',
     'theme-changer',
     'dock',
     'aurora-menu',

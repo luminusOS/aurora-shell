@@ -1,11 +1,11 @@
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 import Meta from '@girs/meta-18';
 import St from '@girs/st-18';
 import Clutter from '@girs/clutter-18';
 import * as AltTab from '@girs/gnome-shell/ui/altTab';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import { loadIcon } from '~/shared/icons.ts';
+import { createIcon } from '~/shared/icons.ts';
 import { Module } from '~/module.ts';
 
 export class XwaylandIndicator extends Module {
@@ -98,8 +98,7 @@ export class XwaylandIndicator extends Module {
     item.replace_child(iconActor, wrapper);
     wrapper.add_child(iconActor);
 
-    const badge = new St.Icon({
-      gicon: loadIcon('window-x11-symbolic'),
+    const badge = createIcon('window-x11-symbolic', {
       icon_size: 32,
       style_class: 'xwayland-indicator-badge',
       x_expand: true,

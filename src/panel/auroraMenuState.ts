@@ -26,6 +26,10 @@ export function parseCustomCommand(raw: string): CustomMenuCommand | null {
   return { label, command };
 }
 
+export function serializeCustomCommand(command: CustomMenuCommand): string {
+  return `${command.label.trim()} | ${command.command.trim()}`;
+}
+
 export function truncateMiddle(value: string, limit: number): string {
   if (value.length <= limit) return value;
 

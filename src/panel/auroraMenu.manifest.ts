@@ -1,4 +1,4 @@
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 import type { ModuleManifest } from '~/module.ts';
 
 export const manifest: ModuleManifest = {
@@ -81,7 +81,7 @@ export const manifest: ModuleManifest = {
     {
       key: 'aurora-menu-custom-items',
       title: _('Custom Menu Commands'),
-      subtitle: _('One command per line, using “Label | command”'),
+      subtitle: _('Add shortcuts that run commands from Aurora Menu'),
       type: 'command-list',
     },
   ],

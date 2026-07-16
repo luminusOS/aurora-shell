@@ -1,5 +1,5 @@
 import '@girs/gjs';
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 import GLib from '@girs/glib-2.0';
 import Gio from '@girs/gio-2.0';

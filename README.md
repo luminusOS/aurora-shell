@@ -38,6 +38,7 @@ Aurora is split into independent modules, so you can enable only what you want.
 - **Skip Overview on Login** - skips the overview on startup so GNOME Shell opens directly to the desktop.
 - **Pip On Top** - keeps Picture-in-Picture windows above other windows automatically.
 - **Focus Launched Windows** - focuses newly launched windows instead of showing window-ready notifications.
+- **Capture Tools** - adds a Gradia-style floating annotation toolbar to the top of GNOME's screenshot interface as soon as it opens, with drawing, shapes, text, numbered annotations, annotated export, and optional local Tesseract OCR.
 - **XWayland Indicator** - adds an X11 badge to XWayland apps in the Alt+Tab switcher.
 
 ### Privacy & Clipboard
@@ -50,6 +51,7 @@ All modules can be toggled independently from the extension preferences.
 ## Requirements
 
 - GNOME Shell 50+
+- Tesseract with the desired language data (optional, for Capture Tools OCR)
 - [Node.js](https://nodejs.org/) 20+
 - [Yarn](https://yarnpkg.com/) 4+
 - [just](https://github.com/casey/just) (command runner)
@@ -86,5 +88,7 @@ Aurora Shell builds on the work of the wider GNOME community. Special thanks to:
 - [**CleoMenezesJr/weather-oclock**](https://github.com/CleoMenezesJr/weather-oclock) inspired the Weather Clock module.
 - [**danmoz/meetingtime**](https://github.com/danmoz/meetingtime) inspired the Meeting Clock module.
 - [**swsnr/gnome-shell-extension-xwayland-indicator**](https://codeberg.org/swsnr/gnome-shell-extension-xwayland-indicator/) the inspiration behind the XWayland Indicator module.
+- [**AlexanderVanhee/gradia-capture**](https://github.com/AlexanderVanhee/gradia-capture) inspired the Capture Tools annotation workflow.
+- [**SamkitJain660/Shotzy**](https://github.com/SamkitJain660/Shotzy) inspired the local screenshot OCR workflow.
 
 See [CREDITS.md](CREDITS.md) for the full list of attributed work.

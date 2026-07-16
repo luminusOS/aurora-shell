@@ -1,4 +1,4 @@
-import { gettext as _ } from 'gettext';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
