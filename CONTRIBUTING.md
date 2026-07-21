@@ -2,6 +2,17 @@
 
 Thank you for your interest in contributing to Aurora Shell! This document outlines the project architecture and provides guidelines for adding new modules and adhering to the project's code style.
 
+## AI-Assisted Contributions
+
+Contributions made with AI assistance are welcome, but the contributor remains
+responsible for the change. Do not submit code you do not understand. You must
+be able to explain what the code does, why it is correct, and what tradeoffs or
+risks it introduces.
+
+AI-assisted changes must be tested thoroughly. Maintainers may ask for evidence
+that the functionality works and was tested, such as test output, screenshots,
+screen recordings, logs, or clear reproduction steps.
+
 ## Architecture Overview
 
 Aurora Shell keeps GNOME integration close to each functional area. `extension.ts` creates the
@@ -90,7 +101,9 @@ and adds a final version bump commit. For example, if `metadata.json` on `releas
 
 ### Release candidates
 
-Release candidates are published alongside GNOME Shell RCs. Tags follow the pattern `v50-rc1`, `v50-rc2`, etc. RC releases are automatically marked as **pre-releases** on GitHub.
+Release candidates are published alongside GNOME Shell RCs. Tags follow the pattern `v50-rc1`, `v50-rc2`, etc. RC releases are marked as **pre-releases** on GitHub.
+
+Pushing an RC tag does **not** publish anything. After pushing the tag, trigger the `Release` workflow manually (`workflow_dispatch`) and pass the tag name in the `tag` input. The workflow validates that the tag contains `-rc`, runs CI against it, and publishes the pre-release.
 
 ### Stable releases
 
@@ -176,7 +189,7 @@ D-Bus services.
 
 All jobs must pass before a PR can be merged.
 
-When a version tag (`v50.1`, `v50-rc1`, etc.) is pushed, `.github/workflows/release.yml` calls the CI pipeline and, if all jobs pass, publishes the GitHub Release automatically.
+When a stable version tag (`v50.1`, `v50.2`, etc.) is pushed, `.github/workflows/release.yml` calls the CI pipeline and, if all jobs pass, publishes the GitHub Release automatically. Release candidate tags (`v50-rc1`, etc.) are excluded from this trigger and are published manually via `workflow_dispatch`, as described above.
 
 ## Coding Standards
 
