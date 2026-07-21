@@ -1,8 +1,6 @@
 name: Nightly pre-release
 
 on:
-  schedule:
-    - cron: '15 0 * * *'
   workflow_dispatch:
     inputs:
       force:
