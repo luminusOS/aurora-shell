@@ -223,6 +223,7 @@ async function compositeAnnotations(
   container.add_child(baseActor);
   container.add_child(overlay);
   global.stage.add_child(container);
+  let texture: Cogl.Texture | null;
   try {
     global.stage.paint_to_content(
       new Mtk.Rectangle({
@@ -235,18 +236,20 @@ async function compositeAnnotations(
       null,
       Clutter.PaintFlag.NONE,
     );
-    const texture = effect.get_texture();
+    texture = effect.get_texture();
     if (!texture) throw new Error('Failed to render the annotated screenshot texture');
-    return await compositeTarget({
-      texture,
-      geometry: null,
-      logicalOrigin: { x: 0, y: 0 },
-      scale: 1,
-      cursor: { texture: null, x: 0, y: 0, scale: 1 },
-    });
   } finally {
+    // Destroy synchronously so the container never reaches a presented frame;
+    // the grabbed Cogl texture stays alive through its own reference.
     container.destroy();
   }
+  return compositeTarget({
+    texture,
+    geometry: null,
+    logicalOrigin: { x: 0, y: 0 },
+    scale: 1,
+    cursor: { texture: null, x: 0, y: 0, scale: 1 },
+  });
 }
 
 function saveScreenshot(bytes: GLib.Bytes): Gio.File | null {

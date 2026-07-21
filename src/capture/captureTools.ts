@@ -5,12 +5,25 @@ import { gettext as _ } from '~/shared/i18n.ts';
 import * as Main from '@girs/gnome-shell/ui/main';
 import { Slider } from '@girs/gnome-shell/ui/slider';
 import { AnnotationCanvas } from '~/capture/annotationCanvas.ts';
-import { AnnotationModel, type AnnotationTool, type Point } from '~/capture/annotationModel.ts';
+import {
+  AnnotationModel,
+  type Annotation,
+  type AnnotationTool,
+  type Point,
+} from '~/capture/annotationModel.ts';
 import { OcrController, OcrUnavailableError } from '~/capture/ocrController.ts';
 import { buildWebSearchUri, placeOcrActionBelow, type OcrWord } from '~/capture/ocrLogic.ts';
 import { CaptureTooltip } from '~/capture/captureTooltip.ts';
-import { captureScreenshot, exportAnnotatedScreenshot } from '~/capture/screenshotCapture.ts';
-import { getScreenshotUi, type ScreenshotUi } from '~/capture/screenshotUiAdapter.ts';
+import {
+  captureScreenshot,
+  exportAnnotatedScreenshot,
+  type CapturedScreenshot,
+} from '~/capture/screenshotCapture.ts';
+import {
+  getScreenshotUi,
+  type Geometry,
+  type ScreenshotUi,
+} from '~/capture/screenshotUiAdapter.ts';
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
@@ -99,6 +112,7 @@ export class CaptureTools extends Module {
   private _textPoint: Point | null = null;
   private _toolbarDrag: ToolbarDrag | null = null;
   private _toolbarGrab: Clutter.Grab | null = null;
+  private _toolbarDraggedByUser = false;
   private _ocrText = '';
   private _ocrBusy = false;
   private _devOcrAvailable: boolean | null = null;
@@ -222,6 +236,7 @@ export class CaptureTools extends Module {
     this._portalMode = false;
     this._toolbarDrag = null;
     this._toolbarGrab = null;
+    this._toolbarDraggedByUser = false;
     this._originalOpen = null;
     this._openWrapper = null;
     this._originalSaveScreenshot = null;
@@ -235,11 +250,17 @@ export class CaptureTools extends Module {
       scope.connect(button, 'notify::checked', () => this._syncVisibility());
     for (const button of [ui._selectionButton, ui._screenButton, ui._windowButton])
       scope.connect(button, 'notify::checked', () => this._clearOcr());
+    scope.connect(ui._selectionButton, 'notify::checked', () => this._syncToolbarPlacement());
     scope.connect(ui._areaSelector, 'drag-started', () => {
       this._clearOcr();
       this._setInteractionState('selection');
     });
-    scope.connect(ui._areaSelector, 'drag-ended', () => this._setInteractionState('idle'));
+    scope.connect(ui._areaSelector, 'drag-ended', () => {
+      this._setInteractionState('idle');
+      this._syncToolbarPlacement();
+    });
+    if (this._toolbar)
+      scope.connect(this._toolbar, 'notify::allocation', () => this._syncToolbarPlacement());
 
     const monitorsChangedId = Main.layoutManager.connect('monitors-changed', () => {
       this._endToolbarDrag();
@@ -289,18 +310,12 @@ export class CaptureTools extends Module {
       const model = this._model;
       if (this._portalMode || !model?.hasAnnotations) return original.call(ui);
 
+      const annotations = [...model.annotations];
       try {
         const capture = await captureScreenshot(ui);
-        const file = await exportAnnotatedScreenshot(
-          capture.pixbuf,
-          model.annotations,
-          { origin: capture.origin, scale: capture.scale },
-          { copy: true, save: true },
-        );
-        if (file) ui.emit('screenshot-taken', file);
-        logger.debug(`Saved screenshot with ${model.annotations.length} annotation(s)`, {
-          prefix: LOG_PREFIX,
-        });
+        // Return now so the caller closes the UI with the default animation;
+        // the annotated export finishes in the background.
+        void this._exportAnnotatedScreenshot(ui, capture, annotations);
       } catch (error) {
         logger.warn(`[CaptureTools] Annotated screenshot export failed: ${String(error)}`);
         Main.notify(_('Screenshot failed'), _('Could not export the annotated screenshot'));
@@ -308,6 +323,28 @@ export class CaptureTools extends Module {
     };
     this._saveScreenshotWrapper = wrapper;
     ui._saveScreenshot = wrapper;
+  }
+
+  private async _exportAnnotatedScreenshot(
+    ui: ScreenshotUi,
+    capture: CapturedScreenshot,
+    annotations: readonly Annotation[],
+  ): Promise<void> {
+    try {
+      const file = await exportAnnotatedScreenshot(
+        capture.pixbuf,
+        annotations,
+        { origin: capture.origin, scale: capture.scale },
+        { copy: true, save: true },
+      );
+      if (file) ui.emit('screenshot-taken', file);
+      logger.debug(`Saved screenshot with ${annotations.length} annotation(s)`, {
+        prefix: LOG_PREFIX,
+      });
+    } catch (error) {
+      logger.warn(`[CaptureTools] Annotated screenshot export failed: ${String(error)}`);
+      Main.notify(_('Screenshot failed'), _('Could not export the annotated screenshot'));
+    }
   }
 
   private _buildToolbar(): St.BoxLayout {
@@ -496,6 +533,7 @@ export class CaptureTools extends Module {
   private _releaseToolbar(event: Clutter.Event): boolean {
     if (!this._toolbarDrag || event.get_button() !== Clutter.BUTTON_PRIMARY)
       return Clutter.EVENT_PROPAGATE;
+    this._toolbarDraggedByUser = true;
     this._endToolbarDrag();
     return Clutter.EVENT_STOP;
   }
@@ -697,6 +735,51 @@ export class CaptureTools extends Module {
       this._canvas?.setDrawingEnabled(this._model ? this._isDrawingTool(this._model.tool) : false);
     }
     this._syncOcrButton();
+    if (visible) this._syncToolbarPlacement();
+  }
+
+  private _syncToolbarPlacement(): void {
+    const toolbar = this._toolbar;
+    const ui = this._ui;
+    if (!toolbar || !ui || !toolbar.visible || toolbar.width === 0) return;
+    // A position picked manually through the drag handle wins for the session.
+    if (this._toolbarDraggedByUser) return;
+
+    const monitor = Main.layoutManager.primaryMonitor;
+    if (!monitor) return;
+
+    let selection: Geometry | null = null;
+    if (!this._portalMode && ui._shotButton.checked && ui._selectionButton.checked) {
+      try {
+        const [x, y, width, height] = ui._areaSelector.getGeometry();
+        if (width > 0 && height > 0) selection = [x, y, width, height];
+      } catch {
+        // The selector may not have geometry before its first allocation.
+      }
+    }
+
+    if (!selection) {
+      toolbar.translation_x = 0;
+      toolbar.translation_y = 0;
+      return;
+    }
+
+    // Anchor to the aligned top-center slot the toolbar is allocated in, then
+    // translate so it floats just above the selection rectangle.
+    const [stageX, stageY] = toolbar.get_transformed_position();
+    const anchorX = stageX - toolbar.translation_x;
+    const anchorY = stageY - toolbar.translation_y;
+    const [x, y, width, height] = selection;
+    const margin = 12;
+    const desiredX = Math.max(
+      monitor.x,
+      Math.min(x + width / 2 - toolbar.width / 2, monitor.x + monitor.width - toolbar.width),
+    );
+    let desiredY = y - toolbar.height - margin;
+    if (desiredY < monitor.y) desiredY = y + height + margin;
+    desiredY = Math.max(monitor.y, Math.min(desiredY, monitor.y + monitor.height - toolbar.height));
+    toolbar.translation_x = Math.round(desiredX - anchorX);
+    toolbar.translation_y = Math.round(desiredY - anchorY);
   }
 
   private _setControlsOpacity(opacity: number): void {
@@ -742,6 +825,7 @@ export class CaptureTools extends Module {
     this._portalMode = false;
     this._selectTool('select');
     this._resetControlsOpacity();
+    this._toolbarDraggedByUser = false;
     if (this._toolbar) {
       this._toolbar.translation_x = 0;
       this._toolbar.translation_y = 0;
