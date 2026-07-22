@@ -103,7 +103,7 @@ and adds a final version bump commit. For example, if `metadata.json` on `releas
 
 Release candidates are published alongside GNOME Shell RCs. Tags follow the pattern `v50-rc1`, `v50-rc2`, etc. RC releases are marked as **pre-releases** on GitHub.
 
-Pushing an RC tag does **not** publish anything. After pushing the tag, trigger the `Release` workflow manually (`workflow_dispatch`) and pass the tag name in the `tag` input. The workflow validates that the tag contains `-rc`, runs CI against it, and publishes the pre-release.
+To publish an RC, trigger the `Release` workflow manually (`workflow_dispatch`) — no input is needed. Like the nightly flow, the workflow numbers the next candidate automatically (`v50-rc1`, then `v50-rc2`, ...), tags current `main`, runs CI against it, and publishes the pre-release. An RC supersedes the nightly line, so publishing one deletes all nightly pre-releases.
 
 ### Stable releases
 
