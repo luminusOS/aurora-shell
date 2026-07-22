@@ -6,45 +6,76 @@ on:
       - 'v[0-9]*'
       - '!v[0-9]*-rc*'
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Release candidate tag to publish (e.g. v49.0-rc1)
-        required: true
-        type: string
 
 permissions:
   contents: write
   packages: write
 
-env:
-  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-
 jobs:
+  state:
+    name: Resolve release target
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.state.outputs.tag_name }}
+      head_sha: ${{ steps.state.outputs.head_sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: main
+
+      # Stable releases come from a pushed tag. Release candidates are
+      # dispatched manually and numbered automatically (rc1, rc2, ...),
+      # tagging current main, exactly like the nightly flow does.
+      - name: Resolve release target
+        id: state
+        run: |
+          set -euo pipefail
+
+          event_name="${{ github.event_name }}"
+          if [[ "$event_name" == "push" ]]; then
+            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            echo "head_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          VERSION_NAME="$(node -e 'const fs = require("fs"); const metadata = JSON.parse(fs.readFileSync("metadata.json", "utf8")); process.stdout.write(metadata["version-name"]);')"
+          TAG_PREFIX="v${VERSION_NAME}-rc"
+          LAST_RC="$(
+            git tag --list "${TAG_PREFIX}*" |
+              awk -v prefix="$TAG_PREFIX" '
+                index($0, prefix) == 1 {
+                  number = substr($0, length(prefix) + 1)
+                  if (number ~ /^[0-9]+$/) print number
+                }
+              ' |
+              sort -n |
+              tail -n 1
+          )"
+          NEXT_RC=$(( ${LAST_RC:-0} + 1 ))
+          TAG_NAME="${TAG_PREFIX}${NEXT_RC}"
+          HEAD_SHA="$(git rev-parse HEAD)"
+
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Release candidate ${TAG_NAME} will be built from ${HEAD_SHA}." >> "$GITHUB_STEP_SUMMARY"
+
   ci:
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-') }}
+    needs: [state]
     uses: ./.github/workflows/ci.yml
     with:
-      checkout_ref: ${{ inputs.tag || '' }}
+      checkout_ref: ${{ needs.state.outputs.head_sha }}
 
   release:
     name: Create GitHub Release
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
-    needs: [ci]
+    needs: [state, ci]
     steps:
-      - name: Validate release candidate tag
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          set -euo pipefail
-          tag="${{ inputs.tag }}"
-          if [[ "$tag" != *-rc* ]]; then
-            echo "Tag '$tag' is not a release candidate (expected to contain '-rc')." >&2
-            exit 1
-          fi
-
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || '' }}
+          ref: ${{ needs.state.outputs.head_sha }}
 
       - name: Download extension zip
         uses: actions/download-artifact@v8
@@ -55,16 +86,35 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: ${{ env.RELEASE_TAG }}
+          tag_name: ${{ needs.state.outputs.tag_name }}
+          target_commitish: ${{ needs.state.outputs.head_sha }}
+          name: ${{ needs.state.outputs.tag_name }}
           files: dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
           generate_release_notes: true
           prerelease: ${{ github.event_name == 'workflow_dispatch' }}
 
+      # An RC supersedes the nightly line: once a release candidate is out,
+      # the nightly pre-releases are removed like superseded nightlies are.
+      - name: Delete superseded nightly pre-releases
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh release list \
+            --limit 1000 \
+            --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease and (.tagName | test("-nightly[0-9]+$"))) | .tagName' |
+            while IFS= read -r nightly_tag; do
+              gh release delete "$nightly_tag" --cleanup-tag --yes
+              echo "Deleted superseded nightly ${nightly_tag}." >> "$GITHUB_STEP_SUMMARY"
+            done
+
       - name: Create maintenance branch
         if: ${{ github.event_name == 'push' }}
         run: |
-          MAJOR=$(echo "${{ env.RELEASE_TAG }}" | sed 's/^v//' | grep -oP '^\d+')
+          MAJOR=$(echo "${{ needs.state.outputs.tag_name }}" | sed 's/^v//' | grep -oP '^\d+')
           BRANCH="release/v${MAJOR}.x"
           if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
             echo "Branch $BRANCH already exists, skipping."
