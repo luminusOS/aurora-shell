@@ -20,7 +20,7 @@ export class AppSearchTooltip extends Module {
   private _pendingActor: any = null;
   private _overviewHidingId = 0;
   private _patchedSearchAddItem: any = null;
-  private _trackedActors = new Map<any, number[]>();
+  private _trackedActors = new Set<any>();
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -59,15 +59,7 @@ export class AppSearchTooltip extends Module {
     }
     this._pendingActor = null;
 
-    for (const [actor, ids] of this._trackedActors) {
-      try {
-        for (const id of ids) {
-          actor.disconnect(id);
-        }
-      } catch (_e) {
-        // actor may already be destroyed
-      }
-    }
+    for (const actor of this._trackedActors) actor.disconnectObject(this);
     this._trackedActors.clear();
 
     this._hideTooltip();
@@ -81,21 +73,26 @@ export class AppSearchTooltip extends Module {
 
     if (this._trackedActors.has(actor)) return;
 
-    const ids = [
-      actor.connect('notify::hover', () => this._onHover(actor)),
-      actor.connect('key-focus-in', () => this._onHover(actor)),
-      actor.connect('key-focus-out', () => this._onHover(actor)),
-      actor.connect('destroy', () => {
+    actor.connectObject(
+      'notify::hover',
+      () => this._onHover(actor),
+      'key-focus-in',
+      () => this._onHover(actor),
+      'key-focus-out',
+      () => this._onHover(actor),
+      'destroy',
+      () => {
         if (this._pendingActor === actor && this._showTimeoutId > 0) {
           GLib.source_remove(this._showTimeoutId);
           this._showTimeoutId = 0;
           this._pendingActor = null;
         }
         this._trackedActors.delete(actor);
-      }),
-    ];
+      },
+      this,
+    );
 
-    this._trackedActors.set(actor, ids);
+    this._trackedActors.add(actor);
   }
 
   private _onHover(actor: any): void {

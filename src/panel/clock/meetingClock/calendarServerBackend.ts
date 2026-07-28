@@ -19,7 +19,6 @@ export class CalendarServerBackend {
   private _signalId = 0;
   private _eventsById = new Map<string, MeetingEvent>();
   private _onEventsChanged: EventsChangedCallback;
-  private _running = false;
 
   constructor(onEventsChanged: EventsChangedCallback) {
     this._onEventsChanged = onEventsChanged;
@@ -27,8 +26,6 @@ export class CalendarServerBackend {
 
   start(): void {
     if (this._proxy) return;
-    this._running = true;
-
     try {
       this._proxy = Gio.DBusProxy.new_for_bus_sync(
         Gio.BusType.SESSION,
@@ -47,11 +44,11 @@ export class CalendarServerBackend {
 
     this._signalId = this._proxy.connect('g-signal', (_proxy, _senderName, signalName, params) => {
       if (signalName === 'EventsAddedOrUpdated') {
-        if (!this._running) return;
+        if (!this._proxy) return;
         const [rawEvents = []] = params.deepUnpack() as [unknown[]?];
         this._onEventsAddedOrUpdated(rawEvents);
       } else if (signalName === 'EventsRemoved') {
-        if (!this._running) return;
+        if (!this._proxy) return;
         const [rawIds = []] = params.deepUnpack() as [string[]?];
         this._onEventsRemoved(rawIds);
       }
@@ -59,7 +56,6 @@ export class CalendarServerBackend {
   }
 
   stop(): void {
-    this._running = false;
     if (this._signalId && this._proxy) {
       this._proxy.disconnect(this._signalId);
       this._signalId = 0;
@@ -105,7 +101,7 @@ export class CalendarServerBackend {
   }
 
   private _emitEventsChanged(): void {
-    if (!this._running) return;
+    if (!this._proxy) return;
 
     this._onEventsChanged(
       [...this._eventsById.values()].sort((a, b) => a.startEpochSeconds - b.startEpochSeconds),

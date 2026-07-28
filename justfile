@@ -1,229 +1,104 @@
 uuid := "aurora-shell@luminusos.github.io"
-ext_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
-toolbox_name := env_var_or_default("AURORA_TOOLBOX_NAME", "aurora-shell-devel")
-vagrant_name := "aurora-shell-devel"
+extension_dir := env("HOME") / ".local/share/gnome-shell/extensions" / uuid
 
+# Build production and development extension archives.
+mod package '.just/package.just'
+# Run unit, coverage, and GNOME Shell tests.
+mod test '.just/test.just'
+# Manage and test inside the Fedora development container.
+mod toolbox '.just/toolbox.just'
+# Maintain translation templates and compiled catalogs.
+mod translation '.just/translation.just'
+# Manage the full development VM.
+mod vagrant '.just/vagrant.just'
+
+# List the available command groups.
 default:
     @just --list
 
+# Install immutable JavaScript dependencies.
 deps:
     yarn install --immutable
 
+# Compile sources and assemble the unpacked extension.
 build:
     yarn build
     cp metadata.json dist/
+    cp LICENSE CREDITS.md dist/
     cp -r data/schemas dist/
     glib-compile-schemas dist/schemas/
     cp -r data/icons dist/
     cp -r data/media dist/
-    just compile-mo
+    just translation compile
 
-package: build
-    #!/usr/bin/env bash
-    set -e
-    mkdir -p dist/target
-    cd dist
-    EXTRA_SOURCES=()
-    while IFS= read -r source; do
-        case "$source" in
-            extension.js|metadata.json|schemas|target) continue ;;
-        esac
-        EXTRA_SOURCES+=("--extra-source=$source")
-    done < <(find . -mindepth 1 -maxdepth 1 -printf '%P\n' | sort)
-
-    gnome-extensions pack . \
-        --force \
-        --out-dir=target \
-        "${EXTRA_SOURCES[@]}" \
-        --schema=schemas/org.gnome.shell.extensions.aurora-shell.gschema.xml
-    echo "Packing Done!"
-
-shexli *args: package
-    #!/usr/bin/env bash
-    set -e
-    EXT="dist/target/{{ uuid }}.shell-extension.zip"
-
-    if command -v shexli >/dev/null 2>&1; then
-        shexli "$EXT" {{ args }}
-    elif command -v uvx >/dev/null 2>&1; then
-        uvx --from shexli shexli "$EXT" {{ args }}
-    else
-        echo "shexli is not installed."
-        echo "Install it with: python3 -m pip install --user shexli"
-        echo "Then run: just shexli"
-        exit 1
-    fi
-
+# Run type, lint, formatting, and style checks.
 validate:
     yarn validate
 
+# Run ESLint.
 lint:
     yarn lint
 
+# Watch and recompile SCSS.
 watch:
     yarn watch:css
 
-install: package
-    gnome-extensions install --force dist/target/{{ uuid }}.shell-extension.zip
-    glib-compile-schemas {{ ext_dir }}/schemas/
-    @echo "Installed at: {{ ext_dir }}"
+# Scan the production package with the EGO static analyzer.
+shexli *args: package::production
+    #!/usr/bin/env bash
+    set -e
+    extension="dist/target/{{ uuid }}.shell-extension.zip"
 
+    if command -v shexli >/dev/null 2>&1; then
+        shexli "$extension" {{ args }}
+    elif command -v uvx >/dev/null 2>&1; then
+        uvx --from shexli shexli "$extension" {{ args }}
+    else
+        echo "shexli is not installed."
+        echo "Install it with: python3 -m pip install --user shexli"
+        exit 1
+    fi
+
+# Install the development package locally.
+install: package::development
+    gnome-extensions install --force dist/target/{{ uuid }}.development.shell-extension.zip
+    glib-compile-schemas {{ extension_dir }}/schemas/
+    @echo "Installed development package at: {{ extension_dir }}"
+
+# Remove the locally installed extension.
 uninstall:
     gnome-extensions uninstall {{ uuid }}
     @echo "Uninstalled."
 
-logs:
-    journalctl -b 0 -r -o cat /usr/bin/gnome-shell | grep -i "aurora"
-
-clean:
-    rm -rf dist
-
-distclean:
-    rm -rf dist
-    rm -rf node_modules
-
-# Translation workflow
-# Run `just pot` after adding new translatable strings to regenerate the template.
-# Run `just update-po` to merge new strings from the template into existing .po files.
-# Edit po/*.po files (with Poedit or a text editor), then run `just build`.
-
-pot: build
-    #!/usr/bin/env bash
-    set -e
-    JS_FILES=$(find dist -name '*.js' | sort)
-    POT="dist/aurora-shell@luminusos.github.io.pot"
-    xgettext \
-        --from-code=UTF-8 \
-        --language=JavaScript \
-        --keyword=_ \
-        --keyword=ngettext:1,2 \
-        --keyword=pgettext:1c,2 \
-        --package-name=aurora-shell \
-        --msgid-bugs-address=https://github.com/luminusOS/aurora-shell/issues \
-        --output="$POT" \
-        $JS_FILES
-    echo "POT file regenerated: $POT"
-
-update-po: pot
-    #!/usr/bin/env bash
-    set -e
-    POT="dist/aurora-shell@luminusos.github.io.pot"
-    for po in data/po/*.po; do
-        echo "Merging $po..."
-        msgmerge --update --backup=none "$po" "$POT"
-    done
-    echo "All .po files updated."
-
-compile-mo:
-    #!/usr/bin/env bash
-    set -e
-    DOMAIN="aurora-shell@luminusos.github.io"
-    for po in data/po/*.po; do
-        [ -f "$po" ] || continue
-        lang=$(basename "$po" .po)
-        outdir="dist/locale/$lang/LC_MESSAGES"
-        mkdir -p "$outdir"
-        msgfmt --output-file="$outdir/$DOMAIN.mo" "$po"
-        echo "Compiled $po -> $outdir/$DOMAIN.mo"
-    done
-
-unit-test:
-    yarn test:unit
-
-coverage:
-    yarn test:unit:coverage
-
-# Run a single test script with gnome-shell-test-tool (headless).
-# Wrapped in dbus-run-session to avoid conflicting with any running GNOME session.
-
-# Usage: just test tests/shell/auroraBasic.js
-test script: package
-    bash scripts/run-shell-tests.sh dist/target/{{ uuid }}.shell-extension.zip {{ script }}
-
-test-all: package
-    bash scripts/run-shell-tests.sh dist/target/{{ uuid }}.shell-extension.zip
-
+# Install development and launch a host devkit GNOME Shell session.
 run: install
     #!/usr/bin/env bash
     set -e
-    SHELL_ENV=(
+    shell_environment=(
         GSETTINGS_SCHEMA_DIR=/usr/share/glib-2.0/schemas
+        AURORA_DEVTOOLS=1
         XDG_CURRENT_DESKTOP=GNOME
     )
-    env "${SHELL_ENV[@]}" dbus-run-session gnome-shell --wayland --devkit
+    env "${shell_environment[@]}" dbus-run-session gnome-shell --wayland --devkit
 
-toolbox action *args:
+# Show Aurora messages from the current boot.
+logs:
+    journalctl -b 0 -r -o cat /usr/bin/gnome-shell | grep -i "aurora"
+
+# Remove build output, or all generated dependencies with `just clean all`.
+clean scope="dist":
     #!/usr/bin/env bash
     set -e
-    case "{{ action }}" in
-        "create")
-            IMAGE="${AURORA_TOOLBOX_IMAGE:-$(bash scripts/ci-image-name.sh)}"
-            echo "Creating toolbox '{{ toolbox_name }}' from '$IMAGE'..."
-            toolbox create --image "$IMAGE" {{ toolbox_name }}
+    case "{{ scope }}" in
+        dist)
+            rm -rf dist
             ;;
-        "run")
-            bash scripts/run-gnome-shell.sh {{ toolbox_name }}
-            ;;
-        "remove")
-            echo "Removing toolbox '{{ toolbox_name }}'..."
-            toolbox rm --force {{ toolbox_name }}
-            echo "Toolbox '{{ toolbox_name }}' removed."
-            ;;
-        "test")
-            just package
-            EXT="dist/target/{{ uuid }}.shell-extension.zip"
-            SCRIPT="{{ args }}"
-            if [ -z "$SCRIPT" ]; then
-                echo "Usage: just toolbox test <script>"
-                echo "Example: just toolbox test tests/shell/auroraBasic.js"
-                exit 1
-            fi
-            PROJECT_DIR="$(pwd -P)"
-            toolbox --container {{ toolbox_name }} run \
-                bash "$PROJECT_DIR/scripts/run-shell-tests.sh" \
-                "$PROJECT_DIR/$EXT" \
-                "$PROJECT_DIR/$SCRIPT"
-            ;;
-        "test-all")
-            just package
-            EXT="dist/target/{{ uuid }}.shell-extension.zip"
-            PROJECT_DIR="$(pwd -P)"
-            toolbox --container {{ toolbox_name }} run \
-                bash "$PROJECT_DIR/scripts/run-shell-tests.sh" \
-                "$PROJECT_DIR/$EXT"
+        all)
+            rm -rf dist node_modules
             ;;
         *)
-            echo "Unknown toolbox action: {{ action }}"
-            echo "Available: create, run, remove, test <script>, test-all"
-            exit 1
-            ;;
-    esac
-
-# Vagrant-based devkit VM (mirrors 'toolbox' but uses a full VM via Vagrant).
-
-# Actions: create | run | ssh | remove
-vagrant action *args:
-    #!/usr/bin/env bash
-    set -e
-    case "{{ action }}" in
-        "create")
-            echo "Booting and provisioning Vagrant VM '{{ vagrant_name }}'..."
-            vagrant up
-            ;;
-        "run")
-            bash scripts/run-vagrant-gnome-shell.sh
-            ;;
-        "ssh")
-            vagrant ssh
-            ;;
-        "remove")
-            echo "Destroying Vagrant VM '{{ vagrant_name }}'..."
-            vagrant destroy -f
-            echo "VM '{{ vagrant_name }}' destroyed."
-            ;;
-        *)
-            echo "Unknown vagrant action: {{ action }}"
-            echo "Available: create, run, ssh, remove"
+            echo "Unknown clean scope: {{ scope }}"
+            echo "Available: dist, all"
             exit 1
             ;;
     esac

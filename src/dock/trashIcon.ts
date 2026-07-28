@@ -37,7 +37,6 @@ export const TrashIcon = GObject.registerClass(
     declare private _menu: PopupMenu.PopupMenu | null;
     declare private _menuManager: PopupMenu.PopupMenuManager | null;
     declare private _emptyItem: PopupMenu.PopupMenuItem | null;
-    declare private _destroyed: boolean;
 
     override _init(): void {
       super._init();
@@ -53,7 +52,6 @@ export const TrashIcon = GObject.registerClass(
       this._menu = null;
       this._menuManager = null;
       this._emptyItem = null;
-      this._destroyed = false;
 
       this.toggleButton = new St.Button({
         style_class: 'show-apps',
@@ -94,12 +92,25 @@ export const TrashIcon = GObject.registerClass(
 
       this._startMonitor();
       this._refresh();
-
-      this.connect('destroy', () => this._onDestroy());
     }
 
     setIconSize(size: number): void {
       this.icon.setIconSize(size);
+    }
+
+    override destroy(): void {
+      this.toggleButton.disconnectObject(this);
+      this._refreshCancellable?.cancel();
+      this._refreshCancellable = null;
+      this._monitor?.disconnectObject(this);
+      this._monitor?.cancel();
+      this._monitor = null;
+      this._menu?.destroy();
+      this._menu = null;
+      this._menuManager = null;
+      this._emptyItem = null;
+      this._iconActor = null;
+      super.destroy();
     }
 
     get menuIsOpen(): boolean {
@@ -146,8 +157,6 @@ export const TrashIcon = GObject.registerClass(
     }
 
     private _refresh(): void {
-      if (this._destroyed) return;
-
       this._refreshCancellable?.cancel();
       const cancellable = new Gio.Cancellable();
       this._refreshCancellable = cancellable;
@@ -158,7 +167,7 @@ export const TrashIcon = GObject.registerClass(
         0,
         cancellable,
         (file, res) => {
-          if (this._destroyed || cancellable.is_cancelled()) return;
+          if (this._refreshCancellable !== cancellable || cancellable.is_cancelled()) return;
 
           let count = 0;
           try {
@@ -211,7 +220,7 @@ export const TrashIcon = GObject.registerClass(
           },
         });
       } catch (error) {
-        if (!this._destroyed) this._warn('Failed to open trash', error);
+        this._warn('Failed to open trash', error);
       }
     }
 
@@ -304,21 +313,6 @@ export const TrashIcon = GObject.registerClass(
 
     private _warn(message: string, error: unknown): void {
       logger.warn(`${message}: ${error}`, { prefix: LOG_PREFIX });
-    }
-
-    private _onDestroy(): void {
-      this._destroyed = true;
-      this.toggleButton.disconnectObject(this);
-      this._refreshCancellable?.cancel();
-      this._refreshCancellable = null;
-      this._monitor?.disconnectObject(this);
-      this._monitor?.cancel();
-      this._monitor = null;
-      this._menu?.destroy();
-      this._menu = null;
-      this._menuManager = null;
-      this._emptyItem = null;
-      this._iconActor = null;
     }
   },
 );

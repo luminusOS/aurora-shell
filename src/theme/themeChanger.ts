@@ -44,6 +44,17 @@ export class ThemeChanger extends Module {
     }
   }
 
+  override disable(): void {
+    logger.debug('Disabling theme monitor', { prefix: LOG_PREFIX });
+
+    if (this._signalId && this._settings) {
+      this._settings.disconnect(this._signalId);
+      this._signalId = null;
+    }
+
+    this._settings = null;
+  }
+
   private _onColorSchemeChanged(): void {
     if (!this._settings) return;
 
@@ -55,16 +66,5 @@ export class ThemeChanger extends Module {
       this._settings.setString('color-scheme', 'prefer-light');
       return;
     }
-  }
-
-  override disable(): void {
-    logger.debug('Disabling theme monitor', { prefix: LOG_PREFIX });
-
-    if (this._signalId && this._settings) {
-      this._settings.disconnect(this._signalId);
-      this._signalId = null;
-    }
-
-    this._settings = null;
   }
 }

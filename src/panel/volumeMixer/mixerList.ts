@@ -59,14 +59,13 @@ export class VolumeMixerList extends St.BoxLayout {
     for (const stream of this._control.get_streams()) {
       this._streamAdded(stream.get_id());
     }
+  }
 
-    this.connect('destroy', () => {
-      this._control.disconnectObject(this);
-      for (const slider of this._sliders.values()) {
-        slider.destroy();
-      }
-      this._sliders.clear();
-    });
+  override destroy(): void {
+    this._control.disconnectObject(this);
+    for (const slider of this._sliders.values()) slider.destroy();
+    this._sliders.clear();
+    super.destroy();
   }
 
   private _streamAdded(id: number): void {

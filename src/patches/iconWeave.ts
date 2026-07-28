@@ -41,7 +41,7 @@ type ActorSignalIds = {
 export class IconWeave extends Module {
   private _displayConnectionId = 0;
   private _processed = new Set<string>();
-  private _pendingConnections = new Map<any, number>();
+  private _pendingConnections = new Set<any>();
   private _actorConnections = new Map<any, ActorSignalIds>();
   private _timeoutSources = new Set<TimeoutId>();
 
@@ -186,26 +186,12 @@ export class IconWeave extends Module {
     for (const id of this._timeoutSources) GLib.source_remove(id);
     this._timeoutSources.clear();
 
-    for (const [win, id] of this._pendingConnections) {
-      try {
-        win.disconnect(id);
-      } catch (_e) {
-        // window may already be gone
-      }
-    }
+    for (const win of this._pendingConnections) win.disconnectObject(this);
     this._pendingConnections.clear();
 
     for (const [actor, { frameId, destroyId }] of this._actorConnections) {
-      try {
-        actor.disconnect(frameId);
-      } catch (_e) {
-        // actor may already be gone
-      }
-      try {
-        actor.disconnect(destroyId);
-      } catch (_e) {
-        // actor may already be gone
-      }
+      actor.disconnect(frameId);
+      actor.disconnect(destroyId);
     }
     this._actorConnections.clear();
 
@@ -273,11 +259,7 @@ export class IconWeave extends Module {
       if (done) return;
       done = true;
       this._actorConnections.delete(actor);
-      try {
-        actor.disconnect(destroyId);
-      } catch (_e) {
-        /* actor may already be gone */
-      }
+      actor.disconnect(destroyId);
       if (currentTimeoutId) {
         this._timeoutSources.delete(currentTimeoutId);
         GLib.source_remove(currentTimeoutId);
@@ -309,16 +291,8 @@ export class IconWeave extends Module {
         this._timeoutSources.delete(timeoutId);
         if (!done) {
           done = true;
-          try {
-            actor.disconnect(frameId);
-          } catch (_e) {
-            /* actor may already be gone */
-          }
-          try {
-            actor.disconnect(destroyId);
-          } catch (_e) {
-            /* actor may already be gone */
-          }
+          actor.disconnect(frameId);
+          actor.disconnect(destroyId);
           this._actorConnections.delete(actor);
           this._inspectWindow(win);
         }
@@ -348,15 +322,7 @@ export class IconWeave extends Module {
       const appId: string = win.get_gtk_application_id() ?? '';
 
       if (!wmClass && !appId) {
-        // No class info yet — wait for title which may arrive with more context
-        if (!this._pendingConnections.has(win)) {
-          const id = win.connect('notify::title', () => {
-            win.disconnect(id);
-            this._pendingConnections.delete(win);
-            this._inspectWindow(win);
-          });
-          this._pendingConnections.set(win, id);
-        }
+        this._waitForTitle(win);
         return;
       }
 
@@ -411,14 +377,7 @@ export class IconWeave extends Module {
 
       // Heuristic needs title for reliable scoring — defer until it's available.
       if (!title) {
-        if (!this._pendingConnections.has(win)) {
-          const id = win.connect('notify::title', () => {
-            win.disconnect(id);
-            this._pendingConnections.delete(win);
-            this._inspectWindow(win);
-          });
-          this._pendingConnections.set(win, id);
-        }
+        this._waitForTitle(win);
         return;
       }
 
@@ -439,6 +398,22 @@ export class IconWeave extends Module {
     } catch (e) {
       logger.log(`_inspectWindow error: ${e}`, { prefix: LOG_PREFIX });
     }
+  }
+
+  private _waitForTitle(win: any): void {
+    if (this._pendingConnections.has(win)) return;
+    this._pendingConnections.add(win);
+    win.connectObject(
+      'notify::title',
+      () => {
+        win.disconnectObject(this);
+        this._pendingConnections.delete(win);
+        this._inspectWindow(win);
+      },
+      'unmanaged',
+      () => this._pendingConnections.delete(win),
+      this,
+    );
   }
 
   private _isValidApp(app: any): boolean {

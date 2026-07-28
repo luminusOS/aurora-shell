@@ -74,7 +74,7 @@ export class VelaVpnQuickSettings extends Module {
       });
     };
     toggle.deactivateConnection = (activeConnection: any) => {
-      const connection = activeConnection?.connection ?? activeConnection?.get_connection?.();
+      const connection = activeConnection?.connection ?? activeConnection?.get_connection();
       this._setConnectionActive(connection, false, () => {
         this._originalDeactivateConnection?.call(this._vpnToggle, activeConnection);
       });
@@ -84,7 +84,7 @@ export class VelaVpnQuickSettings extends Module {
   }
 
   private _setConnectionActive(connection: any, active: boolean, fallback?: () => void): void {
-    const path = connection?.get_path?.();
+    const path = connection?.get_path();
     if (!path) {
       logger.warn('Cannot route VPN activation without a NetworkManager connection path', {
         prefix: LOG_PREFIX,

@@ -211,7 +211,7 @@ export class ApplicationStreamSlider extends QuickSlider {
       this.slider.disconnect(this._dragEndId);
       this._dragEndId = 0;
     }
-    this._soundSettings?.disconnectObject?.(this);
+    this._soundSettings?.disconnectObject(this);
     this._stream?.disconnectObject(this);
     super.destroy();
   }

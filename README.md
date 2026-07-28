@@ -6,6 +6,9 @@
 
 A modular GNOME Shell extension that adds quality-of-life features missing in vanilla GNOME.
 
+Aurora Shell is distributed under the GNU General Public License, version 3 only. See
+[LICENSE](LICENSE) and [CREDITS.md](CREDITS.md) for licensing and attribution details.
+
 > **Project goal:** Aurora Shell is a proving ground. Over time, the aim is for some of its
 > features to mature and make their way upstream into GNOME Shell itself. Modules here are
 > meant to be useful on their own today and good candidates for upstream tomorrow.
@@ -90,5 +93,6 @@ Aurora Shell builds on the work of the wider GNOME community. Special thanks to:
 - [**swsnr/gnome-shell-extension-xwayland-indicator**](https://codeberg.org/swsnr/gnome-shell-extension-xwayland-indicator/) the inspiration behind the XWayland Indicator module.
 - [**AlexanderVanhee/gradia-capture**](https://github.com/AlexanderVanhee/gradia-capture) inspired the Capture Tools annotation workflow.
 - [**SamkitJain660/Shotzy**](https://github.com/SamkitJain660/Shotzy) inspired the local screenshot OCR workflow.
+- [**Orsso/d2d-companion**](https://github.com/Orsso/d2d-companion) is the source of the adapted Dock motion behavior.
 
 See [CREDITS.md](CREDITS.md) for the full list of attributed work.

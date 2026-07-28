@@ -52,8 +52,6 @@ export class MeetingClock extends Module {
   private _notificationSourceDestroyId = 0;
   private _activeNotification: MessageTray.Notification | null = null;
   private _activeNotificationDestroyId = 0;
-  private _uiAlive = false;
-  private _enabled = false;
   private _lifecycle: LifecycleScope | null = null;
   private _refreshTimerId = 0;
   private _labelTimerId = 0;
@@ -73,12 +71,10 @@ export class MeetingClock extends Module {
   override enable(): void {
     this.disable();
     this._lifecycle = new LifecycleScope();
-    this._enabled = true;
-
     this._installClockWidget();
 
     this._backend = new CalendarServerBackend((events) => {
-      if (!this._enabled) return;
+      if (!this._lifecycle) return;
       this.setSourceEvents(CALENDAR_SERVER_SOURCE_KEY, events);
     });
     this._backend.start();
@@ -128,9 +124,6 @@ export class MeetingClock extends Module {
   }
 
   override disable(): void {
-    this._enabled = false;
-    this._uiAlive = false;
-
     this._lifecycle?.dispose();
     this._lifecycle = null;
 
@@ -188,7 +181,6 @@ export class MeetingClock extends Module {
       'right',
       100,
     );
-    this._uiAlive = Boolean(this._clockPillRegistration);
   }
 
   private _refreshEvents(): void {
@@ -196,7 +188,7 @@ export class MeetingClock extends Module {
   }
 
   setSourceEvents(sourceKey: string, events: readonly MeetingEvent[]): void {
-    if (!this._enabled) return;
+    if (!this._lifecycle) return;
 
     const previousIds = new Set(this._eventsBySource.get(sourceKey)?.map((event) => event.id));
     const nextEvents = [...events];
@@ -230,7 +222,7 @@ export class MeetingClock extends Module {
   }
 
   openMenu(): boolean {
-    if (!this._enabled || !this._uiAlive) return false;
+    if (!this._lifecycle || !this._clockPillRegistration) return false;
 
     this._render();
     return openClockMenu();
@@ -245,7 +237,7 @@ export class MeetingClock extends Module {
   }
 
   private _render(): void {
-    if (!this._enabled || !this._uiAlive) return;
+    if (!this._lifecycle || !this._clockPillRegistration) return;
 
     const now = this._now();
     const excludeAllDayEvents = this.context.settings.getBoolean(EXCLUDE_ALL_DAY_KEY);
@@ -269,7 +261,7 @@ export class MeetingClock extends Module {
   }
 
   private _scheduleAlerts(): void {
-    if (!this._enabled || !this._uiAlive) return;
+    if (!this._lifecycle || !this._clockPillRegistration) return;
 
     this._clearAlertTimer();
     if (this._activeAlertEventId) return;
@@ -296,7 +288,7 @@ export class MeetingClock extends Module {
   }
 
   private _schedulePanelRevealTimer(): void {
-    if (!this._enabled || !this._uiAlive) return;
+    if (!this._lifecycle || !this._clockPillRegistration) return;
 
     this._clearPanelRevealTimer();
     const intervalSeconds =
@@ -350,7 +342,7 @@ export class MeetingClock extends Module {
   }
 
   private _showAlert(event: MeetingEvent): void {
-    if (!this._enabled || !this._uiAlive) return;
+    if (!this._lifecycle || !this._clockPillRegistration) return;
 
     if (this._activeAlertEventId === event.id) return;
 
@@ -427,7 +419,8 @@ export class MeetingClock extends Module {
 
   private _revealPanelWidget(): void {
     const widget = this._panelWidget;
-    if (!this._enabled || !this._uiAlive || !widget || !this._lastPanelEventId) return;
+    if (!this._lifecycle || !this._clockPillRegistration || !widget || !this._lastPanelEventId)
+      return;
 
     this._clearPanelHideTimer();
     widget.remove_transition('opacity');

@@ -64,9 +64,80 @@ test('annotation settings and capture transforms are bounded and deterministic',
   });
 });
 
-test('pointer tool does not start an annotation stroke', () => {
+test('pointer tool ignores empty space', () => {
   const model = new AnnotationModel();
   model.setTool('pointer');
   assert.equal(model.begin({ x: 10, y: 10 }), false);
   assert.equal(model.hasAnnotations, false);
 });
+
+test('pointer tool moves every supported annotation geometry', () => {
+  const cases = [
+    { tool: 'freehand', hit: { x: 15, y: 15 } },
+    { tool: 'highlighter', hit: { x: 15, y: 15 } },
+    { tool: 'arrow', hit: { x: 15, y: 15 } },
+    { tool: 'rectangle', hit: { x: 15, y: 15 } },
+    { tool: 'solid-rectangle', hit: { x: 15, y: 15 } },
+  ] as const;
+
+  for (const { tool, hit } of cases) {
+    const model = new AnnotationModel();
+    model.setTool(tool);
+    model.begin({ x: 10, y: 10 });
+    model.update({ x: 20, y: 20 });
+    model.finish();
+    assertMovedBy(model, hit, { x: 7, y: -3 });
+  }
+
+  const text = new AnnotationModel();
+  text.addText({ x: 10, y: 10 }, 'Aurora');
+  assertMovedBy(text, { x: 20, y: 20 }, { x: 7, y: -3 });
+
+  const stamp = new AnnotationModel();
+  stamp.setTool('stamp');
+  stamp.begin({ x: 10, y: 10 });
+  assertMovedBy(stamp, { x: 10, y: 10 }, { x: 7, y: -3 });
+});
+
+test('pointer tool moves the topmost annotation and restores a cancelled drag', () => {
+  const model = new AnnotationModel();
+  model.setTool('solid-rectangle');
+  model.begin({ x: 0, y: 0 });
+  model.update({ x: 30, y: 30 });
+  model.finish();
+  model.begin({ x: 10, y: 10 });
+  model.update({ x: 40, y: 40 });
+  model.finish();
+
+  const firstBefore = structuredClone(model.annotations[0]!.points);
+  const secondBefore = structuredClone(model.annotations[1]!.points);
+  model.setTool('pointer');
+  assert.equal(model.begin({ x: 20, y: 20 }), true);
+  model.update({ x: 25, y: 27 });
+  assert.deepEqual(model.annotations[0]!.points, firstBefore);
+  assert.deepEqual(model.annotations[1]!.points, offsetPoints(secondBefore, 5, 7));
+
+  model.setTool('rectangle');
+  assert.deepEqual(model.annotations[1]!.points, secondBefore);
+});
+
+function assertMovedBy(
+  model: AnnotationModel,
+  hit: { x: number; y: number },
+  offset: { x: number; y: number },
+): void {
+  const before = structuredClone(model.annotations[0]!.points);
+  model.setTool('pointer');
+  assert.equal(model.begin(hit), true);
+  assert.equal(model.update({ x: hit.x + offset.x, y: hit.y + offset.y }), true);
+  assert.equal(model.finish(), true);
+  assert.deepEqual(model.annotations[0]!.points, offsetPoints(before, offset.x, offset.y));
+}
+
+function offsetPoints(
+  points: readonly { x: number; y: number }[],
+  offsetX: number,
+  offsetY: number,
+): { x: number; y: number }[] {
+  return points.map((point) => ({ x: point.x + offsetX, y: point.y + offsetY }));
+}

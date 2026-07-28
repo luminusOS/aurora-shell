@@ -6,5 +6,5 @@ export const manifest: ModuleManifest = {
   settingsKey: 'module-pip-on-top',
   section: 'behavior',
   title: _('Pip On Top'),
-  subtitle: _('Keeps Picture-in-Picture windows always on top'),
+  subtitle: _('Keeps Picture-in-Picture windows above others across workspaces'),
 };

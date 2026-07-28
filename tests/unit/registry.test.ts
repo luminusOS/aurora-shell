@@ -166,7 +166,7 @@ test('catalog — every section is declared by moduleCatalog', () => {
   for (const entry of entries) assert.ok(sections.has(entry.section), entry.key);
 });
 
-test('prefs uses the manifest-only catalog and extension uses the runtime registry', () => {
+test('prefs uses the manifest-only catalog and extension core uses the runtime registry', () => {
   const prefs = sourceFile('src/prefs.ts');
   const importsCatalog = prefs.statements.some(
     (statement) =>
@@ -175,7 +175,7 @@ test('prefs uses the manifest-only catalog and extension uses the runtime regist
       statement.moduleSpecifier.text === '~/moduleCatalog.ts',
   );
   assert.equal(importsCatalog, true);
-  const extension = sourceFile('src/extension.ts');
+  const extension = sourceFile('src/core/extensionBase.ts');
   const importsRegistry = extension.statements.some(
     (statement) =>
       ts.isImportDeclaration(statement) &&

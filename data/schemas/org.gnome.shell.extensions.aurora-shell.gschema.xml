@@ -9,7 +9,7 @@
     <key name="module-pip-on-top" type="b">
       <default>true</default>
       <summary>Enable Pip On Top module</summary>
-      <description>Keeps Picture-in-Picture windows always on top</description>
+      <description>Keeps Picture-in-Picture windows above others across workspaces</description>
     </key>
     <key name="module-focus-launched-windows" type="b">
       <default>true</default>
@@ -131,6 +131,21 @@
       <default>true</default>
       <summary>Show external storage</summary>
       <description>Show removable drives in the dock when they are connected</description>
+    </key>
+    <key name="dock-motion-enabled" type="b">
+      <default>true</default>
+      <summary>Enable dock icon hover &amp; press effects</summary>
+      <description>Animate dock icons on hover and click</description>
+    </key>
+    <key name="dock-motion-profile" type="s">
+      <choices>
+        <choice value="subtle"/>
+        <choice value="balanced"/>
+        <choice value="expressive"/>
+      </choices>
+      <default>'subtle'</default>
+      <summary>Dock icon effect intensity</summary>
+      <description>Subtle, Balanced, or Expressive dock icon hover and press motion</description>
     </key>
     <key name="module-aurora-menu" type="b">
       <default>true</default>

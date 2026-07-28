@@ -208,8 +208,8 @@ export const ExternalStorageIcon = GObject.registerClass(
     declare private _menuManager: PopupMenu.PopupMenuManager | null;
     declare private _openItem: PopupMenu.PopupMenuItem | null;
     declare private _ejectItem: PopupMenu.PopupMenuItem | null;
+    declare private _operationCancellable: Gio.Cancellable | null;
     declare private _busy: boolean;
-    declare private _destroyed: boolean;
 
     override _init(item?: ExternalStorageItem): void {
       super._init();
@@ -222,8 +222,8 @@ export const ExternalStorageIcon = GObject.registerClass(
       this._menuManager = null;
       this._openItem = null;
       this._ejectItem = null;
+      this._operationCancellable = new Gio.Cancellable();
       this._busy = false;
-      this._destroyed = false;
 
       this.toggleButton = new St.Button({
         style_class: 'show-apps',
@@ -261,12 +261,23 @@ export const ExternalStorageIcon = GObject.registerClass(
         },
         this,
       );
-
-      this.connect('destroy', () => this._onDestroy());
     }
 
     setIconSize(size: number): void {
       this.icon.setIconSize(size);
+    }
+
+    override destroy(): void {
+      this._operationCancellable?.cancel();
+      this._operationCancellable = null;
+      this.toggleButton.disconnectObject(this);
+      this._menu?.destroy();
+      this._menu = null;
+      this._menuManager = null;
+      this._openItem = null;
+      this._ejectItem = null;
+      this._iconActor = null;
+      super.destroy();
     }
 
     get menuIsOpen(): boolean {
@@ -316,31 +327,32 @@ export const ExternalStorageIcon = GObject.registerClass(
     }
 
     private async _openAsync(): Promise<void> {
-      if (this._busy || this._destroyed) return;
+      const cancellable = this._operationCancellable;
+      if (this._busy || !cancellable) return;
       this._setBusy(true);
 
       try {
-        const mount = await this._ensureMounted();
+        const mount = await this._ensureMounted(cancellable);
         if (!mount) throw new Error('Volume is not mounted');
 
         const uri = mount.get_root().get_uri();
         const launchContext = global.create_app_launch_context(global.get_current_time(), -1);
-        await this._launchUri(uri, launchContext);
+        await this._launchUri(uri, launchContext, cancellable);
       } catch (error) {
         this._reportFailure(_('Failed to open “%s”').format(this._item.name), error);
       } finally {
-        this._setBusy(false);
+        if (this._operationCancellable === cancellable) this._setBusy(false);
       }
     }
 
-    private async _ensureMounted(): Promise<Gio.Mount | null> {
+    private async _ensureMounted(cancellable: Gio.Cancellable): Promise<Gio.Mount | null> {
       const currentMount = this._item.volume?.get_mount() ?? this._item.mount;
       if (currentMount) return currentMount;
       if (!this._item.volume?.can_mount()) return null;
 
       const operation = new ShellMountOperation.ShellMountOperation(this._item.volume);
       try {
-        await this._mountVolume(this._item.volume, operation.mountOp);
+        await this._mountVolume(this._item.volume, operation.mountOp, cancellable);
         return this._item.volume.get_mount();
       } finally {
         operation.close();
@@ -352,7 +364,8 @@ export const ExternalStorageIcon = GObject.registerClass(
     }
 
     private async _ejectAsync(): Promise<void> {
-      if (this._busy || this._destroyed || !this._canUnmountOrEject()) return;
+      const cancellable = this._operationCancellable;
+      if (this._busy || !cancellable || !this._canUnmountOrEject()) return;
       this._setBusy(true);
 
       try {
@@ -361,21 +374,21 @@ export const ExternalStorageIcon = GObject.registerClass(
         if (mount?.can_eject()) {
           const operation = new ShellMountOperation.ShellMountOperation(mount);
           try {
-            await this._ejectMount(mount, operation.mountOp);
+            await this._ejectMount(mount, operation.mountOp, cancellable);
           } finally {
             operation.close();
           }
         } else if (mount?.can_unmount()) {
           const operation = new ShellMountOperation.ShellMountOperation(mount);
           try {
-            await this._unmountMount(mount, operation.mountOp);
+            await this._unmountMount(mount, operation.mountOp, cancellable);
           } finally {
             operation.close();
           }
         } else if (this._item.volume?.can_eject()) {
           const operation = new ShellMountOperation.ShellMountOperation(this._item.volume);
           try {
-            await this._ejectVolume(this._item.volume, operation.mountOp);
+            await this._ejectVolume(this._item.volume, operation.mountOp, cancellable);
           } finally {
             operation.close();
           }
@@ -383,7 +396,7 @@ export const ExternalStorageIcon = GObject.registerClass(
       } catch (error) {
         this._reportFailure(_('Failed to eject “%s”').format(this._item.name), error);
       } finally {
-        this._setBusy(false);
+        if (this._operationCancellable === cancellable) this._setBusy(false);
       }
     }
 
@@ -401,22 +414,35 @@ export const ExternalStorageIcon = GObject.registerClass(
       return mount?.can_eject() === true || this._item.volume?.can_eject() === true;
     }
 
-    private _launchUri(uri: string, launchContext: Gio.AppLaunchContext): Promise<void> {
+    private _launchUri(
+      uri: string,
+      launchContext: Gio.AppLaunchContext,
+      cancellable: Gio.Cancellable,
+    ): Promise<void> {
       return new Promise((resolve, reject) => {
-        Gio.app_info_launch_default_for_uri_async(uri, launchContext, null, (_source, result) => {
-          try {
-            Gio.app_info_launch_default_for_uri_finish(result);
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
+        Gio.app_info_launch_default_for_uri_async(
+          uri,
+          launchContext,
+          cancellable,
+          (_source, result) => {
+            try {
+              Gio.app_info_launch_default_for_uri_finish(result);
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          },
+        );
       });
     }
 
-    private _mountVolume(volume: Gio.Volume, mountOperation: Gio.MountOperation): Promise<void> {
+    private _mountVolume(
+      volume: Gio.Volume,
+      mountOperation: Gio.MountOperation,
+      cancellable: Gio.Cancellable,
+    ): Promise<void> {
       return new Promise((resolve, reject) => {
-        volume.mount(Gio.MountMountFlags.NONE, mountOperation, null, (_source, result) => {
+        volume.mount(Gio.MountMountFlags.NONE, mountOperation, cancellable, (_source, result) => {
           try {
             volume.mount_finish(result);
             resolve();
@@ -427,12 +453,16 @@ export const ExternalStorageIcon = GObject.registerClass(
       });
     }
 
-    private _ejectMount(mount: Gio.Mount, mountOperation: Gio.MountOperation): Promise<void> {
+    private _ejectMount(
+      mount: Gio.Mount,
+      mountOperation: Gio.MountOperation,
+      cancellable: Gio.Cancellable,
+    ): Promise<void> {
       return new Promise((resolve, reject) => {
         mount.eject_with_operation(
           Gio.MountUnmountFlags.NONE,
           mountOperation,
-          null,
+          cancellable,
           (_source, result) => {
             try {
               mount.eject_with_operation_finish(result);
@@ -445,12 +475,16 @@ export const ExternalStorageIcon = GObject.registerClass(
       });
     }
 
-    private _unmountMount(mount: Gio.Mount, mountOperation: Gio.MountOperation): Promise<void> {
+    private _unmountMount(
+      mount: Gio.Mount,
+      mountOperation: Gio.MountOperation,
+      cancellable: Gio.Cancellable,
+    ): Promise<void> {
       return new Promise((resolve, reject) => {
         mount.unmount_with_operation(
           Gio.MountUnmountFlags.NONE,
           mountOperation,
-          null,
+          cancellable,
           (_source, result) => {
             try {
               mount.unmount_with_operation_finish(result);
@@ -463,12 +497,16 @@ export const ExternalStorageIcon = GObject.registerClass(
       });
     }
 
-    private _ejectVolume(volume: Gio.Volume, mountOperation: Gio.MountOperation): Promise<void> {
+    private _ejectVolume(
+      volume: Gio.Volume,
+      mountOperation: Gio.MountOperation,
+      cancellable: Gio.Cancellable,
+    ): Promise<void> {
       return new Promise((resolve, reject) => {
         volume.eject_with_operation(
           Gio.MountUnmountFlags.NONE,
           mountOperation,
-          null,
+          cancellable,
           (_source, result) => {
             try {
               volume.eject_with_operation_finish(result);
@@ -502,17 +540,6 @@ export const ExternalStorageIcon = GObject.registerClass(
         maybeGioError?.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.FAILED_HANDLED) === true ||
         maybeGioError?.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED) === true
       );
-    }
-
-    private _onDestroy(): void {
-      this._destroyed = true;
-      this.toggleButton.disconnectObject(this);
-      this._menu?.destroy();
-      this._menu = null;
-      this._menuManager = null;
-      this._openItem = null;
-      this._ejectItem = null;
-      this._iconActor = null;
     }
   },
 );

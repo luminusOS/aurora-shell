@@ -68,6 +68,7 @@ export class AuroraDash extends Dash {
   private _iconResizeTimeoutId = 0;
   private _targetBox: DashBounds | null = null;
   private _blockAutoHide = false;
+  private _itemDragVisibilityHold = false;
   private _dashContainerHover = false;
   private _isDestroyed = false;
   private _flushMode = false;
@@ -96,13 +97,13 @@ export class AuroraDash extends Dash {
     this.connect('notify::mapped', () => this._unredirectInhibitor.setInhibited(this.mapped));
 
     const button = (this as any).showAppsButton;
-    button?.set_toggle_mode?.(false);
-    button?.connectObject?.('clicked', () => Main.overview.showApps(), this);
+    button?.set_toggle_mode(false);
+    button?.connectObject('clicked', () => Main.overview.showApps(), this);
 
     const dashContainer = this._dashInternals._dashContainer;
-    dashContainer?.set_track_hover?.(true);
-    dashContainer?.set_reactive?.(true);
-    dashContainer?.connectObject?.(
+    dashContainer?.set_track_hover(true);
+    dashContainer?.set_reactive(true);
+    dashContainer?.connectObject(
       'notify::hover',
       () => {
         this._dashContainerHover = dashContainer.get_hover();
@@ -124,7 +125,7 @@ export class AuroraDash extends Dash {
     // preferred width every frame. Critical during drag: the placeholder
     // animates scale 0→1, so a one-shot resize would lock the container
     // at the half-scaled width.
-    (this as any)._box?.connectObject?.(
+    (this as any)._box?.connectObject(
       'notify::allocation',
       () => this._queueWorkAreaUpdate(),
       this,
@@ -164,6 +165,7 @@ export class AuroraDash extends Dash {
     this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
     this._delayEnsureAutoHideId = this._removeSource(this._delayEnsureAutoHideId);
     this._blockAutoHideDelayId = this._removeSource(this._blockAutoHideDelayId);
+    this._itemDragVisibilityHold = false;
     this._dashContainerHover = false;
     delete this._dashInternals._dashContainer;
   }
@@ -327,14 +329,14 @@ export class AuroraDash extends Dash {
     }
     this._externalStorageIcons = [];
 
-    (this as any).showAppsButton?.disconnectObject?.(this);
-    (this as any)._box?.disconnectObject?.(this);
+    (this as any).showAppsButton?.disconnectObject(this);
+    (this as any)._box?.disconnectObject(this);
     Main.overview.disconnectObject(this);
     global.display.disconnectObject(this);
     global.workspace_manager.disconnectObject(this);
-    (this as any)._dashContainer?.disconnectObject?.(this);
-    this._container?.disconnectObject?.(this);
-    (global.backend as any).get_dnd?.()?.disconnectObject?.(this);
+    (this as any)._dashContainer?.disconnectObject(this);
+    this._container?.disconnectObject(this);
+    (global.backend as any).get_dnd().disconnectObject(this);
 
     this._container = null;
     this._targetBox = null;
@@ -389,7 +391,7 @@ export class AuroraDash extends Dash {
   attachToContainer(container: St.Bin): void {
     if (this._container === container) return;
 
-    this._container?.disconnectObject?.(this);
+    this._container?.disconnectObject(this);
     this._container = container;
 
     (container as any).connectObject?.(
@@ -406,7 +408,7 @@ export class AuroraDash extends Dash {
   }
 
   detachFromContainer(): void {
-    this._container?.disconnectObject?.(this);
+    this._container?.disconnectObject(this);
     this._container = null;
     this._targetBox = null;
     this._targetBoxListener?.(null);
@@ -498,6 +500,11 @@ export class AuroraDash extends Dash {
   }
 
   override hide(animate = true): void {
+    if (this._itemDragVisibilityHold) {
+      this.show(false);
+      return;
+    }
+
     // The chrome container remains allocated while the dash is hidden. If it
     // stays reactive, its transparent bounds win Clutter picking and create a
     // dead area over controls in windows underneath the dock.
@@ -682,21 +689,29 @@ export class AuroraDash extends Dash {
 
   // Stock Dash._init() connects item-drag-* / window-drag-* via bare
   // connect() (no disconnect on destroy), so signals keep firing after the
-  // GObject is disposed. Each override is just a disposed-guard; resize is
-  // driven by the _box notify::allocation listener in _init.
+  // GObject is disposed. The shared super call guards disposal; item dragging
+  // additionally holds visibility while the placeholder changes hover state.
   private _guardedSuper(method: string, args: any[] = []): void {
     if (this._isDestroyed) return;
     (Dash.prototype as any)[method].call(this, ...args);
   }
 
   override _onItemDragBegin(): void {
+    this._itemDragVisibilityHold =
+      !Main.overview.visible && (this.visible || this._visibilityTarget === 'shown');
+    if (this._itemDragVisibilityHold) {
+      this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
+      this.show(false);
+    }
     this._guardedSuper('_onItemDragBegin');
   }
   override _onItemDragEnd(): void {
     this._guardedSuper('_onItemDragEnd');
+    this._releaseItemDragVisibilityHold();
   }
   override _onItemDragCancelled(): void {
     this._guardedSuper('_onItemDragCancelled');
+    this._releaseItemDragVisibilityHold();
   }
   override _onWindowDragBegin(...a: any[]): void {
     this._guardedSuper('_onWindowDragBegin', a);
@@ -1088,12 +1103,12 @@ export class AuroraDash extends Dash {
 
     (global.backend as any)
       .get_dnd?.()
-      ?.connectObject?.('dnd-leave', () => this._clearSpringLoad(), this);
+      ?.connectObject('dnd-leave', () => this._clearSpringLoad(), this);
   }
 
   private _clearSpringLoad(): void {
     try {
-      this._springLoadTarget?.remove_style_class_name?.('aurora-drag-hover');
+      this._springLoadTarget?.remove_style_class_name('aurora-drag-hover');
     } catch {
       // The target may already be disposed during shell shutdown.
     }
@@ -1107,6 +1122,10 @@ export class AuroraDash extends Dash {
     if (this._isDestroyed) return;
     if (this._autohideTimeoutId !== 0) {
       this._autohideTimeoutId = this._removeSource(this._autohideTimeoutId);
+    }
+    if (this._itemDragVisibilityHold) {
+      this.show(false);
+      return;
     }
     this._autohideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTOHIDE_TIMEOUT, () => {
       if (this._isDestroyed) {
@@ -1127,6 +1146,12 @@ export class AuroraDash extends Dash {
       this._autohideTimeoutId = 0;
       return GLib.SOURCE_REMOVE;
     });
+  }
+
+  private _releaseItemDragVisibilityHold(): void {
+    if (!this._itemDragVisibilityHold) return;
+    this._itemDragVisibilityHold = false;
+    this._onHover();
   }
 
   private _ensureHoverState(): void {

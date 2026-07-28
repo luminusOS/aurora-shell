@@ -13,16 +13,16 @@ or `just shexli` unless the task specifically requires that validation.
 1.  **Run `just validate`** — type-checks the source, lints, and checks formatting. Fix any reported errors.
 2.  **Run `just shexli`** — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP. Review every finding. Some `warning` or `manual_review` findings can be false positives or accepted GNOME-review tradeoffs, but they must be called out explicitly; fix any real regression before finishing.
 3.  **Run targeted integration tests:**
-    - If you modified only **one module**, run only the integration test for that module (e.g., `just test tests/shell/auroraTrayIcons.js`).
+    - If you modified only **one module**, run only the integration test for that module (e.g., `just test shell tests/shell/auroraTrayIcons.js`).
     - If you made **formatting-only changes** (Prettier) and have already passed the tests in a previous turn, you only need to run `just validate` and `just shexli`.
-    - If you made **architectural or cross-cutting changes**, run `just toolbox test-all`.
+    - If you made **architectural or cross-cutting changes**, run `just toolbox test all`.
 
-**IMPORTANT:** Never execute the `test` command (or `test-all`) chained with another command using `&&`. Always run it as a separate standalone turn.
+**IMPORTANT:** Never execute `just test shell`, `just test all`, or `just toolbox test` chained with another command using `&&`. Always run tests as a separate standalone turn.
 
-To read only the relevant output from a `test-all` run (pass/fail summary):
+To read only the relevant output from a full test run (pass/fail summary):
 
 ```sh
-just toolbox test-all 2>&1 | grep -E "PASS:|FAIL:|Results:"
+just toolbox test all 2>&1 | grep -E "PASS:|FAIL:|Results:"
 ```
 
 Do not leave a task incomplete if either command reports errors or failures.
@@ -31,10 +31,12 @@ Do not leave a task incomplete if either command reports errors or failures.
 
 - **Install deps:** `just deps` — runs `yarn install --immutable`; use once or after changing branches
 - **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, and compiles `.mo` files
-- **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
-- **Install:** `just install` — packages and installs the `.zip` to GNOME Shell
+- **Package:** `just package production` — packs the production extension as a `.zip` in `dist/target/`
+- **Development package:** `just package development` — packs the separate DevTool-enabled development ZIP
+- **Inspect packages:** `just package check` — builds both ZIPs and verifies their contents and generated line lengths
+- **Install:** `just install` — packages and installs the DevTool-enabled development ZIP
 - **Uninstall:** `just uninstall` — disables and removes the extension
-- **Run (host):** `just run` — packages, installs, then launches a devkit GNOME Shell session
+- **Run (host):** `just run` — installs development, then launches a DevTool-enabled devkit session
 - **Run (toolbox):** `just toolbox run` — packages/installs on the host, then runs GNOME Shell inside the Fedora toolbox
 - **Create toolbox:** `just toolbox create` — creates `aurora-shell-devel` from the same Fedora/GNOME image used by CI
 - **Remove toolbox:** `just toolbox remove` — delete the toolbox
@@ -44,25 +46,28 @@ Do not leave a task incomplete if either command reports errors or failures.
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
 - **Clean:** `just clean` — removes `dist/`
-- **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
-- **Unit tests:** `just unit-test` — runs unit tests with Node's test runner
-- **Coverage:** `just coverage` — runs unit tests with coverage report
-- **Single integration test:** `just test <script>` — packages and runs one shell test script headlessly (e.g., `just test tests/shell/auroraTrayIcons.js`)
-- **All integration tests:** `just test-all` — packages and runs all `tests/shell/aurora*.js` on the host, printing a pass/fail summary
-- **All integration tests (toolbox):** `just toolbox test-all` — same as above but inside the Fedora toolbox (preferred; use this instead of `just test-all`)
+- **Deep clean:** `just clean all` — removes `dist/` and `node_modules/`
+- **Unit tests:** `just test unit` — runs unit tests with Node's test runner
+- **Coverage:** `just test coverage` — runs unit tests with coverage report
+- **Single integration test:** `just test shell <script>` — packages and runs one shell test script headlessly (e.g., `just test shell tests/shell/auroraTrayIcons.js`)
+- **All integration tests:** `just test all` — packages and runs all `tests/shell/aurora*.js` on the host, printing a pass/fail summary
+- **DevTool integration test:** `just test dev` — tests `auroraDevTool.js` against the development ZIP
+- **All integration tests (toolbox):** `just toolbox test all` — same as above but inside the Fedora toolbox (preferred; use this instead of `just test all`)
 - **Single integration test (toolbox):** `just toolbox test <script>` — packages and runs one test inside the toolbox
 - **Vagrant VM:** `just vagrant create|run|ssh|remove` — full Arch VM kept for manual GNOME environment testing
 
 ### Translation commands
 
-- **Regenerate POT template:** `just pot` — builds, then scans compiled JS (`dist/`) and writes the `.pot` into `dist/` (a build artifact, **not** committed — avoids `POT-Creation-Date` churn). Run this whenever translatable strings are added or removed.
-- **Merge new strings into .po files:** `just update-po` — depends on `pot`; regenerates the template into `dist/` then runs `msgmerge` on every `data/po/*.po` against it. The hand-translated `data/po/*.po` files are the committed source of truth.
-- **Compile .mo binaries:** `just compile-mo` — compiles each `po/*.po` into `dist/locale/<lang>/LC_MESSAGES/*.mo`. Called automatically by `just build`.
+- **Regenerate POT template:** `just translation pot` — builds, then scans compiled JS (`dist/`) and writes the `.pot` into `dist/` (a build artifact, **not** committed — avoids `POT-Creation-Date` churn). Run this whenever translatable strings are added or removed.
+- **Merge new strings into .po files:** `just translation update` — depends on `translation pot`; regenerates the template into `dist/` then runs `msgmerge` on every `data/po/*.po` against it. The hand-translated `data/po/*.po` files are the committed source of truth.
+- **Compile .mo binaries:** `just translation compile` — compiles each `po/*.po` into `dist/locale/<lang>/LC_MESSAGES/*.mo`. Called automatically by `just build`.
 
 ## Repository Structure
 
 - `src/` — TypeScript source root
-  - `extension.ts` — entry point; creates the context and delegates lifecycle to `ModuleManager`
+  - `extension.ts` — minimal production entry point
+  - `extension.dev.ts` — development entry point used only by the development ZIP
+  - `core/extensionBase.ts` — shared extension lifecycle; creates the context and delegates to `ModuleManager`
   - `module.ts` — base `Module` plus manifest, option, factory, and runtime policy types
   - `moduleCatalog.ts` — ordered Shell-free manifest catalog shared by runtime and preferences
   - `moduleManager.ts` — settings/runtime reconciliation, failure isolation, and teardown
@@ -81,7 +86,7 @@ Do not leave a task incomplete if either command reports errors or failures.
     - `privacy/` — privacy and screen-sharing behavior
     - `clipboard/` — clipboard history module and UI
   - `device/` — runtime target and hardware capability detection for future mobile work
-  - `dev/` — developer-only tooling (e.g., `devTool.ts`), gated behind the `AURORA_DEVTOOLS=1` env var. **Not** a feature module: it is not in the registry, prefs, or gschema, and is instantiated directly by `extension.ts`
+  - `dev/` — developer-only tooling (e.g., `devTool.ts`), gated behind the `AURORA_DEVTOOLS=1` env var and excluded from the production ZIP. **Not** a feature module: it is not in the registry, prefs, or gschema
   - `shared/` — shared utilities used across modules (e.g., `quickSettings.ts`)
   - `styles/` — SCSS stylesheets (compiled to light + dark CSS)
   - `types/` — TypeScript type declarations (`@girs`, GJS, etc.)
@@ -170,6 +175,37 @@ Per the GNOME review guidelines, clipboard-related keyboard shortcuts must not s
 ## Human Review Quality Bar
 
 Avoid code that only looks plausible. A human reviewer should be able to read a change and see a real contract, not a guess.
+
+### EGO review policy
+
+Changes intended for the production extension must follow both:
+
+- [GNOME Extensions review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)
+- [EGO AI reference](https://blogs.gnome.org/jrahmatzadeh/2026/07/27/ego-ai-reference/)
+
+Apply these rules during implementation and review:
+
+- Target the Shell versions declared in `metadata.json`; do not add speculative compatibility checks
+  or optional calls for APIs guaranteed by those versions.
+- Keep `extension.ts` small and keep `enable()`/`disable()` close, symmetric, and limited to lifecycle
+  orchestration.
+- Every signal, GLib source, cancellable, child actor, menu, and other resource created by a component
+  must be cleaned up by that same component. Remove sources and signals before destroying owned actors,
+  and call `super.destroy()` last in widget overrides.
+- Override a widget's `destroy()` method for its cleanup. Do not connect the widget's own `destroy`
+  signal as a substitute.
+- Do not add `_enabled`, `_destroyed`, or similar lifecycle flags when owned references, cancellables,
+  or the underlying GObject lifecycle already express the state. Any unavoidable exception needs a
+  concise invariant comment and regression coverage.
+- Avoid defensive `try`/`catch` around deterministic cleanup and avoid trivial comments that merely
+  restate the next line.
+- Do not use emoji or ASCII art as UI icons, do not ship placeholders, keep generated JavaScript lines
+  at 200 characters or fewer, and keep production packages free of developer-only files.
+- Avoid subprocesses in the Shell process. If a subprocess is unavoidable, document why a D-Bus
+  service is not practical and keep invocation local, explicit, cancellable, and free of shell
+  interpretation.
+- Review every Shexli finding. Fix real ownership/lifecycle defects and record accepted manual-review
+  findings or analyzer false positives in `EGO_REVIEW.md`.
 
 - Do not add optional calls such as `object?.method?.(...)` unless that method is a real, documented API or the local type intentionally models it. Never use patterns like `this.disconnectObject?.(this)` on objects that do not own that signal connection contract.
 - Do not ship fake behavior. If a UI label, schema description, README entry, or module subtitle says a feature is wired to NetworkManager, ModemManager, UPower, sensors, widgets, or GNOME internals, the code must actually call the relevant API or clearly describe itself as a fallback.

@@ -1,112 +1,133 @@
 import { gettext as _ } from '~/shared/i18n.ts';
-import Meta from '@girs/meta-18';
+import type Meta from '@girs/meta-18';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';
+import {
+  enforcePipWindow,
+  isPipTitle,
+  restorePipWindow,
+  type PipWindowOwnership,
+  type PipWindowState,
+} from '~/patches/pipWindowPolicy.ts';
 
-const PIP_TITLES = ['Picture-in-Picture', 'Picture in picture', 'Picture-in-picture'];
+interface TrackedWindow {
+  ownership: PipWindowOwnership | null;
+  syncing: boolean;
+}
+
+function toWindowState(window: Meta.Window): PipWindowState {
+  return {
+    isAbove: () => window.is_above(),
+    isOnAllWorkspaces: () => window.is_on_all_workspaces(),
+    makeAbove: () => window.make_above(),
+    makeSticky: () => window.stick(),
+    unmakeAbove: () => window.unmake_above(),
+    unmakeSticky: () => window.unstick(),
+  };
+}
 
 /**
  * PipOnTop Module
  *
- * Automatically keeps Picture-in-Picture (PiP) windows above other windows.
- * It detects PiP windows based on their title and ensures they are always on top.
- * This enhances the user experience by preventing PiP windows from being accidentally hidden behind other windows.
+ * Keeps Picture-in-Picture (PiP) windows above normal windows and visible on
+ * every workspace. Mutter preserves their monitor and frame geometry.
  */
 export class PipOnTop extends Module {
-  private _lastWorkspace: any = null;
-  private _windowAddedId = 0;
-  private _windowRemovedId = 0;
+  private readonly _trackedWindows = new Map<Meta.Window, TrackedWindow>();
 
   constructor(context: ExtensionContext) {
     super(context);
   }
 
   override enable(): void {
-    global.window_manager.connectObject('switch-workspace', () => this._onSwitchWorkspace(), this);
-    this._onSwitchWorkspace();
+    global.display.connectObject(
+      'window-created',
+      (_display: Meta.Display, window: Meta.Window) => this._trackWindow(window),
+      this,
+    );
+
+    for (const actor of global.get_window_actors()) {
+      const window = actor.meta_window;
+      if (window) this._trackWindow(window);
+    }
   }
 
   override disable(): void {
-    global.window_manager.disconnectObject(this);
-    this._disconnectWorkspace();
+    global.display.disconnectObject(this);
 
-    for (const actor of global.get_window_actors()) {
-      const window = actor.meta_window as any;
-      if (!window) continue;
-      this._cleanupWindow(window);
+    for (const [window, tracked] of this._trackedWindows) {
+      this._restoreWindow(window, tracked);
+      this._safeDisconnect(window);
     }
+    this._trackedWindows.clear();
   }
 
-  private _onSwitchWorkspace(): void {
-    this._disconnectWorkspace();
+  private _trackWindow(window: Meta.Window): void {
+    if (this._trackedWindows.has(window)) return;
 
-    const workspace = global.workspace_manager.get_active_workspace();
-    this._lastWorkspace = workspace;
+    const tracked: TrackedWindow = {
+      ownership: null,
+      syncing: false,
+    };
+    this._trackedWindows.set(window, tracked);
 
-    this._windowAddedId = workspace.connect('window-added', (_ws: any, window: any) =>
-      this._onWindowAdded(window),
+    window.connectObject(
+      'notify::title',
+      () => this._syncWindow(window),
+      'notify::above',
+      () => this._syncWindow(window),
+      'notify::on-all-workspaces',
+      () => this._syncWindow(window),
+      'unmanaged',
+      () => this._trackedWindows.delete(window),
+      this,
     );
-    this._windowRemovedId = workspace.connect('window-removed', (_ws: any, window: any) =>
-      this._onWindowRemoved(window),
-    );
+    this._syncWindow(window);
+  }
 
-    const windows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
-    if (windows) {
-      for (const window of windows) {
-        this._onWindowAdded(window);
+  private _syncWindow(window: Meta.Window): void {
+    const tracked = this._trackedWindows.get(window);
+    if (!tracked || tracked.syncing) return;
+
+    tracked.syncing = true;
+    try {
+      const state = toWindowState(window);
+      if (isPipTitle(window.get_title())) {
+        tracked.ownership = enforcePipWindow(state, tracked.ownership);
+      } else {
+        this._restoreWindowState(state, tracked);
       }
+    } finally {
+      tracked.syncing = false;
     }
   }
 
-  private _disconnectWorkspace(): void {
-    if (this._windowAddedId) {
-      this._lastWorkspace.disconnect(this._windowAddedId);
-      this._windowAddedId = 0;
-    }
-    if (this._windowRemovedId) {
-      this._lastWorkspace.disconnect(this._windowRemovedId);
-      this._windowRemovedId = 0;
-    }
-    this._lastWorkspace = null;
-  }
+  private _restoreWindow(window: Meta.Window, tracked: TrackedWindow): void {
+    if (tracked.syncing) return;
 
-  private _onWindowAdded(window: any): void {
-    if (!window._notifyPipTitleId) {
-      window._notifyPipTitleId = window.connect('notify::title', () => this._checkTitle(window));
-    }
-    this._checkTitle(window);
-  }
-
-  private _onWindowRemoved(window: any): void {
-    if (window._notifyPipTitleId) {
-      window.disconnect(window._notifyPipTitleId);
-      window._notifyPipTitleId = null;
+    tracked.syncing = true;
+    try {
+      this._restoreWindowState(toWindowState(window), tracked);
+    } catch {
+      // The window may have been unmanaged while the module was shutting down.
+    } finally {
+      tracked.syncing = false;
     }
   }
 
-  private _checkTitle(window: any): void {
-    if (!window.title) return;
+  private _restoreWindowState(state: PipWindowState, tracked: TrackedWindow): void {
+    if (!tracked.ownership) return;
 
-    const isPip = PIP_TITLES.some((t) => window.title === t) || window.title.endsWith(' - PiP');
-
-    if (isPip) {
-      window._isPipManaged = true;
-      if (!window.above) window.make_above();
-    } else if (window._isPipManaged) {
-      window._isPipManaged = null;
-      if (window.above) window.unmake_above();
-    }
+    restorePipWindow(state, tracked.ownership);
+    tracked.ownership = null;
   }
 
-  private _cleanupWindow(window: any): void {
-    if (window._notifyPipTitleId) {
-      window.disconnect(window._notifyPipTitleId);
-      window._notifyPipTitleId = null;
-    }
-    if (window._isPipManaged) {
-      if (window.above) window.unmake_above();
-      window._isPipManaged = null;
+  private _safeDisconnect(window: Meta.Window): void {
+    try {
+      window.disconnectObject(this);
+    } catch {
+      // The window may already have been disposed by Mutter.
     }
   }
 }

@@ -122,24 +122,27 @@ The CI pipeline runs all tests and, if they pass, publishes the GitHub Release a
 
 - **Install deps:** `just deps` — runs an immutable Yarn install; use once or after changing branches
 - **Build:** `just build` — compiles TypeScript and SCSS, copies metadata/schemas, compiles `.mo` files
-- **Package:** `just package` — packs the extension as a `.zip` in `dist/target/` (depends on `build`)
-- **Install:** `just install` — packages and installs the `.zip` to GNOME Shell
+- **Package:** `just package production` — packs the production extension ZIP
+- **Development package:** `just package development` — packs the separate DevTool-enabled ZIP
+- **Package policy:** `just package check` — builds and inspects both artifacts
+- **Install:** `just install` — packages and installs the DevTool-enabled development ZIP
 - **Uninstall:** `just uninstall` — disables and removes the extension
-- **Run (host):** `just run` — launches a devkit GNOME Shell session (headless, Wayland)
+- **Run (host):** `just run` — installs development and launches a DevTool-enabled devkit session
 - **Validate:** `just validate` — runs tsc, ESLint, Prettier check, and Stylelint
 - **Lint:** `just lint` — runs ESLint only
-- **Unit tests:** `just unit-test` — runs unit tests with Node's test runner (no GNOME Shell required)
-- **Coverage:** `just coverage` — runs unit tests with coverage report
-- **Single integration test:** `just test <script>` — packages and runs one shell test headlessly
-- **All integration tests:** `just test-all` — packages and runs all shell tests on the host, printing a pass/fail summary
+- **Unit tests:** `just test unit` — runs unit tests with Node's test runner (no GNOME Shell required)
+- **Coverage:** `just test coverage` — runs unit tests with coverage report
+- **Single integration test:** `just test shell <script>` — packages and runs one shell test headlessly
+- **All integration tests:** `just test all` — packages and runs all shell tests on the host, printing a pass/fail summary
+- **DevTool integration test:** `just test dev` — runs the DevTool test against the development ZIP
 - **Shexli review scan:** `just shexli` — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP
 - **Watch SCSS:** `just watch` — watches `src/styles/` and recompiles on change
 - **View logs:** `just logs` — shows recent `aurora` entries from the current boot journal
 - **Clean:** `just clean` — removes `dist/`
-- **Deep clean:** `just distclean` — removes `dist/` and `node_modules/`
+- **Deep clean:** `just clean all` — removes `dist/` and `node_modules/`
 
 For a full test environment, create the Fedora toolbox with `just toolbox create` and run
-`just toolbox test-all` (preferred over `just test-all`). The toolbox uses the public,
+`just toolbox test all` (preferred over `just test all`). The toolbox uses the public,
 versioned GNOME image from `ghcr.io/luminusos/aurora-shell-ci` shared with CI. Set
 `AURORA_TOOLBOX_IMAGE` to test a locally built replacement.
 
@@ -168,7 +171,7 @@ extensions.gnome.org:
 just shexli
 ```
 
-The recipe depends on `just package` and scans the generated
+The recipe depends on `just package production` and scans the generated
 `dist/target/aurora-shell@luminusos.github.io.shell-extension.zip`. Install Shexli with
 `python3 -m pip install --user shexli`, or install `uvx` and the recipe will run
 `uvx --from shexli shexli` automatically.
@@ -180,7 +183,7 @@ job ensures the CI image exists; the four validation jobs then run inside that s
 
 1. **Validate** — runs tsc, ESLint, Prettier check, and Stylelint via `just validate`
 2. **Unit & regression tests** — runs the Node test suite without GNOME Shell
-3. **Build** — runs `just package` and uploads the extension `.zip` as an artifact (depends on lint)
+3. **Build** — runs `just package check` and uploads both extension ZIPs as artifacts (depends on lint)
 4. **Integration tests** — runs the shared Shell-test runner against headless GNOME Shell (depends on build + unit tests)
 
 The private `XDG_RUNTIME_DIR`, system D-Bus, and logind mock in the integration job belong only to

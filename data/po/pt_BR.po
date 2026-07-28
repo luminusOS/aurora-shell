@@ -795,8 +795,8 @@ msgid "Pip On Top"
 msgstr "PiP Sempre no Topo"
 
 #: dist/patches/pipOnTop.manifest.js:9
-msgid "Keeps Picture-in-Picture windows always on top"
-msgstr "Mantém janelas Picture-in-Picture sempre no topo"
+msgid "Keeps Picture-in-Picture windows above others across workspaces"
+msgstr "Mantém janelas Picture-in-Picture acima das demais em todas as áreas de trabalho"
 
 #: dist/patches/velaVpnQuickSettings.manifest.js:8
 msgid "Vela VPN Quick Settings"

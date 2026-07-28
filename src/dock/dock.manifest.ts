@@ -40,5 +40,22 @@ export const manifest: ModuleManifest = {
       subtitle: _('Show removable drives in the dock when they are connected'),
       type: 'switch',
     },
+    {
+      key: 'dock-motion-enabled',
+      title: _('Icon Hover &amp; Press Effects'),
+      subtitle: _('Animate dock icons on hover and click'),
+      type: 'switch',
+    },
+    {
+      key: 'dock-motion-profile',
+      title: _('Effect Intensity'),
+      subtitle: _('How strong the hover and press effects are'),
+      type: 'select',
+      choices: [
+        { value: 'subtle', title: _('Subtle') },
+        { value: 'balanced', title: _('Balanced') },
+        { value: 'expressive', title: _('Expressive') },
+      ],
+    },
   ],
 };

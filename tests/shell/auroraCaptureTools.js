@@ -40,6 +40,10 @@ export var METRICS = {};
 export function init() {
   Scripting.defineScriptEvent('attachedOnce', 'Capture toolbar and canvas attached exactly once');
   Scripting.defineScriptEvent('visibleOnOpen', 'Floating toolbar visible immediately on open');
+  Scripting.defineScriptEvent(
+    'externalMonitorPlacement',
+    'Floating toolbar follows a selection onto an external monitor',
+  );
   Scripting.defineScriptEvent('drawingMode', 'Drawing tool activates the capture canvas');
   Scripting.defineScriptEvent(
     'lifecycleRestored',
@@ -138,8 +142,49 @@ export async function run() {
   await ui.open();
   await Scripting.sleep(350);
   if (!toolbar.visible) throw new Error('Capture toolbar is hidden after opening ScreenshotUI');
+  if (!toolbar.mapped) throw new Error('Capture toolbar is not mapped after opening ScreenshotUI');
+  if (![toolbar.translation_x, toolbar.translation_y].every(Number.isFinite))
+    throw new Error('Capture toolbar produced a non-finite translation');
   if (!toolbar.has_style_class_name('screenshot-ui-panel'))
     throw new Error('Capture toolbar does not use the native screenshot panel styling');
+
+  const externalMonitor = Main.layoutManager.monitors.find(
+    (_monitor, index) => index !== Main.layoutManager.primaryIndex,
+  );
+  if (externalMonitor) {
+    const originalSelection = [
+      ui._areaSelector._startX,
+      ui._areaSelector._startY,
+      ui._areaSelector._lastX,
+      ui._areaSelector._lastY,
+    ];
+    ui._areaSelector._startX = externalMonitor.x + Math.floor(externalMonitor.width / 4);
+    ui._areaSelector._startY = externalMonitor.y + Math.floor(externalMonitor.height / 4);
+    ui._areaSelector._lastX = externalMonitor.x + Math.floor((externalMonitor.width * 3) / 4);
+    ui._areaSelector._lastY = externalMonitor.y + Math.floor((externalMonitor.height * 3) / 4);
+    ui._areaSelector._updateSelectionRect();
+    ui._areaSelector.emit('drag-ended');
+    await Scripting.sleep(250);
+    const [externalToolbarX, externalToolbarY] = toolbar.get_transformed_position();
+    if (
+      externalToolbarX < externalMonitor.x ||
+      externalToolbarX + toolbar.width > externalMonitor.x + externalMonitor.width ||
+      externalToolbarY < externalMonitor.y ||
+      externalToolbarY + toolbar.height > externalMonitor.y + externalMonitor.height
+    )
+      throw new Error('Capture toolbar did not follow the selection onto the external monitor');
+    [
+      ui._areaSelector._startX,
+      ui._areaSelector._startY,
+      ui._areaSelector._lastX,
+      ui._areaSelector._lastY,
+    ] = originalSelection;
+    ui._areaSelector._updateSelectionRect();
+    ui._areaSelector.emit('drag-ended');
+    await Scripting.sleep(250);
+  }
+  Scripting.scriptEvent('externalMonitorPlacement');
+
   const colorButtons = findActors(toolbar, COLOR_BUTTON_CLASS);
   const selectedColorButtons = colorButtons.filter((button) => button.checked);
   const activeColor = settings.get_string('capture-tools-color');
@@ -198,7 +243,7 @@ export async function run() {
   if (toolbar.opacity !== 255 || ui._panel.opacity !== 255 || ui._closeButton.opacity !== 255)
     throw new Error('Capture and native control opacity was not restored after drawing');
   pointerButton.emit('clicked', pointerButton);
-  if (canvas.reactive) throw new Error('Pointer tool did not release the capture canvas');
+  if (!canvas.reactive) throw new Error('Pointer tool did not activate annotation movement');
   const textButton = findActors(toolbar, TEXT_TOOL_CLASS)[0];
   textButton.emit('clicked', textButton);
   canvas._requestText({ x: 320, y: 240 });
@@ -253,6 +298,7 @@ export async function run() {
 
 let _attachedOnce = false;
 let _visibleOnOpen = false;
+let _externalMonitorPlacement = false;
 let _drawingMode = false;
 let _lifecycleRestored = false;
 
@@ -262,6 +308,10 @@ export function script_attachedOnce() {
 
 export function script_visibleOnOpen() {
   _visibleOnOpen = true;
+}
+
+export function script_externalMonitorPlacement() {
+  _externalMonitorPlacement = true;
 }
 
 export function script_drawingMode() {
@@ -275,6 +325,8 @@ export function script_lifecycleRestored() {
 export function finish() {
   if (!_attachedOnce) throw new Error('Capture Tools attachment was not verified');
   if (!_visibleOnOpen) throw new Error('Immediate toolbar visibility was not verified');
+  if (!_externalMonitorPlacement)
+    throw new Error('External-monitor toolbar placement was not verified');
   if (!_drawingMode) throw new Error('Capture Tools drawing mode was not verified');
   if (!_lifecycleRestored) throw new Error('Capture Tools lifecycle restoration was not verified');
 }

@@ -20,6 +20,7 @@ vagrant ssh -- -t '
 
   echo "==> Starting GNOME Shell devkit session..."
   exec env \
+    AURORA_DEVTOOLS=1 \
     XDG_CURRENT_DESKTOP=GNOME \
     XDG_SESSION_TYPE=wayland \
     dbus-run-session gnome-shell --wayland --devkit

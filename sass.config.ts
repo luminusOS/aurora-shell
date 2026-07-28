@@ -7,6 +7,7 @@ import * as sass from 'sass';
 interface SassEntry {
   input: string;
   outputs: string[];
+  packageVariant: 'production' | 'development';
 }
 
 interface SassConfig {
@@ -22,10 +23,22 @@ const config: SassConfig = {
     {
       input: 'src/styles/stylesheet-light.scss',
       outputs: ['dist/stylesheet.css', 'dist/stylesheet-light.css'],
+      packageVariant: 'production',
     },
     {
       input: 'src/styles/stylesheet-dark.scss',
       outputs: ['dist/stylesheet-dark.css'],
+      packageVariant: 'production',
+    },
+    {
+      input: 'src/styles/stylesheet-light.scss',
+      outputs: ['dist/dev/stylesheet.css', 'dist/dev/stylesheet-light.css'],
+      packageVariant: 'development',
+    },
+    {
+      input: 'src/styles/stylesheet-dark.scss',
+      outputs: ['dist/dev/stylesheet-dark.css'],
+      packageVariant: 'development',
     },
   ],
   watchGlobs: ['src/styles/**/*.scss'],
@@ -40,13 +53,18 @@ export default config;
 
 async function compileEntry(entry: SassEntry): Promise<void> {
   const inputPath = resolve(projectRoot, entry.input);
-  const result = await sass.compileAsync(inputPath, config.sassOptions);
+  const source = `
+@use ${JSON.stringify(pathToFileURL(inputPath).href)} with (
+  $package-variant: ${JSON.stringify(entry.packageVariant)}
+);
+`;
+  const result = await sass.compileStringAsync(source, config.sassOptions);
 
   await Promise.all(entry.outputs.map(async (output) => {
     const outputPath = resolve(projectRoot, output);
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, result.css, 'utf8');
-    console.log(`✓ ${entry.input} → ${output}`);
+    console.log(`✓ ${entry.input} (${entry.packageVariant}) → ${output}`);
   }));
 }
 

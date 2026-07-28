@@ -79,6 +79,10 @@ export function init() {
     'Repeated show requests do not restart the dock animation',
   );
   Scripting.defineScriptEvent(
+    'itemDragKeepsDockStable',
+    'Favorite reordering holds the Dock visible and restores auto-hide after drop',
+  );
+  Scripting.defineScriptEvent(
     'blockedOverlapDefersHide',
     'Intellihide BLOCKED keeps the dock while hovered and hides after leave',
   );
@@ -101,6 +105,10 @@ export function init() {
   Scripting.defineScriptEvent(
     'intellihideFlapDebounced',
     'Transient geometry flaps coalesce into a single settled status',
+  );
+  Scripting.defineScriptEvent(
+    'pipSmartRevealPolicySynced',
+    'Intellihide follows the PiP module setting without rebuilding the Dock',
   );
   Scripting.defineScriptEvent(
     'externalWorkspaceActorStable',
@@ -126,6 +134,14 @@ export function init() {
     'iconResizeCountsFixedIcons',
     'Automatic icon resize accounts for trash/storage icons outside _box',
   );
+  Scripting.defineScriptEvent(
+    'motionTextureSupersampled',
+    'Dock motion keeps high-resolution icon textures in a normal-sized layout box',
+  );
+  Scripting.defineScriptEvent(
+    'fixedIconMotionRegistered',
+    'Trash and removable-storage icons are registered with dock motion',
+  );
   Scripting.defineScriptEvent('dockRemoved', 'Dock actor removed from stage after disable');
 }
 
@@ -140,11 +156,16 @@ export async function run() {
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
   const originalIntellihide = settings.get_boolean('dock-intellihide');
   const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
+  const originalMotionEnabled = settings.get_boolean('dock-motion-enabled');
+  const originalMotionProfile = settings.get_string('dock-motion-profile');
+  const originalPipOnTop = settings.get_boolean('module-pip-on-top');
   settings.set_boolean('dock-show-trash', true);
   settings.set_boolean('dock-show-external-storage', false);
   settings.set_boolean('dock-always-show', false);
   settings.set_boolean('dock-intellihide', true);
   settings.set_boolean('dock-show-on-all-monitors', false);
+  settings.set_boolean('dock-motion-enabled', true);
+  settings.set_string('dock-motion-profile', 'balanced');
 
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
@@ -260,7 +281,9 @@ export async function run() {
   }
 
   if (dash._externalStorageIcons?.length)
-    throw new Error('External storage icons were created while dock-show-external-storage is disabled');
+    throw new Error(
+      'External storage icons were created while dock-show-external-storage is disabled',
+    );
 
   Scripting.scriptEvent('externalStorageDisabled');
 
@@ -296,6 +319,28 @@ export async function run() {
       );
     }
 
+    const customFixedIcons = [dash._trashIcon, ...(dash._externalStorageIcons ?? [])].filter(
+      Boolean,
+    );
+    if (customFixedIcons.length === 0)
+      throw new Error('Dock motion test could not create a fixed Trash or storage icon');
+    for (const fixedIcon of customFixedIcons) {
+      const baseIcon = fixedIcon.icon;
+      const texture = baseIcon?._iconBin?.child;
+      if (
+        !texture ||
+        texture.icon_size < baseIcon.iconSize * 2 ||
+        texture.min_width !== baseIcon.iconSize ||
+        texture.natural_height !== baseIcon.iconSize
+      ) {
+        throw new Error(
+          `Fixed dock icon was not supersampled without changing layout: normal=${baseIcon?.iconSize} texture=${texture?.icon_size} actor=${texture?.min_width}x${texture?.natural_height}`,
+        );
+      }
+    }
+    Scripting.scriptEvent('motionTextureSupersampled');
+    Scripting.scriptEvent('fixedIconMotionRegistered');
+
     const boxIconChildren = dash._box
       .get_children()
       .filter((actor) => actor.child?._delegate?.icon && !actor.animatingOut);
@@ -326,9 +371,7 @@ export async function run() {
     const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
     const targetIconSize = 31 * scaleFactor;
     const maxWidth = Math.ceil(
-      totalIcons * (iconPadding + targetIconSize) +
-        (totalIcons - 1) * spacing +
-        horizontalChrome,
+      totalIcons * (iconPadding + targetIconSize) + (totalIcons - 1) * spacing + horizontalChrome,
     );
 
     dash.setMaxSize(maxWidth, priorMaxHeight > 0 ? priorMaxHeight : 400);
@@ -405,9 +448,7 @@ export async function run() {
     }
 
     for (const externalBinding of externalBindings) {
-      const windowsBefore = new Set(
-        global.get_window_actors().map((actor) => actor.meta_window),
-      );
+      const windowsBefore = new Set(global.get_window_actors().map((actor) => actor.meta_window));
       await Scripting.createTestWindow({ width: 900, height: 650, maximized: false });
       await Scripting.waitTestWindows();
       await Scripting.sleep(200);
@@ -435,9 +476,7 @@ export async function run() {
 
         const stableBounds = externalBinding.dash.targetBox;
         if (!stableBounds) {
-          throw new Error(
-            `Dock on monitor ${externalBinding.monitorIndex} lost its target bounds`,
-          );
+          throw new Error(`Dock on monitor ${externalBinding.monitorIndex} lost its target bounds`);
         }
 
         for (let sample = 0; sample < 8; sample++) {
@@ -501,7 +540,47 @@ export async function run() {
 
   Scripting.scriptEvent('repeatedShowStable');
 
+  const originalItemDragHover = dash._dashContainerHasHover;
+  try {
+    dash._dashContainerHasHover = () => false;
+    dash.blockAutoHide(false);
+    dash.show(false);
+    dash._onItemDragBegin();
+    dash.hide(false);
+    await Scripting.sleep(300);
+    if (!dash.visible || dash.opacity !== 255 || dash.translation_y !== 0)
+      throw new Error('Dock hid while a favorite icon drag was active');
+
+    dash._onItemDragEnd();
+    await Scripting.sleep(400);
+    if (dash.visible) throw new Error('Dock did not restore auto-hide after the icon drop');
+
+    dash.show(false);
+    dash._onItemDragBegin();
+    dash._onItemDragCancelled();
+    await Scripting.sleep(400);
+    if (dash.visible) throw new Error('Dock did not restore auto-hide after cancelling icon drag');
+  } finally {
+    if (dash._itemDragVisibilityHold) dash._onItemDragCancelled();
+    dash._dashContainerHasHover = originalItemDragHover;
+    dash.blockAutoHide(true);
+    dash.show(false);
+  }
+  Scripting.scriptEvent('itemDragKeepsDockStable');
+
   const binding = dock.bindings[0];
+
+  settings.set_boolean('module-pip-on-top', false);
+  await Scripting.waitLeisure();
+  if (binding.intellihide?._excludePipFromSmartReveal)
+    throw new Error('Intellihide kept excluding PiP after the PiP module was disabled');
+
+  settings.set_boolean('module-pip-on-top', true);
+  await Scripting.waitLeisure();
+  if (!binding.intellihide?._excludePipFromSmartReveal)
+    throw new Error('Intellihide did not exclude PiP after the PiP module was enabled');
+
+  Scripting.scriptEvent('pipSmartRevealPolicySynced');
 
   // I7 — a direct intellihide BLOCKED transition from a visible dock must hand
   // off to hover autohide. This covers switching from a small window to a
@@ -555,8 +634,7 @@ export async function run() {
   } finally {
     dash._dashContainerHasHover = originalHoldZoneDashContainerHasHover;
   }
-  if (!dash.visible)
-    throw new Error('Native autohide hid the dock while the pointer was over it');
+  if (!dash.visible) throw new Error('Native autohide hid the dock while the pointer was over it');
   if (!binding.hotAreaActive)
     throw new Error('Hot-area reveal ended while the pointer was over the dock');
   if (binding.autoHideReleaseId !== 0)
@@ -577,8 +655,7 @@ export async function run() {
   binding.intellihide.emit('status-changed');
   await Scripting.sleep(350);
   if (!dash.visible) throw new Error('Hot-area active CLEAR did not show the dock');
-  if (binding.hotAreaActive)
-    throw new Error('Hot-area active CLEAR did not end the reveal state');
+  if (binding.hotAreaActive) throw new Error('Hot-area active CLEAR did not end the reveal state');
   if (binding.hotArea?.reactive)
     throw new Error('Hot-area active CLEAR left the hot area reactive over the dock');
 
@@ -693,8 +770,7 @@ export async function run() {
   } finally {
     dash._dashContainerHasHover = originalReassertHasHover;
   }
-  if (dash.visible)
-    throw new Error('Focus reassert did not hide the dock after the pointer left');
+  if (dash.visible) throw new Error('Focus reassert did not hide the dock after the pointer left');
   if (binding.hotAreaActive)
     throw new Error('Focus reassert left the hot-area reveal active after the pointer left');
 
@@ -806,6 +882,9 @@ export async function run() {
   settings.set_boolean('dock-always-show', originalAlwaysShow);
   settings.set_boolean('dock-intellihide', originalIntellihide);
   settings.set_boolean('dock-show-on-all-monitors', originalShowOnAllMonitors);
+  settings.set_boolean('dock-motion-enabled', originalMotionEnabled);
+  settings.set_string('dock-motion-profile', originalMotionProfile);
+  settings.set_boolean('module-pip-on-top', originalPipOnTop);
   settings.set_boolean('module-dock', originalValue);
   await Scripting.waitLeisure();
   await Scripting.sleep(300);
@@ -820,12 +899,15 @@ let _hotAreaYieldedInput = false;
 let _hotAreaReleaseDeferred = false;
 let _hotAreaRearmedAfterHide = false;
 let _repeatedShowStable = false;
+let _itemDragKeepsDockStable = false;
 let _blockedOverlapDefersHide = false;
 let _hotAreaActiveBlockedHidesDock = false;
 let _hotAreaActiveClearShowsDock = false;
 let _dockRemoved = false;
 let _externalStorageDisabled = false;
 let _iconResizeCountsFixedIcons = false;
+let _motionTextureSupersampled = false;
+let _fixedIconMotionRegistered = false;
 let _externalWorkspaceActorStable = false;
 let _primaryMonitorOnly = false;
 let _allMonitorsEnabled = false;
@@ -877,6 +959,11 @@ export function script_repeatedShowStable() {
 }
 
 /** @returns {void} */
+export function script_itemDragKeepsDockStable() {
+  _itemDragKeepsDockStable = true;
+}
+
+/** @returns {void} */
 export function script_blockedOverlapDefersHide() {
   _blockedOverlapDefersHide = true;
 }
@@ -904,6 +991,16 @@ export function script_externalStorageDisabled() {
 /** @returns {void} */
 export function script_iconResizeCountsFixedIcons() {
   _iconResizeCountsFixedIcons = true;
+}
+
+/** @returns {void} */
+export function script_motionTextureSupersampled() {
+  _motionTextureSupersampled = true;
+}
+
+/** @returns {void} */
+export function script_fixedIconMotionRegistered() {
+  _fixedIconMotionRegistered = true;
 }
 
 /** @returns {void} */
@@ -939,8 +1036,9 @@ export function finish() {
     throw new Error('Hot-area release did not stay visible while pointer was inside the dock');
   if (!_hotAreaRearmedAfterHide)
     throw new Error('Hot area was not rearmed after the dock hide transition');
-  if (!_repeatedShowStable)
-    throw new Error('Repeated show requests restarted the dock animation');
+  if (!_repeatedShowStable) throw new Error('Repeated show requests restarted the dock animation');
+  if (!_itemDragKeepsDockStable)
+    throw new Error('Favorite icon dragging did not preserve and restore Dock visibility');
   if (!_blockedOverlapDefersHide)
     throw new Error('Intellihide BLOCKED did not defer hiding while hovered');
   if (!_hotAreaActiveBlockedHidesDock)
@@ -951,12 +1049,14 @@ export function finish() {
     throw new Error('External storage icons were not verified disabled');
   if (!_iconResizeCountsFixedIcons)
     throw new Error('Automatic icon resize did not account for fixed dock icons');
+  if (!_motionTextureSupersampled)
+    throw new Error('Dock motion icon textures were not verified at high resolution');
+  if (!_fixedIconMotionRegistered)
+    throw new Error('Trash and removable-storage icons were not registered with dock motion');
   if (!_externalWorkspaceActorStable)
     throw new Error('External-monitor Dock actor did not remain stable in workspace two');
-  if (!_primaryMonitorOnly)
-    throw new Error('Dock primary-monitor-only behavior was not verified');
-  if (!_allMonitorsEnabled)
-    throw new Error('Dock all-monitors opt-in behavior was not verified');
+  if (!_primaryMonitorOnly) throw new Error('Dock primary-monitor-only behavior was not verified');
+  if (!_allMonitorsEnabled) throw new Error('Dock all-monitors opt-in behavior was not verified');
   if (!_alwaysAutoHideIndependent)
     throw new Error('Dock always auto-hide behavior was not verified');
   if (!_dockRemoved) throw new Error('Dock actor was not removed after module was disabled');
