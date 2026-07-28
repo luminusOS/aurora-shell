@@ -20,6 +20,15 @@ function collectText(actor) {
   return text;
 }
 
+async function waitForCondition(condition, timeoutMs = 3000) {
+  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
+  while (GLib.get_monotonic_time() < deadline) {
+    if (condition()) return true;
+    await Scripting.sleep(50);
+  }
+  return condition();
+}
+
 export var METRICS = {};
 
 /** @returns {void} */
@@ -261,23 +270,25 @@ export async function run() {
     throw new Error('Dock DevTool hideAll left a hidden container reactive');
 
   const monitorIndex = dock.bindings[0].monitorIndex;
+  const binding = dock.bindings[0];
   if (!dockTool.showMonitor(monitorIndex))
     throw new Error('Dock DevTool showMonitor returned false');
-  await Scripting.sleep(300);
-  if (!dock.bindings[0].dash.visible)
+  if (!(await waitForCondition(() => binding.dash.visible)))
     throw new Error('Dock DevTool showMonitor did not show the selected monitor');
 
   if (!dockTool.hideMonitor(monitorIndex))
     throw new Error('Dock DevTool hideMonitor returned false');
-  await Scripting.sleep(300);
-  if (dock.bindings[0].dash.visible)
-    throw new Error('Dock DevTool hideMonitor did not hide the selected monitor');
+  if (
+    !(await waitForCondition(
+      () => !binding.dash.visible && !binding.hotAreaActive && binding.hotArea?.reactive === true,
+    ))
+  )
+    throw new Error('Dock DevTool did not hide the selected monitor and rearm its hot area');
 
-  if (dock.bindings[0].hotArea) {
+  if (binding.hotArea) {
     if (!dockTool.triggerMonitorHotArea(monitorIndex))
       throw new Error('Dock DevTool triggerMonitorHotArea returned false');
-    await Scripting.sleep(100);
-    if (!dock.bindings[0].hotAreaActive)
+    if (!(await waitForCondition(() => binding.hotAreaActive, 1000)))
       throw new Error('Dock DevTool did not trigger the selected monitor hot area');
   }
 
