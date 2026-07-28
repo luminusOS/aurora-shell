@@ -6,11 +6,10 @@ type SignalTarget<Args extends unknown[]> = {
 };
 
 export class LifecycleScope {
-  private _teardowns: Teardown[] = [];
-  private _disposed = false;
+  private _teardowns: Teardown[] | null = [];
 
   onDispose(teardown: Teardown): void {
-    if (this._disposed) {
+    if (!this._teardowns) {
       teardown();
       return;
     }
@@ -27,10 +26,9 @@ export class LifecycleScope {
   }
 
   dispose(): void {
-    if (this._disposed) return;
-    this._disposed = true;
+    if (!this._teardowns) return;
     const teardowns = this._teardowns;
-    this._teardowns = [];
+    this._teardowns = null;
     for (let index = teardowns.length - 1; index >= 0; index--) {
       try {
         teardowns[index]?.();

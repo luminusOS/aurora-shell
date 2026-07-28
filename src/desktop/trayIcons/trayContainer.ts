@@ -132,7 +132,17 @@ class TrayClipArea extends Clutter.Actor {
 
   layoutSnapshot(): string {
     const child = this.get_first_child();
-    return `reservedWidth=${Math.round(this.reservedWidth)} actorWidth=${Math.round(this.width)} viewportWidth=${Math.round(this._viewportWidth)} clipStart=${Math.round(this._clipStart)} allocated=${Math.round(this.allocation.x2 - this.allocation.x1)} fullWidth=${Math.round(this.fullWidth)} childOffsetX=${Math.round(this._childOffsetX)} childX=${child ? Math.round(child.x) : 'none'} childWidth=${child ? Math.round(child.width) : 'none'}`;
+    return [
+      `reservedWidth=${Math.round(this.reservedWidth)}`,
+      `actorWidth=${Math.round(this.width)}`,
+      `viewportWidth=${Math.round(this._viewportWidth)}`,
+      `clipStart=${Math.round(this._clipStart)}`,
+      `allocated=${Math.round(this.allocation.x2 - this.allocation.x1)}`,
+      `fullWidth=${Math.round(this.fullWidth)}`,
+      `childOffsetX=${Math.round(this._childOffsetX)}`,
+      `childX=${child ? Math.round(child.x) : 'none'}`,
+      `childWidth=${child ? Math.round(child.width) : 'none'}`,
+    ].join(' ');
   }
 }
 
@@ -525,7 +535,23 @@ export class TrayContainer extends PanelMenu.Button {
 
     if (animated) {
       logger.debug(
-        `Viewport animation collapsed=${this._state.collapsed} count=${count} limit=${this._limit} effectiveLimit=${effectiveLimit} visible=${visibleCount} fullWidth=${fullWidth} reservedWidth=${reservedWidth} availableClipWidth=${availableClipWidth ?? 'none'} fromViewport=${startViewportWidth} toViewport=${targetViewportWidth} fromClipStart=${startClipStart} toClipStart=${targetClipStart} scrollOffset=${this._state.scrollOffset} chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+        [
+          `Viewport animation collapsed=${this._state.collapsed}`,
+          `count=${count}`,
+          `limit=${this._limit}`,
+          `effectiveLimit=${effectiveLimit}`,
+          `visible=${visibleCount}`,
+          `fullWidth=${fullWidth}`,
+          `reservedWidth=${reservedWidth}`,
+          `availableClipWidth=${availableClipWidth ?? 'none'}`,
+          `fromViewport=${startViewportWidth}`,
+          `toViewport=${targetViewportWidth}`,
+          `fromClipStart=${startClipStart}`,
+          `toClipStart=${targetClipStart}`,
+          `scrollOffset=${this._state.scrollOffset}`,
+          `chevronX=${Math.round(this._chevron.translationX)}`,
+          this._clipArea.layoutSnapshot(),
+        ].join(' '),
         { prefix: LOG_PREFIX },
       );
     }

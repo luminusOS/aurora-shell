@@ -99,7 +99,7 @@ export class AuroraMenu extends Module {
 
     const menu = this._getMenu();
     menu?.actor?.add_style_class_name('aurora-menu');
-    menu?.setSourceAlignment?.(0.0);
+    menu?.setSourceAlignment(0.0);
     if (menu) this._lockMenuWidth(menu);
 
     if (menu) {

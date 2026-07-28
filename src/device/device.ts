@@ -32,12 +32,11 @@ const DISPLAY_CONFIG_PATH = '/org/gnome/Mutter/DisplayConfig';
 export class DefaultDeviceService implements DeviceService {
   private readonly _listeners = new Set<DeviceChangeListener>();
   private readonly _seat = Clutter.get_default_backend().get_default_seat();
-  private readonly _monitorChangedId: number;
-  private readonly _deviceAddedId: number;
-  private readonly _deviceRemovedId: number;
-  private readonly _nameWatchIds: number[];
+  private _monitorChangedId: number | null;
+  private _deviceAddedId: number | null;
+  private _deviceRemovedId: number | null;
+  private _nameWatchIds: number[] | null;
   private _snapshot: DeviceSnapshot;
-  private _destroyed = false;
 
   constructor() {
     this._snapshot = this._detect();
@@ -64,7 +63,7 @@ export class DefaultDeviceService implements DeviceService {
   }
 
   refresh(): DeviceSnapshot {
-    if (this._destroyed) return this._snapshot;
+    if (!this._nameWatchIds) return this._snapshot;
     const next = this._detect();
     if (!sameDeviceSnapshot(this._snapshot, next)) {
       this._snapshot = next;
@@ -79,12 +78,15 @@ export class DefaultDeviceService implements DeviceService {
   }
 
   destroy(): void {
-    if (this._destroyed) return;
-    this._destroyed = true;
-    Main.layoutManager.disconnect(this._monitorChangedId);
-    this._seat.disconnect(this._deviceAddedId);
-    this._seat.disconnect(this._deviceRemovedId);
+    if (!this._nameWatchIds) return;
+    if (this._monitorChangedId !== null) Main.layoutManager.disconnect(this._monitorChangedId);
+    if (this._deviceAddedId !== null) this._seat.disconnect(this._deviceAddedId);
+    if (this._deviceRemovedId !== null) this._seat.disconnect(this._deviceRemovedId);
     for (const id of this._nameWatchIds) Gio.bus_unwatch_name(id);
+    this._monitorChangedId = null;
+    this._deviceAddedId = null;
+    this._deviceRemovedId = null;
+    this._nameWatchIds = null;
     this._listeners.clear();
   }
 

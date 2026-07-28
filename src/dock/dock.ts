@@ -14,6 +14,8 @@ import { AuroraDash, type DashBounds } from '~/shared/ui/dash.ts';
 import { DockHotArea } from '~/dock/hotArea.ts';
 import { DockIntellihide, OverlapStatus } from '~/dock/intellihide.ts';
 import { getDockMonitorIndexes } from '~/dock/monitorTopology.ts';
+import { DEFAULT_PROFILE, getBuiltInRecipe } from '~/dock/motion/catalog.ts';
+import { DashMotionIntegration } from '~/dock/motion/dashMotionIntegration.ts';
 
 const HOT_AREA_REVEAL_DURATION = 1500;
 const HOT_AREA_STRIP_HEIGHT = 1;
@@ -30,6 +32,7 @@ export type ManagedDockBinding = {
   autoHideReleaseId: number;
   hotAreaEnableId: number;
   hotAreaActive: boolean;
+  motion: DashMotionIntegration;
 };
 
 export class Dock extends Module {
@@ -42,6 +45,8 @@ export class Dock extends Module {
   private _showOnAllMonitors = false;
   private _showTrash = true;
   private _showExternalStorage = true;
+  private _motionEnabled = true;
+  private _motionProfile: string = DEFAULT_PROFILE;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -60,8 +65,17 @@ export class Dock extends Module {
     this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
     this._showExternalStorage =
       this._dockSettings?.get_boolean('dock-show-external-storage') ?? true;
+    this._motionEnabled = this._dockSettings?.get_boolean('dock-motion-enabled') ?? true;
+    this._motionProfile = this._dockSettings?.get_string('dock-motion-profile') ?? DEFAULT_PROFILE;
     logger.debug(
-      `enable alwaysShow=${this._alwaysShow} intellihide=${this._intellihideEnabled} showOnAllMonitors=${this._showOnAllMonitors} showTrash=${this._showTrash} showExternalStorage=${this._showExternalStorage} monitors=${Main.layoutManager.monitors?.length ?? 0}`,
+      [
+        `enable alwaysShow=${this._alwaysShow}`,
+        `intellihide=${this._intellihideEnabled}`,
+        `showOnAllMonitors=${this._showOnAllMonitors}`,
+        `showTrash=${this._showTrash}`,
+        `showExternalStorage=${this._showExternalStorage}`,
+        `monitors=${Main.layoutManager.monitors?.length ?? 0}`,
+      ].join(' '),
       { prefix: LOG_PREFIX },
     );
 
@@ -94,7 +108,7 @@ export class Dock extends Module {
     );
     this._lifecycle.onDispose(() => Main.overview.disconnectObject(this));
 
-    this._dockSettings?.connectObject?.(
+    this._dockSettings?.connectObject(
       'changed::dock-always-show',
       () => {
         this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
@@ -130,12 +144,31 @@ export class Dock extends Module {
           this._dockSettings?.get_boolean('dock-show-external-storage') ?? true;
         this._rebuildBindings();
       },
+      'changed::dock-motion-enabled',
+      () => {
+        this._motionEnabled = this._dockSettings?.get_boolean('dock-motion-enabled') ?? true;
+        this._bindings.forEach((b) => b.motion.setEnabled(this._motionEnabled));
+      },
+      'changed::dock-motion-profile',
+      () => {
+        this._motionProfile =
+          this._dockSettings?.get_string('dock-motion-profile') ?? DEFAULT_PROFILE;
+        const recipe = getBuiltInRecipe(this._motionProfile);
+        this._bindings.forEach((b) => b.motion.setRecipe(recipe));
+      },
+      'changed::module-pip-on-top',
+      () => {
+        const enabled = this._dockSettings?.get_boolean('module-pip-on-top') ?? false;
+        this._bindings.forEach((binding) =>
+          binding.intellihide?.setExcludePipFromSmartReveal(enabled),
+        );
+      },
       this,
     );
 
     this.context.signals.connectObject('icons-woven', () => this._refreshBindingsLayout(), this);
     this._lifecycle.onDispose(() => this.context.signals.disconnectObject(this));
-    this._lifecycle.onDispose(() => this._dockSettings?.disconnectObject?.(this));
+    this._lifecycle.onDispose(() => this._dockSettings?.disconnectObject(this));
   }
 
   override disable(): void {
@@ -235,8 +268,18 @@ export class Dock extends Module {
     const monitors: DashBounds[] = Main.layoutManager.monitors ?? [];
     const primaryIndex = Main.layoutManager.primaryIndex;
     const monitorIndexes = getDockMonitorIndexes(monitors, primaryIndex, this._showOnAllMonitors);
+    const monitorSummary = monitors
+      .map(
+        (monitor, index) => `${index}:${monitor.x},${monitor.y} ${monitor.width}x${monitor.height}`,
+      )
+      .join(';');
     logger.debug(
-      `rebuild primary=${primaryIndex} showOnAllMonitors=${this._showOnAllMonitors} selected=[${monitorIndexes.join(',')}] monitors=[${monitors.map((monitor, index) => `${index}:${monitor.x},${monitor.y} ${monitor.width}x${monitor.height}`).join(';')}]`,
+      [
+        `rebuild primary=${primaryIndex}`,
+        `showOnAllMonitors=${this._showOnAllMonitors}`,
+        `selected=[${monitorIndexes.join(',')}]`,
+        `monitors=[${monitorSummary}]`,
+      ].join(' '),
       { prefix: LOG_PREFIX },
     );
     monitorIndexes.forEach((monitorIndex) => {
@@ -287,6 +330,9 @@ export class Dock extends Module {
     container.set_child(dash);
     dash.attachToContainer(container);
 
+    const motion = new DashMotionIntegration(getBuiltInRecipe(this._motionProfile));
+    motion.attach(dash, this._motionEnabled);
+
     const binding: ManagedDockBinding = {
       monitorIndex,
       mode,
@@ -298,6 +344,7 @@ export class Dock extends Module {
       autoHideReleaseId: 0,
       hotAreaEnableId: 0,
       hotAreaActive: false,
+      motion,
     };
     logger.debug(
       `monitor=${monitorIndex} binding created geometry=${monitor.x},${monitor.y} ${monitor.width}x${monitor.height} mode=${mode}`,
@@ -322,7 +369,10 @@ export class Dock extends Module {
         return binding;
       }
 
-      const intellihide = new DockIntellihide(monitorIndex);
+      const intellihide = new DockIntellihide(
+        monitorIndex,
+        this._dockSettings?.get_boolean('module-pip-on-top') ?? false,
+      );
       binding.intellihide = intellihide;
       dash.setTargetBoxListener((box) => intellihide.updateTargetBox(box));
 
@@ -475,9 +525,9 @@ export class Dock extends Module {
     }
     this._clearHotAreaEnable(binding);
 
-    binding.intellihide?.disconnectObject?.(this);
-    binding.hotArea?.disconnectObject?.(this);
-    binding.container.disconnectObject?.(this);
+    binding.intellihide?.disconnectObject(this);
+    binding.hotArea?.disconnectObject(this);
+    binding.container.disconnectObject(this);
 
     if (binding.hotArea) {
       Main.layoutManager.removeChrome?.(binding.hotArea);
@@ -492,6 +542,7 @@ export class Dock extends Module {
     }
 
     binding.intellihide?.destroy();
+    binding.motion.dispose();
     binding.dash.detachFromContainer();
     binding.dash.destroy();
 

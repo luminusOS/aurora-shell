@@ -24,6 +24,10 @@ import {
   type Geometry,
   type ScreenshotUi,
 } from '~/capture/screenshotUiAdapter.ts';
+import {
+  calculateToolbarTranslation,
+  findMonitorForSelection,
+} from '~/capture/toolbarPlacement.ts';
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
@@ -259,8 +263,10 @@ export class CaptureTools extends Module {
       this._setInteractionState('idle');
       this._syncToolbarPlacement();
     });
-    if (this._toolbar)
-      scope.connect(this._toolbar, 'notify::allocation', () => this._syncToolbarPlacement());
+    if (this._toolbar) {
+      for (const signal of ['notify::allocation', 'notify::mapped'])
+        scope.connect(this._toolbar, signal, () => this._syncToolbarPlacement());
+    }
 
     const monitorsChangedId = Main.layoutManager.connect('monitors-changed', () => {
       this._endToolbarDrag();
@@ -289,6 +295,7 @@ export class CaptureTools extends Module {
     this._originalOpen = original;
     const wrapper: ScreenshotOpen = async (mode = 0, ...args: unknown[]) => {
       this._portalMode = mode === 2;
+      const result = await original.call(ui, mode, ...args);
       this._syncVisibility();
       logger.debug(
         `Native screenshot UI opened; toolbar visible=${!this._portalMode} (mode=${mode})`,
@@ -296,7 +303,7 @@ export class CaptureTools extends Module {
           prefix: LOG_PREFIX,
         },
       );
-      return original.call(ui, mode, ...args);
+      return result;
     };
     this._openWrapper = wrapper;
     ui.open = wrapper;
@@ -482,11 +489,11 @@ export class CaptureTools extends Module {
     this._commitText(true);
     this._model?.setTool(tool);
     for (const [candidate, button] of this._toolButtons) button.checked = candidate === tool;
-    this._canvas?.setDrawingEnabled(this._isDrawingTool(tool) && this._toolbar?.visible === true);
+    this._canvas?.setDrawingEnabled(this._usesCanvas(tool) && this._toolbar?.visible === true);
   }
 
-  private _isDrawingTool(tool: AnnotationTool): boolean {
-    return tool !== 'select' && tool !== 'pointer';
+  private _usesCanvas(tool: AnnotationTool): boolean {
+    return tool !== 'select';
   }
 
   private _beginToolbarDrag(handle: St.Button, event: Clutter.Event): boolean {
@@ -732,7 +739,7 @@ export class CaptureTools extends Module {
       this._hideOcrPanel();
       this._ocrTooltip?.close();
     } else {
-      this._canvas?.setDrawingEnabled(this._model ? this._isDrawingTool(this._model.tool) : false);
+      this._canvas?.setDrawingEnabled(this._model ? this._usesCanvas(this._model.tool) : false);
     }
     this._syncOcrButton();
     if (visible) this._syncToolbarPlacement();
@@ -741,12 +748,9 @@ export class CaptureTools extends Module {
   private _syncToolbarPlacement(): void {
     const toolbar = this._toolbar;
     const ui = this._ui;
-    if (!toolbar || !ui || !toolbar.visible || toolbar.width === 0) return;
+    if (!toolbar || !ui || !toolbar.visible || !toolbar.mapped) return;
     // A position picked manually through the drag handle wins for the session.
     if (this._toolbarDraggedByUser) return;
-
-    const monitor = Main.layoutManager.primaryMonitor;
-    if (!monitor) return;
 
     let selection: Geometry | null = null;
     if (!this._portalMode && ui._shotButton.checked && ui._selectionButton.checked) {
@@ -764,22 +768,37 @@ export class CaptureTools extends Module {
       return;
     }
 
-    // Anchor to the aligned top-center slot the toolbar is allocated in, then
-    // translate so it floats just above the selection rectangle.
-    const [stageX, stageY] = toolbar.get_transformed_position();
-    const anchorX = stageX - toolbar.translation_x;
-    const anchorY = stageY - toolbar.translation_y;
     const [x, y, width, height] = selection;
-    const margin = 12;
-    const desiredX = Math.max(
-      monitor.x,
-      Math.min(x + width / 2 - toolbar.width / 2, monitor.x + monitor.width - toolbar.width),
+    const selectionRectangle = { x, y, width, height };
+    const monitor = findMonitorForSelection(
+      selectionRectangle,
+      Main.layoutManager.monitors ?? [],
+      Main.layoutManager.primaryIndex,
     );
-    let desiredY = y - toolbar.height - margin;
-    if (desiredY < monitor.y) desiredY = y + height + margin;
-    desiredY = Math.max(monitor.y, Math.min(desiredY, monitor.y + monitor.height - toolbar.height));
-    toolbar.translation_x = Math.round(desiredX - anchorX);
-    toolbar.translation_y = Math.round(desiredY - anchorY);
+    if (!monitor) {
+      toolbar.translation_x = 0;
+      toolbar.translation_y = 0;
+      return;
+    }
+
+    const [stageX, stageY] = toolbar.get_transformed_position();
+    const translation = calculateToolbarTranslation({
+      monitor,
+      selection: selectionRectangle,
+      toolbar: {
+        width: toolbar.width,
+        height: toolbar.height,
+        stageX,
+        stageY,
+        translationX: toolbar.translation_x,
+        translationY: toolbar.translation_y,
+      },
+      margin: 12,
+    });
+    if (!translation) return;
+
+    toolbar.translation_x = translation.x;
+    toolbar.translation_y = translation.y;
   }
 
   private _setControlsOpacity(opacity: number): void {

@@ -89,10 +89,10 @@ to match the schema exactly.
 ## Test Boundaries
 
 Pure TypeScript logic belongs in `tests/unit`. St/Clutter/Main integration belongs in
-`tests/shell`. Architectural changes are accepted only after `just validate`, `just unit-test`,
-`just shexli`, and `just toolbox test-all`.
+`tests/shell`. Architectural changes are accepted only after `just validate`, `just test unit`,
+`just shexli`, and `just toolbox test all`.
 
 ## Packaging
 
-`just package` builds TypeScript and SCSS into `dist/`, compiles schemas and translations, and packs
+`just package production` builds TypeScript and SCSS into `dist/`, compiles schemas and translations, and packs
 the extension. Manifests stay as source modules; no TypeScript or XML generation step is involved.

@@ -67,8 +67,6 @@ export class WeatherClock extends Module {
   private _refreshTimerId = 0;
   private _retryTimerId = 0;
   private _retryCount = 0;
-  private _enabled = false;
-  private _uiAlive = false;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -77,7 +75,6 @@ export class WeatherClock extends Module {
   override enable(): void {
     this.disable();
     this._lifecycle = new LifecycleScope();
-    this._enabled = true;
     this._monitor = Gio.NetworkMonitor.get_default();
     this._gweatherSettings = this._createGWeatherSettings();
     if (this._gweatherSettings)
@@ -94,9 +91,6 @@ export class WeatherClock extends Module {
   }
 
   override disable(): void {
-    this._enabled = false;
-    this._uiAlive = false;
-
     this._lifecycle?.dispose();
     this._lifecycle = null;
 
@@ -120,7 +114,7 @@ export class WeatherClock extends Module {
   }
 
   setWeatherSnapshot(sourceKey: string, snapshot: Partial<WeatherSnapshot>): void {
-    if (!this._enabled) return;
+    if (!this._lifecycle) return;
 
     this._snapshotsBySource.set(sourceKey, normalizeWeatherSnapshot(snapshot, this._now()));
     this._syncSnapshot();
@@ -189,7 +183,6 @@ export class WeatherClock extends Module {
       afterClock ? 'right' : 'left',
       afterClock ? 10 : 100,
     );
-    this._uiAlive = Boolean(this._clockPillRegistration);
     this._render();
   }
 
@@ -236,7 +229,7 @@ export class WeatherClock extends Module {
   }
 
   private _onConnectivityChanged(): void {
-    if (!this._enabled) return;
+    if (!this._lifecycle) return;
 
     if (!this._hasConnectivity()) {
       this.setWeatherSnapshot(GNOME_WEATHER_SOURCE_KEY, {
@@ -252,7 +245,7 @@ export class WeatherClock extends Module {
 
   private _onWeatherChanged(): void {
     const weather = this._weatherClient;
-    if (!this._enabled || !weather) return;
+    if (!this._lifecycle || !weather) return;
 
     if (!weather.available) {
       this.setWeatherSnapshot(GNOME_WEATHER_SOURCE_KEY, {
@@ -370,7 +363,13 @@ export class WeatherClock extends Module {
   }
 
   private _render(): void {
-    if (!this._enabled || !this._uiAlive || !this._panelWidget || !this._icon || !this._label) {
+    if (
+      !this._lifecycle ||
+      !this._clockPillRegistration ||
+      !this._panelWidget ||
+      !this._icon ||
+      !this._label
+    ) {
       return;
     }
 

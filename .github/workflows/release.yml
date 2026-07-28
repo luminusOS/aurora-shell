@@ -89,7 +89,9 @@ jobs:
           tag_name: ${{ needs.state.outputs.tag_name }}
           target_commitish: ${{ needs.state.outputs.head_sha }}
           name: ${{ needs.state.outputs.tag_name }}
-          files: dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
+          files: |
+            dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
+            dist/target/aurora-shell@luminusos.github.io.development.shell-extension.zip
           generate_release_notes: true
           prerelease: ${{ github.event_name == 'workflow_dispatch' }}
 

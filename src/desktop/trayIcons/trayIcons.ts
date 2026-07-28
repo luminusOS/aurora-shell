@@ -44,7 +44,6 @@ export class TrayIcons extends Module {
   private _dedupBgApps = true;
   private _bgAppsToggle: any = null;
   private _bgAppsGrid: any = null;
-  private _bgAppsGridChildAddedId = 0;
   private _desktopSettings: SettingsManager | null = null;
 
   constructor(context: ExtensionContext) {
@@ -153,6 +152,27 @@ export class TrayIcons extends Module {
       );
       this._sniHost?.refreshIcons('recolor-setting');
     });
+  }
+
+  override disable(): void {
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
+    this._desktopSettings = null;
+
+    this._restoreBgAppsQuickSettings();
+
+    this._bgSource?.destroy();
+    this._bgSource = null;
+    this._bgItemAppIds.clear();
+
+    this._sniHost?.destroy();
+    this._sniHost = null;
+
+    this._sniWatcher?.destroy();
+    this._sniWatcher = null;
+
+    this._container?.destroy();
+    this._container = null;
   }
 
   private _onSniItemAdded(item: TrayItem): void {
@@ -390,7 +410,7 @@ export class TrayIcons extends Module {
 
   private _findBgAppsQuickSettingsToggle(): any {
     const quickSettings = Main.panel.statusArea.quickSettings as any;
-    const backgroundAppsItem = quickSettings?._backgroundApps?.quickSettingsItems?.find?.(
+    const backgroundAppsItem = quickSettings?._backgroundApps?.quickSettingsItems?.find(
       (item: any) => this._isBgAppsQuickSettingsToggle(item),
     );
     if (backgroundAppsItem) return backgroundAppsItem;
@@ -417,24 +437,25 @@ export class TrayIcons extends Module {
   private _watchBgAppsQuickSettingsGrid(): void {
     const grid = getQuickSettingsGrid();
     if (!grid) return;
-    if (this._bgAppsGrid === grid && this._bgAppsGridChildAddedId) return;
+    if (this._bgAppsGrid === grid) return;
 
     this._unwatchBgAppsQuickSettingsGrid();
     this._bgAppsGrid = grid;
-    this._bgAppsGridChildAddedId = grid.connect('child-added', () => {
-      this._hideBgAppsQuickSettings();
-    });
+    grid.connectObject(
+      'child-added',
+      () => this._hideBgAppsQuickSettings(),
+      'destroy',
+      () => {
+        if (this._bgAppsGrid === grid) this._bgAppsGrid = null;
+      },
+      this,
+    );
   }
 
   private _unwatchBgAppsQuickSettingsGrid(): void {
-    if (!this._bgAppsGrid || !this._bgAppsGridChildAddedId) return;
-    try {
-      this._bgAppsGrid.disconnect(this._bgAppsGridChildAddedId);
-    } catch {
-      // Quick Settings may be destroyed during Shell shutdown.
-    }
+    if (!this._bgAppsGrid) return;
+    this._bgAppsGrid.disconnectObject(this);
     this._bgAppsGrid = null;
-    this._bgAppsGridChildAddedId = 0;
   }
 
   private _forceHideBgAppsToggle(): void {
@@ -445,33 +466,8 @@ export class TrayIcons extends Module {
   private _restoreBgAppsQuickSettings(): void {
     this._unwatchBgAppsQuickSettingsGrid();
     if (!this._bgAppsToggle) return;
-    try {
-      this._bgAppsToggle.disconnectObject(this);
-    } catch {
-      // Quick Settings may be destroyed during Shell shutdown.
-    }
-    this._bgAppsToggle._syncVisibility?.();
+    this._bgAppsToggle.disconnectObject(this);
+    this._bgAppsToggle._syncVisibility();
     this._bgAppsToggle = null;
-  }
-
-  override disable(): void {
-    this._lifecycle?.dispose();
-    this._lifecycle = null;
-    this._desktopSettings = null;
-
-    this._restoreBgAppsQuickSettings();
-
-    this._bgSource?.destroy();
-    this._bgSource = null;
-    this._bgItemAppIds.clear();
-
-    this._sniHost?.destroy();
-    this._sniHost = null;
-
-    this._sniWatcher?.destroy();
-    this._sniWatcher = null;
-
-    this._container?.destroy();
-    this._container = null;
   }
 }

@@ -42,7 +42,7 @@ export class BluetoothMenu extends Module {
     this._lifecycle = null;
 
     for (const [item, { patcher, destroyId }] of this._patchedItems) {
-      item?.disconnect?.(destroyId);
+      item?.disconnect(destroyId);
       patcher.disable();
     }
     this._patchedItems.clear();

@@ -1,3 +1,5 @@
+@use 'sass:meta';
+
 @use './variables' with (
   $variant: 'dark'
 );
@@ -13,6 +15,15 @@
 @use './meeting-clock';
 @use './weather-clock';
 @use './tray-icons';
-@use './devtool';
 @use './clipboard-history';
 @use './capture-tools';
+
+$package-variant: 'production' !default;
+
+@if $package-variant != 'production' and $package-variant != 'development' {
+  @error 'Unknown package variant: #{$package-variant}';
+}
+
+@if $package-variant == 'development' {
+  @include meta.load-css('./devtool');
+}

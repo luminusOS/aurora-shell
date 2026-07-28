@@ -63,10 +63,10 @@ export class PrivacyPanel extends Module {
       this._startupCompleteId = null;
     }
 
-    this._indicator?.disconnectObject?.(this);
+    this._indicator?.disconnectObject(this);
     this._indicator = null;
 
-    Main.panel.disconnectObject?.(this);
+    Main.panel.disconnectObject(this);
 
     this._restoreAll();
     this._isSharing = false;

@@ -19,6 +19,7 @@ RUN dnf install -y --quiet --setopt=install_weak_deps=False \
         gsettings-desktop-schemas \
         just \
         mesa-dri-drivers \
+        mutter-devkit \
         nodejs \
         npm \
         python3-dbusmock \

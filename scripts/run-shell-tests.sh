@@ -51,6 +51,13 @@ else
   shopt -s nullglob
   TEST_SCRIPTS=("$PROJECT_DIR"/tests/shell/aurora*.js)
   shopt -u nullglob
+  PROD_TEST_SCRIPTS=()
+  for script in "${TEST_SCRIPTS[@]}"; do
+    if [[ "$(basename "$script")" != "auroraDevTool.js" ]]; then
+      PROD_TEST_SCRIPTS+=("$script")
+    fi
+  done
+  TEST_SCRIPTS=("${PROD_TEST_SCRIPTS[@]}")
 fi
 
 if (( ${#TEST_SCRIPTS[@]} == 0 )); then
@@ -79,7 +86,7 @@ run_test() {
       test_args=(--headless --extension "$1")
       extra_monitors=0
       case "$(basename "$2")" in
-        auroraClipboardHistory.js)
+        auroraCaptureTools.js | auroraClipboardHistory.js)
           extra_monitors=1
           ;;
         auroraDock.js)

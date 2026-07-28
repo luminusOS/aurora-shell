@@ -24,7 +24,7 @@ export class DockHotArea extends St.Widget {
   private _pressureBarrier: Layout.PressureBarrier | null = null;
   private _horizontalBarrier: Meta.Barrier | null = null;
   private _monitor!: DashBounds;
-  private _enabled = true;
+  private _active = true;
   private _edgeArmed = true;
   private _grabSuppressed = false;
   private _pointerDwellTimeoutId = 0;
@@ -80,7 +80,7 @@ export class DockHotArea extends St.Widget {
       'leave-event',
       () => {
         this._clearDebounceTimer();
-        if (this._enabled && !this._grabSuppressed && !this._edgeArmed) {
+        if (this._active && !this._grabSuppressed && !this._edgeArmed) {
           this._edgeArmed = true;
           logger.debug(`rearmed after pointer leave geometry=${this._formatGeometry()}`, {
             prefix: LOG_PREFIX,
@@ -104,7 +104,7 @@ export class DockHotArea extends St.Widget {
       (_d: any, _w: any, op: Meta.GrabOp) => {
         if (op === Meta.GrabOp.MOVING) {
           this._grabSuppressed = false;
-          if (this._enabled) this._edgeArmed = !this._isPointerInsideHotArea();
+          if (this._active) this._edgeArmed = !this._isPointerInsideHotArea();
         }
       },
       this,
@@ -113,12 +113,12 @@ export class DockHotArea extends St.Widget {
 
   setGeometry(monitor: DashBounds): void {
     this._monitor = monitor;
-    if (this._enabled) this._rebuildBarrier(monitor.width);
+    if (this._active) this._rebuildBarrier(monitor.width);
   }
 
   setEnabled(enabled: boolean): void {
-    if (enabled === this._enabled && enabled === this.reactive) return;
-    this._enabled = enabled;
+    if (enabled === this._active && enabled === this.reactive) return;
+    this._active = enabled;
     this.set_reactive(enabled);
     if (enabled) {
       this._edgeArmed = !this._isPointerInsideHotArea() && !this._grabSuppressed;
@@ -141,8 +141,8 @@ export class DockHotArea extends St.Widget {
     this._destroyBarrier();
     this._clearDebounceTimer();
 
-    this._pressureBarrier?.disconnectObject?.(this);
-    this._pressureBarrier?.destroy?.();
+    this._pressureBarrier?.disconnectObject(this);
+    this._pressureBarrier?.destroy();
     this._pressureBarrier = null;
 
     super.destroy();
@@ -186,7 +186,7 @@ export class DockHotArea extends St.Widget {
   }
 
   private _canTrigger(): boolean {
-    return this._enabled && this._edgeArmed && !this._grabSuppressed;
+    return this._active && this._edgeArmed && !this._grabSuppressed;
   }
 
   private _isPointerInsideHotArea(): boolean {

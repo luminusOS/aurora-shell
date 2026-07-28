@@ -12,6 +12,7 @@ import {
   isOnActiveWorkspace,
   rectanglesOverlap,
 } from '~/dock/intellihideState.ts';
+import { isPipTitle } from '~/patches/pipWindowPolicy.ts';
 import type { DashBounds } from '~/shared/ui/dash.ts';
 
 const LOG_PREFIX = 'DockIntellihide';
@@ -48,6 +49,7 @@ const TRACKED_WINDOW_SIGNALS = [
   'notify::maximized-vertically',
   'notify::minimized',
   'notify::on-all-workspaces',
+  'notify::title',
 ] as const;
 
 export enum OverlapStatus {
@@ -66,13 +68,15 @@ export class DockIntellihide extends GObject.Object {
   private _pendingStatus: OverlapStatus = OverlapStatus.CLEAR;
   private _pendingReason = '';
   private _pendingRectangles: Array<{ x: number; y: number; width: number; height: number }> = [];
+  private _excludePipFromSmartReveal = false;
   declare private _trackedWindowActors: Set<any>;
   declare private _trackedWindows: Set<Meta.Window>;
   declare private _queuedRefreshIds: Set<number>;
 
-  override _init(monitorIndex: number) {
+  override _init(monitorIndex: number, excludePipFromSmartReveal = false) {
     super._init();
     this._monitorIndex = monitorIndex;
+    this._excludePipFromSmartReveal = excludePipFromSmartReveal;
     this._trackedWindowActors = new Set<any>();
     this._trackedWindows = new Set<Meta.Window>();
     this._queuedRefreshIds = new Set<number>();
@@ -136,6 +140,13 @@ export class DockIntellihide extends GObject.Object {
     this._checkOverlap(reason, force);
   }
 
+  setExcludePipFromSmartReveal(enabled: boolean): void {
+    if (this._excludePipFromSmartReveal === enabled) return;
+
+    this._excludePipFromSmartReveal = enabled;
+    this._queueRefresh('pip-smart-reveal-policy-changed', [0, 100]);
+  }
+
   destroy(): void {
     this._cancelPendingStatus();
     for (const id of this._queuedRefreshIds) {
@@ -176,6 +187,7 @@ export class DockIntellihide extends GObject.Object {
         focused: focusedWindow === window,
         topmost: index === candidates.length - 1,
         fullscreen: window.is_fullscreen(),
+        excludedFromSmartReveal: this._excludePipFromSmartReveal && isPipTitle(window.get_title()),
       })),
       this._targetBox,
       global.display.get_monitor_in_fullscreen(this._monitorIndex),
@@ -321,8 +333,19 @@ export class DockIntellihide extends GObject.Object {
     const oldStatus = this._status === null ? 'UNKNOWN' : OverlapStatus[this._status];
     this._status = newStatus;
     const workspace = global.workspace_manager.get_active_workspace_index();
+    const rectangleSummary = rectangles
+      .map((rectangle) => this._formatRectangle(rectangle))
+      .join(';');
     logger.debug(
-      `monitor=${this._monitorIndex} workspace=${workspace} ${oldStatus}->${OverlapStatus[newStatus]} reason=${reason}${force ? ' force=true' : ''} target=${this._formatRectangle(this._targetBox)} candidates=${rectangles.length} rects=[${rectangles.map((rectangle) => this._formatRectangle(rectangle)).join(';')}]`,
+      [
+        `monitor=${this._monitorIndex}`,
+        `workspace=${workspace}`,
+        `${oldStatus}->${OverlapStatus[newStatus]}`,
+        `reason=${reason}${force ? ' force=true' : ''}`,
+        `target=${this._formatRectangle(this._targetBox)}`,
+        `candidates=${rectangles.length}`,
+        `rects=[${rectangleSummary}]`,
+      ].join(' '),
       { prefix: LOG_PREFIX },
     );
     this.emit('status-changed');
@@ -391,7 +414,7 @@ export class DockIntellihide extends GObject.Object {
 
   private _safeDisconnect(target: unknown): void {
     try {
-      (target as { disconnectObject?: (object: unknown) => void }).disconnectObject?.(this);
+      (target as { disconnectObject: (object: unknown) => void }).disconnectObject(this);
     } catch {
       // The object may already be disposed or unmanaged by Shell.
     }

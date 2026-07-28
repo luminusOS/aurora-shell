@@ -41,7 +41,7 @@ export class DndOnShare extends Module {
   override disable(): void {
     const indicator = getSharingIndicator();
     if (indicator) {
-      (indicator as any).disconnectObject?.(this);
+      (indicator as any).disconnectObject(this);
     }
 
     this._restoreState();

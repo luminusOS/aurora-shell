@@ -116,7 +116,6 @@ export class ClipboardItem extends St.Button {
   declare private _removeButton: St.Button;
   declare private _menuButton: St.Button;
   declare private _menu: PopupMenu.PopupMenu | null;
-  declare private _disposed: boolean;
   declare private _linkTitle: St.Label | null;
   declare private _linkDescription: St.Label | null;
   declare private _linkThumb: St.Widget | null;
@@ -140,7 +139,6 @@ export class ClipboardItem extends St.Button {
     this._entry = entry;
     this._callbacks = callbacks;
     this._menu = null;
-    this._disposed = false;
     this._linkTitle = null;
     this._linkDescription = null;
     this._linkThumb = null;
@@ -192,8 +190,10 @@ export class ClipboardItem extends St.Button {
   }
 
   override destroy(): void {
-    this._disposed = true;
     this._destroyMenu();
+    this._linkTitle = null;
+    this._linkDescription = null;
+    this._linkThumb = null;
     super.destroy();
   }
 
@@ -317,7 +317,7 @@ export class ClipboardItem extends St.Button {
 
   private async _loadLinkPreview(url: string): Promise<void> {
     const meta = await fetchLinkMetadata(url);
-    if (this._disposed) return;
+    if (!this._linkTitle) return;
 
     if (meta.title && this._linkTitle) {
       this._linkTitle.text = meta.title;

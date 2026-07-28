@@ -6,6 +6,9 @@
 
 A modular GNOME Shell extension that adds quality-of-life features missing in vanilla GNOME.
 
+Aurora Shell is distributed under the GNU General Public License, version 3 only. See
+[LICENSE](LICENSE) and [CREDITS.md](CREDITS.md) for licensing and attribution details.
+
 > **Project goal:** Aurora Shell is a proving ground. Over time, the aim is for some of its
 > features to mature and make their way upstream into GNOME Shell itself. Modules here are
 > meant to be useful on their own today and good candidates for upstream tomorrow.
@@ -76,6 +79,15 @@ gnome-extensions install --force aurora-shell@luminusos.github.io.shell-extensio
 gnome-extensions enable aurora-shell@luminusos.github.io
 ```
 
+Stable releases, release candidates, and nightly pre-releases publish two assets:
+
+- `aurora-shell@luminusos.github.io.shell-extension.zip` — production package recommended for
+  regular installations;
+- `aurora-shell@luminusos.github.io.development.shell-extension.zip` — DevTool-enabled package for
+  contributors, QA, and development sessions.
+
+Do not use the development package as a regular desktop installation.
+
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for information on project architecture, code style, and step-by-step instructions on how to add a new module.
@@ -90,5 +102,6 @@ Aurora Shell builds on the work of the wider GNOME community. Special thanks to:
 - [**swsnr/gnome-shell-extension-xwayland-indicator**](https://codeberg.org/swsnr/gnome-shell-extension-xwayland-indicator/) the inspiration behind the XWayland Indicator module.
 - [**AlexanderVanhee/gradia-capture**](https://github.com/AlexanderVanhee/gradia-capture) inspired the Capture Tools annotation workflow.
 - [**SamkitJain660/Shotzy**](https://github.com/SamkitJain660/Shotzy) inspired the local screenshot OCR workflow.
+- [**Orsso/d2d-companion**](https://github.com/Orsso/d2d-companion) is the source of the adapted Dock motion behavior.
 
 See [CREDITS.md](CREDITS.md) for the full list of attributed work.

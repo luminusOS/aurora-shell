@@ -50,3 +50,10 @@ local screenshot OCR workflow is inspired by
 `data/icons/hicolor/scalable/actions/` are copied from Gradia Capture and redistributed under
 GPL-3.0. The toolbar integration, annotation canvas, export, and OCR implementation are otherwise
 independent.
+
+## Dock Motion
+
+The Dock motion recipes and controller behavior are adapted from
+[**Orsso/d2d-companion**](https://github.com/Orsso/d2d-companion), version `v0.1.0-beta.1`
+(commit `33eef1d2ddc4678c46d015a4a2c276d4177901df`). The adapted source is redistributed
+under GPL-2.0-or-later and is combined with Aurora Shell under GPL-3.0-only.

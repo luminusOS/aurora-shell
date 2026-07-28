@@ -88,7 +88,7 @@ export class XwaylandIndicator extends Module {
   }
 
   private _addBadge(item: Clutter.Actor): void {
-    const iconActor = item?.get_first_child?.();
+    const iconActor = item?.get_first_child();
     if (!iconActor) return;
 
     const wrapper = new St.Widget({
