@@ -79,6 +79,15 @@ gnome-extensions install --force aurora-shell@luminusos.github.io.shell-extensio
 gnome-extensions enable aurora-shell@luminusos.github.io
 ```
 
+Stable releases, release candidates, and nightly pre-releases publish two assets:
+
+- `aurora-shell@luminusos.github.io.shell-extension.zip` — production package recommended for
+  regular installations;
+- `aurora-shell@luminusos.github.io.development.shell-extension.zip` — DevTool-enabled package for
+  contributors, QA, and development sessions.
+
+Do not use the development package as a regular desktop installation.
+
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for information on project architecture, code style, and step-by-step instructions on how to add a new module.

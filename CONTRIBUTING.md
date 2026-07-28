@@ -105,6 +105,10 @@ Release candidates are published alongside GNOME Shell RCs. Tags follow the patt
 
 To publish an RC, trigger the `Release` workflow manually (`workflow_dispatch`) — no input is needed. Like the nightly flow, the workflow numbers the next candidate automatically (`v50-rc1`, then `v50-rc2`, ...), tags current `main`, runs CI against it, and publishes the pre-release. An RC supersedes the nightly line, so publishing one deletes all nightly pre-releases.
 
+Every RC and nightly pre-release publishes both the production ZIP and the separate DevTool-enabled
+development ZIP. The production package is the installable artifact for regular users; the
+development package is intended only for contributors, QA, and development sessions.
+
 ### Stable releases
 
 Stable releases use tags like `v50.1`, `v50.2`, matching the GNOME Shell major version they target.
@@ -116,7 +120,8 @@ git tag -a v50.1 -m "Release v50.1"
 git push origin v50.1
 ```
 
-The CI pipeline runs all tests and, if they pass, publishes the GitHub Release automatically.
+The CI pipeline runs all tests and, if they pass, publishes the GitHub Release automatically with
+both the production ZIP and the separate DevTool-enabled development ZIP.
 
 ## Build System & Commands
 
@@ -192,7 +197,11 @@ D-Bus services.
 
 All jobs must pass before a PR can be merged.
 
-When a stable version tag (`v50.1`, `v50.2`, etc.) is pushed, `.github/workflows/release.yml` calls the CI pipeline and, if all jobs pass, publishes the GitHub Release automatically. Release candidate tags (`v50-rc1`, etc.) are excluded from this trigger and are published manually via `workflow_dispatch`, as described above.
+When a stable version tag (`v50.1`, `v50.2`, etc.) is pushed, `.github/workflows/release.yml` calls
+the CI pipeline and, if all jobs pass, publishes the GitHub Release automatically with both extension
+ZIPs. Release candidate tags (`v50-rc1`, etc.) are excluded from this trigger and are published
+manually via `workflow_dispatch`, as described above. The nightly workflow follows the same
+two-package release-asset policy.
 
 ## Coding Standards
 
