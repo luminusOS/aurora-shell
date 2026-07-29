@@ -217,7 +217,8 @@ test('schema ↔ catalog — every declared module and option setting is synchro
   assert.deepEqual([...compiledSchemaKeys()].sort(), [...catalogSettingsKeys()].sort());
 });
 
-test('schema — Vela Shell fallback is disabled by default', () => {
+test('schema — Vela VPN integration and Shell fallback are disabled by default', () => {
+  assert.equal(schemaDefault('module-vela-vpn-quick-settings'), 'false');
   assert.equal(schemaDefault('vela-vpn-quick-settings-shell-fallback'), 'false');
 });
 
