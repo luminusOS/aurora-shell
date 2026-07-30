@@ -21,7 +21,7 @@ export var METRICS = {};
 export function init() {
   Scripting.defineScriptEvent(
     'fallbackPolicyOk',
-    'Vela VPN fallback is opt-in and handles ServiceUnknown',
+    'Vela VPN integration is opt-in and handles ServiceUnknown fallback',
   );
 }
 
@@ -33,8 +33,12 @@ export async function run() {
   const originalFallbackEnabled = settings.get_boolean(FALLBACK_SETTING);
 
   try {
-    const defaultValue = settings.get_default_value(FALLBACK_SETTING)?.unpack();
-    if (defaultValue !== false)
+    const defaultModuleEnabled = settings.get_default_value(MODULE_SETTING)?.unpack();
+    if (defaultModuleEnabled !== false)
+      throw new Error('Vela VPN integration must be disabled by default');
+
+    const defaultFallbackEnabled = settings.get_default_value(FALLBACK_SETTING)?.unpack();
+    if (defaultFallbackEnabled !== false)
       throw new Error('Vela VPN Shell fallback must be disabled by default');
 
     settings.set_boolean(MODULE_SETTING, true);

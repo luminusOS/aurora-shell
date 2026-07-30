@@ -93,7 +93,7 @@
       <description>Shows app name tooltip on hover in the overview search results</description>
     </key>
     <key name="module-vela-vpn-quick-settings" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Enable Vela VPN Quick Settings module</summary>
       <description>Routes VPN Quick Settings activation through Vela</description>
     </key>
