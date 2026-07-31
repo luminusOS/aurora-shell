@@ -716,6 +716,39 @@ export async function run() {
 
   Scripting.scriptEvent('hotAreaRearmedAfterHide');
 
+  // A system transition must temporarily reject both ordinary edge activation
+  // and contextual DND. Once the cooldown expires, a recognized external drag
+  // may reveal the hidden dock, but only after the longer dwell.
+  const hotAreaBounds = binding.hotArea._monitor;
+  const edgeX = hotAreaBounds.x + Math.floor(hotAreaBounds.width / 2);
+  const edgeY = hotAreaBounds.y + hotAreaBounds.height - 1;
+  dock._beginActivationCooldown('shell-test');
+  if (binding.hotArea.canStartContextualDragReveal(edgeX, edgeY))
+    throw new Error('Hot area accepted contextual DND during the transition cooldown');
+
+  await Scripting.sleep(750);
+  if (!binding.hotArea.canStartContextualDragReveal(edgeX, edgeY))
+    throw new Error('Hot area remained in transition cooldown after its deadline');
+
+  dock._handleContextualDragMotion({
+    source: Main.xdndHandler,
+    x: edgeX,
+    y: edgeY,
+  });
+  await Scripting.sleep(400);
+  if (binding.hotAreaActive || dash.visible)
+    throw new Error('Contextual DND revealed the dock before the prolonged dwell elapsed');
+
+  await Scripting.sleep(500);
+  if (!binding.hotAreaActive || !dash.visible)
+    throw new Error('Contextual DND did not reveal the dock after the prolonged dwell');
+
+  dock._clearHotAreaReveal(binding);
+  binding.hotAreaActive = false;
+  binding.dash.blockAutoHide(false);
+  binding.dash.hide(false);
+  binding.hotArea.setEnabled(false);
+
   // I12 — switching focus between two fullscreen windows keeps intellihide at
   // BLOCKED with no enum transition, so `status-changed` never fires. Intellihide
   // must instead reassert BLOCKED on the focus change so the dock can react.
