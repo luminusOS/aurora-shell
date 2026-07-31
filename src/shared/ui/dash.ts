@@ -267,6 +267,17 @@ export class AuroraDash extends Dash {
     return this._monitorIndex;
   }
 
+  canAcceptContextualEdgeDrag(source: any): boolean {
+    if (source === Main.xdndHandler) return true;
+
+    const app = Dash.getAppFromSource(source);
+    return (
+      app !== null &&
+      !app.is_window_backed() &&
+      Boolean(global.settings.is_writable('favorite-apps'))
+    );
+  }
+
   set monitorIndex(index: number) {
     if (this._monitorIndex === index) return;
     this._monitorIndex = index;

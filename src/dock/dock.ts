@@ -5,6 +5,7 @@ import St from '@girs/st-18';
 import GLib from '@girs/glib-2.0';
 
 import * as Main from '@girs/gnome-shell/ui/main';
+import * as DND from '@girs/gnome-shell/ui/dnd';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
@@ -19,6 +20,8 @@ import { DashMotionIntegration } from '~/dock/motion/dashMotionIntegration.ts';
 
 const HOT_AREA_REVEAL_DURATION = 1500;
 const HOT_AREA_STRIP_HEIGHT = 1;
+const CONTEXTUAL_DRAG_REVEAL_DELAY = 800;
+const TRANSITION_ACTIVATION_COOLDOWN = 700;
 const LOG_PREFIX = 'Dock';
 
 export type ManagedDockBinding = {
@@ -47,6 +50,11 @@ export class Dock extends Module {
   private _showExternalStorage = true;
   private _motionEnabled = true;
   private _motionProfile: string = DEFAULT_PROFILE;
+  private _edgeDragMonitor: { dragMotion: (event: any) => number } | null = null;
+  private _edgeDragTarget: ManagedDockBinding | null = null;
+  private _edgeDragRevealId = 0;
+  private _sessionWasLocked = false;
+  private _fullscreenMonitors = new Set<number>();
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -81,10 +89,17 @@ export class Dock extends Module {
 
     Main.overview.dash.hide();
 
+    this._sessionWasLocked = Boolean(Main.sessionMode.isLocked);
+    this._fullscreenMonitors = this._getFullscreenMonitors();
     this._rebuildBindings();
+    this._setupContextualDragReveal();
     Main.layoutManager.connectObject(
       'monitors-changed',
-      () => this._rebuildBindings(),
+      () => {
+        this._rebuildBindings();
+        this._fullscreenMonitors = this._getFullscreenMonitors();
+        this._beginActivationCooldown('monitors-changed');
+      },
       'hot-corners-changed',
       () => this._rebuildBindings(),
       'startup-complete',
@@ -93,10 +108,27 @@ export class Dock extends Module {
     );
     this._lifecycle.onDispose(() => Main.layoutManager.disconnectObject(this));
 
-    global.display.connectObject('workareas-changed', () => this._refreshWorkAreas(), this);
+    global.display.connectObject(
+      'workareas-changed',
+      () => this._refreshWorkAreas(),
+      'in-fullscreen-changed',
+      () => this._handleFullscreenChanged(),
+      this,
+    );
     this._lifecycle.onDispose(() => global.display.disconnectObject(this));
 
-    Main.sessionMode.connectObject('updated', () => this._refreshBindingsLayout(), this);
+    Main.sessionMode.connectObject(
+      'updated',
+      () => {
+        const isLocked = Boolean(Main.sessionMode.isLocked);
+        if (this._sessionWasLocked && !isLocked) {
+          this._beginActivationCooldown('session-unlocked');
+        }
+        this._sessionWasLocked = isLocked;
+        this._refreshBindingsLayout();
+      },
+      this,
+    );
     this._lifecycle.onDispose(() => Main.sessionMode.disconnectObject(this));
 
     Main.overview.connectObject(
@@ -173,10 +205,12 @@ export class Dock extends Module {
 
   override disable(): void {
     Main.overview.dash.show();
+    this._teardownContextualDragReveal();
     this._lifecycle?.dispose();
     this._lifecycle = null;
     this._dockSettings = null;
     this._pendingRebuild = false;
+    this._fullscreenMonitors.clear();
     this._clearBindings();
   }
 
@@ -518,6 +552,7 @@ export class Dock extends Module {
   }
 
   private _destroyBinding(binding: ManagedDockBinding): void {
+    if (this._edgeDragTarget === binding) this._clearContextualDragReveal();
     logger.debug(`monitor=${binding.monitorIndex} binding destroyed`, { prefix: LOG_PREFIX });
     if (binding.autoHideReleaseId) {
       GLib.source_remove(binding.autoHideReleaseId);
@@ -665,6 +700,114 @@ export class Dock extends Module {
     if (!binding.hotAreaEnableId) return;
     GLib.source_remove(binding.hotAreaEnableId);
     binding.hotAreaEnableId = 0;
+  }
+
+  private _setupContextualDragReveal(): void {
+    this._edgeDragMonitor = {
+      dragMotion: (event: any) => {
+        this._handleContextualDragMotion(event);
+        return DND.DragMotionResult.CONTINUE;
+      },
+    };
+    DND.addDragMonitor(this._edgeDragMonitor);
+
+    Main.xdndHandler.connectObject('drag-end', () => this._clearContextualDragReveal(), this);
+    Main.overview.connectObject(
+      'item-drag-end',
+      () => this._clearContextualDragReveal(),
+      'item-drag-cancelled',
+      () => this._clearContextualDragReveal(),
+      'window-drag-end',
+      () => this._clearContextualDragReveal(),
+      'window-drag-cancelled',
+      () => this._clearContextualDragReveal(),
+      this,
+    );
+  }
+
+  private _teardownContextualDragReveal(): void {
+    this._clearContextualDragReveal();
+    if (this._edgeDragMonitor) {
+      DND.removeDragMonitor(this._edgeDragMonitor);
+      this._edgeDragMonitor = null;
+    }
+    Main.xdndHandler.disconnectObject(this);
+  }
+
+  private _handleContextualDragMotion(event: any): void {
+    const { source, x, y } = event;
+    let target: ManagedDockBinding | null = null;
+    for (const binding of this._bindings.values()) {
+      if (
+        binding.hotArea?.canStartContextualDragReveal(x, y) &&
+        binding.dash.canAcceptContextualEdgeDrag(source)
+      ) {
+        target = binding;
+        break;
+      }
+    }
+
+    if (target === this._edgeDragTarget) return;
+
+    this._clearContextualDragReveal();
+    if (!target) return;
+
+    this._edgeDragTarget = target;
+    this._edgeDragRevealId = GLib.timeout_add(
+      GLib.PRIORITY_DEFAULT,
+      CONTEXTUAL_DRAG_REVEAL_DELAY,
+      () => {
+        this._edgeDragRevealId = 0;
+        const currentTarget = this._edgeDragTarget;
+        this._edgeDragTarget = null;
+        if (
+          currentTarget &&
+          this._bindings.get(currentTarget.monitorIndex) === currentTarget &&
+          currentTarget.hotArea?.canStartContextualDragReveal(x, y) &&
+          currentTarget.dash.canAcceptContextualEdgeDrag(source)
+        ) {
+          logger.debug(
+            `monitor=${currentTarget.monitorIndex} contextual drag reveal after ${CONTEXTUAL_DRAG_REVEAL_DELAY}ms`,
+            { prefix: LOG_PREFIX },
+          );
+          this._revealDockFromHotArea(currentTarget);
+        }
+        return GLib.SOURCE_REMOVE;
+      },
+    );
+  }
+
+  private _clearContextualDragReveal(): void {
+    if (this._edgeDragRevealId) {
+      GLib.source_remove(this._edgeDragRevealId);
+      this._edgeDragRevealId = 0;
+    }
+    this._edgeDragTarget = null;
+  }
+
+  private _beginActivationCooldown(reason: string): void {
+    this._clearContextualDragReveal();
+    this._bindings.forEach((binding) =>
+      binding.hotArea?.beginCooldown(TRANSITION_ACTIVATION_COOLDOWN, reason),
+    );
+  }
+
+  private _getFullscreenMonitors(): Set<number> {
+    const fullscreenMonitors = new Set<number>();
+    const monitors = Main.layoutManager.monitors ?? [];
+    monitors.forEach((_monitor, index) => {
+      if (global.display.get_monitor_in_fullscreen(index)) fullscreenMonitors.add(index);
+    });
+    return fullscreenMonitors;
+  }
+
+  private _handleFullscreenChanged(): void {
+    const currentFullscreenMonitors = this._getFullscreenMonitors();
+    const exitedFullscreen = [...this._fullscreenMonitors].some(
+      (monitorIndex) => !currentFullscreenMonitors.has(monitorIndex),
+    );
+    this._fullscreenMonitors = currentFullscreenMonitors;
+    if (exitedFullscreen) this._beginActivationCooldown('fullscreen-exited');
   }
 
   private _setOverviewVisible(overviewShowing: boolean): void {
