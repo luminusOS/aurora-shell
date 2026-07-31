@@ -10,12 +10,19 @@ import GObject from '@girs/gobject-2.0';
 import * as Layout from '@girs/gnome-shell/ui/layout';
 
 import { logger } from '~/core/logger.ts';
+import { EdgeGestureGuard } from '~/dock/edgeGestureGuard.ts';
 import type { DashBounds } from '~/shared/ui/dash.ts';
 
 const LOG_PREFIX = 'DockHotArea';
-const HOT_AREA_TRIGGER_SPEED = 150;
+const HOT_AREA_PRESSURE_THRESHOLD = 150;
 const HOT_AREA_TRIGGER_TIMEOUT = 550;
 const HOT_AREA_DEBOUNCE_TIMEOUT = 250;
+const POINTER_BUTTON_MASK =
+  Clutter.ModifierType.BUTTON1_MASK |
+  Clutter.ModifierType.BUTTON2_MASK |
+  Clutter.ModifierType.BUTTON3_MASK |
+  Clutter.ModifierType.BUTTON4_MASK |
+  Clutter.ModifierType.BUTTON5_MASK;
 
 @GObject.registerClass({
   Signals: { triggered: {} },
@@ -28,13 +35,14 @@ export class DockHotArea extends St.Widget {
   private _edgeArmed = true;
   private _grabSuppressed = false;
   private _pointerDwellTimeoutId = 0;
+  private _gestureGuard = new EdgeGestureGuard();
 
   override _init(monitor: DashBounds) {
     super._init({ reactive: true, visible: true, name: 'aurora-dock-hot-area' });
     this._monitor = monitor;
 
     this._pressureBarrier = new Layout.PressureBarrier(
-      HOT_AREA_TRIGGER_SPEED,
+      HOT_AREA_PRESSURE_THRESHOLD,
       HOT_AREA_TRIGGER_TIMEOUT,
       Shell.ActionMode.ALL,
     );
@@ -80,12 +88,22 @@ export class DockHotArea extends St.Widget {
       'leave-event',
       () => {
         this._clearDebounceTimer();
+        this._gestureGuard.resetAfterPointerLeave();
         if (this._active && !this._grabSuppressed && !this._edgeArmed) {
           this._edgeArmed = true;
           logger.debug(`rearmed after pointer leave geometry=${this._formatGeometry()}`, {
             prefix: LOG_PREFIX,
           });
         }
+        return Clutter.EVENT_PROPAGATE;
+      },
+      this,
+    );
+
+    this.connectObject(
+      'scroll-event',
+      () => {
+        this._suppressActivePointerGesture('scroll');
         return Clutter.EVENT_PROPAGATE;
       },
       this,
@@ -121,6 +139,7 @@ export class DockHotArea extends St.Widget {
     this._active = enabled;
     this.set_reactive(enabled);
     if (enabled) {
+      this._gestureGuard.resetAfterPointerLeave();
       this._edgeArmed = !this._isPointerInsideHotArea() && !this._grabSuppressed;
       logger.debug(`enabled=true armed=${this._edgeArmed} geometry=${this._formatGeometry()}`, {
         prefix: LOG_PREFIX,
@@ -134,6 +153,23 @@ export class DockHotArea extends St.Widget {
       this._clearDebounceTimer();
       this._destroyBarrier();
     }
+  }
+
+  beginCooldown(durationMs: number, reason: string): void {
+    this._gestureGuard.beginCooldown(this._nowMs(), durationMs);
+    this._clearDebounceTimer();
+    logger.debug(`cooldown=${durationMs}ms reason=${reason} geometry=${this._formatGeometry()}`, {
+      prefix: LOG_PREFIX,
+    });
+  }
+
+  canStartContextualDragReveal(x: number, y: number): boolean {
+    return (
+      this._active &&
+      !this._grabSuppressed &&
+      !this._gestureGuard.isCoolingDown(this._nowMs()) &&
+      this._containsPoint(x, y)
+    );
   }
 
   override destroy(): void {
@@ -186,11 +222,36 @@ export class DockHotArea extends St.Widget {
   }
 
   private _canTrigger(): boolean {
-    return this._active && this._edgeArmed && !this._grabSuppressed;
+    const [, , modifiers] = global.get_pointer();
+    if (this._gestureGuard.observeModifiers(Number(modifiers), POINTER_BUTTON_MASK)) {
+      this._suppressActivePointerGesture('pressed pointer button');
+      return false;
+    }
+    return (
+      this._active &&
+      this._edgeArmed &&
+      !this._grabSuppressed &&
+      !this._gestureGuard.isCoolingDown(this._nowMs())
+    );
+  }
+
+  private _suppressActivePointerGesture(reason: string): void {
+    const newlySuppressed = this._gestureGuard.suppressUntilLeave();
+    this._edgeArmed = false;
+    this._clearDebounceTimer();
+    if (newlySuppressed) {
+      logger.debug(`suppressed ${reason}; waiting for pointer leave`, {
+        prefix: LOG_PREFIX,
+      });
+    }
   }
 
   private _isPointerInsideHotArea(): boolean {
     const [pointerX, pointerY] = global.get_pointer();
+    return this._containsPoint(pointerX, pointerY);
+  }
+
+  private _containsPoint(pointerX: number, pointerY: number): boolean {
     const monitor = this._monitor;
     const bottom = monitor.y + monitor.height;
     const top = bottom - Math.max(1, this.height || 1);
@@ -200,6 +261,10 @@ export class DockHotArea extends St.Widget {
       pointerY >= top &&
       pointerY <= bottom
     );
+  }
+
+  private _nowMs(): number {
+    return GLib.get_monotonic_time() / 1000;
   }
 
   private _formatGeometry(): string {
