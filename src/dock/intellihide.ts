@@ -6,7 +6,9 @@ import Meta from '@girs/meta-18';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import {
   getBlockingOverlapState,
   isOnActiveWorkspace,
@@ -64,7 +66,8 @@ export class DockIntellihide extends GObject.Object {
   declare private _monitorIndex: number;
   private _targetBox: DashBounds | null = null;
   private _status: OverlapStatus | null = null;
-  private _settleId = 0;
+  declare private _lifecycle: LifecycleScope;
+  declare private _settle: ManagedSource;
   private _pendingStatus: OverlapStatus = OverlapStatus.CLEAR;
   private _pendingReason = '';
   private _pendingRectangles: Array<{ x: number; y: number; width: number; height: number }> = [];
@@ -75,6 +78,8 @@ export class DockIntellihide extends GObject.Object {
 
   override _init(monitorIndex: number, excludePipFromSmartReveal = false) {
     super._init();
+    this._lifecycle = new LifecycleScope();
+    this._settle = createManagedSource(this._lifecycle);
     this._monitorIndex = monitorIndex;
     this._excludePipFromSmartReveal = excludePipFromSmartReveal;
     this._trackedWindowActors = new Set<any>();
@@ -149,6 +154,7 @@ export class DockIntellihide extends GObject.Object {
 
   destroy(): void {
     this._cancelPendingStatus();
+    this._lifecycle.dispose();
     for (const id of this._queuedRefreshIds) {
       GLib.source_remove(id);
     }
@@ -285,7 +291,7 @@ export class DockIntellihide extends GObject.Object {
   ): void {
     const newStatus = overlap ? OverlapStatus.BLOCKED : OverlapStatus.CLEAR;
 
-    if (this._settleId !== 0) {
+    if (this._settle.active) {
       // A commit for the same value is already pending: keep its timer running
       // (so a steady stream of identical rechecks still settles on schedule),
       // only refreshing the details logged on commit.
@@ -295,8 +301,7 @@ export class DockIntellihide extends GObject.Object {
         return;
       }
       // The target flipped before settling — restart the quiet period.
-      GLib.source_remove(this._settleId);
-      this._settleId = 0;
+      this._settle.clear();
     }
 
     // The value reverted to what is already committed; nothing to do.
@@ -305,21 +310,21 @@ export class DockIntellihide extends GObject.Object {
     this._pendingStatus = newStatus;
     this._pendingReason = reason;
     this._pendingRectangles = rectangles;
-    this._settleId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, STATUS_SETTLE_DELAY, () => {
-      this._settleId = 0;
-      this._commitStatus(
-        this._pendingStatus === OverlapStatus.BLOCKED,
-        this._pendingReason,
-        this._pendingRectangles,
-      );
-      return GLib.SOURCE_REMOVE;
-    });
+    this._settle.replace(() =>
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, STATUS_SETTLE_DELAY, () => {
+        this._settle.complete();
+        this._commitStatus(
+          this._pendingStatus === OverlapStatus.BLOCKED,
+          this._pendingReason,
+          this._pendingRectangles,
+        );
+        return GLib.SOURCE_REMOVE;
+      }),
+    );
   }
 
   private _cancelPendingStatus(): void {
-    if (!this._settleId) return;
-    GLib.source_remove(this._settleId);
-    this._settleId = 0;
+    this._settle.clear();
   }
 
   private _commitStatus(
@@ -357,38 +362,36 @@ export class DockIntellihide extends GObject.Object {
 
     for (const actor of this._trackedWindowActors) {
       if (nextActors.has(actor)) continue;
-      this._safeDisconnect(actor);
+
+      actor.disconnectObject(this);
       this._trackedWindowActors.delete(actor);
     }
 
     for (const actor of nextActors) {
       if (this._trackedWindowActors.has(actor)) continue;
-      try {
-        actor.connectObject(
-          'notify::allocation',
-          () => this._checkOverlap('window-allocation'),
-          this,
-        );
-        this._trackedWindowActors.add(actor);
-      } catch {
-        // Ignore actors disposed while the global window list is being updated.
-      }
+
+      this._trackedWindowActors.add(actor);
+      actor.connectObject(
+        'notify::allocation',
+        () => this._checkOverlap('window-allocation'),
+        'destroy',
+        () => this._trackedWindowActors.delete(actor),
+        this,
+      );
     }
 
     for (const win of this._trackedWindows) {
       if (nextWindows.has(win)) continue;
-      this._safeDisconnect(win);
+
+      win.disconnectObject(this);
       this._trackedWindows.delete(win);
     }
 
     for (const win of nextWindows) {
       if (this._trackedWindows.has(win)) continue;
-      try {
-        this._connectTrackedWindow(win);
-        this._trackedWindows.add(win);
-      } catch {
-        // Ignore windows unmanaged while signals are being connected.
-      }
+
+      this._trackedWindows.add(win);
+      this._connectTrackedWindow(win);
     }
   }
 
@@ -397,27 +400,20 @@ export class DockIntellihide extends GObject.Object {
     for (const signal of TRACKED_WINDOW_SIGNALS) {
       signalArgs.push(signal, () => this._checkOverlap(signal));
     }
+    signalArgs.push('unmanaged', () => this._trackedWindows.delete(win));
     (win as any).connectObject(...signalArgs, this);
   }
 
   private _clearTrackedWindows(): void {
     for (const actor of this._trackedWindowActors) {
-      this._safeDisconnect(actor);
+      actor.disconnectObject(this);
     }
     this._trackedWindowActors.clear();
 
     for (const win of this._trackedWindows) {
-      this._safeDisconnect(win);
+      win.disconnectObject(this);
     }
     this._trackedWindows.clear();
-  }
-
-  private _safeDisconnect(target: unknown): void {
-    try {
-      (target as { disconnectObject: (object: unknown) => void }).disconnectObject(this);
-    } catch {
-      // The object may already be disposed or unmanaged by Shell.
-    }
   }
 
   private _onKeyboardVisibilityChanged(): void {

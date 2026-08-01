@@ -116,13 +116,19 @@ export class MeetingClockDevTool {
   }
 
   triggerAlert(): boolean {
-    const triggered = this._getMeetingClock()?.showAlert() ?? false;
+    const meetingClock = this._getMeetingClock();
+    if (!meetingClock) return false;
+
+    const triggered = meetingClock.showAlert();
     this._requestMenuRebuild();
     return triggered;
   }
 
   openCalendar(): boolean {
-    return this._getMeetingClock()?.openMenu() ?? false;
+    const meetingClock = this._getMeetingClock();
+    if (!meetingClock) return false;
+
+    return meetingClock.openMenu();
   }
 
   clearMeetings(): void {
@@ -136,7 +142,10 @@ export class MeetingClockDevTool {
   }
 
   get activeAlertEventId(): string | null {
-    return this._getMeetingClock()?.activeAlertEventId ?? null;
+    const meetingClock = this._getMeetingClock();
+    if (!meetingClock) return null;
+
+    return meetingClock.activeAlertEventId;
   }
 
   private _getMeetingClock(): MeetingClock | null {

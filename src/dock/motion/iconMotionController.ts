@@ -310,12 +310,13 @@ export class IconMotionController {
 
   // Measure the room between the icon and the dash's clip.
   private _measureBudget(): IconBudget | null {
-    const bin = this._bin;
-    if (!bin) return null;
-    const parent = bin.get_parent();
+    if (!this._bin) return null;
+
+    const parent = this._bin.get_parent();
     if (!parent) return null;
+
     let clipActor: Clutter.Actor | null = null;
-    for (let node: Clutter.Actor | null = bin; node; node = node.get_parent()) {
+    for (let node: Clutter.Actor | null = this._bin; node; node = node.get_parent()) {
       if (node.has_clip) {
         clipActor = node;
         break;
@@ -323,7 +324,7 @@ export class IconMotionController {
     }
     if (!clipActor) return null;
 
-    const box = bin.get_allocation_box();
+    const box = this._bin.get_allocation_box();
     const clip = clipActor.get_clip();
     if (!clip) return null;
     const [, clipY] = clipActor.get_transformed_position();
@@ -353,11 +354,11 @@ export class IconMotionController {
   }
 
   private _syncTextureResolution(): void {
-    const bin = this._bin;
-    const normalSize = this._baseIcon?.iconSize ?? 0;
-    if (!bin || !(normalSize > 0)) return;
+    if (!this._bin || !this._baseIcon || !(this._baseIcon.iconSize > 0)) return;
 
-    const child = bin.child;
+    const normalSize = this._baseIcon.iconSize;
+
+    const child = this._bin.child;
     if (!(child instanceof St.Icon)) return;
     if (this._textureState?.actor !== child) {
       this._textureState = {
@@ -384,11 +385,16 @@ export class IconMotionController {
   }
 
   private _restoreTextureResolution(): void {
-    const normalSize = this._baseIcon?.iconSize ?? 0;
     const state = this._textureState;
     if (!state) return;
 
-    if (normalSize > 0 && state.actor.icon_size !== normalSize) state.actor.icon_size = normalSize;
+    if (
+      this._baseIcon &&
+      this._baseIcon.iconSize > 0 &&
+      state.actor.icon_size !== this._baseIcon.iconSize
+    ) {
+      state.actor.icon_size = this._baseIcon.iconSize;
+    }
 
     const { actor, constraints } = state;
     actor.min_width = constraints.minWidth;

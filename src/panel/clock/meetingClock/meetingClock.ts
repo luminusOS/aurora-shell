@@ -1,30 +1,16 @@
 import '@girs/gjs';
-import { gettext as _ } from '~/shared/i18n.ts';
-
-import Clutter from '@girs/clutter-18';
-import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as MessageTray from '@girs/gnome-shell/ui/messageTray';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import { LifecycleScope } from '~/core/lifecycleScope.ts';
-import { logger } from '~/core/logger.ts';
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
-import { openClockMenu, type ClockPillRegistration } from '~/shared/clockPill.ts';
-import { registerClockPillWidget } from '~/shared/clockPill.ts';
 
 import { CalendarServerBackend } from './calendarServerBackend.ts';
-import {
-  derivePanelPresentation,
-  filterDisplayEvents,
-  formatEventTime,
-  getDueAlertEvents,
-  type MeetingEvent,
-} from './meetingClockLogic.ts';
+import { MeetingAlertController } from './meetingAlertController.ts';
+import { MeetingClockPill } from './meetingClockPill.ts';
+import { derivePanelPresentation, type MeetingEvent } from './meetingClockLogic.ts';
 
-const LOG_PREFIX = 'MeetingClock';
 const ALERTS_ENABLED_KEY = 'meeting-clock-alerts-enabled';
 const ALERT_MINUTES_KEY = 'meeting-clock-alert-minutes-before';
 const SNOOZE_MINUTES_KEY = 'meeting-clock-snooze-minutes';
@@ -35,34 +21,16 @@ const EXCLUDE_ALL_DAY_KEY = 'meeting-clock-exclude-all-day-events';
 const REFRESH_WINDOW_HOURS = 24;
 const REFRESH_INTERVAL_SECONDS = 180;
 const LABEL_REFRESH_SECONDS = 30;
-const PANEL_REVEAL_VISIBLE_SECONDS = 8;
-const PANEL_REVEAL_ANIMATION_MS = 260;
-const PANEL_REVEAL_OFFSET = 18;
 const CALENDAR_SERVER_SOURCE_KEY = 'calendar-server';
-const CLOCK_PILL_ID = 'meeting-clock';
 
 export class MeetingClock extends Module {
   private _backend: CalendarServerBackend | null = null;
   private _eventsBySource = new Map<string, MeetingEvent[]>();
   private _events: MeetingEvent[] = [];
-  private _clockPillRegistration: ClockPillRegistration | null = null;
-  private _panelWidget: St.BoxLayout | null = null;
-  private _panelLabel: St.Label | null = null;
-  private _notificationSource: MessageTray.Source | null = null;
-  private _notificationSourceDestroyId = 0;
-  private _activeNotification: MessageTray.Notification | null = null;
-  private _activeNotificationDestroyId = 0;
+  private _pill: MeetingClockPill | null = null;
+  private _alerts: MeetingAlertController | null = null;
   private _lifecycle: LifecycleScope | null = null;
-  private _refreshTimerId = 0;
-  private _labelTimerId = 0;
-  private _alertTimerId = 0;
-  private _panelRevealTimerId = 0;
-  private _panelHideTimerId = 0;
-  private _lastPanelEventId = '';
-  private _activeAlertEventId: string | null = null;
-  private _alertedEventIds = new Set<string>();
-  private _ignoredEventIds = new Set<string>();
-  private _snoozedUntilByEventId = new Map<string, number>();
+  private _panelRevealTimer: ManagedSource | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -70,138 +38,98 @@ export class MeetingClock extends Module {
 
   override enable(): void {
     this.disable();
-    this._lifecycle = new LifecycleScope();
-    this._installClockWidget();
+    const lifecycle = new LifecycleScope();
+    const refreshTimer = createManagedSource(lifecycle);
+    const labelTimer = createManagedSource(lifecycle);
+    const panelRevealTimer = createManagedSource(lifecycle);
+    const pill = new MeetingClockPill(lifecycle);
+    const alerts = new MeetingAlertController({
+      getPreferences: () => this._getAlertPreferences(),
+      onStateChanged: () => this._render(),
+      now: () => this._now(),
+    });
+    this._lifecycle = lifecycle;
+    this._panelRevealTimer = panelRevealTimer;
+    this._pill = pill;
+    this._alerts = alerts;
 
-    this._backend = new CalendarServerBackend((events) => {
-      if (!this._lifecycle) return;
+    const backend = new CalendarServerBackend((events) => {
+      if (this._backend !== backend) return;
       this.setSourceEvents(CALENDAR_SERVER_SOURCE_KEY, events);
     });
-    this._backend.start();
-    this._refreshEvents();
+    this._backend = backend;
+    backend.start();
+    backend.refresh(REFRESH_WINDOW_HOURS);
 
-    this._refreshTimerId = GLib.timeout_add_seconds(
-      GLib.PRIORITY_DEFAULT,
-      REFRESH_INTERVAL_SECONDS,
-      () => {
-        this._refreshEvents();
+    refreshTimer.replace(() =>
+      GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, REFRESH_INTERVAL_SECONDS, () => {
+        backend.refresh(REFRESH_WINDOW_HOURS);
         return GLib.SOURCE_CONTINUE;
-      },
+      }),
     );
-    this._labelTimerId = GLib.timeout_add_seconds(
-      GLib.PRIORITY_DEFAULT,
-      LABEL_REFRESH_SECONDS,
-      () => {
+    labelTimer.replace(() =>
+      GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, LABEL_REFRESH_SECONDS, () => {
         this._render();
         return GLib.SOURCE_CONTINUE;
-      },
+      }),
     );
     this._schedulePanelRevealTimer();
 
     const settings = this.context.settings;
-    this._lifecycle.connect(settings, `changed::${ALERTS_ENABLED_KEY}`, () =>
-      this._scheduleAlerts(),
+    lifecycle.connect(settings, `changed::${ALERTS_ENABLED_KEY}`, () => alerts.schedule());
+    lifecycle.connect(settings, `changed::${ALERT_MINUTES_KEY}`, () => alerts.schedule());
+    lifecycle.connect(settings, `changed::${SNOOZE_MINUTES_KEY}`, () => alerts.schedule());
+    lifecycle.connect(settings, `changed::${ALERT_EVENTS_WITHOUT_LINK_KEY}`, () =>
+      alerts.schedule(),
     );
-    this._lifecycle.connect(settings, `changed::${ALERT_MINUTES_KEY}`, () =>
-      this._scheduleAlerts(),
-    );
-    this._lifecycle.connect(settings, `changed::${SNOOZE_MINUTES_KEY}`, () =>
-      this._scheduleAlerts(),
-    );
-    this._lifecycle.connect(settings, `changed::${ALERT_EVENTS_WITHOUT_LINK_KEY}`, () =>
-      this._scheduleAlerts(),
-    );
-    this._lifecycle.connect(settings, `changed::${PANEL_REVEAL_INTERVAL_MINUTES_KEY}`, () =>
+    lifecycle.connect(settings, `changed::${PANEL_REVEAL_INTERVAL_MINUTES_KEY}`, () =>
       this._schedulePanelRevealTimer(),
     );
-    this._lifecycle.connect(settings, `changed::${PANEL_LOOKAHEAD_MINUTES_KEY}`, () =>
-      this._render(),
-    );
-    this._lifecycle.connect(settings, `changed::${EXCLUDE_ALL_DAY_KEY}`, () => {
+    lifecycle.connect(settings, `changed::${PANEL_LOOKAHEAD_MINUTES_KEY}`, () => this._render());
+    lifecycle.connect(settings, `changed::${EXCLUDE_ALL_DAY_KEY}`, () => {
       this._render();
-      this._scheduleAlerts();
+      alerts.schedule();
     });
   }
 
   override disable(): void {
     this._lifecycle?.dispose();
     this._lifecycle = null;
+    this._panelRevealTimer = null;
 
-    this._clearRefreshTimer();
-    this._clearLabelTimer();
-    this._clearAlertTimer();
-    this._clearPanelRevealTimer();
-    this._clearPanelHideTimer();
-
-    if (this._backend) this._backend.stop();
+    this._backend?.stop();
     this._backend = null;
-    this._activeAlertEventId = null;
-    this._destroyActiveNotification(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
-    this._destroyNotificationSource(MessageTray.NotificationDestroyedReason.SOURCE_CLOSED);
+
+    this._alerts?.destroy();
+    this._alerts = null;
+
     this._eventsBySource.clear();
     this._events = [];
-    this._activeAlertEventId = null;
-    this._alertedEventIds.clear();
-    this._ignoredEventIds.clear();
-    this._snoozedUntilByEventId.clear();
 
-    if (this._clockPillRegistration) this._clockPillRegistration.unregister();
-    this._clockPillRegistration = null;
-    if (this._panelLabel) this._panelLabel.destroy();
-    this._panelLabel = null;
-    if (this._panelWidget) this._panelWidget.destroy();
-    this._panelWidget = null;
-    this._lastPanelEventId = '';
-  }
-
-  private _installClockWidget(): void {
-    this._panelWidget = new St.BoxLayout({
-      style_class: 'aurora-meeting-clock-widget',
-      y_align: Clutter.ActorAlign.CENTER,
-      y_expand: true,
-      visible: false,
-      opacity: 0,
-      reactive: false,
-    });
-    const icon = new St.Icon({
-      icon_name: 'x-office-calendar-symbolic',
-      style_class: 'aurora-meeting-clock-icon',
-      y_align: Clutter.ActorAlign.CENTER,
-    });
-    this._panelLabel = new St.Label({
-      style_class: 'clock-label aurora-meeting-clock-label',
-      y_align: Clutter.ActorAlign.CENTER,
-    });
-    this._panelWidget.add_child(this._panelLabel);
-    this._panelWidget.add_child(icon);
-
-    this._clockPillRegistration = registerClockPillWidget(
-      CLOCK_PILL_ID,
-      this._panelWidget,
-      'right',
-      100,
-    );
-  }
-
-  private _refreshEvents(): void {
-    this._backend?.refresh(REFRESH_WINDOW_HOURS);
+    this._pill?.destroy();
+    this._pill = null;
   }
 
   setSourceEvents(sourceKey: string, events: readonly MeetingEvent[]): void {
-    if (!this._lifecycle) return;
+    if (!this._lifecycle || !this._alerts) return;
 
     const previousIds = new Set(this._eventsBySource.get(sourceKey)?.map((event) => event.id));
     const nextEvents = [...events];
-    for (const event of nextEvents) previousIds.delete(event.id);
+
+    for (const event of nextEvents) {
+      previousIds.delete(event.id);
+    }
+
     this._eventsBySource.set(sourceKey, nextEvents);
-    this._clearAlertState(previousIds);
+    this._alerts.clearEventState(previousIds);
     this._syncEvents();
   }
 
   clearSourceEvents(sourceKey: string): void {
     const removedIds = new Set(this._eventsBySource.get(sourceKey)?.map((event) => event.id));
     this._eventsBySource.delete(sourceKey);
-    this._clearAlertState(removedIds);
+    if (this._alerts) this._alerts.clearEventState(removedIds);
+
     this._syncEvents();
   }
 
@@ -210,22 +138,18 @@ export class MeetingClock extends Module {
   }
 
   showAlert(eventId: string | null = null): boolean {
-    const alertEventsWithoutLink = this.context.settings.getBoolean(ALERT_EVENTS_WITHOUT_LINK_KEY);
-    const event =
-      (eventId ? this._events.find((candidate) => candidate.id === eventId) : null) ??
-      this._events.find((candidate) => Boolean(candidate.meetingUrl) || alertEventsWithoutLink);
-    if (!event) return false;
-    if (!event.meetingUrl && !alertEventsWithoutLink) return false;
+    if (!this._alerts) return false;
 
-    this._showAlert(event);
-    return this._activeAlertEventId === event.id;
+    return this._alerts.show(eventId);
   }
 
   openMenu(): boolean {
-    if (!this._lifecycle || !this._clockPillRegistration) return false;
+    if (!this._lifecycle || !this._pill) {
+      return false;
+    }
 
     this._render();
-    return openClockMenu();
+    return this._pill.openMenu();
   }
 
   get eventCount(): number {
@@ -233,11 +157,13 @@ export class MeetingClock extends Module {
   }
 
   get activeAlertEventId(): string | null {
-    return this._activeAlertEventId;
+    if (!this._alerts) return null;
+
+    return this._alerts.activeEventId;
   }
 
   private _render(): void {
-    if (!this._lifecycle || !this._clockPillRegistration) return;
+    if (!this._lifecycle || !this._pill) return;
 
     const now = this._now();
     const excludeAllDayEvents = this.context.settings.getBoolean(EXCLUDE_ALL_DAY_KEY);
@@ -247,59 +173,26 @@ export class MeetingClock extends Module {
     });
 
     if (!presentation) {
-      this._lastPanelEventId = '';
-      this._hidePanelWidget(false);
+      this._pill.setPresentation(null);
       return;
     }
 
-    const panelEventId = presentation.event.id;
-    if (this._panelLabel) this._panelLabel.text = presentation.label;
-    if (panelEventId !== this._lastPanelEventId) {
-      this._lastPanelEventId = panelEventId;
-      this._revealPanelWidget();
-    }
-  }
-
-  private _scheduleAlerts(): void {
-    if (!this._lifecycle || !this._clockPillRegistration) return;
-
-    this._clearAlertTimer();
-    if (this._activeAlertEventId) return;
-
-    const now = this._now();
-    const dueEvents = this._getDueEvents(now);
-    if (dueEvents.length > 0) {
-      this._showAlert(dueEvents[0]!);
-      return;
-    }
-
-    const nextAlertAt = this._getNextAlertAt(now);
-    if (!nextAlertAt) return;
-
-    this._alertTimerId = GLib.timeout_add_seconds(
-      GLib.PRIORITY_DEFAULT,
-      Math.max(1, nextAlertAt - now),
-      () => {
-        this._alertTimerId = 0;
-        this._scheduleAlerts();
-        return GLib.SOURCE_REMOVE;
-      },
-    );
+    this._pill.setPresentation(presentation.event.id, presentation.label);
   }
 
   private _schedulePanelRevealTimer(): void {
-    if (!this._lifecycle || !this._clockPillRegistration) return;
+    const pill = this._pill;
+    const panelRevealTimer = this._panelRevealTimer;
+    if (!this._lifecycle || !pill || !panelRevealTimer) return;
 
-    this._clearPanelRevealTimer();
     const intervalSeconds =
       Math.max(1, this.context.settings.getInt(PANEL_REVEAL_INTERVAL_MINUTES_KEY)) * 60;
-    this._panelRevealTimerId = GLib.timeout_add_seconds(
-      GLib.PRIORITY_DEFAULT,
-      intervalSeconds,
-      () => {
-        this._revealPanelWidget();
+
+    panelRevealTimer.replace(() =>
+      GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, intervalSeconds, () => {
+        pill.reveal();
         return GLib.SOURCE_CONTINUE;
-      },
+      }),
     );
   }
 
@@ -307,214 +200,14 @@ export class MeetingClock extends Module {
     return Math.max(0, this.context.settings.getInt(PANEL_LOOKAHEAD_MINUTES_KEY)) * 60;
   }
 
-  private _getDueEvents(now: number): MeetingEvent[] {
-    return getDueAlertEvents(this._events, now, {
+  private _getAlertPreferences() {
+    return {
       alertsEnabled: this.context.settings.getBoolean(ALERTS_ENABLED_KEY),
       alertMinutesBefore: this.context.settings.getInt(ALERT_MINUTES_KEY),
       alertEventsWithoutLink: this.context.settings.getBoolean(ALERT_EVENTS_WITHOUT_LINK_KEY),
       excludeAllDayEvents: this.context.settings.getBoolean(EXCLUDE_ALL_DAY_KEY),
-      ignoredEventIds: this._ignoredEventIds,
-      alertedEventIds: this._alertedEventIds,
-      snoozedUntilByEventId: this._snoozedUntilByEventId,
-    });
-  }
-
-  private _getNextAlertAt(now: number): number | null {
-    if (!this.context.settings.getBoolean(ALERTS_ENABLED_KEY)) return null;
-
-    const leadSeconds = this.context.settings.getInt(ALERT_MINUTES_KEY) * 60;
-    const excludeAllDayEvents = this.context.settings.getBoolean(EXCLUDE_ALL_DAY_KEY);
-    const alertEventsWithoutLink = this.context.settings.getBoolean(ALERT_EVENTS_WITHOUT_LINK_KEY);
-    const candidates = filterDisplayEvents(this._events, now, { excludeAllDayEvents })
-      .filter((event) => event.meetingUrl || alertEventsWithoutLink)
-      .filter((event) => !this._ignoredEventIds.has(event.id))
-      .filter((event) => !this._alertedEventIds.has(event.id))
-      .map((event) =>
-        Math.max(
-          event.startEpochSeconds - leadSeconds,
-          this._snoozedUntilByEventId.get(event.id) ?? 0,
-        ),
-      )
-      .filter((time) => time > now)
-      .sort((a, b) => a - b);
-
-    return candidates[0] ?? null;
-  }
-
-  private _showAlert(event: MeetingEvent): void {
-    if (!this._lifecycle || !this._clockPillRegistration) return;
-
-    if (this._activeAlertEventId === event.id) return;
-
-    this._activeAlertEventId = event.id;
-    this._destroyActiveNotification(MessageTray.NotificationDestroyedReason.REPLACED);
-
-    const source = this._ensureNotificationSource();
-    const notification = new MessageTray.Notification({
-      source,
-      title: _('Meeting starting soon'),
-      body: `${event.title}\n${formatEventTime(event)}`,
-      iconName: 'x-office-calendar-symbolic',
-      urgency: MessageTray.Urgency.HIGH,
-      resident: true,
-      isTransient: false,
-    });
-    if (event.meetingUrl) notification.addAction(_('Join'), () => this._joinEvent(event));
-    notification.addAction(_('Snooze'), () => this._snoozeEvent(event));
-    notification.addAction(_('Dismiss'), () => this._dismissEvent(event));
-    if (event.meetingUrl) notification.addAction(_('Ignore'), () => this._ignoreEvent(event));
-    this._activeNotificationDestroyId = notification.connect('destroy', () => {
-      if (this._activeNotification === notification) {
-        this._activeNotification = null;
-        this._activeNotificationDestroyId = 0;
-      }
-      if (this._activeAlertEventId !== event.id) return;
-
-      this._alertedEventIds.add(event.id);
-      this._activeAlertEventId = null;
-      this._render();
-      this._scheduleAlerts();
-    });
-
-    this._activeNotification = notification;
-    source.addNotification(notification);
-    this._render();
-  }
-
-  private _joinEvent(event: MeetingEvent): void {
-    if (!event.meetingUrl) return;
-
-    try {
-      Gio.AppInfo.launch_default_for_uri(event.meetingUrl, null);
-    } catch (e) {
-      logger.warn(`Failed to open meeting URL: ${e}`, { prefix: LOG_PREFIX });
-    }
-    this._dismissEvent(event);
-  }
-
-  private _snoozeEvent(event: MeetingEvent): void {
-    const snoozeSeconds = Math.max(1, this.context.settings.getInt(SNOOZE_MINUTES_KEY)) * 60;
-    this._snoozedUntilByEventId.set(event.id, this._now() + snoozeSeconds);
-    this._activeAlertEventId = null;
-    this._destroyActiveNotification(MessageTray.NotificationDestroyedReason.DISMISSED);
-    this._render();
-    this._scheduleAlerts();
-  }
-
-  private _dismissEvent(event: MeetingEvent): void {
-    this._alertedEventIds.add(event.id);
-    this._activeAlertEventId = null;
-    this._destroyActiveNotification(MessageTray.NotificationDestroyedReason.DISMISSED);
-    this._render();
-    this._scheduleAlerts();
-  }
-
-  private _ignoreEvent(event: MeetingEvent): void {
-    this._ignoredEventIds.add(event.id);
-    this._activeAlertEventId = null;
-    this._destroyActiveNotification(MessageTray.NotificationDestroyedReason.DISMISSED);
-    this._render();
-    this._scheduleAlerts();
-  }
-
-  private _revealPanelWidget(): void {
-    const widget = this._panelWidget;
-    if (!this._lifecycle || !this._clockPillRegistration || !widget || !this._lastPanelEventId)
-      return;
-
-    this._clearPanelHideTimer();
-    widget.remove_transition('opacity');
-    widget.remove_transition('translation-x');
-    widget.remove_transition('width');
-    widget.visible = true;
-    widget.width = -1;
-    const [, naturalWidth] = widget.get_preferred_width(-1);
-    const targetWidth = Math.ceil(naturalWidth);
-    widget.width = 0;
-    widget.opacity = 0;
-    widget.translation_x = PANEL_REVEAL_OFFSET;
-    widget.ease({
-      width: targetWidth,
-      opacity: 255,
-      translationX: 0,
-      duration: PANEL_REVEAL_ANIMATION_MS,
-      mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-      onComplete: () => {
-        widget.width = -1;
-      },
-    });
-
-    this._panelHideTimerId = GLib.timeout_add_seconds(
-      GLib.PRIORITY_DEFAULT,
-      PANEL_REVEAL_VISIBLE_SECONDS,
-      () => {
-        this._panelHideTimerId = 0;
-        this._hidePanelWidget(true);
-        return GLib.SOURCE_REMOVE;
-      },
-    );
-  }
-
-  private _hidePanelWidget(animated: boolean): void {
-    const widget = this._panelWidget;
-    if (!widget) return;
-
-    this._clearPanelHideTimer();
-    widget.remove_transition('opacity');
-    widget.remove_transition('translation-x');
-    widget.remove_transition('width');
-
-    if (!animated || !widget.visible) {
-      widget.opacity = 0;
-      widget.translation_x = PANEL_REVEAL_OFFSET;
-      widget.width = -1;
-      widget.visible = false;
-      return;
-    }
-
-    const [, naturalWidth] = widget.get_preferred_width(-1);
-    widget.width = Math.ceil(naturalWidth);
-    widget.ease({
-      width: 0,
-      opacity: 0,
-      translationX: PANEL_REVEAL_OFFSET,
-      duration: PANEL_REVEAL_ANIMATION_MS,
-      mode: Clutter.AnimationMode.EASE_IN_CUBIC,
-      onComplete: () => {
-        widget.width = -1;
-        widget.visible = false;
-      },
-    });
-  }
-
-  private _clearRefreshTimer(): void {
-    if (!this._refreshTimerId) return;
-    GLib.source_remove(this._refreshTimerId);
-    this._refreshTimerId = 0;
-  }
-
-  private _clearLabelTimer(): void {
-    if (!this._labelTimerId) return;
-    GLib.source_remove(this._labelTimerId);
-    this._labelTimerId = 0;
-  }
-
-  private _clearAlertTimer(): void {
-    if (!this._alertTimerId) return;
-    GLib.source_remove(this._alertTimerId);
-    this._alertTimerId = 0;
-  }
-
-  private _clearPanelRevealTimer(): void {
-    if (!this._panelRevealTimerId) return;
-    GLib.source_remove(this._panelRevealTimerId);
-    this._panelRevealTimerId = 0;
-  }
-
-  private _clearPanelHideTimer(): void {
-    if (!this._panelHideTimerId) return;
-    GLib.source_remove(this._panelHideTimerId);
-    this._panelHideTimerId = 0;
+      snoozeMinutes: this.context.settings.getInt(SNOOZE_MINUTES_KEY),
+    };
   }
 
   private _now(): number {
@@ -526,51 +219,6 @@ export class MeetingClock extends Module {
       .flat()
       .sort((a, b) => a.startEpochSeconds - b.startEpochSeconds);
     this._render();
-    this._scheduleAlerts();
-  }
-
-  private _ensureNotificationSource(): MessageTray.Source {
-    if (this._notificationSource) return this._notificationSource;
-
-    const source = new MessageTray.Source({
-      title: _('Meeting Clock'),
-      iconName: 'x-office-calendar-symbolic',
-    });
-    this._notificationSourceDestroyId = source.connect('destroy', () => {
-      if (this._notificationSource === source) this._notificationSource = null;
-      this._notificationSourceDestroyId = 0;
-    });
-    Main.messageTray.add(source);
-    this._notificationSource = source;
-    return source;
-  }
-
-  private _destroyActiveNotification(reason: MessageTray.NotificationDestroyedReason): void {
-    const notification = this._activeNotification;
-    this._activeNotification = null;
-    if (this._activeNotificationDestroyId && notification) {
-      notification.disconnect(this._activeNotificationDestroyId);
-    }
-    this._activeNotificationDestroyId = 0;
-    if (notification) notification.destroy(reason);
-  }
-
-  private _destroyNotificationSource(reason: MessageTray.NotificationDestroyedReason): void {
-    const source = this._notificationSource;
-    const destroyId = this._notificationSourceDestroyId;
-    this._notificationSource = null;
-    this._notificationSourceDestroyId = 0;
-    if (source && destroyId) source.disconnect(destroyId);
-    source?.destroy(reason);
-  }
-
-  private _clearAlertState(eventIds: ReadonlySet<string | undefined>): void {
-    for (const eventId of eventIds) {
-      if (!eventId) continue;
-      this._alertedEventIds.delete(eventId);
-      this._ignoredEventIds.delete(eventId);
-      this._snoozedUntilByEventId.delete(eventId);
-      if (this._activeAlertEventId === eventId) this._activeAlertEventId = null;
-    }
+    if (this._alerts) this._alerts.setEvents(this._events);
   }
 }

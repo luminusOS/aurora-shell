@@ -16,11 +16,11 @@ import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import { createIcon, loadIcon } from '~/shared/icons.ts';
 import {
-  decodeXml,
   parseCustomCommand,
   truncateMiddle,
   type CustomMenuCommand,
 } from '~/panel/auroraMenuState.ts';
+import { readRecentMenuItems } from '~/panel/auroraRecentItems.ts';
 
 const LOG_PREFIX = 'AuroraMenu';
 const STATUS_AREA_ID = 'aurora-menu';
@@ -53,23 +53,11 @@ const MENU_ICONS = {
 
 type MenuIconKey = keyof typeof MENU_ICONS;
 
-// @ts-ignore — _promisify is a GJS extension not reflected in .d.ts
-Gio._promisify(Gio.File.prototype, 'load_bytes_async');
-// @ts-ignore
-Gio._promisify(Gio.File.prototype, 'query_info_async');
-
 type MenuCommand = {
   title: string;
   iconName: string;
   argv?: string[];
   activate?: () => void;
-};
-
-type RecentItem = {
-  title: string;
-  uri: string;
-  modified: number;
-  iconName: string;
 };
 
 type RecentSubmenuItem = PopupMenu.PopupSubMenuMenuItem & {
@@ -80,6 +68,7 @@ export class AuroraMenu extends Module {
   private _button: PanelMenu.Button | null = null;
   private _panelIcon: St.Icon | null = null;
   private _lifecycle: LifecycleScope | null = null;
+  private _rebuildCancellable: Gio.Cancellable | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -89,6 +78,28 @@ export class AuroraMenu extends Module {
     this.disable();
     this._lifecycle = new LifecycleScope();
 
+    this._createButton();
+    this._connectSettings();
+    this._registerButton();
+    this._syncActivitiesButton();
+    this._rebuildMenu();
+  }
+
+  override disable(): void {
+    this._rebuildCancellable?.cancel();
+    this._rebuildCancellable = null;
+
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
+
+    this._showActivitiesButton();
+    this._panelIcon?.destroy();
+    this._panelIcon = null;
+    this._button?.destroy();
+    this._button = null;
+  }
+
+  private _createButton(): void {
     this._button = new PanelMenu.Button(0.0, 'Aurora Menu');
     this._button.add_style_class_name('aurora-menu-button');
     this._panelIcon = createIcon('aurora-shell-menu-symbolic', {
@@ -98,17 +109,25 @@ export class AuroraMenu extends Module {
     this._button.add_child(this._panelIcon);
 
     const menu = this._getMenu();
-    menu?.actor?.add_style_class_name('aurora-menu');
-    menu?.setSourceAlignment(0.0);
-    if (menu) this._lockMenuWidth(menu);
+    if (!menu) return;
 
-    if (menu) {
-      const menuOpenStateId = menu.connect('open-state-changed', (_menu, open) => {
-        if (open) this._rebuildMenu();
-        return undefined;
-      });
-      this._lifecycle.onDispose(() => menu.disconnect(menuOpenStateId));
-    }
+    menu.actor.add_style_class_name('aurora-menu');
+    menu.setSourceAlignment(0.0);
+    this._lockMenuWidth(menu);
+    const menuOpenStateId = menu.connect('open-state-changed', (_menu, open) => {
+      if (open) {
+        this._rebuildMenu();
+      }
+
+      return undefined;
+    });
+    if (!this._lifecycle) return;
+
+    this._lifecycle.onDispose(() => menu.disconnect(menuOpenStateId));
+  }
+
+  private _connectSettings(): void {
+    if (!this._lifecycle) return;
 
     const settings = this.context.settings;
     const rebuildMenu = () => this._rebuildMenu();
@@ -128,9 +147,11 @@ export class AuroraMenu extends Module {
     this._lifecycle.connect(settings, `changed::${HIDE_ACTIVITIES_KEY}`, () =>
       this._syncActivitiesButton(),
     );
+  }
 
-    this._syncActivitiesButton();
-    this._rebuildMenu();
+  private _registerButton(): void {
+    if (!this._button) return;
+
     Main.panel.addToStatusArea(
       STATUS_AREA_ID,
       this._button as unknown as PanelMenuButton,
@@ -139,24 +160,29 @@ export class AuroraMenu extends Module {
     );
   }
 
-  override disable(): void {
-    this._lifecycle?.dispose();
-    this._lifecycle = null;
-
-    this._showActivitiesButton();
-    this._panelIcon?.destroy();
-    this._panelIcon = null;
-    this._button?.destroy();
-    this._button = null;
-  }
-
   private _rebuildMenu(): void {
-    this._rebuildMenuAsync().catch((e) =>
-      logger.warn(`Failed to rebuild Aurora Menu: ${e}`, { prefix: LOG_PREFIX }),
-    );
+    this._rebuildCancellable?.cancel();
+
+    const cancellable = new Gio.Cancellable();
+    this._rebuildCancellable = cancellable;
+    this._rebuildMenuAsync(cancellable)
+      .catch((error) => {
+        if (
+          !(
+            error instanceof GLib.Error && error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)
+          )
+        ) {
+          logger.warn(`Failed to rebuild Aurora Menu: ${error}`, { prefix: LOG_PREFIX });
+        }
+      })
+      .finally(() => {
+        if (this._rebuildCancellable === cancellable) {
+          this._rebuildCancellable = null;
+        }
+      });
   }
 
-  private async _rebuildMenuAsync(): Promise<void> {
+  private async _rebuildMenuAsync(cancellable: Gio.Cancellable): Promise<void> {
     const menu = this._getMenu();
     if (!menu) return;
 
@@ -169,46 +195,62 @@ export class AuroraMenu extends Module {
       iconName: 'help-about-symbolic',
     });
 
-    const filesAdded = await this._addSection(menu, hasItems, [
-      () =>
-        this._addCommandIfVisible(menu, SHOW_HOME_KEY, {
-          title: _('Home Folder'),
-          argv: ['xdg-open', GLib.get_home_dir()],
-          iconName: 'user-home-symbolic',
-        }),
-      () =>
-        this._addCommandIfVisible(menu, SHOW_DOWNLOADS_KEY, {
-          title: _('Downloads'),
-          argv: ['xdg-open', this._getDownloadsDirectory() ?? GLib.get_home_dir()],
-          iconName: 'folder-download-symbolic',
-        }),
-      () => this._addRecentItems(menu),
-    ]);
+    const filesAdded = await this._addSection(
+      menu,
+      hasItems,
+      [
+        () =>
+          this._addCommandIfVisible(menu, SHOW_HOME_KEY, {
+            title: _('Home Folder'),
+            argv: ['xdg-open', GLib.get_home_dir()],
+            iconName: 'user-home-symbolic',
+          }),
+        () =>
+          this._addCommandIfVisible(menu, SHOW_DOWNLOADS_KEY, {
+            title: _('Downloads'),
+            argv: ['xdg-open', this._getDownloadsDirectory() ?? GLib.get_home_dir()],
+            iconName: 'folder-download-symbolic',
+          }),
+        () => this._addRecentItems(menu, cancellable),
+      ],
+      () => this._isCurrentRebuild(cancellable, menu),
+    );
+    if (!this._isCurrentRebuild(cancellable, menu)) return;
+
     hasItems ||= filesAdded;
 
-    const systemAdded = await this._addSection(menu, hasItems, [
-      () =>
-        this._addCommandIfVisible(menu, SHOW_SETTINGS_KEY, {
-          title: _('System Settings'),
-          argv: ['gnome-control-center'],
-          iconName: 'emblem-system-symbolic',
-        }),
-      () =>
-        this._addCommandIfVisible(menu, SHOW_SOFTWARE_KEY, {
-          title: _('Software'),
-          argv: this._parseCommand(APP_STORE_COMMAND_KEY, ['gnome-software']),
-          iconName: 'system-software-install-symbolic',
-        }),
-      () =>
-        this._addCommandIfVisible(menu, SHOW_EXTENSIONS_KEY, {
-          title: _('Extensions'),
-          iconName: 'application-x-addon-symbolic',
-          activate: () => this._openExtensionsManager(),
-        }),
-    ]);
+    const systemAdded = await this._addSection(
+      menu,
+      hasItems,
+      [
+        () =>
+          this._addCommandIfVisible(menu, SHOW_SETTINGS_KEY, {
+            title: _('System Settings'),
+            argv: ['gnome-control-center'],
+            iconName: 'emblem-system-symbolic',
+          }),
+        () =>
+          this._addCommandIfVisible(menu, SHOW_SOFTWARE_KEY, {
+            title: _('Software'),
+            argv: this._parseCommand(APP_STORE_COMMAND_KEY, ['gnome-software']),
+            iconName: 'system-software-install-symbolic',
+          }),
+        () =>
+          this._addCommandIfVisible(menu, SHOW_EXTENSIONS_KEY, {
+            title: _('Extensions'),
+            iconName: 'application-x-addon-symbolic',
+            activate: () => this._openExtensionsManager(),
+          }),
+      ],
+      () => this._isCurrentRebuild(cancellable, menu),
+    );
+    if (!this._isCurrentRebuild(cancellable, menu)) return;
+
     hasItems ||= systemAdded;
 
-    await this._addSection(menu, hasItems, [() => this._addCustomItems(menu)]);
+    await this._addSection(menu, hasItems, [() => this._addCustomItems(menu)], () =>
+      this._isCurrentRebuild(cancellable, menu),
+    );
   }
 
   private _addCommand(menu: PopupMenu.PopupMenu, command: MenuCommand): void {
@@ -236,17 +278,22 @@ export class AuroraMenu extends Module {
     menu: PopupMenu.PopupMenu,
     hasPreviousItems: boolean,
     builders: Array<() => boolean | Promise<boolean>>,
+    isCurrent: () => boolean,
   ): Promise<boolean> {
     let separator: PopupMenu.PopupSeparatorMenuItem | null = null;
     let added = false;
 
     for (const build of builders) {
+      if (!isCurrent()) return false;
+
       if (hasPreviousItems && !separator) {
         separator = new PopupMenu.PopupSeparatorMenuItem();
         menu.addMenuItem(separator);
       }
 
-      if (await build()) added = true;
+      const itemAdded = await build();
+      if (!isCurrent()) return false;
+      if (itemAdded) added = true;
     }
 
     if (!added && separator) separator.destroy();
@@ -272,8 +319,14 @@ export class AuroraMenu extends Module {
     return added;
   }
 
-  private async _addRecentItems(menu: PopupMenu.PopupMenu): Promise<boolean> {
+  private async _addRecentItems(
+    menu: PopupMenu.PopupMenu,
+    cancellable: Gio.Cancellable,
+  ): Promise<boolean> {
     if (!this.context.settings.getBoolean(SHOW_RECENT_KEY)) return false;
+
+    const items = await readRecentMenuItems(RECENT_LIMIT, cancellable);
+    if (!this._isCurrentRebuild(cancellable, menu)) return false;
 
     const submenu = new PopupMenu.PopupSubMenuMenuItem(
       _('Recent Items'),
@@ -282,8 +335,6 @@ export class AuroraMenu extends Module {
     if (submenu.icon) submenu.icon.icon_name = 'document-open-recent-symbolic';
     this._replaceSubmenuArrow(submenu);
     this._lockSubmenuWidth(submenu);
-
-    const items = await this._readRecentItems();
 
     if (items.length === 0) {
       const empty = new PopupMenu.PopupMenuItem(_('No recent items'));
@@ -303,64 +354,6 @@ export class AuroraMenu extends Module {
 
     menu.addMenuItem(submenu);
     return true;
-  }
-
-  private async _readRecentItems(): Promise<RecentItem[]> {
-    const file = Gio.File.new_for_path(
-      GLib.build_filenamev([GLib.get_user_data_dir(), 'recently-used.xbel']),
-    );
-
-    try {
-      await file.query_info_async(
-        'standard::type',
-        Gio.FileQueryInfoFlags.NONE,
-        GLib.PRIORITY_DEFAULT,
-        null,
-      );
-
-      const [bytes] = await file.load_bytes_async(null);
-      const data = bytes.get_data();
-      if (!data) return [];
-
-      const text = new TextDecoder().decode(data);
-      const items: RecentItem[] = [];
-      const seen = new Set<string>();
-      const bookmarkRegex =
-        /<bookmark\b[^>]*href="([^"]+)"[^>]*modified="([^"]+)"[^>]*>([\s\S]*?)<\/bookmark>/g;
-
-      let match: RegExpExecArray | null;
-      while ((match = bookmarkRegex.exec(text)) !== null) {
-        const uri = decodeXml(match[1] ?? '');
-        if (!uri || seen.has(uri)) continue;
-        seen.add(uri);
-
-        const body = match[3] ?? '';
-        const title = this._extractRecentTitle(body, uri);
-        const modified = this._parseIsoTime(match[2] ?? '');
-        items.push({
-          title,
-          uri,
-          modified,
-          iconName: uri.startsWith('file://') ? 'text-x-generic-symbolic' : 'emblem-web-symbolic',
-        });
-      }
-
-      return items.sort((a, b) => b.modified - a.modified).slice(0, RECENT_LIMIT);
-    } catch (e) {
-      if (this._isGioError(e, Gio.IOErrorEnum.NOT_FOUND)) return [];
-
-      logger.warn(`Failed to read recent items: ${e}`, { prefix: LOG_PREFIX });
-      return [];
-    }
-  }
-
-  private _extractRecentTitle(bookmarkBody: string, uri: string): string {
-    const title = /<title>([\s\S]*?)<\/title>/.exec(bookmarkBody)?.[1]?.trim();
-    if (title) return decodeXml(title);
-
-    const decodedUri = GLib.uri_unescape_string(uri, null) ?? uri;
-    if (decodedUri.startsWith('file://')) return GLib.path_get_basename(decodedUri.slice(7));
-    return decodedUri;
   }
 
   private _decorateItem(item: PopupMenu.PopupMenuItem, iconName: string): void {
@@ -496,26 +489,32 @@ export class AuroraMenu extends Module {
   }
 
   private _showActivitiesButton(): void {
-    this._getActivitiesActor()?.show();
+    const actor = this._getActivitiesActor();
+    if (actor) actor.show();
   }
 
   private _getActivitiesActor(): St.Widget | null {
     const statusArea = Main.panel.statusArea as Record<string, any>;
-    const entry = statusArea['activities'] ?? statusArea['activitiesButton'];
-    return (entry?.container ?? entry ?? null) as St.Widget | null;
+    const entry = statusArea['activities'];
+    if (!entry) return null;
+
+    return entry.container as St.Widget;
   }
 
   private _getMenu(): PopupMenu.PopupMenu | null {
-    return (this._button?.menu as PopupMenu.PopupMenu | null | undefined) ?? null;
+    if (!this._button) {
+      return null;
+    }
+
+    return this._button.menu as PopupMenu.PopupMenu;
   }
 
-  private _parseIsoTime(value: string): number {
-    const dateTime = GLib.DateTime.new_from_iso8601(value, null);
-    return dateTime?.to_unix() ?? 0;
-  }
-
-  private _isGioError(error: unknown, code: number): boolean {
-    return error instanceof GLib.Error && error.matches(Gio.io_error_quark(), code);
+  private _isCurrentRebuild(cancellable: Gio.Cancellable, menu: PopupMenu.PopupMenu): boolean {
+    return (
+      !cancellable.is_cancelled() &&
+      this._rebuildCancellable === cancellable &&
+      this._getMenu() === menu
+    );
   }
 
   private _getDownloadsDirectory(): string | null {

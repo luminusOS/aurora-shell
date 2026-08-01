@@ -44,10 +44,8 @@ export type ScreenshotUi = St.Widget & {
   open(mode?: number, ...args: unknown[]): Promise<unknown>;
 };
 
-export function getScreenshotUi(): ScreenshotUi | null {
-  const candidate: unknown = Main.screenshotUI;
-  if (!isScreenshotUi(candidate)) return null;
-  return candidate;
+export function getScreenshotUi(): ScreenshotUi {
+  return Main.screenshotUI as ScreenshotUi;
 }
 
 export function selectedWindow(ui: ScreenshotUi): ScreenshotWindow | null {
@@ -58,25 +56,7 @@ export function selectedWindow(ui: ScreenshotUi): ScreenshotWindow | null {
 }
 
 export function textureFromContent(content: Clutter.Content | null): Cogl.Texture | null {
-  if (!content || typeof (content as { get_texture?: unknown }).get_texture !== 'function')
-    return null;
-  return (content as TextureContent).get_texture();
-}
+  if (!content) return null;
 
-function isScreenshotUi(value: unknown): value is ScreenshotUi {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate['_saveScreenshot'] === 'function' &&
-    typeof candidate['open'] === 'function' &&
-    typeof candidate['connect'] === 'function' &&
-    candidate['_panel'] !== undefined &&
-    candidate['_stageScreenshot'] !== undefined &&
-    candidate['_areaSelector'] !== undefined &&
-    candidate['_selectionButton'] !== undefined &&
-    candidate['_showPointerButton'] !== undefined &&
-    candidate['_showPointerButtonContainer'] !== undefined &&
-    candidate['_screenButton'] !== undefined &&
-    candidate['_windowButton'] !== undefined
-  );
+  return (content as TextureContent).get_texture();
 }

@@ -10,8 +10,9 @@ import Shell from '@girs/shell-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import { LifecycleScope } from '~/core/lifecycleScope.ts';
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
 
 import type { ClipboardEntry, ClipboardImagePayload } from '~/clipboard/clipboardStore.ts';
@@ -32,8 +33,7 @@ export class ClipboardHistory extends Module {
   private _monitor: ClipboardMonitor | null = null;
   private _panel: ClipboardPanel | null = null;
   private _lifecycle: LifecycleScope | null = null;
-  private _startupIdleId: number = 0;
-  private _autoPasteTimeoutId: number = 0;
+  private _autoPasteTimeout: ManagedSource | null = null;
   private _pasteTargetWindow: Meta.Window | null = null;
   private _pasteTargetInputFocus: Clutter.InputFocus | null = null;
 
@@ -42,84 +42,79 @@ export class ClipboardHistory extends Module {
   }
 
   override enable(): void {
-    this._lifecycle = new LifecycleScope();
+    const lifecycle = new LifecycleScope();
+    const startupIdle = createManagedSource(lifecycle);
+    const autoPasteTimeout = createManagedSource(lifecycle);
+    this._lifecycle = lifecycle;
+    this._autoPasteTimeout = autoPasteTimeout;
     const sessionDir = GLib.get_user_runtime_dir() + '/aurora-shell/' + this.context.uuid;
     const filePath = sessionDir + '/clipboard-history.log';
     const mediaDir = sessionDir + '/clipboard-media';
     const rawSettings = this.context.settings.getRawSettings();
     const pollMs = rawSettings.get_int('clipboard-history-poll-interval');
 
-    this._store = new ClipboardStore(filePath, mediaDir);
+    const store = new ClipboardStore(filePath, mediaDir);
+    this._store = store;
 
-    this._panel = new (ClipboardPanel as unknown as new (
+    const panel = new (ClipboardPanel as unknown as new (
       store: ClipboardStore,
       callbacks: {
         onActivate: (entry: ClipboardEntry) => void;
         onRemove: (id: string) => void;
         onTogglePin: (id: string) => void;
       },
-    ) => ClipboardPanel)(this._store, {
+    ) => ClipboardPanel)(store, {
       onActivate: (entry) => this._onActivate(entry),
       onRemove: (id) => this._onRemove(id),
       onTogglePin: (id) => this._onTogglePin(id),
     });
+    this._panel = panel;
 
-    this._monitor = new ClipboardMonitor(pollMs, {
+    const monitor = new ClipboardMonitor(pollMs, {
       onText: (text) => this.addText(text),
       onImage: (payload) => void this.addImage(payload),
     });
+    this._monitor = monitor;
 
-    void this._store.load().then(() => this._panel?.refresh());
-
-    this._startupIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-      this._startupIdleId = 0;
-      this._monitor?.start();
-      return GLib.SOURCE_REMOVE;
-    });
-    const startupIdleId = this._startupIdleId;
-    this._lifecycle.onDispose(() => {
-      if (this._startupIdleId !== startupIdleId) return;
-      GLib.source_remove(startupIdleId);
-      this._startupIdleId = 0;
+    void store.load().then(() => {
+      if (this._panel === panel) panel.refresh();
     });
 
-    try {
-      Main.wm.addKeybinding(
-        KEYBINDING_KEY,
-        rawSettings,
-        Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-        Shell.ActionMode.ALL,
-        () => this.togglePanel(),
-      );
-      this._lifecycle.onDispose(() => {
-        try {
-          Main.wm.removeKeybinding(KEYBINDING_KEY);
-        } catch {
-          // The Shell may already have removed it during shutdown.
-        }
-      });
-    } catch (e) {
-      logger.error('Failed to register keybinding:', { prefix: LOG_PREFIX }, e as Error);
-    }
+    startupIdle.replace(() =>
+      GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        startupIdle.complete();
+        monitor.start();
+        return GLib.SOURCE_REMOVE;
+      }),
+    );
 
-    this._lifecycle.connect(rawSettings, 'changed::clipboard-history-poll-interval', () => {
-      this._monitor?.setInterval(rawSettings.get_int('clipboard-history-poll-interval'));
+    Main.wm.addKeybinding(
+      KEYBINDING_KEY,
+      rawSettings,
+      Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+      Shell.ActionMode.ALL,
+      () => this.togglePanel(),
+    );
+    lifecycle.onDispose(() => Main.wm.removeKeybinding(KEYBINDING_KEY));
+
+    lifecycle.connect(rawSettings, 'changed::clipboard-history-poll-interval', () => {
+      monitor.setInterval(rawSettings.get_int('clipboard-history-poll-interval'));
     });
   }
 
   override disable(): void {
-    this._cancelScheduledAutoPaste();
     this._pasteTargetWindow = null;
     this._pasteTargetInputFocus = null;
 
     this._lifecycle?.dispose();
     this._lifecycle = null;
+    this._autoPasteTimeout = null;
 
     this._panel?.close();
     this._panel?.destroy();
     this._panel = null;
 
-    this._monitor?.stop();
+    this._monitor?.destroy();
     this._monitor = null;
 
     this._store?.save();
@@ -149,29 +144,52 @@ export class ClipboardHistory extends Module {
   }
 
   addText(text: string): boolean {
-    const added = this._store?.addText(text) ?? false;
-    if (added) this._panel?.refresh();
+    if (!this._store || !this._panel) return false;
+
+    const added = this._store.addText(text);
+    if (added) {
+      this._panel.refresh();
+    }
+
     return added;
   }
 
   async addImage(payload: ClipboardImagePayload): Promise<boolean> {
-    const added = (await this._store?.addImage(payload)) ?? false;
-    if (added) this._panel?.refresh();
+    const store = this._store;
+    const panel = this._panel;
+    if (!store || !panel) {
+      return false;
+    }
+
+    const added = await store.addImage(payload);
+    if (added && this._panel === panel) {
+      panel.refresh();
+    }
+
     return added;
   }
 
   clearHistory(): boolean {
-    const cleared = this._store?.clear() ?? false;
-    if (cleared) this._panel?.refresh();
+    if (!this._store || !this._panel) return false;
+
+    const cleared = this._store.clear();
+    if (cleared) {
+      this._panel.refresh();
+    }
+
     return cleared;
   }
 
   get entryCount(): number {
-    return (this._store?.getPinned().length ?? 0) + (this._store?.getHistory().length ?? 0);
+    if (!this._store) return 0;
+
+    return this._store.getPinned().length + this._store.getHistory().length;
   }
 
   get isPanelOpen(): boolean {
-    return this._panel?.isOpen ?? false;
+    if (!this._panel) return false;
+
+    return this._panel.isOpen;
   }
 
   private _onActivate(entry: ClipboardEntry): void {
@@ -209,9 +227,10 @@ export class ClipboardHistory extends Module {
     targetInputFocus: Clutter.InputFocus,
     text: string,
   ): void {
-    if (!this._lifecycle) return;
+    const autoPasteTimeout = this._autoPasteTimeout;
+    if (!this._lifecycle || !autoPasteTimeout) return;
 
-    this._cancelScheduledAutoPaste();
+    autoPasteTimeout.clear();
     try {
       targetWindow.activate(global.get_current_time());
     } catch (e) {
@@ -223,37 +242,36 @@ export class ClipboardHistory extends Module {
       return;
     }
 
-    this._autoPasteTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTO_PASTE_DELAY_MS, () => {
-      this._autoPasteTimeoutId = 0;
-      if (!this._lifecycle) return GLib.SOURCE_REMOVE;
-      if (!targetWindow.has_focus()) return GLib.SOURCE_REMOVE;
+    autoPasteTimeout.replace(() =>
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTO_PASTE_DELAY_MS, () => {
+        autoPasteTimeout.complete();
+        if (!this._lifecycle) return GLib.SOURCE_REMOVE;
+        if (!targetWindow.has_focus()) return GLib.SOURCE_REMOVE;
 
-      // Restore the Wayland input focus stolen by the panel search entry
-      Main.inputMethod.focus_in(targetInputFocus);
-      if (Main.inputMethod.currentFocus === targetInputFocus) Main.inputMethod.commit(text);
-      return GLib.SOURCE_REMOVE;
-    });
-  }
-
-  private _cancelScheduledAutoPaste(): void {
-    if (this._autoPasteTimeoutId === 0) return;
-    GLib.source_remove(this._autoPasteTimeoutId);
-    this._autoPasteTimeoutId = 0;
+        // Restore the Wayland input focus stolen by the panel search entry
+        Main.inputMethod.focus_in(targetInputFocus);
+        if (Main.inputMethod.currentFocus === targetInputFocus) Main.inputMethod.commit(text);
+        return GLib.SOURCE_REMOVE;
+      }),
+    );
   }
 
   private _onRemove(id: string): void {
-    this._store?.remove(id);
-    this._panel?.refresh();
+    if (!this._store || !this._panel) return;
+
+    this._store.remove(id);
+    this._panel.refresh();
   }
 
   private _onTogglePin(id: string): void {
-    if (!this._store) return;
+    if (!this._store || !this._panel) return;
+
     const pinned = this._store.getPinned();
     if (pinned.find((e) => e.id === id)) {
       this._store.unpin(id);
     } else {
       this._store.pin(id);
     }
-    this._panel?.refresh();
+    this._panel.refresh();
   }
 }

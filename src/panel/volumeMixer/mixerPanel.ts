@@ -14,8 +14,19 @@ export const MAX_MIXER_HEIGHT = 300;
  * Scrollable panel containing the list of per-application volume mixers.
  * Hides itself automatically when there are no active audio streams.
  */
-@GObject.registerClass
+@GObject.registerClass({
+  Properties: {
+    'should-show': GObject.ParamSpec.boolean(
+      'should-show',
+      null,
+      null,
+      GObject.ParamFlags.READABLE,
+      false,
+    ),
+  },
+})
 export class VolumeMixerPanel extends St.BoxLayout {
+  declare should_show: boolean;
   declare private _emptyLabel: St.Label;
   declare private _list: VolumeMixerList;
 
@@ -54,8 +65,19 @@ export class VolumeMixerPanel extends St.BoxLayout {
     sections.add_child(this._list);
     this.add_child(scroll);
 
-    this._list.connectObject('notify::should-show', () => this._sync(scroll), this);
+    this._list.connectObject(
+      'notify::should-show',
+      () => {
+        this._sync(scroll);
+        this.notify('should-show');
+      },
+      this,
+    );
     this._sync(scroll);
+  }
+
+  get shouldShow(): boolean {
+    return this._list.shouldShow;
   }
 
   private _sync(scroll: St.ScrollView): void {

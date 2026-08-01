@@ -18,6 +18,7 @@ import { VolumeMixerPanel } from '~/panel/volumeMixer/mixerPanel.ts';
 import { createIcon } from '~/shared/icons.ts';
 
 const LOG_PREFIX = 'VolumeMixer';
+export const ALWAYS_SHOW_KEY = 'volume-mixer-always-show';
 
 /**
  * Volume Mixer Module
@@ -92,8 +93,7 @@ export class VolumeMixer extends Module {
   }
 
   private _attachToSlider(slider: QuickSlider): void {
-    const lifecycle = this._lifecycle;
-    if (!lifecycle) return;
+    if (!this._lifecycle) return;
 
     this._panel = new (VolumeMixerPanel as unknown as new (
       ctx: ExtensionContext,
@@ -112,7 +112,7 @@ export class VolumeMixer extends Module {
       } catch (e) {
         logger.error(`Failed to open sound settings: ${e}`, { prefix: LOG_PREFIX });
       }
-      this._quickSettings?.menu.close(PopupAnimation.FULL);
+      slider.menu.close(PopupAnimation.FULL);
     });
     this._settingsSection.addMenuItem(settingsItem);
     slider.menu.addMenuItem(this._settingsSection, 3);
@@ -129,6 +129,19 @@ export class VolumeMixer extends Module {
 
     slider.child.add_child(this._toggleButton);
 
+    const syncToggleVisibility = () => {
+      if (!this._toggleButton || !this._panel) return;
+      this._toggleButton.visible =
+        this.context.settings.getBoolean(ALWAYS_SHOW_KEY) || this._panel.shouldShow;
+    };
+    this._lifecycle.connect(this._panel, 'notify::should-show', syncToggleVisibility);
+    this._lifecycle.connect(
+      this.context.settings,
+      `changed::${ALWAYS_SHOW_KEY}`,
+      syncToggleVisibility,
+    );
+    syncToggleVisibility();
+
     const toggleButton = this._toggleButton;
     const toggleClickedId = toggleButton.connect('clicked', () => {
       if (!this._panel || !this._menuSection || !this._settingsSection) return;
@@ -136,21 +149,21 @@ export class VolumeMixer extends Module {
       this._menuSection.box.show();
       this._settingsSection.box.show();
       (slider as any)._deviceSection?.box.hide();
-      slider.menu._setSettingsVisibility?.(false);
+      slider.menu._setSettingsVisibility(false);
       slider.menu.setHeader('audio-speakers-symbolic', _('Volume Mixer'));
       slider.menu.open(PopupAnimation.FULL);
     });
-    lifecycle.onDispose(() => toggleButton.disconnect(toggleClickedId));
+    this._lifecycle.onDispose(() => toggleButton.disconnect(toggleClickedId));
 
     const menuClosedId = slider.menu.connect('menu-closed', () => {
       if (!this._menuSection || !this._settingsSection) return undefined;
       this._menuSection.box.hide();
       this._settingsSection.box.hide();
       (slider as any)._deviceSection?.box.show();
-      slider.menu._setSettingsVisibility?.(Main.sessionMode.allowSettings);
+      slider.menu._setSettingsVisibility(Main.sessionMode.allowSettings);
       slider.menu.setHeader('audio-headphones-symbolic', _('Sound Output'));
       return undefined;
     });
-    lifecycle.onDispose(() => slider.menu.disconnect(menuClosedId));
+    this._lifecycle.onDispose(() => slider.menu.disconnect(menuClosedId));
   }
 }

@@ -44,22 +44,25 @@ export class BackgroundAppsSource {
 
   async start(): Promise<void> {
     this._cancellable = new Gio.Cancellable();
+
+    let proxy: Gio.DBusProxy;
     try {
-      this._proxy = new (BackgroundMonitorProxy as any)(
+      proxy = new (BackgroundMonitorProxy as any)(
         Gio.DBus.session,
         DBUS_NAME,
         DBUS_OBJECT,
         this._cancellable,
       ) as Gio.DBusProxy;
-
-      this._proxyChangedId = this._proxy.connect('g-properties-changed', () => this._sync());
-      this._sync();
     } catch (e) {
-      if (!(e as any)?.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+      if (!(e instanceof GLib.Error && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))) {
         logger.warn(`BackgroundApps proxy unavailable: ${e}`, { prefix: LOG_PREFIX });
       }
-      this._proxy = null;
+      return;
     }
+
+    this._proxy = proxy;
+    this._proxyChangedId = proxy.connect('g-properties-changed', () => this._sync());
+    this._sync();
   }
 
   private _sync(): void {
@@ -101,7 +104,6 @@ export class BackgroundAppsSource {
       }
     }
 
-    // Remove gone apps
     for (const [id] of this._knownIds) {
       if (!currentApps.has(id)) {
         logger.debug(`BG app removed from monitor: ${id}`, { prefix: LOG_PREFIX });
@@ -110,7 +112,6 @@ export class BackgroundAppsSource {
       }
     }
 
-    // Add new apps
     for (const [appId, { app, message }] of currentApps) {
       if (!this._knownIds.has(appId)) {
         logger.debug(`BG app found in monitor: ${appId}`, { prefix: LOG_PREFIX });

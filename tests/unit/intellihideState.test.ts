@@ -100,6 +100,28 @@ test('getBlockingOverlapState does not let a focused PiP reveal over fullscreen'
   assert.deepEqual(state.rectangles, [backgroundFullscreenWindow]);
 });
 
+test('getBlockingOverlapState keeps the dock hidden while PiP is focused without fullscreen', () => {
+  const dock = rect(700, 1030, 600, 50);
+  const backgroundWindow = rect(0, 0, 600, 500);
+  const focusedPipWindow = rect(100, 100, 500, 300);
+
+  const state = getBlockingOverlapState(
+    [
+      { rectangle: backgroundWindow },
+      {
+        rectangle: focusedPipWindow,
+        focused: true,
+        topmost: true,
+        excludedFromSmartReveal: true,
+      },
+    ],
+    dock,
+    false,
+  );
+
+  assert.equal(state.blocked, true);
+});
+
 test('getBlockingOverlapState keeps ordinary small-window reveal when PiP exclusion is off', () => {
   const dock = rect(700, 1030, 600, 50);
   const backgroundFullscreenWindow = rect(0, 0, 1920, 1080);

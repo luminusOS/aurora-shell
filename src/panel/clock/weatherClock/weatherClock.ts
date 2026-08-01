@@ -9,8 +9,9 @@ import GWeather from 'gi://GWeather';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import { LifecycleScope } from '~/core/lifecycleScope.ts';
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
 import { registerClockPillWidget, type ClockPillRegistration } from '~/shared/clockPill.ts';
 
@@ -64,8 +65,8 @@ export class WeatherClock extends Module {
   private _monitor: Gio.NetworkMonitor | null = null;
   private _snapshotsBySource = new Map<string, WeatherSnapshot>();
   private _snapshot: WeatherSnapshot | null = null;
-  private _refreshTimerId = 0;
-  private _retryTimerId = 0;
+  private _refreshTimer: ManagedSource | null = null;
+  private _retryTimer: ManagedSource | null = null;
   private _retryCount = 0;
 
   constructor(context: ExtensionContext) {
@@ -75,6 +76,8 @@ export class WeatherClock extends Module {
   override enable(): void {
     this.disable();
     this._lifecycle = new LifecycleScope();
+    this._refreshTimer = createManagedSource(this._lifecycle);
+    this._retryTimer = createManagedSource(this._lifecycle);
     this._monitor = Gio.NetworkMonitor.get_default();
     this._gweatherSettings = this._createGWeatherSettings();
     if (this._gweatherSettings)
@@ -93,9 +96,8 @@ export class WeatherClock extends Module {
   override disable(): void {
     this._lifecycle?.dispose();
     this._lifecycle = null;
-
-    this._clearRefreshTimer();
-    this._clearRetryTimer();
+    this._refreshTimer = null;
+    this._retryTimer = null;
 
     if (this._clockPillRegistration) this._clockPillRegistration.unregister();
     this._clockPillRegistration = null;
@@ -207,7 +209,10 @@ export class WeatherClock extends Module {
 
   private _readWeatherClient(): WeatherClient | null {
     const dateMenu = Main.panel.statusArea.dateMenu as unknown as DateMenuWithWeather;
-    return dateMenu._weatherItem?._weatherClient ?? null;
+    const weatherItem = dateMenu._weatherItem;
+    if (!weatherItem || !weatherItem._weatherClient) return null;
+
+    return weatherItem._weatherClient;
   }
 
   private _createGWeatherSettings(): Gio.Settings | null {
@@ -232,8 +237,10 @@ export class WeatherClock extends Module {
     if (!this._lifecycle) return;
 
     if (!this._hasConnectivity()) {
+      const available = this._weatherClient ? this._weatherClient.available : true;
+
       this.setWeatherSnapshot(GNOME_WEATHER_SOURCE_KEY, {
-        available: this._weatherClient?.available ?? true,
+        available,
         hasConnectivity: false,
       });
       return;
@@ -326,7 +333,7 @@ export class WeatherClock extends Module {
   }
 
   private _scheduleRetry(): void {
-    if (this._retryTimerId) return;
+    if (!this._retryTimer || this._retryTimer.active) return;
 
     this._retryCount++;
     if (this._retryCount > MAX_RETRIES) {
@@ -338,22 +345,23 @@ export class WeatherClock extends Module {
     }
 
     const delay = this._retryCount <= 2 ? 5 : 30;
-    this._retryTimerId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, delay, () => {
-      this._retryTimerId = 0;
-      this.refreshWeather();
-      return GLib.SOURCE_REMOVE;
-    });
+    this._retryTimer.replace(() =>
+      GLib.timeout_add_seconds(GLib.PRIORITY_LOW, delay, () => {
+        this._retryTimer!.complete();
+        this.refreshWeather();
+        return GLib.SOURCE_REMOVE;
+      }),
+    );
   }
 
   private _startRefreshTimer(): void {
-    this._clearRefreshTimer();
-    this._refreshTimerId = GLib.timeout_add_seconds(
-      GLib.PRIORITY_LOW,
-      REFRESH_INTERVAL_SECONDS,
-      () => {
+    if (!this._refreshTimer) return;
+
+    this._refreshTimer.replace(() =>
+      GLib.timeout_add_seconds(GLib.PRIORITY_LOW, REFRESH_INTERVAL_SECONDS, () => {
         if (this._hasConnectivity()) this.refreshWeather();
         return GLib.SOURCE_CONTINUE;
-      },
+      }),
     );
   }
 
@@ -388,19 +396,15 @@ export class WeatherClock extends Module {
   }
 
   private _hasConnectivity(): boolean {
-    return this._monitor?.connectivity !== Gio.NetworkConnectivity.LOCAL;
-  }
+    if (!this._monitor) {
+      return false;
+    }
 
-  private _clearRefreshTimer(): void {
-    if (!this._refreshTimerId) return;
-    GLib.source_remove(this._refreshTimerId);
-    this._refreshTimerId = 0;
+    return this._monitor.connectivity !== Gio.NetworkConnectivity.LOCAL;
   }
 
   private _clearRetryTimer(): void {
-    if (!this._retryTimerId) return;
-    GLib.source_remove(this._retryTimerId);
-    this._retryTimerId = 0;
+    this._retryTimer?.clear();
   }
 
   private _now(): number {

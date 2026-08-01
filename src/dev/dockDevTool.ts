@@ -70,8 +70,6 @@ export class DockDevTool {
     return panel;
   }
 
-  destroy(): void {}
-
   revealAll(): boolean {
     const dock = this._getDock();
     if (!dock) return false;
@@ -105,19 +103,28 @@ export class DockDevTool {
   }
 
   showMonitor(monitorIndex: number): boolean {
-    const changed = this._getDock()?.showMonitor(monitorIndex) ?? false;
+    const dock = this._getDock();
+    if (!dock) return false;
+
+    const changed = dock.showMonitor(monitorIndex);
     if (changed) this._requestMenuRebuild();
     return changed;
   }
 
   hideMonitor(monitorIndex: number): boolean {
-    const changed = this._getDock()?.hideMonitor(monitorIndex) ?? false;
+    const dock = this._getDock();
+    if (!dock) return false;
+
+    const changed = dock.hideMonitor(monitorIndex);
     if (changed) this._requestMenuRebuild();
     return changed;
   }
 
   triggerMonitorHotArea(monitorIndex: number): boolean {
-    const changed = this._getDock()?.revealMonitorFromHotArea(monitorIndex) ?? false;
+    const dock = this._getDock();
+    if (!dock) return false;
+
+    const changed = dock.revealMonitorFromHotArea(monitorIndex);
     if (changed) this._requestMenuRebuild();
     return changed;
   }

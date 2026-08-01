@@ -99,9 +99,10 @@ export const TrashIcon = GObject.registerClass(
     }
 
     override destroy(): void {
-      this.toggleButton.disconnectObject(this);
       this._refreshCancellable?.cancel();
       this._refreshCancellable = null;
+
+      this.toggleButton.disconnectObject(this);
       this._monitor?.disconnectObject(this);
       this._monitor?.cancel();
       this._monitor = null;
@@ -114,7 +115,9 @@ export const TrashIcon = GObject.registerClass(
     }
 
     get menuIsOpen(): boolean {
-      return this._menu?.isOpen ?? false;
+      if (!this._menu) return false;
+
+      return this._menu.isOpen;
     }
 
     private _createIcon(size: number): St.Icon {

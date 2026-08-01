@@ -13,28 +13,32 @@ export default class AuroraShellDevelopmentExtension extends AuroraShellExtensio
 
   override enable(): void {
     super.enable();
-    if (GLib.getenv('AURORA_DEVTOOLS') !== '1' || !this._context || !this._manager) return;
+    const context = this._context;
+    const manager = this._manager;
+    if (GLib.getenv('AURORA_DEVTOOLS') !== '1' || !context || !manager) return;
 
     try {
-      this._devTool = new DevTool(this._context, {
-        getModule: (key) => this._manager?.getModule(key) ?? null,
+      this._devTool = new DevTool(context, {
+        getModule: (key) => manager.getModule(key),
         openPreferences: () => this.openPreferences(),
       });
       this._devTool.enable();
     } catch (error) {
-      this._devTool?.disable();
+      const devTool = this._devTool;
       this._devTool = null;
+
+      if (devTool) devTool.disable();
+
       logger.error(`Failed to enable DevTool: ${String(error)}`, { prefix: LOG_PREFIX });
     }
   }
 
   override disable(): void {
-    try {
-      this._devTool?.disable();
-    } catch (error) {
-      logger.error(`Failed to disable DevTool: ${String(error)}`, { prefix: LOG_PREFIX });
-    }
+    const devTool = this._devTool;
     this._devTool = null;
+
+    if (devTool) devTool.disable();
+
     super.disable();
   }
 }

@@ -22,8 +22,14 @@ export var METRICS = {};
 
 /** @returns {void} */
 export function init() {
-  Scripting.defineScriptEvent('prototypePatched', 'WindowTracker.get_window_app is patched while enabled');
-  Scripting.defineScriptEvent('prototypeRestored', 'WindowTracker.get_window_app restored after disable');
+  Scripting.defineScriptEvent(
+    'prototypePatched',
+    'WindowTracker.get_window_app is patched while enabled',
+  );
+  Scripting.defineScriptEvent(
+    'prototypeRestored',
+    'WindowTracker.get_window_app restored after disable',
+  );
 }
 
 /** @returns {Promise<void>} */
@@ -49,7 +55,7 @@ export async function run() {
     auroraSettings.set_boolean('module-icon-weave', true);
     throw new Error(
       'Shell.WindowTracker.prototype.get_window_app was NOT restored after icon-weave disable — ' +
-      'the patched function is still in place'
+        'the patched function is still in place',
     );
   }
 
@@ -63,22 +69,50 @@ export async function run() {
 
   const repatchedFn = Shell.WindowTracker.prototype.get_window_app;
   if (repatchedFn === restoredFn)
-    throw new Error('Shell.WindowTracker.prototype.get_window_app was not re-patched after re-enable');
+    throw new Error(
+      'Shell.WindowTracker.prototype.get_window_app was not re-patched after re-enable',
+    );
+
+  // A later extension owns its wrapper. IconWeave must not overwrite that
+  // external patch while it tears down its own resources.
+  const externalWrapper = function (window) {
+    return repatchedFn.call(this, window);
+  };
+  Shell.WindowTracker.prototype.get_window_app = externalWrapper;
+
+  auroraSettings.set_boolean('module-icon-weave', false);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(200);
+
+  if (Shell.WindowTracker.prototype.get_window_app !== externalWrapper)
+    throw new Error('IconWeave overwrote a prototype patch installed after its own wrapper');
+
+  Shell.WindowTracker.prototype.get_window_app = restoredFn;
+  auroraSettings.set_boolean('module-icon-weave', true);
+  await Scripting.waitLeisure();
 }
 
 let _prototypePatched = false;
 let _prototypeRestored = false;
 
 /** @returns {void} */
-export function script_prototypePatched() { _prototypePatched = true; }
+export function script_prototypePatched() {
+  _prototypePatched = true;
+}
 
 /** @returns {void} */
-export function script_prototypeRestored() { _prototypeRestored = true; }
+export function script_prototypeRestored() {
+  _prototypeRestored = true;
+}
 
 /** @returns {void} */
 export function finish() {
   if (!_prototypePatched)
-    throw new Error('IconWeave did not patch Shell.WindowTracker.prototype.get_window_app on enable');
+    throw new Error(
+      'IconWeave did not patch Shell.WindowTracker.prototype.get_window_app on enable',
+    );
   if (!_prototypeRestored)
-    throw new Error('IconWeave did not restore Shell.WindowTracker.prototype.get_window_app on disable');
+    throw new Error(
+      'IconWeave did not restore Shell.WindowTracker.prototype.get_window_app on disable',
+    );
 }

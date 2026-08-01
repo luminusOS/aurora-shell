@@ -6,6 +6,8 @@ import * as Main from '@girs/gnome-shell/ui/main';
 
 import { logger } from '~/core/logger.ts';
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
 
 const LOG_PREFIX = 'VelaVpnQuickSettings';
@@ -20,76 +22,102 @@ export class VelaVpnQuickSettings extends Module {
   private _vpnToggle: any = null;
   private _originalActivateConnection: any = null;
   private _originalDeactivateConnection: any = null;
-  private _retryId = 0;
+  private _installedActivateConnection: any = null;
+  private _installedDeactivateConnection: any = null;
+  private _lifecycle: LifecycleScope | null = null;
+  private _retry: ManagedSource | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
   }
 
   override enable(): void {
+    this.disable();
+    this._lifecycle = new LifecycleScope();
+    this._retry = createManagedSource(this._lifecycle);
     this._patchWhenAvailable();
   }
 
   override disable(): void {
-    if (this._retryId > 0) {
-      GLib.source_remove(this._retryId);
-      this._retryId = 0;
-    }
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
+    this._retry = null;
+    this._restorePatch();
+  }
 
+  private _restorePatch(): void {
     if (this._vpnToggle) {
-      if (this._originalActivateConnection)
+      if (this._vpnToggle.activateConnection === this._installedActivateConnection) {
         this._vpnToggle.activateConnection = this._originalActivateConnection;
-      if (this._originalDeactivateConnection)
+      }
+      if (this._vpnToggle.deactivateConnection === this._installedDeactivateConnection) {
         this._vpnToggle.deactivateConnection = this._originalDeactivateConnection;
+      }
     }
 
     this._vpnToggle = null;
     this._originalActivateConnection = null;
     this._originalDeactivateConnection = null;
+    this._installedActivateConnection = null;
+    this._installedDeactivateConnection = null;
   }
 
   private _patchWhenAvailable(): void {
+    if (!this._retry) return;
+
     const toggle = this._getVpnToggle();
     if (!toggle) {
-      if (this._retryId === 0) {
-        this._retryId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
-          this._retryId = 0;
-          this._patchWhenAvailable();
-          return GLib.SOURCE_REMOVE;
-        });
+      if (!this._retry.active) {
+        this._retry.replace(() =>
+          GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+            this._retry!.complete();
+            this._patchWhenAvailable();
+            return GLib.SOURCE_REMOVE;
+          }),
+        );
       }
       return;
     }
 
     if (this._vpnToggle === toggle) return;
 
-    this.disable();
+    this._restorePatch();
     this._vpnToggle = toggle;
-    this._originalActivateConnection = toggle.activateConnection;
-    this._originalDeactivateConnection = toggle.deactivateConnection;
+    const originalActivateConnection = toggle.activateConnection;
+    const originalDeactivateConnection = toggle.deactivateConnection;
+    this._originalActivateConnection = originalActivateConnection;
+    this._originalDeactivateConnection = originalDeactivateConnection;
 
-    toggle.activateConnection = (connection: any) => {
+    const installedActivateConnection = (connection: any) => {
       this._setConnectionActive(connection, true, () => {
-        this._originalActivateConnection?.call(this._vpnToggle, connection);
+        if (this._vpnToggle === toggle) {
+          originalActivateConnection.call(toggle, connection);
+        }
       });
     };
-    toggle.deactivateConnection = (activeConnection: any) => {
-      const connection = activeConnection?.connection ?? activeConnection?.get_connection();
+    const installedDeactivateConnection = (activeConnection: any) => {
+      const connection = activeConnection.connection;
       this._setConnectionActive(connection, false, () => {
-        this._originalDeactivateConnection?.call(this._vpnToggle, activeConnection);
+        if (this._vpnToggle === toggle) {
+          originalDeactivateConnection.call(toggle, activeConnection);
+        }
       });
     };
+    this._installedActivateConnection = installedActivateConnection;
+    this._installedDeactivateConnection = installedDeactivateConnection;
+    toggle.activateConnection = installedActivateConnection;
+    toggle.deactivateConnection = installedDeactivateConnection;
 
     logger.info('Routing VPN Quick Settings activation through Vela', { prefix: LOG_PREFIX });
   }
 
-  private _setConnectionActive(connection: any, active: boolean, fallback?: () => void): void {
-    const path = connection?.get_path();
+  private _setConnectionActive(connection: any, active: boolean, fallback: () => void): void {
+    const path = connection.get_path();
     if (!path) {
       logger.warn('Cannot route VPN activation without a NetworkManager connection path', {
         prefix: LOG_PREFIX,
       });
-      if (this.context.settings.getBoolean(SHELL_FALLBACK_KEY)) fallback?.();
+      if (this.context.settings.getBoolean(SHELL_FALLBACK_KEY)) fallback();
       return;
     }
 
@@ -103,7 +131,7 @@ export class VelaVpnQuickSettings extends Module {
       if (!this._shouldFallbackToShell(remoteErrorName)) return;
 
       logger.info(`Using GNOME Shell fallback after ${remoteErrorName}`, { prefix: LOG_PREFIX });
-      fallback?.();
+      fallback();
     });
   }
 
@@ -144,10 +172,15 @@ export class VelaVpnQuickSettings extends Module {
 
   private _getNetworkIndicator(): any {
     const statusArea = (Main.panel as any).statusArea;
-    return statusArea.quickSettings?._network ?? statusArea.aggregateMenu?._network ?? null;
+    if (!statusArea.quickSettings) return null;
+
+    return statusArea.quickSettings._network ?? null;
   }
 
   private _getVpnToggle(): any {
-    return this._getNetworkIndicator()?._vpnToggle ?? null;
+    const indicator = this._getNetworkIndicator();
+    if (!indicator) return null;
+
+    return indicator._vpnToggle;
   }
 }

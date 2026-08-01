@@ -58,7 +58,7 @@ export class PipOnTop extends Module {
 
     for (const [window, tracked] of this._trackedWindows) {
       this._restoreWindow(window, tracked);
-      this._safeDisconnect(window);
+      window.disconnectObject(this);
     }
     this._trackedWindows.clear();
   }
@@ -109,8 +109,6 @@ export class PipOnTop extends Module {
     tracked.syncing = true;
     try {
       this._restoreWindowState(toWindowState(window), tracked);
-    } catch {
-      // The window may have been unmanaged while the module was shutting down.
     } finally {
       tracked.syncing = false;
     }
@@ -121,13 +119,5 @@ export class PipOnTop extends Module {
 
     restorePipWindow(state, tracked.ownership);
     tracked.ownership = null;
-  }
-
-  private _safeDisconnect(window: Meta.Window): void {
-    try {
-      window.disconnectObject(this);
-    } catch {
-      // The window may already have been disposed by Mutter.
-    }
   }
 }

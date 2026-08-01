@@ -9,7 +9,9 @@ import Shell from '@girs/shell-18';
 import GObject from '@girs/gobject-2.0';
 import * as Layout from '@girs/gnome-shell/ui/layout';
 
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { EdgeGestureGuard } from '~/dock/edgeGestureGuard.ts';
 import type { DashBounds } from '~/shared/ui/dash.ts';
 
@@ -28,17 +30,20 @@ const POINTER_BUTTON_MASK =
   Signals: { triggered: {} },
 })
 export class DockHotArea extends St.Widget {
-  private _pressureBarrier: Layout.PressureBarrier | null = null;
+  declare private _pressureBarrier: Layout.PressureBarrier;
   private _horizontalBarrier: Meta.Barrier | null = null;
   private _monitor!: DashBounds;
   private _active = true;
   private _edgeArmed = true;
   private _grabSuppressed = false;
-  private _pointerDwellTimeoutId = 0;
+  declare private _lifecycle: LifecycleScope;
+  declare private _pointerDwellTimeout: ManagedSource;
   private _gestureGuard = new EdgeGestureGuard();
 
   override _init(monitor: DashBounds) {
     super._init({ reactive: true, visible: true, name: 'aurora-dock-hot-area' });
+    this._lifecycle = new LifecycleScope();
+    this._pointerDwellTimeout = createManagedSource(this._lifecycle);
     this._monitor = monitor;
 
     this._pressureBarrier = new Layout.PressureBarrier(
@@ -66,17 +71,15 @@ export class DockHotArea extends St.Widget {
         if (this._canTrigger()) {
           this._clearDebounceTimer();
 
-          this._pointerDwellTimeoutId = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT,
-            HOT_AREA_DEBOUNCE_TIMEOUT,
-            () => {
+          this._pointerDwellTimeout.replace(() =>
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_DEBOUNCE_TIMEOUT, () => {
               logger.debug(`pointer dwell trigger geometry=${this._formatGeometry()}`, {
                 prefix: LOG_PREFIX,
               });
               this.emit('triggered');
-              this._pointerDwellTimeoutId = 0;
+              this._pointerDwellTimeout.complete();
               return GLib.SOURCE_REMOVE;
-            },
+            }),
           );
         }
         return Clutter.EVENT_PROPAGATE;
@@ -173,20 +176,17 @@ export class DockHotArea extends St.Widget {
   }
 
   override destroy(): void {
+    this._lifecycle.dispose();
     global.display.disconnectObject(this);
-    this._destroyBarrier();
-    this._clearDebounceTimer();
+    this._pressureBarrier.disconnectObject(this);
 
-    this._pressureBarrier?.disconnectObject(this);
-    this._pressureBarrier?.destroy();
-    this._pressureBarrier = null;
+    this._destroyBarrier();
+    this._pressureBarrier.destroy();
 
     super.destroy();
   }
 
   private _rebuildBarrier(size: number): void {
-    if (!this._pressureBarrier) return;
-
     this._destroyBarrier();
 
     const width = Number.isFinite(size) ? size : 0;
@@ -209,16 +209,14 @@ export class DockHotArea extends St.Widget {
 
   private _destroyBarrier(): void {
     if (!this._horizontalBarrier) return;
-    this._pressureBarrier?.removeBarrier(this._horizontalBarrier);
+
+    this._pressureBarrier.removeBarrier(this._horizontalBarrier);
     this._horizontalBarrier.destroy();
     this._horizontalBarrier = null;
   }
 
   private _clearDebounceTimer(): void {
-    if (this._pointerDwellTimeoutId) {
-      GLib.source_remove(this._pointerDwellTimeoutId);
-      this._pointerDwellTimeoutId = 0;
-    }
+    this._pointerDwellTimeout.clear();
   }
 
   private _canTrigger(): boolean {
@@ -252,12 +250,11 @@ export class DockHotArea extends St.Widget {
   }
 
   private _containsPoint(pointerX: number, pointerY: number): boolean {
-    const monitor = this._monitor;
-    const bottom = monitor.y + monitor.height;
+    const bottom = this._monitor.y + this._monitor.height;
     const top = bottom - Math.max(1, this.height || 1);
     return (
-      pointerX >= monitor.x &&
-      pointerX <= monitor.x + monitor.width &&
+      pointerX >= this._monitor.x &&
+      pointerX <= this._monitor.x + this._monitor.width &&
       pointerY >= top &&
       pointerY <= bottom
     );
@@ -268,7 +265,6 @@ export class DockHotArea extends St.Widget {
   }
 
   private _formatGeometry(): string {
-    const monitor = this._monitor;
-    return `${monitor.x},${monitor.y} ${monitor.width}x${monitor.height}`;
+    return `${this._monitor.x},${this._monitor.y} ${this._monitor.width}x${this._monitor.height}`;
   }
 }

@@ -2,6 +2,8 @@ import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 
 import type { ClipboardImagePayload } from '~/clipboard/clipboardStore.ts';
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 
 const IMAGE_MIME_TYPES = [
   'image/png',
@@ -17,7 +19,8 @@ export class ClipboardMonitor {
   private _intervalMs: number;
   private _onText: (text: string) => void;
   private _onImage: (payload: ClipboardImagePayload) => void;
-  private _sourceId: number = 0;
+  private _lifecycle = new LifecycleScope();
+  private _pollSource: ManagedSource = createManagedSource(this._lifecycle);
   private _lastContentKey: string | null = null;
 
   constructor(
@@ -33,26 +36,29 @@ export class ClipboardMonitor {
   }
 
   start(): void {
-    if (this._sourceId !== 0) return;
-    this._sourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._intervalMs, () => {
-      this._tick();
-      return GLib.SOURCE_CONTINUE;
-    });
+    if (this._pollSource.active) return;
+    this._pollSource.replace(() =>
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._intervalMs, () => {
+        this._tick();
+        return GLib.SOURCE_CONTINUE;
+      }),
+    );
   }
 
   stop(): void {
-    if (this._sourceId !== 0) {
-      GLib.source_remove(this._sourceId);
-      this._sourceId = 0;
-    }
+    this._pollSource.clear();
   }
 
   setInterval(ms: number): void {
     this._intervalMs = ms;
-    if (this._sourceId !== 0) {
+    if (this._pollSource.active) {
       this.stop();
       this.start();
     }
+  }
+
+  destroy(): void {
+    this._lifecycle.dispose();
   }
 
   private _tick(): void {

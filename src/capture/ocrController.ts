@@ -17,6 +17,7 @@ export class OcrUnavailableError extends Error {}
 export class OcrController {
   private _installedLanguages: string[] | null = null;
   private _probePromise: Promise<boolean> | null = null;
+  private _probeSubprocess: Gio.Subprocess | null = null;
   private _subprocess: Gio.Subprocess | null = null;
   private _runId = 0;
 
@@ -29,11 +30,15 @@ export class OcrController {
 
   async probe(): Promise<boolean> {
     if (this._probePromise) return this._probePromise;
-    this._probePromise = this._probe();
+
+    const probePromise = this._probe();
+    this._probePromise = probePromise;
     try {
-      return await this._probePromise;
+      return await probePromise;
     } finally {
-      this._probePromise = null;
+      if (this._probePromise === probePromise) {
+        this._probePromise = null;
+      }
     }
   }
 
@@ -75,27 +80,30 @@ export class OcrController {
       return parseTesseractTsv(stdout ?? '', scale, origin);
     } finally {
       if (this._subprocess && runId === this._runId) this._subprocess = null;
-      try {
-        GLib.unlink(path);
-      } catch {
-        // The file may not have been created if capture failed early.
-      }
+      GLib.unlink(path);
     }
   }
 
   cancel(): void {
     this._runId++;
-    if (!this._subprocess) return;
-    try {
-      this._subprocess.force_exit();
-    } catch {
-      // The process may already have exited between the check and force_exit().
+    const subprocess = this._subprocess;
+    if (!subprocess) {
+      return;
     }
+
+    subprocess.force_exit();
     this._subprocess = null;
   }
 
   destroy(): void {
     this.cancel();
+
+    if (this._probeSubprocess) {
+      this._probeSubprocess.force_exit();
+      this._probeSubprocess = null;
+    }
+
+    this._probePromise = null;
     this._installedLanguages = null;
   }
 
@@ -109,11 +117,23 @@ export class OcrController {
       ['tesseract', '--list-langs'],
       Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
     );
-    const [, stdout] = await communicate(subprocess);
-    this._installedLanguages = subprocess.get_successful()
-      ? parseTesseractLanguages(stdout ?? '')
-      : [];
-    return this._installedLanguages.length > 0;
+    this._probeSubprocess = subprocess;
+
+    try {
+      const [, stdout] = await communicate(subprocess);
+      if (this._probeSubprocess !== subprocess) {
+        throw new Error('OCR probe was cancelled');
+      }
+
+      this._installedLanguages = subprocess.get_successful()
+        ? parseTesseractLanguages(stdout ?? '')
+        : [];
+      return this._installedLanguages.length > 0;
+    } finally {
+      if (this._probeSubprocess === subprocess) {
+        this._probeSubprocess = null;
+      }
+    }
   }
 }
 

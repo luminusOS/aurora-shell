@@ -1,4 +1,3 @@
-// src/desktop/trayIcons/trayIconItem.ts
 import '@girs/gjs';
 
 import St from '@girs/st-18';

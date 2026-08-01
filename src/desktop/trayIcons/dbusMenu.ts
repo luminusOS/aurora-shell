@@ -1,4 +1,3 @@
-// src/desktop/trayIcons/dbusMenu.ts
 import '@girs/gjs';
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
@@ -229,8 +228,9 @@ export class DBusMenuClient {
   }
 
   private _eventTimestamp(event: Clutter.Event | null): number {
-    const timestamp = event?.get_time() ?? Clutter.get_current_event_time();
+    const timestamp = event ? event.get_time() : Clutter.get_current_event_time();
     if (!Number.isFinite(timestamp) || timestamp < 0 || timestamp > 0xffffffff) return 0;
+
     return Math.round(timestamp);
   }
 

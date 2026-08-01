@@ -42,7 +42,10 @@ export class CaptureToolsDevTool {
 
   buildPanel(): St.Widget {
     const capture = this._getCaptureTools();
-    const state = capture?.devState ?? null;
+    const state = capture ? capture.devState : null;
+    const toolLabel = state ? state.tool : 'off';
+    const colorLabel = state ? state.color : 'off';
+    const widthLabel = state ? state.width : 0;
     const panel = createDevToolModulePanel();
     panel.add_child(createDevToolSummary(this.iconName, this._stateSummary(state)));
     panel.add_child(createDevToolSummary('find-location-symbolic', this._geometrySummary(state)));
@@ -65,7 +68,7 @@ export class CaptureToolsDevTool {
     appearanceRow.add_child(
       createDevToolActionButton(
         'document-edit-symbolic',
-        `Tool: ${state?.tool ?? 'off'}`,
+        `Tool: ${toolLabel}`,
         () => this.cycleTool(),
         !capture,
       ),
@@ -73,7 +76,7 @@ export class CaptureToolsDevTool {
     appearanceRow.add_child(
       createDevToolActionButton(
         'applications-graphics-symbolic',
-        `Color: ${state?.color ?? 'off'}`,
+        `Color: ${colorLabel}`,
         () => this.cycleColor(),
         !capture,
       ),
@@ -81,7 +84,7 @@ export class CaptureToolsDevTool {
     appearanceRow.add_child(
       createDevToolActionButton(
         'format-text-bold-symbolic',
-        `Width: ${state?.width ?? 0}`,
+        `Width: ${widthLabel}`,
         () => this.cycleWidth(),
         !capture,
       ),
@@ -95,7 +98,7 @@ export class CaptureToolsDevTool {
         'Move Selection',
         () => this.toggleInteraction('selection'),
         !capture,
-        state?.interaction === 'selection',
+        Boolean(state && state.interaction === 'selection'),
       ),
     );
     opacityRow.add_child(
@@ -104,7 +107,7 @@ export class CaptureToolsDevTool {
         'Draw',
         () => this.toggleInteraction('drawing'),
         !capture,
-        state?.interaction === 'drawing',
+        Boolean(state && state.interaction === 'drawing'),
       ),
     );
     panel.add_child(opacityRow);
@@ -116,7 +119,7 @@ export class CaptureToolsDevTool {
         'Tesseract On',
         () => this.setTesseractAvailable(true),
         !capture,
-        state?.ocrAvailabilityOverridden === true && state.ocrAvailable === true,
+        Boolean(state && state.ocrAvailabilityOverridden && state.ocrAvailable === true),
       ),
     );
     tesseractRow.add_child(
@@ -125,7 +128,7 @@ export class CaptureToolsDevTool {
         'Tesseract Off',
         () => this.setTesseractAvailable(false),
         !capture,
-        state?.ocrAvailabilityOverridden === true && state.ocrAvailable === false,
+        Boolean(state && state.ocrAvailabilityOverridden && state.ocrAvailable === false),
       ),
     );
     panel.add_child(tesseractRow);
@@ -139,7 +142,7 @@ export class CaptureToolsDevTool {
         'edit-copy-symbolic',
         'Copy OCR',
         () => this.copyOcr(),
-        !state?.ocrHasResult,
+        !state || !state.ocrHasResult,
       ),
     );
     ocrRow.add_child(
@@ -147,7 +150,7 @@ export class CaptureToolsDevTool {
         'system-search-symbolic',
         'Search OCR',
         () => this.searchOcr(),
-        !state?.ocrHasResult,
+        !state || !state.ocrHasResult,
       ),
     );
     panel.add_child(ocrRow);
@@ -166,11 +169,15 @@ export class CaptureToolsDevTool {
   }
 
   destroy(): void {
-    this._getCaptureTools()?.resetDevState();
+    const capture = this._getCaptureTools();
+    if (capture) capture.resetDevState();
   }
 
   async openPreview(): Promise<boolean> {
-    const opened = (await this._getCaptureTools()?.openDevPreview()) ?? false;
+    const capture = this._getCaptureTools();
+    if (!capture) return false;
+
+    const opened = await capture.openDevPreview();
     this._requestMenuRebuild();
     return opened;
   }
@@ -220,41 +227,62 @@ export class CaptureToolsDevTool {
   }
 
   setTesseractAvailable(available: boolean): boolean {
-    const changed = this._getCaptureTools()?.setDevOcrAvailable(available) ?? false;
+    const capture = this._getCaptureTools();
+    if (!capture) return false;
+
+    const changed = capture.setDevOcrAvailable(available);
     if (changed) this._requestMenuRebuild();
     return changed;
   }
 
   injectOcr(): boolean {
-    const changed = this._getCaptureTools()?.injectDevOcrResult() ?? false;
+    const capture = this._getCaptureTools();
+    if (!capture) return false;
+
+    const changed = capture.injectDevOcrResult();
     if (changed) this._requestMenuRebuild();
     return changed;
   }
 
   copyOcr(): boolean {
-    const changed = this._getCaptureTools()?.copyDevOcrText() ?? false;
+    const capture = this._getCaptureTools();
+    if (!capture) return false;
+
+    const changed = capture.copyDevOcrText();
     if (changed) this._requestMenuRebuild();
     return changed;
   }
 
   searchOcr(): boolean {
-    return this._getCaptureTools()?.searchDevOcrText() ?? false;
+    const capture = this._getCaptureTools();
+    if (!capture) return false;
+
+    return capture.searchDevOcrText();
   }
 
   clearAnnotations(): boolean {
-    const changed = this._getCaptureTools()?.clearDevAnnotations() ?? false;
+    const capture = this._getCaptureTools();
+    if (!capture) return false;
+
+    const changed = capture.clearDevAnnotations();
     if (changed) this._requestMenuRebuild();
     return changed;
   }
 
   reset(): boolean {
-    const changed = this._getCaptureTools()?.resetDevState() ?? false;
+    const capture = this._getCaptureTools();
+    if (!capture) return false;
+
+    const changed = capture.resetDevState();
     if (changed) this._requestMenuRebuild();
     return changed;
   }
 
   get state(): CaptureToolsDevState | null {
-    return this._getCaptureTools()?.devState ?? null;
+    const capture = this._getCaptureTools();
+    if (!capture) return null;
+
+    return capture.devState;
   }
 
   private _stateSummary(state: CaptureToolsDevState | null): string {
@@ -264,8 +292,9 @@ export class CaptureToolsDevTool {
   }
 
   private _geometrySummary(state: CaptureToolsDevState | null): string {
-    const geometry = state?.toolbarGeometry;
-    if (!state || !geometry) return 'Toolbar geometry unavailable';
+    if (!state || !state.toolbarGeometry) return 'Toolbar geometry unavailable';
+
+    const geometry = state.toolbarGeometry;
     const visibility = state.toolbarVisible ? 'visible' : 'hidden';
     return `Toolbar ${geometry.x},${geometry.y} · ${geometry.width}×${geometry.height} · ${visibility} · ${state.interaction}`;
   }

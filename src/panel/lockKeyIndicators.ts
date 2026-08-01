@@ -8,6 +8,7 @@ import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 
@@ -26,7 +27,7 @@ export class LockKeyIndicators extends Module {
   private _capsLabel: St.Label | null = null;
   private _numLabel: St.Label | null = null;
   private _keymap: Keymap | null = null;
-  private _stateChangedId = 0;
+  private _lifecycle: LifecycleScope | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -34,6 +35,7 @@ export class LockKeyIndicators extends Module {
 
   override enable(): void {
     this.disable();
+    this._lifecycle = new LifecycleScope();
 
     this._keymap = this._getKeymap();
     if (!this._keymap) {
@@ -55,7 +57,7 @@ export class LockKeyIndicators extends Module {
     box.add_child(this._numLabel);
     this._button.add_child(box);
 
-    this._stateChangedId = this._keymap.connect('state-changed', () => this._sync());
+    this._lifecycle.connect(this._keymap, 'state-changed', () => this._sync());
     this._sync();
 
     Main.panel.addToStatusArea(
@@ -67,10 +69,8 @@ export class LockKeyIndicators extends Module {
   }
 
   override disable(): void {
-    if (this._stateChangedId && this._keymap) {
-      this._keymap.disconnect(this._stateChangedId);
-      this._stateChangedId = 0;
-    }
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
     this._button?.destroy();
     this._button = null;
     this._capsLabel = null;
@@ -79,11 +79,7 @@ export class LockKeyIndicators extends Module {
   }
 
   private _getKeymap(): Keymap | null {
-    try {
-      return Clutter.get_default_backend().get_default_seat().get_keymap() as unknown as Keymap;
-    } catch {
-      return null;
-    }
+    return Clutter.get_default_backend().get_default_seat().get_keymap() as unknown as Keymap;
   }
 
   private _makeLabel(text: string): St.Label {

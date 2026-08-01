@@ -2,6 +2,7 @@ import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
@@ -19,39 +20,34 @@ const LOG_PREFIX = 'ThemeChanger';
  */
 export class ThemeChanger extends Module {
   private _settings: SettingsManager | null = null;
-  private _signalId: number | null = null;
+  private _lifecycle: LifecycleScope | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
   }
 
   public enable(): void {
+    this.disable();
+    this._lifecycle = new LifecycleScope();
     logger.debug('Initializing theme monitor', { prefix: LOG_PREFIX });
 
-    try {
-      this._settings = this.context.settings.getSchema('org.gnome.desktop.interface');
+    this._settings = this.context.settings.getSchema('org.gnome.desktop.interface');
 
-      const currentScheme = this._settings.getString('color-scheme');
-      logger.debug(`Current color-scheme: ${currentScheme}`, { prefix: LOG_PREFIX });
+    const currentScheme = this._settings.getString('color-scheme');
+    logger.debug(`Current color-scheme: ${currentScheme}`, { prefix: LOG_PREFIX });
 
-      this._signalId = this._settings.connect('changed::color-scheme', () => {
-        this._onColorSchemeChanged();
-      });
+    this._lifecycle.connect(this._settings, 'changed::color-scheme', () => {
+      this._onColorSchemeChanged();
+    });
 
-      logger.debug('Theme monitor active', { prefix: LOG_PREFIX });
-    } catch (error) {
-      logger.error('Failed to initialize:', { prefix: LOG_PREFIX }, error);
-    }
+    logger.debug('Theme monitor active', { prefix: LOG_PREFIX });
   }
 
   override disable(): void {
     logger.debug('Disabling theme monitor', { prefix: LOG_PREFIX });
 
-    if (this._signalId && this._settings) {
-      this._settings.disconnect(this._signalId);
-      this._signalId = null;
-    }
-
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
     this._settings = null;
   }
 

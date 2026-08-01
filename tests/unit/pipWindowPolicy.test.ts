@@ -43,6 +43,8 @@ test('recognizes supported PiP titles without matching unrelated windows', () =>
   assert.equal(isPipTitle('Picture-in-Picture'), true);
   assert.equal(isPipTitle('Picture in picture'), true);
   assert.equal(isPipTitle('Video title - PiP'), true);
+  assert.equal(isPipTitle('Video title - Picture-in-Picture'), true);
+  assert.equal(isPipTitle('Video title — Picture in picture'), true);
   assert.equal(isPipTitle('  PICTURE-IN-PICTURE  '), true);
 
   assert.equal(isPipTitle(null), false);

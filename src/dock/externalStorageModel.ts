@@ -20,7 +20,9 @@ export interface ExternalStorageEntry {
 }
 
 function isNetworkClass(volumeClass: string | null): boolean {
-  return volumeClass?.includes('network') ?? false;
+  if (!volumeClass) return false;
+
+  return volumeClass.includes('network');
 }
 
 function isInterestingLocalStorage(candidate: ExternalStorageCandidate): boolean {

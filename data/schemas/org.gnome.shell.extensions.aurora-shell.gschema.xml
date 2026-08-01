@@ -67,6 +67,11 @@
       <summary>Enable Volume Mixer module</summary>
       <description>Per-application volume control in Quick Settings</description>
     </key>
+    <key name="volume-mixer-always-show" type="b">
+      <default>false</default>
+      <summary>Always show Volume Mixer</summary>
+      <description>Show the Volume Mixer button even when no applications are playing audio</description>
+    </key>
     <key name="module-xwayland-indicator" type="b">
       <default>true</default>
       <summary>Enable XWayland Indicator module</summary>

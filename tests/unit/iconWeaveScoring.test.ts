@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { scoreIconWeaveCandidate } from '../../src/patches/iconWeaveScoring.ts';
+import {
+  registerIconWeaveWindow,
+  scoreIconWeaveCandidate,
+  unregisterIconWeaveWindow,
+} from '../../src/patches/iconWeaveScoring.ts';
 
 const MIN_MATCH_SCORE = 50;
 
@@ -15,6 +19,14 @@ test('IconWeave scoring rejects helper classes that only share a generic short t
   });
 
   assert.equal(score, 0);
+});
+
+test('IconWeave registration updates immutably and removes mapped windows', () => {
+  const initial = new Map([[1, 'one.desktop']]);
+  const registered = registerIconWeaveWindow(initial, { windowId: 2, appId: 'two.desktop' });
+  assert.equal(initial.has(2), false);
+  assert.equal(registered.get(2), 'two.desktop');
+  assert.deepEqual([...unregisterIconWeaveWindow(registered, 1)], [[2, 'two.desktop']]);
 });
 
 test('IconWeave scoring keeps exact identity matches strong', () => {

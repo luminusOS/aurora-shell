@@ -5,7 +5,6 @@ import St from '@girs/st-18';
 import GLib from '@girs/glib-2.0';
 
 import * as Main from '@girs/gnome-shell/ui/main';
-import * as DND from '@girs/gnome-shell/ui/dnd';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
@@ -17,32 +16,22 @@ import { DockIntellihide, OverlapStatus } from '~/dock/intellihide.ts';
 import { getDockMonitorIndexes } from '~/dock/monitorTopology.ts';
 import { DEFAULT_PROFILE, getBuiltInRecipe } from '~/dock/motion/catalog.ts';
 import { DashMotionIntegration } from '~/dock/motion/dashMotionIntegration.ts';
+import { ContextualDragRevealCoordinator } from '~/dock/contextualDragReveal.ts';
+import { DockConfigurationController, type DockConfiguration } from '~/dock/dockConfiguration.ts';
+import { ManagedDockBinding } from '~/dock/dockBinding.ts';
+export { ManagedDockBinding } from '~/dock/dockBinding.ts';
 
 const HOT_AREA_REVEAL_DURATION = 1500;
 const HOT_AREA_STRIP_HEIGHT = 1;
-const CONTEXTUAL_DRAG_REVEAL_DELAY = 800;
 const TRANSITION_ACTIVATION_COOLDOWN = 700;
 const LOG_PREFIX = 'Dock';
-
-export type ManagedDockBinding = {
-  monitorIndex: number;
-  mode: 'always-show' | 'always-autohide' | 'intellihide';
-  container: St.Bin;
-  dash: AuroraDash;
-  intellihide: InstanceType<typeof DockIntellihide> | null;
-  hotArea: InstanceType<typeof DockHotArea> | null;
-  strutActor: St.Widget | null;
-  autoHideReleaseId: number;
-  hotAreaEnableId: number;
-  hotAreaActive: boolean;
-  motion: DashMotionIntegration;
-};
 
 export class Dock extends Module {
   private _bindings = new Map<number, ManagedDockBinding>();
   private _lifecycle: LifecycleScope | null = null;
   private _pendingRebuild = false;
   private _dockSettings: any = null;
+  private _configuration: DockConfigurationController | null = null;
   private _alwaysShow = false;
   private _intellihideEnabled = false;
   private _showOnAllMonitors = false;
@@ -50,9 +39,8 @@ export class Dock extends Module {
   private _showExternalStorage = true;
   private _motionEnabled = true;
   private _motionProfile: string = DEFAULT_PROFILE;
-  private _edgeDragMonitor: { dragMotion: (event: any) => number } | null = null;
-  private _edgeDragTarget: ManagedDockBinding | null = null;
-  private _edgeDragRevealId = 0;
+  private _excludePip = false;
+  private _dragReveal: ContextualDragRevealCoordinator<ManagedDockBinding> | null = null;
   private _sessionWasLocked = false;
   private _fullscreenMonitors = new Set<number>();
 
@@ -62,19 +50,19 @@ export class Dock extends Module {
 
   override enable(): void {
     this._lifecycle = new LifecycleScope();
-    this._dockSettings = this.context.settings.getRawSettings();
-    this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
-    this._intellihideEnabled = this._dockSettings?.get_boolean('dock-intellihide') ?? false;
-    if (this._alwaysShow && this._intellihideEnabled) {
-      this._intellihideEnabled = false;
-      this._dockSettings?.set_boolean('dock-intellihide', false);
+    const dockSettings = this.context.settings.getRawSettings();
+    this._dockSettings = dockSettings;
+    this._configuration = new DockConfigurationController(this._readConfiguration(dockSettings));
+    const configuration = this._configuration.snapshot;
+    this._applyConfigurationSnapshot(configuration);
+
+    if (
+      configuration.alwaysShow &&
+      !configuration.intellihide &&
+      dockSettings.get_boolean('dock-intellihide')
+    ) {
+      dockSettings.set_boolean('dock-intellihide', false);
     }
-    this._showOnAllMonitors = this._dockSettings?.get_boolean('dock-show-on-all-monitors') ?? false;
-    this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
-    this._showExternalStorage =
-      this._dockSettings?.get_boolean('dock-show-external-storage') ?? true;
-    this._motionEnabled = this._dockSettings?.get_boolean('dock-motion-enabled') ?? true;
-    this._motionProfile = this._dockSettings?.get_string('dock-motion-profile') ?? DEFAULT_PROFILE;
     logger.debug(
       [
         `enable alwaysShow=${this._alwaysShow}`,
@@ -82,7 +70,7 @@ export class Dock extends Module {
         `showOnAllMonitors=${this._showOnAllMonitors}`,
         `showTrash=${this._showTrash}`,
         `showExternalStorage=${this._showExternalStorage}`,
-        `monitors=${Main.layoutManager.monitors?.length ?? 0}`,
+        `monitors=${Main.layoutManager.monitors.length}`,
       ].join(' '),
       { prefix: LOG_PREFIX },
     );
@@ -92,7 +80,11 @@ export class Dock extends Module {
     this._sessionWasLocked = Boolean(Main.sessionMode.isLocked);
     this._fullscreenMonitors = this._getFullscreenMonitors();
     this._rebuildBindings();
-    this._setupContextualDragReveal();
+    this._dragReveal = new ContextualDragRevealCoordinator(
+      () => this._bindings.values(),
+      (binding) => this._bindings.get(binding.monitorIndex) === binding,
+      (binding) => this._revealDockFromHotArea(binding),
+    );
     Main.layoutManager.connectObject(
       'monitors-changed',
       () => {
@@ -140,78 +132,110 @@ export class Dock extends Module {
     );
     this._lifecycle.onDispose(() => Main.overview.disconnectObject(this));
 
-    this._dockSettings?.connectObject(
+    dockSettings.connectObject(
       'changed::dock-always-show',
-      () => {
-        this._alwaysShow = this._dockSettings?.get_boolean('dock-always-show') ?? false;
-        if (this._alwaysShow && this._intellihideEnabled) {
-          this._dockSettings?.set_boolean('dock-intellihide', false);
-          return;
-        }
-        this._rebuildBindings();
-      },
+      () => this._handleConfigurationChange('alwaysShow'),
       'changed::dock-intellihide',
-      () => {
-        this._intellihideEnabled = this._dockSettings?.get_boolean('dock-intellihide') ?? false;
-        if (this._intellihideEnabled && this._alwaysShow) {
-          this._dockSettings?.set_boolean('dock-always-show', false);
-          return;
-        }
-        this._rebuildBindings();
-      },
+      () => this._handleConfigurationChange('intellihide'),
       'changed::dock-show-on-all-monitors',
-      () => {
-        this._showOnAllMonitors =
-          this._dockSettings?.get_boolean('dock-show-on-all-monitors') ?? false;
-        this._rebuildBindings();
-      },
+      () => this._handleConfigurationChange('showOnAllMonitors'),
       'changed::dock-show-trash',
-      () => {
-        this._showTrash = this._dockSettings?.get_boolean('dock-show-trash') ?? true;
-        this._rebuildBindings();
-      },
+      () => this._handleConfigurationChange('showTrash'),
       'changed::dock-show-external-storage',
-      () => {
-        this._showExternalStorage =
-          this._dockSettings?.get_boolean('dock-show-external-storage') ?? true;
-        this._rebuildBindings();
-      },
+      () => this._handleConfigurationChange('showExternalStorage'),
       'changed::dock-motion-enabled',
-      () => {
-        this._motionEnabled = this._dockSettings?.get_boolean('dock-motion-enabled') ?? true;
-        this._bindings.forEach((b) => b.motion.setEnabled(this._motionEnabled));
-      },
+      () => this._handleConfigurationChange('motionEnabled'),
       'changed::dock-motion-profile',
-      () => {
-        this._motionProfile =
-          this._dockSettings?.get_string('dock-motion-profile') ?? DEFAULT_PROFILE;
-        const recipe = getBuiltInRecipe(this._motionProfile);
-        this._bindings.forEach((b) => b.motion.setRecipe(recipe));
-      },
+      () => this._handleConfigurationChange('motionProfile'),
       'changed::module-pip-on-top',
-      () => {
-        const enabled = this._dockSettings?.get_boolean('module-pip-on-top') ?? false;
-        this._bindings.forEach((binding) =>
-          binding.intellihide?.setExcludePipFromSmartReveal(enabled),
-        );
-      },
+      () => this._handleConfigurationChange('excludePip'),
       this,
     );
 
     this.context.signals.connectObject('icons-woven', () => this._refreshBindingsLayout(), this);
     this._lifecycle.onDispose(() => this.context.signals.disconnectObject(this));
-    this._lifecycle.onDispose(() => this._dockSettings?.disconnectObject(this));
+    this._lifecycle.onDispose(() => dockSettings.disconnectObject(this));
   }
 
   override disable(): void {
     Main.overview.dash.show();
-    this._teardownContextualDragReveal();
+    this._dragReveal?.destroy();
+    this._dragReveal = null;
     this._lifecycle?.dispose();
     this._lifecycle = null;
     this._dockSettings = null;
+    this._configuration = null;
     this._pendingRebuild = false;
     this._fullscreenMonitors.clear();
     this._clearBindings();
+  }
+
+  private _readConfiguration(dockSettings: any): DockConfiguration {
+    return {
+      alwaysShow: dockSettings.get_boolean('dock-always-show'),
+      intellihide: dockSettings.get_boolean('dock-intellihide'),
+      showOnAllMonitors: dockSettings.get_boolean('dock-show-on-all-monitors'),
+      showTrash: dockSettings.get_boolean('dock-show-trash'),
+      showExternalStorage: dockSettings.get_boolean('dock-show-external-storage'),
+      motionEnabled: dockSettings.get_boolean('dock-motion-enabled'),
+      motionProfile: dockSettings.get_string('dock-motion-profile'),
+      excludePip: dockSettings.get_boolean('module-pip-on-top'),
+    };
+  }
+
+  private _handleConfigurationChange(changedKey: keyof DockConfiguration): void {
+    if (!this._configuration || !this._dockSettings) {
+      return;
+    }
+
+    const transition = this._configuration.transition(
+      this._readConfiguration(this._dockSettings),
+      changedKey,
+    );
+
+    const configuration = transition.snapshot;
+    this._applyConfigurationSnapshot(configuration);
+
+    if (changedKey === 'alwaysShow' && !configuration.intellihide) {
+      if (this._dockSettings.get_boolean('dock-intellihide')) {
+        this._dockSettings.set_boolean('dock-intellihide', false);
+      }
+    } else if (changedKey === 'intellihide' && !configuration.alwaysShow) {
+      if (this._dockSettings.get_boolean('dock-always-show')) {
+        this._dockSettings.set_boolean('dock-always-show', false);
+      }
+    }
+
+    if (transition.change === 'rebuild') {
+      this._rebuildBindings();
+      return;
+    }
+
+    if (transition.change === 'motion') {
+      const recipe = getBuiltInRecipe(this._motionProfile);
+      for (const binding of this._bindings.values()) {
+        binding.motion.setEnabled(this._motionEnabled);
+        binding.motion.setRecipe(recipe);
+      }
+      return;
+    }
+
+    if (transition.change === 'pip') {
+      for (const binding of this._bindings.values()) {
+        binding.intellihide?.setExcludePipFromSmartReveal(configuration.excludePip);
+      }
+    }
+  }
+
+  private _applyConfigurationSnapshot(configuration: DockConfiguration): void {
+    this._alwaysShow = configuration.alwaysShow;
+    this._intellihideEnabled = configuration.intellihide;
+    this._showOnAllMonitors = configuration.showOnAllMonitors;
+    this._showTrash = configuration.showTrash;
+    this._showExternalStorage = configuration.showExternalStorage;
+    this._motionEnabled = configuration.motionEnabled;
+    this._motionProfile = configuration.motionProfile;
+    this._excludePip = configuration.excludePip;
   }
 
   get bindings(): readonly ManagedDockBinding[] {
@@ -367,19 +391,7 @@ export class Dock extends Module {
     const motion = new DashMotionIntegration(getBuiltInRecipe(this._motionProfile));
     motion.attach(dash, this._motionEnabled);
 
-    const binding: ManagedDockBinding = {
-      monitorIndex,
-      mode,
-      container,
-      dash,
-      intellihide: null,
-      hotArea: null,
-      strutActor: null,
-      autoHideReleaseId: 0,
-      hotAreaEnableId: 0,
-      hotAreaActive: false,
-      motion,
-    };
+    const binding = new ManagedDockBinding(monitorIndex, mode, container, dash, motion);
     logger.debug(
       `monitor=${monitorIndex} binding created geometry=${monitor.x},${monitor.y} ${monitor.width}x${monitor.height} mode=${mode}`,
       { prefix: LOG_PREFIX },
@@ -403,10 +415,7 @@ export class Dock extends Module {
         return binding;
       }
 
-      const intellihide = new DockIntellihide(
-        monitorIndex,
-        this._dockSettings?.get_boolean('module-pip-on-top') ?? false,
-      );
+      const intellihide = new DockIntellihide(monitorIndex, this._excludePip);
       binding.intellihide = intellihide;
       dash.setTargetBoxListener((box) => intellihide.updateTargetBox(box));
 
@@ -552,37 +561,9 @@ export class Dock extends Module {
   }
 
   private _destroyBinding(binding: ManagedDockBinding): void {
-    if (this._edgeDragTarget === binding) this._clearContextualDragReveal();
+    this._dragReveal?.clearTarget(binding);
     logger.debug(`monitor=${binding.monitorIndex} binding destroyed`, { prefix: LOG_PREFIX });
-    if (binding.autoHideReleaseId) {
-      GLib.source_remove(binding.autoHideReleaseId);
-      binding.autoHideReleaseId = 0;
-    }
-    this._clearHotAreaEnable(binding);
-
-    binding.intellihide?.disconnectObject(this);
-    binding.hotArea?.disconnectObject(this);
-    binding.container.disconnectObject(this);
-
-    if (binding.hotArea) {
-      Main.layoutManager.removeChrome?.(binding.hotArea);
-      binding.hotArea.destroy();
-      binding.hotArea = null;
-    }
-
-    if (binding.strutActor) {
-      Main.layoutManager.removeChrome?.(binding.strutActor);
-      binding.strutActor.destroy();
-      binding.strutActor = null;
-    }
-
-    binding.intellihide?.destroy();
-    binding.motion.dispose();
-    binding.dash.detachFromContainer();
-    binding.dash.destroy();
-
-    Main.layoutManager.removeChrome?.(binding.container);
-    binding.container.destroy();
+    binding.destroy(this);
   }
 
   private _revealDockFromHotArea(binding: ManagedDockBinding): void {
@@ -609,22 +590,17 @@ export class Dock extends Module {
     // Clutter crossing events on the dock actor, so it stays reliable even when
     // the pointer moves onto a client (fullscreen/maximized) window — unlike a
     // stage motion watch, which never fires once the pointer is over a window.
-    binding.autoHideReleaseId = GLib.timeout_add(
-      GLib.PRIORITY_DEFAULT,
-      HOT_AREA_REVEAL_DURATION,
-      () => {
-        binding.autoHideReleaseId = 0;
+    binding.autoHideRelease.replace(() =>
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_REVEAL_DURATION, () => {
+        binding.autoHideRelease.complete();
         this._releaseHotAreaToAutoHide(binding);
         return GLib.SOURCE_REMOVE;
-      },
+      }),
     );
   }
 
   private _clearHotAreaReveal(binding: ManagedDockBinding): void {
-    if (binding.autoHideReleaseId) {
-      GLib.source_remove(binding.autoHideReleaseId);
-      binding.autoHideReleaseId = 0;
-    }
+    binding.autoHideRelease.clear();
   }
 
   private _handleHotAreaActiveIntellihideChange(binding: ManagedDockBinding): void {
@@ -683,110 +659,27 @@ export class Dock extends Module {
   private _enableHotAreaWhenDockHidden(binding: ManagedDockBinding): void {
     this._clearHotAreaEnable(binding);
 
-    binding.hotAreaEnableId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-      if (binding.dash.visible) return GLib.SOURCE_CONTINUE;
+    binding.hotAreaEnable.replace(() =>
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+        if (binding.dash.visible) return GLib.SOURCE_CONTINUE;
 
-      binding.hotAreaEnableId = 0;
-      binding.hotAreaActive = false;
-      binding.hotArea?.setEnabled(true);
-      logger.debug(`monitor=${binding.monitorIndex} hot area rearmed after hide`, {
-        prefix: LOG_PREFIX,
-      });
-      return GLib.SOURCE_REMOVE;
-    });
+        binding.hotAreaEnable.complete();
+        binding.hotAreaActive = false;
+        binding.hotArea?.setEnabled(true);
+        logger.debug(`monitor=${binding.monitorIndex} hot area rearmed after hide`, {
+          prefix: LOG_PREFIX,
+        });
+        return GLib.SOURCE_REMOVE;
+      }),
+    );
   }
 
   private _clearHotAreaEnable(binding: ManagedDockBinding): void {
-    if (!binding.hotAreaEnableId) return;
-    GLib.source_remove(binding.hotAreaEnableId);
-    binding.hotAreaEnableId = 0;
-  }
-
-  private _setupContextualDragReveal(): void {
-    this._edgeDragMonitor = {
-      dragMotion: (event: any) => {
-        this._handleContextualDragMotion(event);
-        return DND.DragMotionResult.CONTINUE;
-      },
-    };
-    DND.addDragMonitor(this._edgeDragMonitor);
-
-    Main.xdndHandler.connectObject('drag-end', () => this._clearContextualDragReveal(), this);
-    Main.overview.connectObject(
-      'item-drag-end',
-      () => this._clearContextualDragReveal(),
-      'item-drag-cancelled',
-      () => this._clearContextualDragReveal(),
-      'window-drag-end',
-      () => this._clearContextualDragReveal(),
-      'window-drag-cancelled',
-      () => this._clearContextualDragReveal(),
-      this,
-    );
-  }
-
-  private _teardownContextualDragReveal(): void {
-    this._clearContextualDragReveal();
-    if (this._edgeDragMonitor) {
-      DND.removeDragMonitor(this._edgeDragMonitor);
-      this._edgeDragMonitor = null;
-    }
-    Main.xdndHandler.disconnectObject(this);
-  }
-
-  private _handleContextualDragMotion(event: any): void {
-    const { source, x, y } = event;
-    let target: ManagedDockBinding | null = null;
-    for (const binding of this._bindings.values()) {
-      if (
-        binding.hotArea?.canStartContextualDragReveal(x, y) &&
-        binding.dash.canAcceptContextualEdgeDrag(source)
-      ) {
-        target = binding;
-        break;
-      }
-    }
-
-    if (target === this._edgeDragTarget) return;
-
-    this._clearContextualDragReveal();
-    if (!target) return;
-
-    this._edgeDragTarget = target;
-    this._edgeDragRevealId = GLib.timeout_add(
-      GLib.PRIORITY_DEFAULT,
-      CONTEXTUAL_DRAG_REVEAL_DELAY,
-      () => {
-        this._edgeDragRevealId = 0;
-        const currentTarget = this._edgeDragTarget;
-        this._edgeDragTarget = null;
-        if (
-          currentTarget &&
-          this._bindings.get(currentTarget.monitorIndex) === currentTarget &&
-          currentTarget.hotArea?.canStartContextualDragReveal(x, y) &&
-          currentTarget.dash.canAcceptContextualEdgeDrag(source)
-        ) {
-          logger.debug(
-            `monitor=${currentTarget.monitorIndex} contextual drag reveal after ${CONTEXTUAL_DRAG_REVEAL_DELAY}ms`,
-            { prefix: LOG_PREFIX },
-          );
-          this._revealDockFromHotArea(currentTarget);
-        }
-        return GLib.SOURCE_REMOVE;
-      },
-    );
-  }
-
-  private _clearContextualDragReveal(): void {
-    if (this._edgeDragRevealId) {
-      GLib.source_remove(this._edgeDragRevealId);
-      this._edgeDragRevealId = 0;
-    }
-    this._edgeDragTarget = null;
+    binding.hotAreaEnable.clear();
   }
 
   private _beginActivationCooldown(reason: string): void {
-    this._clearContextualDragReveal();
+    this._dragReveal?.clear();
     this._bindings.forEach((binding) =>
       binding.hotArea?.beginCooldown(TRANSITION_ACTIVATION_COOLDOWN, reason),
     );

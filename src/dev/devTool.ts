@@ -26,7 +26,6 @@ type DevToolSection = {
   title: string;
   iconName: string;
   buildPanel(): St.Widget;
-  destroy(): void;
 };
 
 type DevToolCallbacks = {
@@ -95,13 +94,18 @@ export class DevTool extends Module {
   }
 
   override disable(): void {
-    for (const section of this._sections()) {
-      section.destroy();
-    }
+    const tools = this._tools;
     this._tools = null;
 
+    if (tools) {
+      tools.captureTools.destroy();
+      tools.trayIcons.destroy();
+      tools.weatherClock.destroy();
+      tools.meetingClock.destroy();
+    }
+
     if (this._menuOpenStateId && this._button) {
-      this._getMenu()?.disconnect(this._menuOpenStateId);
+      (this._button.menu as PopupMenu.PopupMenu).disconnect(this._menuOpenStateId);
       this._menuOpenStateId = 0;
     }
 
@@ -110,31 +114,31 @@ export class DevTool extends Module {
   }
 
   get trayIconsTool(): TrayIconsDevTool | null {
-    return this._tools?.trayIcons ?? null;
+    return this._tools ? this._tools.trayIcons : null;
   }
 
   get clipboardHistoryTool(): ClipboardHistoryDevTool | null {
-    return this._tools?.clipboardHistory ?? null;
+    return this._tools ? this._tools.clipboardHistory : null;
   }
 
   get captureToolsTool(): CaptureToolsDevTool | null {
-    return this._tools?.captureTools ?? null;
+    return this._tools ? this._tools.captureTools : null;
   }
 
   get generalTool(): GeneralDevTool | null {
-    return this._tools?.general ?? null;
+    return this._tools ? this._tools.general : null;
   }
 
   get dockTool(): DockDevTool | null {
-    return this._tools?.dock ?? null;
+    return this._tools ? this._tools.dock : null;
   }
 
   get meetingClockTool(): MeetingClockDevTool | null {
-    return this._tools?.meetingClock ?? null;
+    return this._tools ? this._tools.meetingClock : null;
   }
 
   get weatherClockTool(): WeatherClockDevTool | null {
-    return this._tools?.weatherClock ?? null;
+    return this._tools ? this._tools.weatherClock : null;
   }
 
   private _rebuildMenu(): void {
@@ -320,6 +324,10 @@ export class DevTool extends Module {
   }
 
   private _getMenu(): PopupMenu.PopupMenu | null {
-    return (this._button?.menu as PopupMenu.PopupMenu | null | undefined) ?? null;
+    if (!this._button) {
+      return null;
+    }
+
+    return this._button.menu as PopupMenu.PopupMenu;
   }
 }

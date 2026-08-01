@@ -2,7 +2,6 @@ import '@girs/gjs';
 
 import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
-import Shell from '@girs/shell-18';
 import type Gvc from 'gi://Gvc';
 import Clutter from '@girs/clutter-18';
 
@@ -20,6 +19,10 @@ export class VolumeMixerItem extends St.BoxLayout {
   declare private _icon: St.Icon;
   declare private _label: St.Label;
   declare private _slider: ApplicationStreamSlider;
+  declare private _baseLabel: string;
+  declare private _identityKey: string;
+  declare private _duplicateIndex: number;
+  declare private _duplicateCount: number;
 
   override _init(
     context?: ExtensionContext | Partial<St.BoxLayout.ConstructorProps>,
@@ -33,6 +36,10 @@ export class VolumeMixerItem extends St.BoxLayout {
     });
 
     this._stream = stream!;
+    this._baseLabel = '';
+    this._identityKey = '';
+    this._duplicateIndex = 0;
+    this._duplicateCount = 1;
 
     const headerBox = new St.BoxLayout({
       orientation: Clutter.Orientation.HORIZONTAL,
@@ -66,72 +73,47 @@ export class VolumeMixerItem extends St.BoxLayout {
     this._updateHeader();
   }
 
-  private _lookupApp(): typeof Shell.App.prototype | null {
-    const appSystem = Shell.AppSystem.get_default();
+  get identityKey(): string {
+    return this._identityKey;
+  }
 
-    const appId = this._stream.get_application_id();
-    if (appId) {
-      const app = appSystem.lookup_app(`${appId}.desktop`) || appSystem.lookup_app(appId);
-      if (app) return app;
-    }
+  setDuplicatePosition(index: number, count: number): void {
+    this._duplicateIndex = index;
+    this._duplicateCount = count;
+    this._renderLabel();
+  }
 
-    const iconName = this._stream.get_icon_name();
-    if (iconName) {
-      const app = appSystem.lookup_app(`${iconName}.desktop`) || appSystem.lookup_app(iconName);
-      if (app) return app;
-    }
-
-    const name = this._stream.get_name();
-    if (name) {
-      const app = appSystem.lookup_desktop_wmclass(name) || appSystem.lookup_startup_wmclass(name);
-      if (app) return app;
-    }
-
-    const lowerAppId = appId?.toLowerCase();
-    const lowerName = name?.toLowerCase();
-    const lowerIcon = iconName?.toLowerCase();
-    for (const app of appSystem.get_running()) {
-      const id = app.get_id()?.toLowerCase();
-      if (!id) continue;
-      if (
-        (lowerAppId && id.includes(lowerAppId)) ||
-        (lowerName && id.includes(lowerName)) ||
-        (lowerIcon && id.includes(lowerIcon))
-      ) {
-        return app;
-      }
-    }
-
-    return null;
+  private _renderLabel(): void {
+    this._label.text =
+      this._duplicateCount > 1
+        ? `${this._baseLabel} · ${_('Audio')} ${this._duplicateIndex}`
+        : this._baseLabel;
+    this._label.show();
   }
 
   private _updateHeader(): void {
-    const app = this._lookupApp();
     const streamName = this._stream.get_name();
     const description = this._stream.get_description();
+    const gicon = this._stream.get_gicon();
 
-    if (app) {
-      this._icon.gicon = app.get_icon();
-      this._icon.show();
-    } else if (this._stream.get_icon_name()) {
-      this._icon.icon_name = this._stream.get_icon_name();
+    if (gicon) {
+      this._icon.gicon = gicon;
       this._icon.show();
     } else {
       this._icon.hide();
     }
 
-    const appName = app ? app.get_name() : streamName;
-    if (appName && description && description !== appName) {
-      this._label.text = `${appName} — ${description}`;
-    } else if (appName) {
-      this._label.text = appName;
+    if (streamName && description && description !== streamName) {
+      this._baseLabel = `${streamName} — ${description}`;
+    } else if (streamName) {
+      this._baseLabel = streamName;
     } else if (description) {
-      this._label.text = description;
+      this._baseLabel = description;
     } else {
-      this._label.text = _('Unknown');
+      this._baseLabel = _('Unknown');
     }
-
-    this._label.show();
+    this._identityKey = this._baseLabel;
+    this._renderLabel();
   }
 
   syncStream(): void {

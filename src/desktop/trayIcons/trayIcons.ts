@@ -3,6 +3,7 @@ import { gettext as _ } from '~/shared/i18n.ts';
 
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
+import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import Shell from '@girs/shell-18';
 import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
@@ -16,7 +17,6 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
-import type { SettingsManager } from '~/core/settings.ts';
 import { getQuickSettingsGrid } from '~/shared/quickSettings.ts';
 
 import { appIdCandidates } from './appIdentity.ts';
@@ -44,7 +44,6 @@ export class TrayIcons extends Module {
   private _dedupBgApps = true;
   private _bgAppsToggle: any = null;
   private _bgAppsGrid: any = null;
-  private _desktopSettings: SettingsManager | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -53,7 +52,7 @@ export class TrayIcons extends Module {
   override enable(): void {
     this._lifecycle = new LifecycleScope();
     const settings = this.context.settings.getRawSettings();
-    this._desktopSettings = this.context.settings.getSchema('org.gnome.desktop.interface');
+    const desktopSettings = this.context.settings.getSchema('org.gnome.desktop.interface');
     const iconSize = settings.get_int('tray-icons-icon-size');
     const limit = settings.get_int('tray-icons-limit');
     const attentionTimeout = settings.get_int('tray-icons-attention-timeout');
@@ -62,52 +61,61 @@ export class TrayIcons extends Module {
       this._hideBgAppsQuickSettings();
     }
 
-    this._container = new (TrayContainer as unknown as new (
+    const container = new (TrayContainer as unknown as new (
       iconSize: number,
       limit: number,
     ) => TrayContainer)(iconSize, limit);
-    this._container.setAttentionTimeout(attentionTimeout);
+    this._container = container;
+    container.setAttentionTimeout(attentionTimeout);
 
     Main.panel.addToStatusArea(
       PANEL_INDICATOR_ID,
-      this._container as unknown as PanelMenuButton,
+      container as unknown as PanelMenuButton,
       0,
       'right',
     );
 
-    this._sniWatcher = new SniWatcher(
+    const sniWatcher = new SniWatcher(
       (busName, objectPath) => {
-        this._sniHost
-          ?.registerItem(busName, objectPath)
-          ?.catch((e) => logger.warn(`registerItem failed: ${e}`, { prefix: LOG_PREFIX }));
+        sniHost
+          .registerItem(busName, objectPath)
+          .catch((e) => logger.warn(`registerItem failed: ${e}`, { prefix: LOG_PREFIX }));
       },
       (_busName, _objectPath) => {},
     );
-    this._sniHost = new SniHost(
-      this._sniWatcher,
+    this._sniWatcher = sniWatcher;
+    const sniHost = new SniHost(
+      sniWatcher,
       {
         onItemAdded: (item) => this._onSniItemAdded(item),
         onItemRemoved: (id) => this._onItemRemoved(id),
         onStatusChanged: (id, status) => this._onStatusChanged(id, status),
-        onIconChanged: (id) => this._container?.updateItemIcon(id),
+        onIconChanged: (id) => container.updateItemIcon(id),
       },
       {
-        getColorScheme: () => this._desktopSettings?.getString('color-scheme') ?? 'prefer-dark',
+        getColorScheme: () => desktopSettings.getString('color-scheme'),
         shouldRecolorSymbolicPixmaps: () =>
           settings.get_boolean('tray-icons-recolor-symbolic-pixmaps'),
       },
     );
-    this._sniWatcher.start();
-    this._lifecycle.connect(this._desktopSettings, 'changed::color-scheme', () => {
-      const scheme = this._desktopSettings?.getString('color-scheme') ?? 'unknown';
+    this._sniHost = sniHost;
+    sniWatcher.start();
+    this._lifecycle.connect(desktopSettings, 'changed::color-scheme', () => {
+      const scheme = desktopSettings.getString('color-scheme');
       logger.debug(`Color scheme changed to ${scheme}; refreshing SNI icons`, {
         prefix: LOG_PREFIX,
       });
-      this._sniHost?.refreshIcons('color-scheme');
+      sniHost.refreshIcons('color-scheme');
     });
 
     this._bgSource = new BackgroundAppsSource({
-      onItemAdded: (item, appId, app) => this._onBgItemAdded(item, appId, app).catch(() => {}),
+      onItemAdded: (item, appId, app) => {
+        this._onBgItemAdded(item, appId, app).catch((error) => {
+          logger.warn(`Failed to add background app ${appId}: ${error}`, {
+            prefix: LOG_PREFIX,
+          });
+        });
+      },
       onItemRemoved: (id) => this._onItemRemoved(id),
     });
     this._bgSource
@@ -134,7 +142,11 @@ export class TrayIcons extends Module {
                 this._container?.removeItem(entry.itemId);
               }
             })
-            .catch(() => {});
+            .catch((error) => {
+              logger.warn(`Failed to reconcile background app ${appId}: ${error}`, {
+                prefix: LOG_PREFIX,
+              });
+            });
         }
       }
     });
@@ -157,7 +169,6 @@ export class TrayIcons extends Module {
   override disable(): void {
     this._lifecycle?.dispose();
     this._lifecycle = null;
-    this._desktopSettings = null;
 
     this._restoreBgAppsQuickSettings();
 
@@ -239,8 +250,13 @@ export class TrayIcons extends Module {
 
   private async _sniCoversApp(appId: string, app: Shell.App): Promise<boolean> {
     const owner = await this._getUniqueName(appId);
+    const sniHost = this._sniHost;
+    if (!sniHost) {
+      return false;
+    }
+
     if (owner) {
-      const covered = this._sniHost?.hasItemForBus(owner) ?? false;
+      const covered = sniHost.hasItemForBus(owner);
       logger.debug(`SNI covers ${appId}? owner=${owner} covered=${covered}`, {
         prefix: LOG_PREFIX,
       });
@@ -252,7 +268,7 @@ export class TrayIcons extends Module {
       if (candidate === appId) continue;
       const candidateOwner = await this._getUniqueName(candidate);
       if (!candidateOwner) continue;
-      const covered = this._sniHost?.hasItemForBus(candidateOwner) ?? false;
+      const covered = sniHost.hasItemForBus(candidateOwner);
       logger.debug(
         `SNI covers ${appId}? candidate=${candidate} owner=${candidateOwner} covered=${covered}`,
         {
@@ -262,26 +278,31 @@ export class TrayIcons extends Module {
       if (covered) return true;
     }
 
-    const coveredByPid = await this._sniCoversAppPid(appId, app);
+    const coveredByPid = await this._sniCoversAppPid(appId, app, sniHost);
     if (coveredByPid) return true;
 
-    const coveredByMetadata =
-      [...candidates].some((candidate) => this._sniHost?.hasSniForAppId(candidate)) ?? false;
+    const coveredByMetadata = [...candidates].some((candidate) =>
+      sniHost.hasSniForAppId(candidate),
+    );
     logger.debug(`SNI covers ${appId}? owner=none, metadata-match=${coveredByMetadata}`, {
       prefix: LOG_PREFIX,
     });
     return coveredByMetadata;
   }
 
-  private async _sniCoversAppPid(appId: string, app: Shell.App): Promise<boolean> {
+  private async _sniCoversAppPid(
+    appId: string,
+    app: Shell.App,
+    sniHost: SniHost,
+  ): Promise<boolean> {
     const candidates = appIdCandidates([appId, app.get_id()]);
-    const appPids = app.get_pids?.() ?? [];
+    const appPids = app.get_pids();
     if (appPids.length === 0) {
       logger.debug(`SNI covers ${appId}? pid-match=false app-pids=[]`, { prefix: LOG_PREFIX });
     }
 
     const appPidSet = new Set(appPids);
-    for (const busName of this._sniHost?.getBusNames() ?? []) {
+    for (const busName of sniHost.getBusNames()) {
       const sniPid = await this._getConnectionPid(busName);
       if (!sniPid) continue;
 
@@ -319,14 +340,11 @@ export class TrayIcons extends Module {
   }
 
   private _trackedPidMatchesApp(pid: number, appId: string, app: Shell.App): boolean {
-    try {
-      const trackedApp = Shell.WindowTracker.get_default().get_app_from_pid(pid);
-      if (!trackedApp) return false;
-      const trackedId = trackedApp.get_id();
-      return appIdCandidates([appId, app.get_id()]).has(trackedId.toLowerCase());
-    } catch {
-      return false;
-    }
+    const trackedApp = Shell.WindowTracker.get_default().get_app_from_pid(pid);
+    if (!trackedApp) return false;
+
+    const trackedId = trackedApp.get_id();
+    return appIdCandidates([appId, app.get_id()]).has(trackedId.toLowerCase());
   }
 
   private async _pidHasAncestor(pid: number, candidateAncestors: Set<number>): Promise<boolean> {
@@ -422,7 +440,7 @@ export class TrayIcons extends Module {
     if (!actor) return null;
     if (this._isBgAppsQuickSettingsToggle(actor)) return actor;
 
-    for (const child of actor.get_children?.() ?? []) {
+    for (const child of actor.get_children()) {
       const match = this._findBgAppsQuickSettingsToggleInActor(child);
       if (match) return match;
     }
@@ -431,7 +449,7 @@ export class TrayIcons extends Module {
   }
 
   private _isBgAppsQuickSettingsToggle(actor: any): boolean {
-    return actor?.has_style_class_name?.('background-apps-quick-toggle') === true;
+    return actor instanceof St.Widget && actor.has_style_class_name('background-apps-quick-toggle');
   }
 
   private _watchBgAppsQuickSettingsGrid(): void {

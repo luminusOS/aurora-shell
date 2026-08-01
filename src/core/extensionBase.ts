@@ -17,7 +17,12 @@ export class AuroraShellExtensionBase extends Extension {
   protected _context: ExtensionContext | null = null;
 
   get _modules(): ReadonlyMap<string, Module> {
-    return this._manager?.modules ?? new Map();
+    const manager = this._manager;
+    if (!manager) {
+      return new Map();
+    }
+
+    return manager.modules;
   }
 
   override enable(): void {
