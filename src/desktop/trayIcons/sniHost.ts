@@ -7,7 +7,9 @@ import St from '@girs/st-18';
 
 import type { TrayItem, TrayItemStatus } from './trayState.ts';
 import type { SniWatcher } from './sniWatcher.ts';
-import { appIdCandidates } from './appIdentity.ts';
+import { sniIdentityMatchesAppId } from './appIdentity.ts';
+import { isSymbolicSniArgb } from './sniIconState.ts';
+import { SniEntry } from './sniEntry.ts';
 import { logger } from '~/core/logger.ts';
 
 const SNI_ITEM_XML = `
@@ -42,16 +44,6 @@ const SYMBOLIC_REQUIRED_RATIO = 0.92;
 const LIGHT_PANEL_ICON = [48, 48, 48] as const;
 const DARK_PANEL_ICON = [250, 250, 251] as const;
 const LOG_PREFIX = 'AuroraTray';
-const GENERIC_APP_ID_COMPONENTS = new Set([
-  'app',
-  'application',
-  'desktop',
-  'indicator',
-  'status',
-  'statusicon',
-  'status_icon',
-  'tray',
-]);
 
 // @ts-ignore — _promisify is a GJS extension not reflected in .d.ts
 Gio._promisify(Gio.DBusProxy.prototype, 'init_async');
@@ -70,18 +62,9 @@ type SniHostOptions = {
   shouldRecolorSymbolicPixmaps?: () => boolean;
 };
 
-type SniEntry = {
-  proxy: Gio.DBusProxy;
-  item: TrayItem;
-  sniId: string;
-  desktopEntry: string;
-  signalId: number;
-  nameWatchId: number;
-  cancellable: Gio.Cancellable;
-};
-
 export class SniHost {
   private _entries = new Map<string, SniEntry>();
+  private _pendingRegistrations = new Map<string, Gio.Cancellable>();
   private _callbacks: HostCallbacks;
   private _watcher: SniWatcher;
   private _getColorScheme: () => string;
@@ -96,9 +79,10 @@ export class SniHost {
 
   async registerItem(busName: string, objectPath: string): Promise<void> {
     const id = `${busName}${objectPath}`;
-    if (this._entries.has(id)) return;
+    if (this._entries.has(id) || this._pendingRegistrations.has(id)) return;
 
     const cancellable = new Gio.Cancellable();
+    this._pendingRegistrations.set(id, cancellable);
     const proxy = new Gio.DBusProxy({
       g_connection: Gio.DBus.session,
       g_interface_name: 'org.kde.StatusNotifierItem',
@@ -111,11 +95,18 @@ export class SniHost {
     try {
       await proxy.init_async(GLib.PRIORITY_DEFAULT, cancellable);
     } catch (e) {
-      if (!(e as any)?.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+      if (this._pendingRegistrations.get(id) === cancellable) {
+        this._pendingRegistrations.delete(id);
+      }
+
+      if (!(e instanceof GLib.Error && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))) {
         logger.warn(`Failed to create SNI proxy for ${id}: ${e}`, { prefix: LOG_PREFIX });
       }
       return;
     }
+
+    if (this._pendingRegistrations.get(id) !== cancellable) return;
+    this._pendingRegistrations.delete(id);
 
     const item = this._makeItem(id, proxy);
     const sniId = (proxy.get_cached_property('Id')?.unpack() as string | undefined) ?? '';
@@ -136,9 +127,11 @@ export class SniHost {
       } else if (signalName === 'NewIcon' || signalName === 'NewAttentionIcon') {
         // Electron/Discord emits NewIcon without PropertiesChanged, leaving the
         // proxy cache stale. Re-fetch icon properties before resolving.
-        this._refetchIconProperties(proxy)
+        this._refetchIconProperties(proxy, cancellable)
           .then(() => {
-            if (!this._entries.has(id)) return;
+            const currentEntry = this._entries.get(id);
+            if (!currentEntry || currentEntry.proxy !== proxy) return;
+
             item.icon = this._resolveIcon(proxy, signalName);
             this._callbacks.onIconChanged(id);
           })
@@ -160,11 +153,17 @@ export class SniHost {
       }) as unknown as never,
     );
 
-    this._entries.set(id, { proxy, item, sniId, desktopEntry, signalId, nameWatchId, cancellable });
+    this._entries.set(
+      id,
+      new SniEntry(proxy, item, sniId, desktopEntry, signalId, nameWatchId, cancellable),
+    );
     this._callbacks.onItemAdded(item);
   }
 
-  private async _refetchIconProperties(proxy: Gio.DBusProxy): Promise<void> {
+  private async _refetchIconProperties(
+    proxy: Gio.DBusProxy,
+    cancellable: Gio.Cancellable,
+  ): Promise<void> {
     const props = [
       'IconName',
       'IconThemePath',
@@ -180,7 +179,7 @@ export class SniHost {
             new GLib.Variant('(ss)', ['org.kde.StatusNotifierItem', prop]),
             Gio.DBusCallFlags.NONE,
             -1,
-            null,
+            cancellable,
           );
           proxy.set_cached_property(prop, result.get_child_value(0).get_variant());
         } catch {
@@ -255,8 +254,9 @@ export class SniHost {
       const theme = St.IconTheme.new();
       theme.append_search_path(iconThemePath);
       const iconInfo = theme.lookup_icon(iconName, 24, St.IconLookupFlags.FORCE_SIZE);
-      const filename =
-        iconInfo?.get_filename() ?? this._findIconThemePathFile(iconThemePath, iconName);
+      const filename = iconInfo
+        ? iconInfo.get_filename()
+        : this._findIconThemePathFile(iconThemePath, iconName);
       if (!filename) return null;
 
       // SVGs go through GTK's symbolic pipeline via St.Icon; return as-is.
@@ -410,25 +410,11 @@ export class SniHost {
   }
 
   private _isSymbolicPixmap(data: Uint8Array, width: number, height: number): boolean {
-    let opaquePixels = 0;
-    let monochromePixels = 0;
-    const expectedLength = width * height * 4;
-
-    for (let i = 0; i < expectedLength; i += 4) {
-      const a = data[i]!;
-      if (a < 16) continue;
-
-      opaquePixels++;
-      const r = data[i + 1]!;
-      const g = data[i + 2]!;
-      const b = data[i + 3]!;
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      if (max - min <= SYMBOLIC_CHANNEL_TOLERANCE) monochromePixels++;
-    }
-
-    if (opaquePixels === 0) return false;
-    return monochromePixels / opaquePixels >= SYMBOLIC_REQUIRED_RATIO;
+    return isSymbolicSniArgb(
+      data.slice(0, width * height * 4),
+      SYMBOLIC_CHANNEL_TOLERANCE,
+      SYMBOLIC_REQUIRED_RATIO,
+    );
   }
 
   private _makeItem(id: string, proxy: Gio.DBusProxy): TrayItem {
@@ -462,9 +448,9 @@ export class SniHost {
           Gio.DBusCallFlags.NONE,
           -1,
           null,
-          (p, res) => {
+          (_source, res) => {
             try {
-              p?.call_finish(res);
+              proxy.call_finish(res);
             } catch (e) {
               logger.warn(`Activate failed for ${id}: ${e}`, { prefix: LOG_PREFIX });
             }
@@ -478,9 +464,9 @@ export class SniHost {
           Gio.DBusCallFlags.NONE,
           -1,
           null,
-          (p, res) => {
+          (_source, res) => {
             try {
-              p?.call_finish(res);
+              proxy.call_finish(res);
             } catch (e) {
               logger.warn(`SecondaryActivate failed for ${id}: ${e}`, { prefix: LOG_PREFIX });
             }
@@ -494,9 +480,9 @@ export class SniHost {
           Gio.DBusCallFlags.NONE,
           -1,
           null,
-          (p, res) => {
+          (_source, res) => {
             try {
-              p?.call_finish(res);
+              proxy.call_finish(res);
             } catch (e) {
               logger.warn(`ContextMenu failed for ${id}: ${e}`, { prefix: LOG_PREFIX });
             }
@@ -514,9 +500,7 @@ export class SniHost {
     if (!entry) return;
     this._entries.delete(id);
 
-    entry.cancellable.cancel();
-    entry.proxy.disconnect(entry.signalId);
-    Gio.DBus.session.unwatch_name(entry.nameWatchId);
+    entry.destroy();
 
     this._callbacks.onItemRemoved(id);
   }
@@ -544,44 +528,15 @@ export class SniHost {
   // Used when the app doesn't own a D-Bus well-known name matching its app ID
   // (common for Flatpak apps that register SNI under a unique bus name).
   hasSniForAppId(appId: string): boolean {
-    const appIds = appIdCandidates([appId]);
-    const appComponents = new Set(
-      [...appIds]
-        .map((candidate) => candidate.split('.').at(-1) ?? candidate)
-        .filter((component) => this._isSpecificAppComponent(component)),
-    );
-
-    for (const entry of this._entries.values()) {
-      if (entry.desktopEntry && this._desktopEntryMatchesAppIds(entry.desktopEntry, appIds))
-        return true;
-
-      if (!entry.sniId) continue;
-      const sniLower = entry.sniId.toLowerCase();
-      if (appIds.has(sniLower)) return true;
-
-      const sniLast = sniLower.split('.').at(-1) ?? sniLower;
-      if (this._isSpecificAppComponent(sniLast) && appComponents.has(sniLast)) return true;
-    }
-    return false;
-  }
-
-  private _desktopEntryMatchesAppIds(desktopEntry: string, appIds: Set<string>): boolean {
-    const entry = desktopEntry.toLowerCase();
-    const entryWithoutSuffix = entry.replace(/\.desktop$/, '');
-
-    for (const appId of appIds) {
-      if (entry === appId || entry === `${appId}.desktop` || entryWithoutSuffix === appId)
-        return true;
-    }
-
-    return false;
-  }
-
-  private _isSpecificAppComponent(component: string): boolean {
-    return component.length >= 4 && !GENERIC_APP_ID_COMPONENTS.has(component);
+    return [...this._entries.values()].some((entry) => sniIdentityMatchesAppId(entry, appId));
   }
 
   destroy(): void {
+    for (const cancellable of this._pendingRegistrations.values()) {
+      cancellable.cancel();
+    }
+    this._pendingRegistrations.clear();
+
     for (const id of [...this._entries.keys()]) {
       this._removeEntry(id);
     }

@@ -8,63 +8,57 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { createIcon } from '~/shared/icons.ts';
 import { Module } from '~/module.ts';
 
+type SwitcherPatch = {
+  prototype: any;
+  original: (...args: any[]) => void;
+  wrapper: (...args: any[]) => void;
+};
+
 export class XwaylandIndicator extends Module {
-  private _origAppPopupInit: ((...args: unknown[]) => void) | null = null;
-  private _origWinPopupInit: ((...args: unknown[]) => void) | null = null;
+  private _patches: SwitcherPatch[] = [];
 
   constructor(context: ExtensionContext) {
     super(context);
   }
 
   override enable(): void {
-    this._patchAppSwitcherPopup();
-    this._patchWindowSwitcherPopup();
+    this._installPatch(AltTab.AppSwitcherPopup.prototype, (list) => this._decorateAppItems(list));
+    this._installPatch(AltTab.WindowSwitcherPopup.prototype, (list) =>
+      this._decorateWindowItems(list),
+    );
   }
 
   override disable(): void {
-    if (this._origAppPopupInit) {
-      AltTab.AppSwitcherPopup.prototype._init = this._origAppPopupInit;
-      this._origAppPopupInit = null;
+    for (const patch of [...this._patches].reverse()) {
+      if (patch.prototype._init === patch.wrapper) {
+        patch.prototype._init = patch.original;
+      }
     }
-    if (this._origWinPopupInit) {
-      AltTab.WindowSwitcherPopup.prototype._init = this._origWinPopupInit;
-      this._origWinPopupInit = null;
-    }
+
+    this._patches = [];
   }
 
-  private _patchAppSwitcherPopup(): void {
-    const origInit = AltTab.AppSwitcherPopup.prototype._init;
-    const decorate = this._decorateAppItems.bind(this);
-    this._origAppPopupInit = origInit;
-
-    AltTab.AppSwitcherPopup.prototype._init = function (...args: any[]) {
-      origInit.apply(this, args as []);
+  private _installPatch(prototype: any, decorate: (list: any) => void): void {
+    const original = prototype._init;
+    const wrapper = function (this: any, ...args: any[]) {
+      original.apply(this, args);
       decorate((this as any)._switcherList);
     };
-  }
 
-  private _patchWindowSwitcherPopup(): void {
-    const origInit = AltTab.WindowSwitcherPopup.prototype._init;
-    const decorate = this._decorateWindowItems.bind(this);
-    this._origWinPopupInit = origInit;
-
-    AltTab.WindowSwitcherPopup.prototype._init = function (...args: any[]) {
-      origInit.apply(this, args as []);
-      decorate((this as any)._switcherList);
-    };
+    prototype._init = wrapper;
+    this._patches.push({ prototype, original, wrapper });
   }
 
   private _decorateAppItems(list: any): void {
-    const icons: any[] = list?.icons ?? list?._appIcons ?? [];
-    const items: any[] = list?._items ?? [];
+    const icons: any[] = list.icons;
+    const items: any[] = list._items;
 
     icons.forEach((icon: any, i: number) => {
-      const app = icon?.app;
-      if (!app?.get_windows) return;
+      const app = icon.app;
 
       const isX11 = app
         .get_windows()
-        .some((w: any) => w.get_client_type?.() === Meta.WindowClientType.X11);
+        .some((window: Meta.Window) => window.get_client_type() === Meta.WindowClientType.X11);
 
       if (isX11 && items[i]) {
         this._addBadge(items[i]);
@@ -73,22 +67,18 @@ export class XwaylandIndicator extends Module {
   }
 
   private _decorateWindowItems(list: any): void {
-    const windows: any[] = list?.windows ?? list?._windows ?? [];
-    const items: any[] = list?._items ?? [];
+    const windows: any[] = list.windows;
+    const items: any[] = list._items;
 
-    windows.forEach((win: any, i: number) => {
-      try {
-        if (win.get_client_type?.() === Meta.WindowClientType.X11 && items[i]) {
-          this._addBadge(items[i]);
-        }
-      } catch {
-        // Window may have been closed between listing and decorating
+    windows.forEach((window: Meta.Window, index: number) => {
+      if (window.get_client_type() === Meta.WindowClientType.X11 && items[index]) {
+        this._addBadge(items[index]);
       }
     });
   }
 
   private _addBadge(item: Clutter.Actor): void {
-    const iconActor = item?.get_first_child();
+    const iconActor = item.get_first_child();
     if (!iconActor) return;
 
     const wrapper = new St.Widget({

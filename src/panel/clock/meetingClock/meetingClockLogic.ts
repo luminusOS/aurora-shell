@@ -278,6 +278,29 @@ export function getDueAlertEvents(
     .sort((a, b) => a.startEpochSeconds - b.startEpochSeconds);
 }
 
+export function getNextAlertEpoch(
+  events: readonly MeetingEvent[],
+  nowEpochSeconds: number,
+  options: MeetingClockOptions,
+): number | null {
+  if (!options.alertsEnabled) return null;
+  const ignored = options.ignoredEventIds ?? new Set<string>();
+  const alerted = options.alertedEventIds ?? new Set<string>();
+  const snoozed = options.snoozedUntilByEventId ?? new Map<string, number>();
+  const leadSeconds = Math.max(0, options.alertMinutesBefore) * 60;
+  const candidates: number[] = [];
+
+  for (const event of filterDisplayEvents(events, nowEpochSeconds, options)) {
+    if ((!event.meetingUrl && !options.alertEventsWithoutLink) || ignored.has(event.id)) continue;
+    if (alerted.has(event.id)) continue;
+    const snoozedUntil = snoozed.get(event.id) ?? 0;
+    const alertAt = Math.max(event.startEpochSeconds - leadSeconds, snoozedUntil);
+    if (alertAt > nowEpochSeconds) candidates.push(alertAt);
+  }
+
+  return candidates.length > 0 ? Math.min(...candidates) : null;
+}
+
 export function formatRelativeTime(
   targetEpochSeconds: number,
   referenceEpochSeconds: number,

@@ -228,11 +228,7 @@ export class DefaultDeviceService implements DeviceService {
   }
 
   private _getBooleanProperty(proxy: Gio.DBusProxy, propertyName: string): boolean {
-    try {
-      return Boolean(proxy.get_cached_property(propertyName)?.unpack());
-    } catch {
-      return false;
-    }
+    return Boolean(proxy.get_cached_property(propertyName)?.unpack());
   }
 
   private _hasDBusNameOwner(name: string): boolean {

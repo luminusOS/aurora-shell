@@ -4,6 +4,7 @@ import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 
 import { logger } from '~/core/logger.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 
 import { normalizeCalendarServerEvent, type MeetingEvent } from './meetingClockLogic.ts';
 
@@ -16,7 +17,7 @@ type EventsChangedCallback = (events: MeetingEvent[]) => void;
 
 export class CalendarServerBackend {
   private _proxy: Gio.DBusProxy | null = null;
-  private _signalId = 0;
+  private _lifecycle: LifecycleScope | null = null;
   private _eventsById = new Map<string, MeetingEvent>();
   private _onEventsChanged: EventsChangedCallback;
 
@@ -42,7 +43,8 @@ export class CalendarServerBackend {
       return;
     }
 
-    this._signalId = this._proxy.connect('g-signal', (_proxy, _senderName, signalName, params) => {
+    this._lifecycle = new LifecycleScope();
+    this._lifecycle.connect(this._proxy, 'g-signal', (_proxy, _senderName, signalName, params) => {
       if (signalName === 'EventsAddedOrUpdated') {
         if (!this._proxy) return;
         const [rawEvents = []] = params.deepUnpack() as [unknown[]?];
@@ -56,11 +58,8 @@ export class CalendarServerBackend {
   }
 
   stop(): void {
-    if (this._signalId && this._proxy) {
-      this._proxy.disconnect(this._signalId);
-      this._signalId = 0;
-    }
-
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
     this._proxy = null;
     this._eventsById.clear();
   }

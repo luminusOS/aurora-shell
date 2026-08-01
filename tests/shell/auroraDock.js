@@ -127,6 +127,10 @@ export function init() {
     'Always auto-hide remains hidden without relying on window overlap',
   );
   Scripting.defineScriptEvent(
+    'dashContentDisposalSafe',
+    'Dash content destruction cancels callbacks before actors are disposed',
+  );
+  Scripting.defineScriptEvent(
     'externalStorageDisabled',
     'External storage dock icons are absent when disabled',
   );
@@ -209,7 +213,7 @@ export async function run() {
     is_on_all_workspaces: () => false,
     get_workspace: () => global.workspace_manager.get_active_workspace(),
   };
-  if (!dock.bindings[0].dash._isWindowRelevant(externalWorkspaceWindow))
+  if (!dock.bindings[0].dash._applications.isWindowRelevant(externalWorkspaceWindow))
     throw new Error('Primary-only Dock excluded an app from an external monitor');
   Scripting.scriptEvent('primaryMonitorOnly');
 
@@ -229,9 +233,9 @@ export async function run() {
   );
   if (!primaryBinding || !externalBinding)
     throw new Error('All-monitors Dock did not create the bindings needed for scope validation');
-  if (primaryBinding.dash._isWindowRelevant(externalWorkspaceWindow))
+  if (primaryBinding.dash._applications.isWindowRelevant(externalWorkspaceWindow))
     throw new Error('Primary per-monitor Dock included an app from an external monitor');
-  if (!externalBinding.dash._isWindowRelevant(externalWorkspaceWindow))
+  if (!externalBinding.dash._applications.isWindowRelevant(externalWorkspaceWindow))
     throw new Error('External per-monitor Dock excluded an app from its own monitor');
   Scripting.scriptEvent('allMonitorsEnabled');
 
@@ -261,7 +265,7 @@ export async function run() {
       );
     if (dash._box?.contains?.(trashIcon))
       throw new Error('Trash icon is inside the app list instead of being a fixed dock item');
-    if (dash._trashIcon !== trashIcon)
+    if (dash._fixedItems._trash !== trashIcon)
       throw new Error('Dash lost its fixed trash icon reference after GObject construction');
 
     Scripting.scriptEvent('trashIconValid');
@@ -280,7 +284,7 @@ export async function run() {
     Scripting.scriptEvent('trashClickWired');
   }
 
-  if (dash._externalStorageIcons?.length)
+  if (dash._fixedItems._storage.length)
     throw new Error(
       'External storage icons were created while dock-show-external-storage is disabled',
     );
@@ -303,10 +307,10 @@ export async function run() {
   // check, consistent across every environment.
   const priorMaxWidth = dash._maxWidth;
   const priorMaxHeight = dash._maxHeight;
-  const injectedStorageIcons = dash._externalStorageIcons.length === 0;
+  const injectedStorageIcons = dash._fixedItems._storage.length === 0;
   try {
     if (injectedStorageIcons) {
-      dash._syncExternalStorageIcons(
+      dash._fixedItems._syncStorage(
         [1, 2, 3].map((n) => ({
           id: `aurora-test-fake-storage-${n}`,
           name: `Aurora Test Fake Storage ${n}`,
@@ -319,7 +323,7 @@ export async function run() {
       );
     }
 
-    const customFixedIcons = [dash._trashIcon, ...(dash._externalStorageIcons ?? [])].filter(
+    const customFixedIcons = [dash._fixedItems._trash, ...dash._fixedItems._storage].filter(
       Boolean,
     );
     if (customFixedIcons.length === 0)
@@ -346,8 +350,8 @@ export async function run() {
       .filter((actor) => actor.child?._delegate?.icon && !actor.animatingOut);
     const fixedIcons = [
       dash._showAppsIcon,
-      dash._trashIcon,
-      ...(dash._externalStorageIcons ?? []),
+      dash._fixedItems._trash,
+      ...dash._fixedItems._storage,
     ].filter(Boolean);
     const totalIcons = boxIconChildren.length + fixedIcons.length;
 
@@ -383,7 +387,7 @@ export async function run() {
           `${totalIcons} icons (iconSize=${dash.iconSize}) — fixed icons not counted`,
       );
   } finally {
-    if (injectedStorageIcons) dash._syncExternalStorageIcons([]);
+    if (injectedStorageIcons) dash._fixedItems._syncStorage([]);
     dash.setMaxSize(priorMaxWidth, priorMaxHeight);
     dash._adjustIconSize();
   }
@@ -464,10 +468,10 @@ export async function run() {
       await Scripting.waitLeisure();
       await Scripting.sleep(1000);
 
-      const originalExternalHover = externalBinding.dash._dashContainerHasHover;
+      const originalExternalHover = externalBinding.dash._visibility._hovered;
       externalBinding.dash.hide(false);
       externalBinding.hotAreaActive = false;
-      externalBinding.dash._dashContainerHasHover = () => true;
+      externalBinding.dash._visibility._hovered = true;
       try {
         if (!dock.revealMonitorFromHotArea(externalBinding.monitorIndex)) {
           throw new Error(`Could not reveal Dock on monitor ${externalBinding.monitorIndex}`);
@@ -504,7 +508,7 @@ export async function run() {
           await Scripting.sleep(120);
         }
       } finally {
-        externalBinding.dash._dashContainerHasHover = originalExternalHover;
+        externalBinding.dash._visibility._hovered = originalExternalHover;
       }
       await Scripting.sleep(450);
     }
@@ -523,8 +527,8 @@ export async function run() {
   // animation from the hidden pose and make the dock flash.
   dash.hide(false);
   let hiddenPoseCalls = 0;
-  const originalApplyHiddenState = dash._applyHiddenState;
-  dash._applyHiddenState = function (...args) {
+  const originalApplyHiddenState = dash._visibility._applyHiddenState;
+  dash._visibility._applyHiddenState = function (...args) {
     hiddenPoseCalls++;
     return originalApplyHiddenState.apply(this, args);
   };
@@ -532,7 +536,7 @@ export async function run() {
   dash.show(true);
   dash.show(true);
   await Scripting.sleep(300);
-  dash._applyHiddenState = originalApplyHiddenState;
+  dash._visibility._applyHiddenState = originalApplyHiddenState;
   if (hiddenPoseCalls !== 1)
     throw new Error(`Repeated show requests restarted the animation ${hiddenPoseCalls} times`);
   if (!dash.visible || dash.opacity !== 255 || dash.translation_y !== 0)
@@ -540,9 +544,9 @@ export async function run() {
 
   Scripting.scriptEvent('repeatedShowStable');
 
-  const originalItemDragHover = dash._dashContainerHasHover;
+  const originalItemDragHover = dash._visibility._hovered;
   try {
-    dash._dashContainerHasHover = () => false;
+    dash._visibility._hovered = false;
     dash.blockAutoHide(false);
     dash.show(false);
     dash._onItemDragBegin();
@@ -561,8 +565,8 @@ export async function run() {
     await Scripting.sleep(400);
     if (dash.visible) throw new Error('Dock did not restore auto-hide after cancelling icon drag');
   } finally {
-    if (dash._itemDragVisibilityHold) dash._onItemDragCancelled();
-    dash._dashContainerHasHover = originalItemDragHover;
+    if (dash._visibility._itemDragHold) dash._onItemDragCancelled();
+    dash._visibility._hovered = originalItemDragHover;
     dash.blockAutoHide(true);
     dash.show(false);
   }
@@ -587,9 +591,9 @@ export async function run() {
   // fullscreen window via the dock: the dock must stay up while the pointer is
   // still over it and hide only after the pointer leaves.
   dash.show(false);
-  const originalDashContainerHasHover = dash._dashContainerHasHover;
+  const originalDashContainerHasHover = dash._visibility._hovered;
   try {
-    dash._dashContainerHasHover = () => true;
+    dash._visibility._hovered = true;
     binding.hotAreaActive = false;
     clearIntellihideQueuedRefreshes(binding.intellihide);
     binding.intellihide._status = 1;
@@ -598,11 +602,11 @@ export async function run() {
     if (!dash.visible)
       throw new Error('Intellihide BLOCKED hid the dock while the pointer stayed over it');
 
-    dash._dashContainerHasHover = () => false;
-    dash._onHover();
+    dash._visibility._hovered = false;
+    dash._visibility.updateAutoHide();
     await Scripting.sleep(450);
   } finally {
-    dash._dashContainerHasHover = originalDashContainerHasHover;
+    dash._visibility._hovered = originalDashContainerHasHover;
   }
   if (dash.visible) throw new Error('Intellihide BLOCKED did not hide after the pointer left');
 
@@ -622,22 +626,22 @@ export async function run() {
   // a window is BLOCKING. Hover is tracked via the dock actor's crossing events
   // (reliable over client windows), so this is what keeps the dock up while the
   // user switches apps; it only hides once the pointer leaves (see I10).
-  const originalHoldZoneDashContainerHasHover = dash._dashContainerHasHover;
+  const originalHoldZoneDashContainerHasHover = dash._visibility._hovered;
   clearIntellihideQueuedRefreshes(binding.intellihide);
   binding.intellihide._status = 1; // BLOCKED
   try {
-    dash._dashContainerHasHover = () => true; // pointer resting over the dock
+    dash._visibility._hovered = true; // pointer resting over the dock
     dock._clearHotAreaReveal(binding);
     binding.hotAreaActive = false;
     dock.revealFromHotArea();
     await Scripting.sleep(1700); // past the reveal grace → handoff to autohide
   } finally {
-    dash._dashContainerHasHover = originalHoldZoneDashContainerHasHover;
+    dash._visibility._hovered = originalHoldZoneDashContainerHasHover;
   }
   if (!dash.visible) throw new Error('Native autohide hid the dock while the pointer was over it');
   if (!binding.hotAreaActive)
     throw new Error('Hot-area reveal ended while the pointer was over the dock');
-  if (binding.autoHideReleaseId !== 0)
+  if (binding.autoHideRelease.active)
     throw new Error('Hot-area reveal grace timer was left running after handoff');
 
   Scripting.scriptEvent('hotAreaReleaseDeferred');
@@ -668,10 +672,10 @@ export async function run() {
   // native hover autohide, which polls the dock actor's hover state — reliable
   // even when the pointer moves onto a client window. This is the reported
   // maximized-switch bug, where a stage motion watch never saw the exit.
-  const originalBlockedDashContainerHasHover = dash._dashContainerHasHover;
+  const originalBlockedDashContainerHasHover = dash._visibility._hovered;
   try {
     binding.intellihide._status = 1; // BLOCKED
-    dash._dashContainerHasHover = () => true; // pointer over the dock
+    dash._visibility._hovered = true; // pointer over the dock
     binding.hotAreaActive = true;
     binding.dash.blockAutoHide(true);
     dash.show(false);
@@ -684,11 +688,11 @@ export async function run() {
       throw new Error('Hot-area active BLOCKED ended the reveal while pointer stayed over it');
 
     // Pointer leaves the dock: native hover autohide must now retract it.
-    dash._dashContainerHasHover = () => false;
-    dash._onHover();
+    dash._visibility._hovered = false;
+    dash._visibility.updateAutoHide();
     await Scripting.sleep(450);
   } finally {
-    dash._dashContainerHasHover = originalBlockedDashContainerHasHover;
+    dash._visibility._hovered = originalBlockedDashContainerHasHover;
   }
   if (dash.visible)
     throw new Error('Hot-area active BLOCKED did not hide the dock after the pointer left');
@@ -730,7 +734,7 @@ export async function run() {
   if (!binding.hotArea.canStartContextualDragReveal(edgeX, edgeY))
     throw new Error('Hot area remained in transition cooldown after its deadline');
 
-  dock._handleContextualDragMotion({
+  dock._dragReveal._handleMotion({
     source: Main.xdndHandler,
     x: edgeX,
     y: edgeY,
@@ -781,10 +785,10 @@ export async function run() {
   // via the dock icons keeps the dock up while the pointer is over it and hides
   // it once the pointer leaves. Same contract as I10, but driven by the signal.
   dock._clearHotAreaReveal(binding);
-  const originalReassertHasHover = dash._dashContainerHasHover;
+  const originalReassertHasHover = dash._visibility._hovered;
   try {
     binding.intellihide._status = 1; // BLOCKED
-    dash._dashContainerHasHover = () => true; // pointer over the dock
+    dash._visibility._hovered = true; // pointer over the dock
     binding.hotAreaActive = true;
     binding.dash.blockAutoHide(true);
     dash.show(false);
@@ -797,11 +801,11 @@ export async function run() {
       throw new Error('Focus reassert ended the reveal while the pointer stayed over it');
 
     // Pointer leaves the dock: native hover autohide must retract it.
-    dash._dashContainerHasHover = () => false;
-    dash._onHover();
+    dash._visibility._hovered = false;
+    dash._visibility.updateAutoHide();
     await Scripting.sleep(450);
   } finally {
-    dash._dashContainerHasHover = originalReassertHasHover;
+    dash._visibility._hovered = originalReassertHasHover;
   }
   if (dash.visible) throw new Error('Focus reassert did not hide the dock after the pointer left');
   if (binding.hotAreaActive)
@@ -876,8 +880,8 @@ export async function run() {
   if (alwaysAutoHideBinding.dash.visible)
     throw new Error('Always auto-hide Dock was visible before an edge reveal');
 
-  const originalAlwaysAutoHideHover = alwaysAutoHideBinding.dash._dashContainerHasHover;
-  alwaysAutoHideBinding.dash._dashContainerHasHover = () => false;
+  const originalAlwaysAutoHideHover = alwaysAutoHideBinding.dash._visibility._hovered;
+  alwaysAutoHideBinding.dash._visibility._hovered = false;
   try {
     if (!dock.revealMonitorFromHotArea(alwaysAutoHideBinding.monitorIndex))
       throw new Error('Always auto-hide Dock could not be revealed from its hot area');
@@ -891,9 +895,35 @@ export async function run() {
     if (alwaysAutoHideBinding.dash.visible)
       throw new Error('Always auto-hide Dock stayed visible after the reveal ended');
   } finally {
-    alwaysAutoHideBinding.dash._dashContainerHasHover = originalAlwaysAutoHideHover;
+    alwaysAutoHideBinding.dash._visibility._hovered = originalAlwaysAutoHideHover;
   }
   Scripting.scriptEvent('alwaysAutoHideIndependent');
+
+  // The Shell may destroy the Dash content actor from C before the module's
+  // explicit teardown runs. Pending autohide callbacks must stop immediately
+  // instead of reading children from the disposed actor.
+  const disposableBinding = dock.bindings.find(
+    (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
+  );
+  if (!disposableBinding)
+    throw new Error('Could not find the current primary Dock for disposal coverage');
+
+  const disposableDash = disposableBinding.dash;
+  disposableDash._visibility.updateAutoHide();
+  if (!disposableDash._visibility._autohideTimeout.active)
+    throw new Error('Could not schedule the autohide callback for disposal coverage');
+
+  const disposableBox = disposableDash._dashBox;
+  if (!disposableBox) throw new Error('Current Dash content was already destroyed before coverage');
+
+  disposableBox.destroy();
+  await Scripting.sleep(200);
+
+  if (disposableDash._dashBox) throw new Error('Dash retained its content actor after destruction');
+  if (disposableDash._visibility._autohideTimeout.active)
+    throw new Error('Dash content destruction retained its autohide callback');
+
+  Scripting.scriptEvent('dashContentDisposalSafe');
 
   // I11 — disable dock, actor must be removed
   const originalValue = settings.get_boolean('module-dock');
@@ -945,6 +975,7 @@ let _externalWorkspaceActorStable = false;
 let _primaryMonitorOnly = false;
 let _allMonitorsEnabled = false;
 let _alwaysAutoHideIndependent = false;
+let _dashContentDisposalSafe = false;
 
 /** @returns {void} */
 export function script_dockPresent() {
@@ -1057,6 +1088,11 @@ export function script_alwaysAutoHideIndependent() {
 }
 
 /** @returns {void} */
+export function script_dashContentDisposalSafe() {
+  _dashContentDisposalSafe = true;
+}
+
+/** @returns {void} */
 export function finish() {
   if (!_dockPresent)
     throw new Error('Dock actor was not found in the stage after extension enable');
@@ -1092,5 +1128,7 @@ export function finish() {
   if (!_allMonitorsEnabled) throw new Error('Dock all-monitors opt-in behavior was not verified');
   if (!_alwaysAutoHideIndependent)
     throw new Error('Dock always auto-hide behavior was not verified');
+  if (!_dashContentDisposalSafe)
+    throw new Error('Dash content disposal did not cancel pending actor access');
   if (!_dockRemoved) throw new Error('Dock actor was not removed after module was disabled');
 }

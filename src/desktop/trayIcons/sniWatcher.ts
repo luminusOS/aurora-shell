@@ -176,11 +176,7 @@ export class SniWatcher {
       this._ownNameId = 0;
     }
     if (this._registrationId) {
-      try {
-        Gio.DBus.session.unregister_object(this._registrationId);
-      } catch {
-        // may fail if already unregistered
-      }
+      Gio.DBus.session.unregister_object(this._registrationId);
       this._registrationId = 0;
     }
     this._registeredItems = [];

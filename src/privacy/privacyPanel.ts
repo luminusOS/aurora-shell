@@ -8,7 +8,6 @@ import { getSharingIndicator } from '~/privacy/sharingIndicator.ts';
 
 const FADE_DURATION = 200;
 const EASE_MODE = Clutter.AnimationMode.EASE_OUT_QUAD;
-// _rightBox is handled per-child; indicator restored explicitly after fade
 const FULL_BOXES = ['_leftBox', '_centerBox'] as const;
 const LOG_PREFIX = 'PrivacyPanel';
 
@@ -63,7 +62,7 @@ export class PrivacyPanel extends Module {
       this._startupCompleteId = null;
     }
 
-    this._indicator?.disconnectObject(this);
+    if (this._indicator) this._indicator.disconnectObject(this);
     this._indicator = null;
 
     Main.panel.disconnectObject(this);
@@ -73,7 +72,7 @@ export class PrivacyPanel extends Module {
   }
 
   private _onSharingChanged(): void {
-    this._isSharing = this._indicator?.visible ?? false;
+    this._isSharing = this._indicator ? this._indicator.visible : false;
     this._fadeContent(this._isSharing ? 0 : 255);
   }
 
@@ -85,24 +84,29 @@ export class PrivacyPanel extends Module {
   private _onPanelLeave(): void {
     if (!this._isSharing) return;
     if (Main.overview.visible) return;
-    if ((Main.panel.menuManager as any)?.activeMenu) return;
+    if ((Main.panel.menuManager as any).activeMenu) return;
     this._fadeContent(0);
   }
 
   private _fadeContent(opacity: number): void {
     const panelAny = Main.panel as any;
     for (const box of FULL_BOXES) {
-      panelAny[box]?.ease({ opacity, duration: FADE_DURATION, mode: EASE_MODE });
+      panelAny[box].ease({ opacity, duration: FADE_DURATION, mode: EASE_MODE });
     }
 
-    for (const child of panelAny._rightBox?.get_children() ?? []) {
+    for (const child of panelAny._rightBox.get_children()) {
       child.ease({ opacity, duration: FADE_DURATION, mode: EASE_MODE });
     }
 
-    // Always keep the sharing indicator visible regardless of its actor wrapping
     if (opacity === 0) {
-      this._indicator?.ease({ opacity: 255, duration: FADE_DURATION, mode: EASE_MODE });
-      this._indicator?.container?.ease({ opacity: 255, duration: FADE_DURATION, mode: EASE_MODE });
+      if (!this._indicator) return;
+
+      this._indicator.ease({ opacity: 255, duration: FADE_DURATION, mode: EASE_MODE });
+      this._indicator.container.ease({
+        opacity: 255,
+        duration: FADE_DURATION,
+        mode: EASE_MODE,
+      });
     }
   }
 
@@ -111,7 +115,7 @@ export class PrivacyPanel extends Module {
     for (const box of FULL_BOXES) {
       if (panelAny[box]) panelAny[box].opacity = 255;
     }
-    for (const child of panelAny._rightBox?.get_children() ?? []) {
+    for (const child of panelAny._rightBox.get_children()) {
       child.opacity = 255;
     }
   }

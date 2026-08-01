@@ -4,8 +4,9 @@ import GLib from '@girs/glib-2.0';
 import Gio from '@girs/gio-2.0';
 
 import type { ExtensionContext } from '~/core/context.ts';
-import { LifecycleScope } from '~/core/lifecycleScope.ts';
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
 
@@ -25,7 +26,7 @@ const DARK_MINUTES_KEY = 'auto-theme-switcher-dark-minutes';
 const LOG_PREFIX = 'AutoThemeSwitcher';
 
 export class AutoThemeSwitcher extends Module {
-  private _sourceId: number | null = null;
+  private _scheduledTick: ManagedSource | null = null;
   private _lifecycle: LifecycleScope | null = null;
   private _desktopSettings: SettingsManager | null = null;
 
@@ -35,44 +36,42 @@ export class AutoThemeSwitcher extends Module {
 
   override enable(): void {
     this.disable();
-    try {
-      this._lifecycle = new LifecycleScope();
-      this._desktopSettings = this.context.settings.getSchema('org.gnome.desktop.interface');
-      const settings = this.context.settings;
-      this._lifecycle.connect(settings, `changed::${LIGHT_HOURS_KEY}`, () => this._tick());
-      this._lifecycle.connect(settings, `changed::${LIGHT_MINUTES_KEY}`, () => this._tick());
-      this._lifecycle.connect(settings, `changed::${DARK_HOURS_KEY}`, () => this._tick());
-      this._lifecycle.connect(settings, `changed::${DARK_MINUTES_KEY}`, () => this._tick());
-      this._lifecycle.onDispose(() => this._cancelScheduledTick());
-      const subscriptionId = Gio.DBus.system.signal_subscribe(
-        'org.freedesktop.login1',
-        'org.freedesktop.login1.Manager',
-        'PrepareForSleep',
-        '/org/freedesktop/login1',
-        null,
-        Gio.DBusSignalFlags.NONE,
-        (_conn, _sender, _path, _iface, _signal, params) => {
-          const [sleeping] = params.deep_unpack() as [boolean];
-          if (!sleeping) this._tick();
-        },
-      );
-      this._lifecycle.onDispose(() => Gio.DBus.system.signal_unsubscribe(subscriptionId));
-      this._tick();
-    } catch (error) {
-      logger.error('Failed to enable:', { prefix: LOG_PREFIX }, error);
-      this.disable();
-    }
+    this._lifecycle = new LifecycleScope();
+    this._scheduledTick = createManagedSource(this._lifecycle);
+    this._desktopSettings = this.context.settings.getSchema('org.gnome.desktop.interface');
+
+    const settings = this.context.settings;
+    this._lifecycle.connect(settings, `changed::${LIGHT_HOURS_KEY}`, () => this._tick());
+    this._lifecycle.connect(settings, `changed::${LIGHT_MINUTES_KEY}`, () => this._tick());
+    this._lifecycle.connect(settings, `changed::${DARK_HOURS_KEY}`, () => this._tick());
+    this._lifecycle.connect(settings, `changed::${DARK_MINUTES_KEY}`, () => this._tick());
+
+    const subscriptionId = Gio.DBus.system.signal_subscribe(
+      'org.freedesktop.login1',
+      'org.freedesktop.login1.Manager',
+      'PrepareForSleep',
+      '/org/freedesktop/login1',
+      null,
+      Gio.DBusSignalFlags.NONE,
+      (_conn, _sender, _path, _iface, _signal, params) => {
+        const [sleeping] = params.deep_unpack() as [boolean];
+        if (!sleeping) this._tick();
+      },
+    );
+    this._lifecycle.onDispose(() => Gio.DBus.system.signal_unsubscribe(subscriptionId));
+    this._tick();
   }
 
   override disable(): void {
     this._lifecycle?.dispose();
     this._lifecycle = null;
+    this._scheduledTick = null;
     this._desktopSettings = null;
   }
 
   private _tick(): void {
-    this._cancelScheduledTick();
-    if (!this._desktopSettings) return;
+    const scheduledTick = this._scheduledTick;
+    if (!scheduledTick || !this._desktopSettings) return;
 
     const now = new Date();
     const current = now.getHours() * 60 + now.getMinutes();
@@ -100,16 +99,12 @@ export class AutoThemeSwitcher extends Module {
     if (next <= current) next += 1440;
     const delay = (next - current) * 60 - now.getSeconds();
 
-    this._sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, delay, () => {
-      this._sourceId = null;
-      this._tick();
-      return GLib.SOURCE_REMOVE;
-    });
-  }
-
-  private _cancelScheduledTick(): void {
-    if (this._sourceId === null) return;
-    GLib.source_remove(this._sourceId);
-    this._sourceId = null;
+    scheduledTick.replace(() =>
+      GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, delay, () => {
+        scheduledTick.complete();
+        this._tick();
+        return GLib.SOURCE_REMOVE;
+      }),
+    );
   }
 }

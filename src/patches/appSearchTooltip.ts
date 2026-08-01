@@ -4,6 +4,8 @@ import GLib from '@girs/glib-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as Search from '@girs/gnome-shell/ui/search';
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
 
 const SHOW_DELAY_MS = 300;
@@ -16,10 +18,11 @@ const SHOW_DELAY_MS = 300;
  */
 export class AppSearchTooltip extends Module {
   private _tooltipActor: any = null;
-  private _showTimeoutId = 0;
+  private _lifecycle: LifecycleScope | null = null;
+  private _showTimeout: ManagedSource | null = null;
   private _pendingActor: any = null;
-  private _overviewHidingId = 0;
-  private _patchedSearchAddItem: any = null;
+  private _originalSearchAddItem: any = null;
+  private _searchAddItemWrapper: any = null;
   private _trackedActors = new Set<any>();
 
   constructor(context: ExtensionContext) {
@@ -27,36 +30,38 @@ export class AppSearchTooltip extends Module {
   }
 
   override enable(): void {
-    if (!this._patchedSearchAddItem) {
-      const originalAddItem = Search.GridSearchResults.prototype._addItem;
-      this._patchedSearchAddItem = originalAddItem;
+    this._lifecycle = new LifecycleScope();
+    this._showTimeout = createManagedSource(this._lifecycle);
+    const prototype = Search.GridSearchResults.prototype;
+    const originalAddItem = prototype._addItem;
+    const connectHover = (display: any) => this._connectHover(display);
+    const wrapper = function (this: any, display: any) {
+      originalAddItem.call(this, display);
+      connectHover(display);
+    };
 
-      const connectHover = (display: any) => this._connectHover(display);
+    this._originalSearchAddItem = originalAddItem;
+    this._searchAddItemWrapper = wrapper;
+    prototype._addItem = wrapper;
 
-      Search.GridSearchResults.prototype._addItem = function (display: any) {
-        originalAddItem.call(this, display);
-        connectHover(display);
-      };
-    }
-
-    this._overviewHidingId = Main.overview.connect('hiding', () => this._hideTooltip());
+    this._lifecycle.connect(Main.overview, 'hiding', () => this._hideTooltip());
   }
 
   override disable(): void {
-    if (this._patchedSearchAddItem) {
-      Search.GridSearchResults.prototype._addItem = this._patchedSearchAddItem;
-      this._patchedSearchAddItem = null;
+    const prototype = Search.GridSearchResults.prototype;
+    if (
+      this._originalSearchAddItem &&
+      this._searchAddItemWrapper &&
+      prototype._addItem === this._searchAddItemWrapper
+    ) {
+      prototype._addItem = this._originalSearchAddItem;
     }
+    this._originalSearchAddItem = null;
+    this._searchAddItemWrapper = null;
 
-    if (this._overviewHidingId > 0) {
-      Main.overview.disconnect(this._overviewHidingId);
-      this._overviewHidingId = 0;
-    }
-
-    if (this._showTimeoutId > 0) {
-      GLib.source_remove(this._showTimeoutId);
-      this._showTimeoutId = 0;
-    }
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
+    this._showTimeout = null;
     this._pendingActor = null;
 
     for (const actor of this._trackedActors) actor.disconnectObject(this);
@@ -66,7 +71,7 @@ export class AppSearchTooltip extends Module {
   }
 
   private _connectHover(actor: any): void {
-    if (!actor || typeof actor.connect !== 'function') return;
+    if (!actor) return;
 
     const delegate = actor._delegate || actor;
     if (!delegate.metaInfo && !delegate.app) return;
@@ -82,9 +87,9 @@ export class AppSearchTooltip extends Module {
       () => this._onHover(actor),
       'destroy',
       () => {
-        if (this._pendingActor === actor && this._showTimeoutId > 0) {
-          GLib.source_remove(this._showTimeoutId);
-          this._showTimeoutId = 0;
+        const showTimeout = this._showTimeout;
+        if (this._pendingActor === actor && showTimeout && showTimeout.active) {
+          showTimeout.clear();
           this._pendingActor = null;
         }
         this._trackedActors.delete(actor);
@@ -96,6 +101,9 @@ export class AppSearchTooltip extends Module {
   }
 
   private _onHover(actor: any): void {
+    const showTimeout = this._showTimeout;
+    if (!showTimeout) return;
+
     const isHovered = actor.get_hover() || actor.has_key_focus();
 
     if (isHovered) {
@@ -103,19 +111,19 @@ export class AppSearchTooltip extends Module {
         this._showTooltip(actor);
         return;
       }
-      if (this._showTimeoutId > 0) return; // already scheduled
-      this._showTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, SHOW_DELAY_MS, () => {
-        this._showTimeoutId = 0;
-        this._pendingActor = null;
-        if (actor.get_hover() || actor.has_key_focus()) this._showTooltip(actor);
-        return GLib.SOURCE_REMOVE;
-      });
+      if (showTimeout.active) return;
+
+      showTimeout.replace(() =>
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, SHOW_DELAY_MS, () => {
+          showTimeout.complete();
+          this._pendingActor = null;
+          if (actor.get_hover() || actor.has_key_focus()) this._showTooltip(actor);
+          return GLib.SOURCE_REMOVE;
+        }),
+      );
       this._pendingActor = actor;
     } else {
-      if (this._showTimeoutId > 0) {
-        GLib.source_remove(this._showTimeoutId);
-        this._showTimeoutId = 0;
-      }
+      showTimeout.clear();
       this._hideTooltip();
     }
   }
@@ -160,8 +168,9 @@ export class AppSearchTooltip extends Module {
 
   private _getActorName(actor: any): string | null {
     const delegate = actor._delegate || actor;
-    if (delegate.app) return (delegate.app.get_name() as string) ?? null;
-    if (delegate.metaInfo) return (delegate.metaInfo['name'] as string) ?? null;
+    if (delegate.app) return delegate.app.get_name() as string;
+    if (typeof delegate.metaInfo?.name === 'string') return delegate.metaInfo.name;
+
     return null;
   }
 }

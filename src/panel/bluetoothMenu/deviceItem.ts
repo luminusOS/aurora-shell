@@ -5,7 +5,9 @@ import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import Clutter from '@girs/clutter-18';
 
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { createIcon, loadIcon } from '~/shared/icons.ts';
 
 const LOG_PREFIX = 'BluetoothMenu';
@@ -20,11 +22,9 @@ export class BluetoothDeviceItemPatcher {
   private _item: any;
   private _stateIcon: St.Icon | null = null;
   private _batteryLabel: St.Label | null = null;
-  private _spinnerNotifyId = 0;
-  private _batteryNotifyId = 0;
-  private _connectedNotifyId = 0;
-  private _pendingUpdateId = 0;
-  private _animationTimeoutId = 0;
+  private _lifecycle: LifecycleScope | null = null;
+  private _pendingUpdate: ManagedSource | null = null;
+  private _animationTimeout: ManagedSource | null = null;
   private _animationFrame = 1;
   private _animatingState: 'connecting' | 'disconnecting' | null = null;
 
@@ -33,6 +33,9 @@ export class BluetoothDeviceItemPatcher {
   }
 
   enable(): void {
+    this._lifecycle = new LifecycleScope();
+    this._pendingUpdate = createManagedSource(this._lifecycle);
+    this._animationTimeout = createManagedSource(this._lifecycle);
     const item = this._item;
 
     // Override activate so clicking a device doesn't close the menu.
@@ -80,7 +83,7 @@ export class BluetoothDeviceItemPatcher {
     this._updateStateIcon();
     this._updateBatteryLabel();
 
-    this._spinnerNotifyId = item._spinner.connect('notify::visible', () => {
+    this._lifecycle.connect(item._spinner, 'notify::visible', () => {
       if (item._spinner.visible) {
         // Spinner starting — update immediately to begin animation.
         this._updateStateIcon();
@@ -97,29 +100,30 @@ export class BluetoothDeviceItemPatcher {
       this._updateStateIcon();
     }
 
-    this._batteryNotifyId = item._device.connect('notify::battery-percentage', () => {
+    this._lifecycle.connect(item._device, 'notify::battery-percentage', () => {
       this._updateBatteryLabel();
     });
 
-    this._connectedNotifyId = item._device.connect('notify::connected', () => {
+    this._lifecycle.connect(item._device, 'notify::connected', () => {
       this._updateBatteryLabel();
       this._updateStateIcon();
     });
   }
 
   private _scheduleUpdate(): void {
-    if (this._pendingUpdateId !== 0) {
-      GLib.source_remove(this._pendingUpdateId);
-      this._pendingUpdateId = 0;
-    }
-    this._pendingUpdateId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-      this._pendingUpdateId = 0;
-      if (!this._stateIcon || !this._batteryLabel) return GLib.SOURCE_REMOVE;
+    const pendingUpdate = this._pendingUpdate;
+    if (!pendingUpdate) return;
 
-      this._updateStateIcon();
-      this._updateBatteryLabel();
-      return GLib.SOURCE_REMOVE;
-    });
+    pendingUpdate.replace(() =>
+      GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        pendingUpdate.complete();
+        if (!this._stateIcon || !this._batteryLabel) return GLib.SOURCE_REMOVE;
+
+        this._updateStateIcon();
+        this._updateBatteryLabel();
+        return GLib.SOURCE_REMOVE;
+      }),
+    );
   }
 
   private _loadIcon(name: string): Gio.Icon {
@@ -135,26 +139,30 @@ export class BluetoothDeviceItemPatcher {
 
     const connected: boolean = this._item._device.connected;
     const isWorking: boolean = this._item._spinner.visible;
+    const animationTimeout = this._animationTimeout;
+    if (!animationTimeout) return;
 
     if (isWorking) {
-      if (this._animationTimeoutId === 0) {
+      if (!animationTimeout.active) {
         this._animationFrame = 1;
         // Latch the state when animation starts: if not connected, we are connecting.
         this._animatingState = connected ? 'disconnecting' : 'connecting';
 
-        this._animationTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
-          if (!this._stateIcon) {
-            this._animationTimeoutId = 0;
-            return GLib.SOURCE_REMOVE;
-          }
+        animationTimeout.replace(() =>
+          GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
+            if (!this._stateIcon) {
+              animationTimeout.complete();
+              return GLib.SOURCE_REMOVE;
+            }
 
-          this._animationFrame = (this._animationFrame % 4) + 1;
-          this._stateIcon.gicon = this._loadIcon(
-            `bbm-bluetooth-${this._animatingState}-${this._animationFrame}-symbolic`,
-          );
-          this._setStateIconStatus('animating');
-          return GLib.SOURCE_CONTINUE;
-        });
+            this._animationFrame = (this._animationFrame % 4) + 1;
+            this._stateIcon.gicon = this._loadIcon(
+              `bbm-bluetooth-${this._animatingState}-${this._animationFrame}-symbolic`,
+            );
+            this._setStateIconStatus('animating');
+            return GLib.SOURCE_CONTINUE;
+          }),
+        );
       }
       const state = this._animatingState || (connected ? 'disconnecting' : 'connecting');
       this._stateIcon.gicon = this._loadIcon(
@@ -163,10 +171,7 @@ export class BluetoothDeviceItemPatcher {
       this._setStateIconStatus('animating');
     } else {
       this._animatingState = null;
-      if (this._animationTimeoutId !== 0) {
-        GLib.source_remove(this._animationTimeoutId);
-        this._animationTimeoutId = 0;
-      }
+      animationTimeout.clear();
       if (connected) {
         this._stateIcon.gicon = this._loadIcon('bbm-bluetooth-connected-symbolic');
         this._setStateIconStatus('connected');
@@ -202,28 +207,10 @@ export class BluetoothDeviceItemPatcher {
   disable(options: DisableOptions = {}): void {
     const restoreOriginalChildren = options.restoreOriginalChildren ?? true;
 
-    if (this._spinnerNotifyId) {
-      this._item._spinner?.disconnect(this._spinnerNotifyId);
-      this._spinnerNotifyId = 0;
-    }
-    if (this._batteryNotifyId) {
-      this._item._device?.disconnect(this._batteryNotifyId);
-      this._batteryNotifyId = 0;
-    }
-    if (this._connectedNotifyId) {
-      this._item._device?.disconnect(this._connectedNotifyId);
-      this._connectedNotifyId = 0;
-    }
-
-    if (this._pendingUpdateId !== 0) {
-      GLib.source_remove(this._pendingUpdateId);
-      this._pendingUpdateId = 0;
-    }
-
-    if (this._animationTimeoutId !== 0) {
-      GLib.source_remove(this._animationTimeoutId);
-      this._animationTimeoutId = 0;
-    }
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
+    this._pendingUpdate = null;
+    this._animationTimeout = null;
 
     if (restoreOriginalChildren) this._stateIcon?.destroy();
     this._stateIcon = null;

@@ -1,6 +1,3 @@
-// src/desktop/trayIcons/trayState.ts
-
-// Type-only imports: erased at compile time, no GJS runtime dependency in unit tests.
 import type Gio from '@girs/gio-2.0';
 import type GdkPixbuf from '@girs/gdkpixbuf-2.0';
 
@@ -40,7 +37,6 @@ export function createTrayState(): TrayState {
 
 export function toggleCollapsed(state: TrayState): void {
   state.collapsed = !state.collapsed;
-  // scrollOffset is managed by TrayContainer._syncLayout (needs UI metrics)
 }
 
 export function applyScroll(state: TrayState, delta: number, maxScroll: number): void {

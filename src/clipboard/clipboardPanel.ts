@@ -8,6 +8,7 @@ import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ClipboardEntry, ClipboardStore } from '~/clipboard/clipboardStore.ts';
 import { ClipboardList } from '~/clipboard/clipboardList.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { UnredirectInhibitor } from '~/core/unredirectInhibitor.ts';
 import {
   placeClipboardPanelNearPointer,
@@ -37,10 +38,8 @@ export class ClipboardPanel extends St.BoxLayout {
   private _overlay: St.Bin | null = null;
   declare private _unredirectInhibitor: UnredirectInhibitor;
 
-  private _capturedEventId: number = 0;
-  private _searchChangedId: number = 0;
-  private _monitorsChangedId: number = 0;
-  private _sessionModeId: number = 0;
+  declare private _lifecycle: LifecycleScope;
+  private _openLifecycle: LifecycleScope | null = null;
 
   override _init(store: ClipboardStore, callbacks: PanelCallbacks): void {
     super._init({
@@ -52,8 +51,11 @@ export class ClipboardPanel extends St.BoxLayout {
 
     this._store = store;
     this._callbacks = callbacks;
+    this._lifecycle = new LifecycleScope();
     this._unredirectInhibitor = new UnredirectInhibitor(global.compositor);
-    this.connect('notify::mapped', () => this._unredirectInhibitor.setInhibited(this.mapped));
+    this._lifecycle.connect(this, 'notify::mapped', () =>
+      this._unredirectInhibitor.setInhibited(this.mapped),
+    );
 
     this._searchEntry = new St.Entry({
       style_class: 'aurora-clipboard-search',
@@ -92,6 +94,7 @@ export class ClipboardPanel extends St.BoxLayout {
 
   open(): void {
     if (this._isOpen) return;
+    this._openLifecycle = new LifecycleScope();
 
     // Semi-transparent click-away overlay — no modal grab needed
     this._overlay = new St.Bin({ reactive: true });
@@ -112,17 +115,18 @@ export class ClipboardPanel extends St.BoxLayout {
 
     // captured-event fires in the CAPTURE phase — before ClutterText (St.Entry
     // internals) has a chance to consume Escape, Up, Down, Enter, etc.
-    this._capturedEventId = global.stage.connect(
+    this._openLifecycle.connect(
+      global.stage,
       'captured-event',
       (_actor: Clutter.Actor, event: Clutter.Event) => this._onCapturedEvent(event),
     );
 
-    this._searchChangedId = this._searchEntry.clutter_text.connect('text-changed', () =>
+    this._openLifecycle.connect(this._searchEntry.clutter_text, 'text-changed', () =>
       this._syncList(this._searchEntry.get_text()),
     );
 
-    this._monitorsChangedId = Main.layoutManager.connect('monitors-changed', () => this.close());
-    this._sessionModeId = Main.sessionMode.connect('updated', () => this.close());
+    this._openLifecycle.connect(Main.layoutManager, 'monitors-changed', () => this.close());
+    this._openLifecycle.connect(Main.sessionMode, 'updated', () => this.close());
 
     this._searchEntry.set_text('');
     this._syncList('');
@@ -132,22 +136,8 @@ export class ClipboardPanel extends St.BoxLayout {
   close(): void {
     if (!this._isOpen) return;
 
-    if (this._capturedEventId !== 0) {
-      global.stage.disconnect(this._capturedEventId);
-      this._capturedEventId = 0;
-    }
-    if (this._searchChangedId !== 0) {
-      this._searchEntry.clutter_text.disconnect(this._searchChangedId);
-      this._searchChangedId = 0;
-    }
-    if (this._monitorsChangedId !== 0) {
-      Main.layoutManager.disconnect(this._monitorsChangedId);
-      this._monitorsChangedId = 0;
-    }
-    if (this._sessionModeId !== 0) {
-      Main.sessionMode.disconnect(this._sessionModeId);
-      this._sessionModeId = 0;
-    }
+    this._openLifecycle?.dispose();
+    this._openLifecycle = null;
 
     if (this._overlay) {
       Main.layoutManager.removeChrome(this._overlay);
@@ -162,6 +152,7 @@ export class ClipboardPanel extends St.BoxLayout {
 
   override destroy(): void {
     this.close();
+    this._lifecycle.dispose();
     this._unredirectInhibitor.release();
     super.destroy();
   }

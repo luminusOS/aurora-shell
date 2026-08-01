@@ -12,7 +12,6 @@ export type ModuleManagerLogger = {
 export class ModuleManager {
   private readonly _modules = new Map<string, Module>();
   private _lifecycle: LifecycleScope | null = null;
-  private _started = false;
 
   constructor(
     private readonly _definitions: readonly ModuleDefinition[],
@@ -29,8 +28,8 @@ export class ModuleManager {
   }
 
   start(): void {
-    if (this._started) return;
-    this._started = true;
+    if (this._lifecycle) return;
+
     const lifecycle = new LifecycleScope();
     this._lifecycle = lifecycle;
 
@@ -44,7 +43,8 @@ export class ModuleManager {
   }
 
   reconcile(): void {
-    if (!this._started) return;
+    if (!this._lifecycle) return;
+
     const snapshot = this._context.device.current;
     const roles = activeDisplayRoles(snapshot);
 
@@ -61,10 +61,11 @@ export class ModuleManager {
   }
 
   stop(): void {
-    if (!this._started) return;
-    this._started = false;
-    this._lifecycle?.dispose();
+    const lifecycle = this._lifecycle;
+    if (!lifecycle) return;
+
     this._lifecycle = null;
+    lifecycle.dispose();
 
     for (const [key, module] of [...this._modules].reverse()) this._disable(key, module);
   }

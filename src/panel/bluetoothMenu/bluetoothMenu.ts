@@ -42,7 +42,7 @@ export class BluetoothMenu extends Module {
     this._lifecycle = null;
 
     for (const [item, { patcher, destroyId }] of this._patchedItems) {
-      item?.disconnect(destroyId);
+      item.disconnect(destroyId);
       patcher.disable();
     }
     this._patchedItems.clear();
@@ -59,11 +59,10 @@ export class BluetoothMenu extends Module {
   }
 
   private _attach(toggle: any): void {
-    const lifecycle = this._lifecycle;
-    if (!lifecycle) return;
+    if (!this._lifecycle) return;
 
     toggle.menu.actor.add_style_class_name('aurora-bt-menu');
-    lifecycle.onDispose(() => toggle.menu.actor.remove_style_class_name('aurora-bt-menu'));
+    this._lifecycle.onDispose(() => toggle.menu.actor.remove_style_class_name('aurora-bt-menu'));
 
     for (const item of toggle._deviceItems.values()) {
       this._patchItem(item);
@@ -77,7 +76,7 @@ export class BluetoothMenu extends Module {
         }
       },
     );
-    lifecycle.onDispose(() => toggle._deviceSection.actor.disconnect(actorAddedId));
+    this._lifecycle.onDispose(() => toggle._deviceSection.actor.disconnect(actorAddedId));
   }
 
   private _patchItem(item: any): void {

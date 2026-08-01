@@ -1,12 +1,29 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { appIdCandidates } from '../../src/desktop/trayIcons/appIdentity.ts';
+import {
+  appIdCandidates,
+  sniIdentityMatchesAppId,
+} from '../../src/desktop/trayIcons/appIdentity.ts';
 
 test('app identity — keeps suffixed and unsuffixed lowercase candidates', () => {
   assert.deepEqual(
     appIdCandidates(['Org.Example.App.desktop']),
     new Set(['org.example.app.desktop', 'org.example.app']),
+  );
+});
+
+test('app identity — matches specific SNI metadata without generic component collisions', () => {
+  assert.equal(
+    sniIdentityMatchesAppId(
+      { desktopEntry: 'com.discordapp.Discord.desktop', sniId: '' },
+      'com.discordapp.Discord',
+    ),
+    true,
+  );
+  assert.equal(
+    sniIdentityMatchesAppId({ desktopEntry: '', sniId: 'org.example.tray' }, 'com.other.tray'),
+    false,
   );
 });
 

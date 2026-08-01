@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-07-16 13:57-0300\n"
+"POT-Creation-Date: 2026-07-31 15:36-0300\n"
 "PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -16,116 +16,116 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: dist/capture/captureTools.js:39
+#: dist/capture/captureTools.js:40
 msgid "Selection"
 msgstr "Seleção"
 
-#: dist/capture/captureTools.js:40
+#: dist/capture/captureTools.js:41
 msgid "Pointer"
 msgstr "Ponteiro"
 
-#: dist/capture/captureTools.js:41
+#: dist/capture/captureTools.js:42
 msgid "Freehand"
 msgstr "Desenho livre"
 
-#: dist/capture/captureTools.js:42
+#: dist/capture/captureTools.js:43
 msgid "Rectangle"
 msgstr "Retângulo"
 
-#: dist/capture/captureTools.js:43
+#: dist/capture/captureTools.js:44
 msgid "Solid rectangle"
 msgstr "Retângulo preenchido"
 
-#: dist/capture/captureTools.js:44
+#: dist/capture/captureTools.js:45
 msgid "Highlighter"
 msgstr "Marca-texto"
 
-#: dist/capture/captureTools.js:45
+#: dist/capture/captureTools.js:46
 msgid "Arrow"
 msgstr "Seta"
 
-#: dist/capture/captureTools.js:46
+#: dist/capture/captureTools.js:47
 msgid "Text"
 msgstr "Texto"
 
-#: dist/capture/captureTools.js:47
+#: dist/capture/captureTools.js:48
 msgid "Numbered marker"
 msgstr "Marcador numerado"
 
-#: dist/capture/captureTools.js:111 dist/capture/captureTools.js:344
+#: dist/capture/captureTools.js:113 dist/capture/captureTools.js:366
 msgid "Extract text"
 msgstr "Extrair texto"
 
-#: dist/capture/captureTools.js:264
+#: dist/capture/captureTools.js:268 dist/capture/captureTools.js:289
 msgid "Screenshot failed"
 msgstr "Falha na captura de tela"
 
-#: dist/capture/captureTools.js:264
+#: dist/capture/captureTools.js:268 dist/capture/captureTools.js:289
 msgid "Could not export the annotated screenshot"
 msgstr "Não foi possível exportar a captura de tela anotada"
 
-#: dist/capture/captureTools.js:279
+#: dist/capture/captureTools.js:301
 msgid "Move toolbar"
 msgstr "Mover barra de ferramentas"
 
-#: dist/capture/captureTools.js:303
+#: dist/capture/captureTools.js:325
 msgid "Annotation color"
 msgstr "Cor da anotação"
 
-#: dist/capture/captureTools.js:319
+#: dist/capture/captureTools.js:341
 msgid "Annotation width"
 msgstr "Espessura da anotação"
 
-#: dist/capture/captureTools.js:331
+#: dist/capture/captureTools.js:353
 msgid "Undo"
 msgstr "Desfazer"
 
-#: dist/capture/captureTools.js:334
+#: dist/capture/captureTools.js:356
 msgid "Clear annotations"
 msgstr "Limpar anotações"
 
-#: dist/capture/captureTools.js:358 dist/capture/captureTools.js:362
+#: dist/capture/captureTools.js:380 dist/capture/captureTools.js:384
 msgid "Copy text"
 msgstr "Copiar texto"
 
-#: dist/capture/captureTools.js:363 dist/capture/captureTools.js:367
+#: dist/capture/captureTools.js:385 dist/capture/captureTools.js:389
 msgid "Search the web"
 msgstr "Pesquisar na web"
 
-#: dist/capture/captureTools.js:478
+#: dist/capture/captureTools.js:501
 msgid "Type annotation text"
 msgstr "Digite o texto da anotação"
 
-#: dist/capture/captureTools.js:520 dist/capture/captureTools.js:551
-#: dist/capture/captureTools.js:574
+#: dist/capture/captureTools.js:543 dist/capture/captureTools.js:574
+#: dist/capture/captureTools.js:597
 msgid "OCR"
 msgstr "OCR"
 
-#: dist/capture/captureTools.js:520
+#: dist/capture/captureTools.js:543
 msgid "No text found in the screenshot"
 msgstr "Nenhum texto encontrado na captura de tela"
 
-#: dist/capture/captureTools.js:534
+#: dist/capture/captureTools.js:557
 msgid "OCR unavailable"
 msgstr "OCR indisponível"
 
-#: dist/capture/captureTools.js:534
+#: dist/capture/captureTools.js:557
 msgid "Tesseract OCR and language data are not installed"
 msgstr "O Tesseract OCR e os dados de idioma não estão instalados"
 
-#: dist/capture/captureTools.js:537
+#: dist/capture/captureTools.js:560
 msgid "OCR failed"
 msgstr "Falha no OCR"
 
-#: dist/capture/captureTools.js:537
+#: dist/capture/captureTools.js:560
 msgid "Text recognition failed"
 msgstr "Falha no reconhecimento de texto"
 
-#: dist/capture/captureTools.js:551
+#: dist/capture/captureTools.js:574
 msgid "Recognized text copied"
 msgstr "Texto reconhecido copiado"
 
-#: dist/capture/captureTools.js:574
+#: dist/capture/captureTools.js:597
 msgid "Could not open the web search"
 msgstr "Não foi possível abrir a pesquisa na web."
 
@@ -181,11 +181,11 @@ msgstr "Bing"
 msgid "Screenshot taken"
 msgstr "Captura de tela realizada"
 
-#: dist/capture/screenshotCapture.js:204
+#: dist/capture/screenshotCapture.js:205
 msgid "Screenshots"
 msgstr "Capturas de tela"
 
-#: dist/capture/screenshotCapture.js:212
+#: dist/capture/screenshotCapture.js:213
 #, javascript-format
 msgid "Screenshot From %s"
 msgstr "Captura de tela de %s"
@@ -229,24 +229,24 @@ msgstr "Intervalo de verificação (ms)"
 msgid "How often to check the clipboard for changes"
 msgstr "Frequência de verificação de alterações na área de transferência"
 
-#: dist/clipboard/clipboardItem.js:323
+#: dist/clipboard/clipboardItem.js:324
 #, javascript-format
 msgid "%d lines"
 msgstr "%d linhas"
 
-#: dist/clipboard/clipboardItem.js:382
+#: dist/clipboard/clipboardItem.js:383
 msgid "Copy"
 msgstr "Copiar"
 
-#: dist/clipboard/clipboardItem.js:385
+#: dist/clipboard/clipboardItem.js:386
 msgid "Unpin"
 msgstr "Desafixar"
 
-#: dist/clipboard/clipboardItem.js:385
+#: dist/clipboard/clipboardItem.js:386
 msgid "Pin"
 msgstr "Fixar"
 
-#: dist/clipboard/clipboardItem.js:388
+#: dist/clipboard/clipboardItem.js:389
 msgid "Delete"
 msgstr "Excluir"
 
@@ -258,12 +258,12 @@ msgstr "O histórico da área de transferência está vazio"
 msgid "Copy text, links, code, or images to see them here."
 msgstr "Copie textos, links, códigos ou imagens para vê-los aqui."
 
-#: dist/clipboard/clipboardPanel.js:40
+#: dist/clipboard/clipboardPanel.js:41
 msgid "Search…"
 msgstr "Pesquisar…"
 
 #: dist/desktop/trayIcons/backgroundAppsSource.js:109
-#: dist/dock/externalStorageIcon.js:237 dist/dock/trashIcon.js:94
+#: dist/dock/externalStorageIcon.js:249 dist/dock/trashIcon.js:107
 msgid "Open"
 msgstr "Abrir"
 
@@ -390,33 +390,61 @@ msgstr "Mostrar armazenamento externo"
 msgid "Show removable drives in the dock when they are connected"
 msgstr "Mostra unidades removíveis no dock quando estão conectadas"
 
-#: dist/dock/externalStorageIcon.js:237
+#: dist/dock/dock.manifest.js:45
+msgid "Icon Hover &amp; Press Effects"
+msgstr ""
+
+#: dist/dock/dock.manifest.js:46
+msgid "Animate dock icons on hover and click"
+msgstr ""
+
+#: dist/dock/dock.manifest.js:51
+msgid "Effect Intensity"
+msgstr ""
+
+#: dist/dock/dock.manifest.js:52
+msgid "How strong the hover and press effects are"
+msgstr ""
+
+#: dist/dock/dock.manifest.js:55
+msgid "Subtle"
+msgstr ""
+
+#: dist/dock/dock.manifest.js:56
+msgid "Balanced"
+msgstr ""
+
+#: dist/dock/dock.manifest.js:57
+msgid "Expressive"
+msgstr ""
+
+#: dist/dock/externalStorageIcon.js:249
 msgid "Mount and Open"
 msgstr "Montar e abrir"
 
-#: dist/dock/externalStorageIcon.js:241
+#: dist/dock/externalStorageIcon.js:253
 msgid "Eject"
 msgstr "Ejetar"
 
-#: dist/dock/externalStorageIcon.js:241
+#: dist/dock/externalStorageIcon.js:253
 msgid "Unmount"
 msgstr "Desmontar"
 
-#: dist/dock/externalStorageIcon.js:267
+#: dist/dock/externalStorageIcon.js:280
 #, javascript-format
 msgid "Failed to open “%s”"
 msgstr "Falha ao abrir “%s”"
 
-#: dist/dock/externalStorageIcon.js:318
+#: dist/dock/externalStorageIcon.js:332
 #, javascript-format
 msgid "Failed to eject “%s”"
 msgstr "Falha ao ejetar “%s”"
 
-#: dist/dock/trashIcon.js:39 dist/dock/trashIcon.js:49
+#: dist/dock/trashIcon.js:38 dist/dock/trashIcon.js:48
 msgid "Trash"
 msgstr "Lixeira"
 
-#: dist/dock/trashIcon.js:97
+#: dist/dock/trashIcon.js:110
 msgid "Empty Trash"
 msgstr "Esvaziar lixeira"
 
@@ -596,27 +624,27 @@ msgstr ""
 "Mostra o nível da bateria e ícones animados no painel de Configurações "
 "Rápidas do Bluetooth"
 
-#: dist/panel/clock/meetingClock/meetingClock.js:332
+#: dist/panel/clock/meetingClock/meetingClock.js:324
 msgid "Meeting starting soon"
 msgstr "Reunião começará em breve"
 
-#: dist/panel/clock/meetingClock/meetingClock.js:340
+#: dist/panel/clock/meetingClock/meetingClock.js:332
 msgid "Join"
 msgstr "Participar"
 
-#: dist/panel/clock/meetingClock/meetingClock.js:341
+#: dist/panel/clock/meetingClock/meetingClock.js:333
 msgid "Snooze"
 msgstr "Adiar"
 
-#: dist/panel/clock/meetingClock/meetingClock.js:342
+#: dist/panel/clock/meetingClock/meetingClock.js:334
 msgid "Dismiss"
 msgstr "Dispensar"
 
-#: dist/panel/clock/meetingClock/meetingClock.js:343
+#: dist/panel/clock/meetingClock/meetingClock.js:335
 msgid "Ignore"
 msgstr "Ignorar"
 
-#: dist/panel/clock/meetingClock/meetingClock.js:504
+#: dist/panel/clock/meetingClock/meetingClock.js:477
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:8
 msgid "Meeting Clock"
 msgstr "Relógio de reuniões"
@@ -721,35 +749,50 @@ msgid "Shows battery percentage in the panel while below 30%"
 msgstr ""
 "Mostra a porcentagem da bateria no painel enquanto estiver abaixo de 30%"
 
-#: dist/panel/volumeMixer/mixerItem.js:94
+#: dist/panel/volumeMixer/mixerItem.js:114
+msgid "Audio"
+msgstr "Áudio"
+
+#: dist/panel/volumeMixer/mixerItem.js:140
 msgid "Unknown"
 msgstr "Desconhecido"
 
-#: dist/panel/volumeMixer/mixerPanel.js:18
+#: dist/panel/volumeMixer/mixerPanel.js:29
 msgid "No audio playing"
 msgstr "Nenhum áudio em reprodução"
 
-#: dist/panel/volumeMixer/streamSlider.js:108
+#: dist/panel/volumeMixer/streamSlider.js:112
 msgid "Volume changed"
 msgstr "Volume alterado"
 
-#: dist/panel/volumeMixer/volumeMixer.js:76
+#: dist/panel/volumeMixer/volumeMixer.js:77
 msgid "Sound Settings"
 msgstr "Configurações de som"
 
-#: dist/panel/volumeMixer/volumeMixer.js:94
-#: dist/panel/volumeMixer/volumeMixer.js:104
+#: dist/panel/volumeMixer/volumeMixer.js:95
+#: dist/panel/volumeMixer/volumeMixer.js:114
 #: dist/panel/volumeMixer/volumeMixer.manifest.js:8
 msgid "Volume Mixer"
 msgstr "Mixer de Volume"
 
-#: dist/panel/volumeMixer/volumeMixer.js:114
+#: dist/panel/volumeMixer/volumeMixer.js:124
 msgid "Sound Output"
 msgstr "Saída de som"
 
 #: dist/panel/volumeMixer/volumeMixer.manifest.js:9
 msgid "Per-application volume control in Quick Settings"
 msgstr "Controle de volume por aplicativo nas Configurações Rápidas"
+
+#: dist/panel/volumeMixer/volumeMixer.manifest.js:13
+msgid "Always Show"
+msgstr "Sempre mostrar"
+
+#: dist/panel/volumeMixer/volumeMixer.manifest.js:14
+msgid ""
+"Show the Volume Mixer button even when no applications are playing audio"
+msgstr ""
+"Mostrar o botão do Mixer de Volume mesmo quando nenhum aplicativo estiver "
+"reproduzindo áudio"
 
 #: dist/patches/appSearchTooltip.manifest.js:8
 msgid "App Search Tooltip"
@@ -796,7 +839,9 @@ msgstr "PiP Sempre no Topo"
 
 #: dist/patches/pipOnTop.manifest.js:9
 msgid "Keeps Picture-in-Picture windows above others across workspaces"
-msgstr "Mantém janelas Picture-in-Picture acima das demais em todas as áreas de trabalho"
+msgstr ""
+"Mantém janelas Picture-in-Picture acima das demais em todas as áreas de "
+"trabalho"
 
 #: dist/patches/velaVpnQuickSettings.manifest.js:8
 msgid "Vela VPN Quick Settings"
@@ -846,73 +891,73 @@ msgid "Menu Commands"
 msgstr "Comandos do menu"
 
 #: dist/preferences/commandListEditor.js:63
-#: dist/preferences/commandListEditor.js:203
+#: dist/preferences/commandListEditor.js:230
 msgid "Add Command"
 msgstr "Adicionar comando"
 
-#: dist/preferences/commandListEditor.js:75
+#: dist/preferences/commandListEditor.js:86
 msgid "No commands yet"
 msgstr "Nenhum comando ainda"
 
-#: dist/preferences/commandListEditor.js:76
+#: dist/preferences/commandListEditor.js:87
 msgid "Use Add Command to create a shortcut in Aurora Menu"
 msgstr "Use Adicionar comando para criar um atalho no Menu Aurora"
 
-#: dist/preferences/commandListEditor.js:120
+#: dist/preferences/commandListEditor.js:147
 msgid "Move Up"
 msgstr "Mover para cima"
 
-#: dist/preferences/commandListEditor.js:121
+#: dist/preferences/commandListEditor.js:148
 msgid "Move Down"
 msgstr "Mover para baixo"
 
-#: dist/preferences/commandListEditor.js:122
-#: dist/preferences/commandListEditor.js:203
+#: dist/preferences/commandListEditor.js:149
+#: dist/preferences/commandListEditor.js:230
 msgid "Edit Command"
 msgstr "Editar comando"
 
-#: dist/preferences/commandListEditor.js:123
+#: dist/preferences/commandListEditor.js:150
 msgid "Remove Command"
 msgstr "Remover comando"
 
-#: dist/preferences/commandListEditor.js:142
+#: dist/preferences/commandListEditor.js:169
 msgid "Name"
 msgstr "Nome"
 
-#: dist/preferences/commandListEditor.js:147
+#: dist/preferences/commandListEditor.js:174
 msgid "Command"
 msgstr "Comando"
 
-#: dist/preferences/commandListEditor.js:164
+#: dist/preferences/commandListEditor.js:191
 msgid "The name cannot contain “|”"
 msgstr "O nome não pode conter “|”"
 
-#: dist/preferences/commandListEditor.js:179
+#: dist/preferences/commandListEditor.js:206
 msgid "Choose the name shown in Aurora Menu and the command to run."
 msgstr "Escolha o nome exibido no Menu Aurora e o comando a ser executado."
 
-#: dist/preferences/commandListEditor.js:190
+#: dist/preferences/commandListEditor.js:217
 msgid "Save"
 msgstr "Salvar"
 
-#: dist/preferences/commandListEditor.js:190
+#: dist/preferences/commandListEditor.js:217
 msgid "Add"
 msgstr "Adicionar"
 
-#: dist/preferences/commandListEditor.js:239
+#: dist/preferences/commandListEditor.js:266
 msgid "Remove Command?"
 msgstr "Remover comando?"
 
-#: dist/preferences/commandListEditor.js:240
+#: dist/preferences/commandListEditor.js:267
 #, javascript-format
 msgid "“%s” will be removed from Aurora Menu."
 msgstr "“%s” será removido do Menu Aurora."
 
-#: dist/preferences/commandListEditor.js:245
+#: dist/preferences/commandListEditor.js:272
 msgid "Cancel"
 msgstr "Cancelar"
 
-#: dist/preferences/commandListEditor.js:246
+#: dist/preferences/commandListEditor.js:273
 msgid "Remove"
 msgstr "Remover"
 

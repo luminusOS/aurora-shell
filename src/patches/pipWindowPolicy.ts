@@ -1,4 +1,4 @@
-const PIP_TITLES = new Set(['picture-in-picture', 'picture in picture']);
+const PIP_TITLE_SUFFIX = /(?:^|\s[-|:]\s)(?:picture[- ]in[- ]picture|pip)$/;
 
 export interface PipWindowState {
   isAbove(): boolean;
@@ -17,8 +17,11 @@ export interface PipWindowOwnership {
 export function isPipTitle(title: string | null): boolean {
   if (!title) return false;
 
-  const normalizedTitle = title.trim().toLowerCase();
-  return PIP_TITLES.has(normalizedTitle) || normalizedTitle.endsWith(' - pip');
+  const normalizedTitle = title
+    .trim()
+    .toLowerCase()
+    .replace(/[\u2010-\u2015]/g, '-');
+  return PIP_TITLE_SUFFIX.test(normalizedTitle);
 }
 
 export function enforcePipWindow(

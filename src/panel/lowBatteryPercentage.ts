@@ -4,6 +4,7 @@ import { gettext as _ } from '~/shared/i18n.ts';
 import Gio from '@girs/gio-2.0';
 
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { Module } from '~/module.ts';
 import type { SettingsManager } from '~/core/settings.ts';
@@ -21,7 +22,7 @@ const DISCHARGING_STATE = 2;
 export class LowBatteryPercentage extends Module {
   private _desktopSettings: SettingsManager | null = null;
   private _proxy: Gio.DBusProxy | null = null;
-  private _propertiesChangedId = 0;
+  private _lifecycle: LifecycleScope | null = null;
   private _managedBatteryPercentage = false;
 
   constructor(context: ExtensionContext) {
@@ -30,6 +31,7 @@ export class LowBatteryPercentage extends Module {
 
   override enable(): void {
     this.disable();
+    this._lifecycle = new LifecycleScope();
 
     this._desktopSettings = this.context.settings.getSchema(DESKTOP_INTERFACE_SCHEMA);
 
@@ -39,16 +41,13 @@ export class LowBatteryPercentage extends Module {
       return;
     }
 
-    this._propertiesChangedId = this._proxy.connect('g-properties-changed', () => this._sync());
+    this._lifecycle.connect(this._proxy, 'g-properties-changed', () => this._sync());
     this._sync();
   }
 
   override disable(): void {
-    if (this._propertiesChangedId && this._proxy) {
-      this._proxy.disconnect(this._propertiesChangedId);
-      this._propertiesChangedId = 0;
-    }
-
+    this._lifecycle?.dispose();
+    this._lifecycle = null;
     this._proxy = null;
     this._restoreManagedBatteryPercentage();
     this._desktopSettings = null;
@@ -87,7 +86,9 @@ export class LowBatteryPercentage extends Module {
       );
 
       const result = proxy.call_sync('EnumerateDevices', null, Gio.DBusCallFlags.NONE, 500, null);
-      const devices = (result?.get_child_value(0).deep_unpack() as string[] | undefined) ?? [];
+      if (!result) return null;
+
+      const devices = result.get_child_value(0).deep_unpack() as string[];
       return devices.find((path) => /battery/i.test(path)) ?? null;
     } catch (e) {
       logger.debug(`Could not enumerate UPower devices: ${e}`, { prefix: LOG_PREFIX });

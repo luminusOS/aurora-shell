@@ -6,6 +6,26 @@ export type IconWeaveScoreInput = {
   title: string;
 };
 
+export type IconWeaveRegistration = { windowId: number; appId: string };
+
+export function registerIconWeaveWindow(
+  registrations: ReadonlyMap<number, string>,
+  registration: IconWeaveRegistration,
+): Map<number, string> {
+  const next = new Map(registrations);
+  next.set(registration.windowId, registration.appId);
+  return next;
+}
+
+export function unregisterIconWeaveWindow(
+  registrations: ReadonlyMap<number, string>,
+  windowId: number,
+): Map<number, string> {
+  const next = new Map(registrations);
+  next.delete(windowId);
+  return next;
+}
+
 const SHORT_ID_MIN_COVERAGE = 0.45;
 
 export function scoreIconWeaveCandidate(input: IconWeaveScoreInput): number {

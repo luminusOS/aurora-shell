@@ -5,6 +5,7 @@ import {
   derivePanelPresentation,
   extractMeetingUrl,
   getDueAlertEvents,
+  getNextAlertEpoch,
   normalizeCalendarServerEvent,
   type MeetingEvent,
 } from '../../src/panel/clock/meetingClock/meetingClockLogic.ts';
@@ -46,6 +47,30 @@ test('meetingClock — normalizes CalendarServer events and detects meeting URL'
   assert.strictEqual(normalized.sourceId, 'calendar-1');
   assert.strictEqual(normalized.sourceName, 'Work');
   assert.strictEqual(normalized.meetingUrl, 'https://meet.google.com/abc-defg-hij');
+});
+
+test('meetingClock — calculates the next alert across lead time and snooze state', () => {
+  const now = 1_000;
+  const first = event({
+    id: 'first',
+    startEpochSeconds: 1_900,
+    endEpochSeconds: 2_200,
+    meetingUrl: 'https://meet.example/first',
+  });
+  const second = event({
+    id: 'second',
+    startEpochSeconds: 2_500,
+    endEpochSeconds: 2_800,
+    meetingUrl: 'https://meet.example/second',
+  });
+  const next = getNextAlertEpoch([second, first], now, {
+    alertsEnabled: true,
+    alertMinutesBefore: 10,
+    alertEventsWithoutLink: false,
+    excludeAllDayEvents: false,
+    snoozedUntilByEventId: new Map([['first', 1_450]]),
+  });
+  assert.equal(next, 1_450);
 });
 
 test('meetingClock — prefers video meeting URLs over generic links', () => {

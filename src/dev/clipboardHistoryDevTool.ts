@@ -120,10 +120,11 @@ export class ClipboardHistoryDevTool {
     return panel;
   }
 
-  destroy(): void {}
-
   openPanel(): boolean {
-    return this._getClipboardHistory()?.openPanel() ?? false;
+    const clipboard = this._getClipboardHistory();
+    if (!clipboard) return false;
+
+    return clipboard.openPanel();
   }
 
   addRandomMessage(): string | null {
@@ -180,18 +181,25 @@ export class ClipboardHistoryDevTool {
 
   clearHistory(): boolean {
     const clipboard = this._getClipboardHistory();
-    if (!clipboard?.clearHistory()) return false;
+    if (!clipboard) return false;
+    if (!clipboard.clearHistory()) return false;
 
     this._requestMenuRebuild();
     return true;
   }
 
   get entryCount(): number {
-    return this._getClipboardHistory()?.entryCount ?? 0;
+    const clipboard = this._getClipboardHistory();
+    if (!clipboard) return 0;
+
+    return clipboard.entryCount;
   }
 
   get isPanelOpen(): boolean {
-    return this._getClipboardHistory()?.isPanelOpen ?? false;
+    const clipboard = this._getClipboardHistory();
+    if (!clipboard) return false;
+
+    return clipboard.isPanelOpen;
   }
 
   private _getClipboardHistory(): ClipboardHistory | null {

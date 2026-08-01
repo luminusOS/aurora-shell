@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   decodeXml,
+  parseRecentXbel,
   parseCustomCommand,
   serializeCustomCommand,
   truncateMiddle,
@@ -16,6 +17,18 @@ test('Aurora Menu state — parses label and command around the first separator'
   assert.equal(parseCustomCommand('missing separator'), null);
   assert.equal(parseCustomCommand(' | missing label'), null);
   assert.equal(parseCustomCommand('missing command | '), null);
+});
+
+test('Aurora Menu state — parses, deduplicates and sorts recent XBEL bookmarks', () => {
+  const xml = `<xbel>
+    <bookmark href="file:///tmp/older.txt" modified="2026-01-01T10:00:00Z"><title>Older</title></bookmark>
+    <bookmark href="https://example.com" modified="2026-01-02T10:00:00Z"><title>Example &amp; Docs</title></bookmark>
+    <bookmark href="https://example.com" modified="2026-01-03T10:00:00Z"><title>Duplicate</title></bookmark>
+  </xbel>`;
+  assert.deepEqual(
+    parseRecentXbel(xml, 10).map((item) => item.title),
+    ['Example & Docs', 'Older'],
+  );
 });
 
 test('Aurora Menu state — serializes custom commands in the settings format', () => {

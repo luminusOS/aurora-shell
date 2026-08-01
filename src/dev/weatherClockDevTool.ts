@@ -120,12 +120,17 @@ export class WeatherClockDevTool {
   }
 
   clearWeather(): void {
-    this._getWeatherClock()?.clearWeatherSnapshot(DEVTOOL_SOURCE_KEY);
+    const weatherClock = this._getWeatherClock();
+    if (weatherClock) weatherClock.clearWeatherSnapshot(DEVTOOL_SOURCE_KEY);
+
     this._requestMenuRebuild();
   }
 
   get isVisible(): boolean {
-    return this._getWeatherClock()?.isVisible ?? false;
+    const weatherClock = this._getWeatherClock();
+    if (!weatherClock) return false;
+
+    return weatherClock.isVisible;
   }
 
   private _setSnapshot(snapshot: Parameters<WeatherClock['setWeatherSnapshot']>[1]): boolean {

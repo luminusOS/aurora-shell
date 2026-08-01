@@ -7,6 +7,7 @@
  *  - After enable, an actor with CSS class "aurora-volume-mixer" is attached
  *    inside the OutputStreamSlider's menu (I15)
  *  - After disable, the actor is destroyed and no longer present (I16)
+ *  - "Always Show" overrides contextual toggle visibility (I17)
  *
  * If no OutputStreamSlider is present in the headless environment, the test
  * skips the attachment assertions gracefully and only verifies the lifecycle.
@@ -26,7 +27,7 @@ const MIXER_CSS_CLASS = 'aurora-volume-mixer';
 function findOutputSlider() {
   const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
   if (!grid) return null;
-  return grid.get_children().find(c => c.constructor.name === 'OutputStreamSlider') ?? null;
+  return grid.get_children().find((c) => c.constructor.name === 'OutputStreamSlider') ?? null;
 }
 
 function findMixerPanelInSlider(slider) {
@@ -42,13 +43,27 @@ function findMixerPanelInSlider(slider) {
   return null;
 }
 
+function findMixerToggle(slider) {
+  return (
+    slider?.child?.get_children?.().find((child) => child.accessible_name === 'Volume Mixer') ??
+    null
+  );
+}
+
 export var METRICS = {};
 
 /** @returns {void} */
 export function init() {
-  Scripting.defineScriptEvent('mixerAttached', 'aurora-volume-mixer found in OutputStreamSlider menu');
+  Scripting.defineScriptEvent(
+    'mixerAttached',
+    'aurora-volume-mixer found in OutputStreamSlider menu',
+  );
   Scripting.defineScriptEvent('mixerRemoved', 'aurora-volume-mixer removed after disable');
-  Scripting.defineScriptEvent('lifecycleOk', 'enable/disable cycle completed (no slider in environment)');
+  Scripting.defineScriptEvent('visibilityOk', 'Volume Mixer contextual visibility works');
+  Scripting.defineScriptEvent(
+    'lifecycleOk',
+    'enable/disable cycle completed (no slider in environment)',
+  );
 }
 
 /** @returns {Promise<void>} */
@@ -81,9 +96,27 @@ export async function run() {
   // I15 — mixer panel must be attached inside the slider menu
   const panelAfterEnable = findMixerPanelInSlider(slider);
   if (!panelAfterEnable)
-    throw new Error(`No actor with CSS class "${MIXER_CSS_CLASS}" found in OutputStreamSlider menu`);
+    throw new Error(
+      `No actor with CSS class "${MIXER_CSS_CLASS}" found in OutputStreamSlider menu`,
+    );
 
   Scripting.scriptEvent('mixerAttached');
+
+  // I17 — Always Show must reveal the toggle; contextual mode must then match
+  // whether the panel has any adjustable application streams.
+  const mixerToggle = findMixerToggle(slider);
+  if (!mixerToggle) throw new Error('Volume Mixer toggle was not attached to OutputStreamSlider');
+
+  auroraSettings.set_boolean('volume-mixer-always-show', true);
+  await Scripting.waitLeisure();
+  if (!mixerToggle.visible) throw new Error('Always Show did not reveal the Volume Mixer toggle');
+
+  auroraSettings.set_boolean('volume-mixer-always-show', false);
+  await Scripting.waitLeisure();
+  if (mixerToggle.visible !== panelAfterEnable.should_show)
+    throw new Error('Volume Mixer toggle visibility does not match adjustable stream availability');
+
+  Scripting.scriptEvent('visibilityOk');
 
   // I16 — disable module; panel must be gone
   auroraSettings.set_boolean('module-volume-mixer', false);
@@ -105,15 +138,27 @@ export async function run() {
 let _mixerAttached = false;
 let _mixerRemoved = false;
 let _lifecycleOk = false;
+let _visibilityOk = false;
 
 /** @returns {void} */
-export function script_mixerAttached() { _mixerAttached = true; }
+export function script_mixerAttached() {
+  _mixerAttached = true;
+}
 
 /** @returns {void} */
-export function script_mixerRemoved() { _mixerRemoved = true; }
+export function script_mixerRemoved() {
+  _mixerRemoved = true;
+}
 
 /** @returns {void} */
-export function script_lifecycleOk() { _lifecycleOk = true; }
+export function script_lifecycleOk() {
+  _lifecycleOk = true;
+}
+
+/** @returns {void} */
+export function script_visibilityOk() {
+  _visibilityOk = true;
+}
 
 /** @returns {void} */
 export function finish() {
@@ -122,4 +167,6 @@ export function finish() {
     throw new Error('VolumeMixer module test did not complete — shell may have crashed');
   if (_mixerAttached && !_mixerRemoved)
     throw new Error('aurora-volume-mixer actor was not removed after module was disabled');
+  if (_mixerAttached && !_visibilityOk)
+    throw new Error('Volume Mixer contextual visibility was not verified');
 }

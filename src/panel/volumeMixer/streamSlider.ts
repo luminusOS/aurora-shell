@@ -7,6 +7,8 @@ import GLib from '@girs/glib-2.0';
 
 import { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
 import type { ExtensionContext } from '~/core/context.ts';
+import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 
 const ALLOW_AMPLIFIED_VOLUME_KEY = 'allow-volume-above-100-percent';
 
@@ -22,11 +24,10 @@ const ALLOW_AMPLIFIED_VOLUME_KEY = 'allow-volume-above-100-percent';
 })
 export class ApplicationStreamSlider extends QuickSlider {
   declare private _control: Gvc.MixerControl;
-  declare private _notifyVolumeChangeId: number;
+  declare private _lifecycle: LifecycleScope;
+  declare private _notifyVolumeChange: ManagedSource;
   declare private _volumeCancellable: Gio.Cancellable | null;
   declare private _showIcon: boolean;
-  declare private _dragBeginId: number;
-  declare private _dragEndId: number;
   declare private _soundSettings: Gio.Settings;
   declare private _stream: Gvc.MixerStream | null;
   declare private _inDrag: boolean;
@@ -40,12 +41,12 @@ export class ApplicationStreamSlider extends QuickSlider {
     showIcon?: boolean,
   ): void {
     this._control = control!;
-    this._notifyVolumeChangeId = 0;
     this._volumeCancellable = null;
     this._showIcon = showIcon ?? false;
-    this._dragBeginId = 0;
-    this._dragEndId = 0;
     super._init();
+    this._lifecycle = new LifecycleScope();
+    this._notifyVolumeChange = createManagedSource(this._lifecycle);
+    this._lifecycle.onDispose(() => this._volumeCancellable?.cancel());
 
     this._soundSettings = (context as ExtensionContext).settings
       .getSchema('org.gnome.desktop.sound')
@@ -58,17 +59,19 @@ export class ApplicationStreamSlider extends QuickSlider {
     this._updateAllowAmplified();
 
     this.iconReactive = true;
-    this.connect('icon-clicked', () => {
+    this._lifecycle.connect(this, 'icon-clicked', () => {
       if (!this._stream) return;
       this._stream.change_is_muted(!this._stream.is_muted);
     });
 
     this._inDrag = false;
-    this._sliderChangedId = this.slider.connect('notify::value', () => this._sliderChanged());
-    this._dragBeginId = this.slider.connect('drag-begin', () => {
+    this._sliderChangedId = this._lifecycle.connect(this.slider, 'notify::value', () =>
+      this._sliderChanged(),
+    );
+    this._lifecycle.connect(this.slider, 'drag-begin', () => {
       this._inDrag = true;
     });
-    this._dragEndId = this.slider.connect('drag-end', () => {
+    this._lifecycle.connect(this.slider, 'drag-end', () => {
       this._inDrag = false;
     });
 
@@ -172,12 +175,14 @@ export class ApplicationStreamSlider extends QuickSlider {
     }
     this._stream.push_volume();
 
-    if (volumeChanged && !this._notifyVolumeChangeId && !this._inDrag) {
-      this._notifyVolumeChangeId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 30, () => {
-        this._feedbackVolumeChange();
-        this._notifyVolumeChangeId = 0;
-        return GLib.SOURCE_REMOVE;
-      });
+    if (volumeChanged && !this._notifyVolumeChange.active && !this._inDrag) {
+      this._notifyVolumeChange.replace(() =>
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 30, () => {
+          this._feedbackVolumeChange();
+          this._notifyVolumeChange.complete();
+          return GLib.SOURCE_REMOVE;
+        }),
+      );
     }
   }
 
@@ -191,27 +196,12 @@ export class ApplicationStreamSlider extends QuickSlider {
   }
 
   override destroy(): void {
-    if (this._notifyVolumeChangeId) {
-      GLib.Source.remove(this._notifyVolumeChangeId);
-      this._notifyVolumeChangeId = 0;
-    }
+    this._lifecycle.dispose();
     if (this._volumeCancellable) {
       this._volumeCancellable.cancel();
       this._volumeCancellable = null;
     }
-    if (this._sliderChangedId) {
-      this.slider.disconnect(this._sliderChangedId);
-      this._sliderChangedId = 0;
-    }
-    if (this._dragBeginId) {
-      this.slider.disconnect(this._dragBeginId);
-      this._dragBeginId = 0;
-    }
-    if (this._dragEndId) {
-      this.slider.disconnect(this._dragEndId);
-      this._dragEndId = 0;
-    }
-    this._soundSettings?.disconnectObject(this);
+    this._soundSettings.disconnectObject(this);
     this._stream?.disconnectObject(this);
     super.destroy();
   }

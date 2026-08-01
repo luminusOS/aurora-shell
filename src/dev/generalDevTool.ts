@@ -31,8 +31,6 @@ export class GeneralDevTool {
     return panel;
   }
 
-  destroy(): void {}
-
   openPreferences(): void {
     this._openPreferences();
   }

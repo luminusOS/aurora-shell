@@ -237,3 +237,7 @@ test('schema — Dock defaults to the primary monitor only', () => {
 test('schema — Dock uses always auto-hide by default', () => {
   assert.equal(schemaDefault('dock-intellihide'), 'false');
 });
+
+test('schema — Volume Mixer button is contextual by default', () => {
+  assert.equal(schemaDefault('volume-mixer-always-show'), 'false');
+});

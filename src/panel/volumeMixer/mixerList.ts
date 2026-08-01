@@ -90,6 +90,7 @@ export class VolumeMixerList extends St.BoxLayout {
     const slider = this._sliders.get(id);
     if (!slider) return;
     slider.syncStream();
+    this._sync();
   }
 
   private _streamRemoved(id: number): void {
@@ -101,16 +102,16 @@ export class VolumeMixerList extends St.BoxLayout {
   }
 
   private _sync(): void {
-    if (!this._sliders.size) {
-      this.shouldShow = false;
-      return;
+    const visibleSliders = [...this._sliders.values()].filter((slider) => slider.visible);
+    const groups = new Map<string, VolumeMixerItem[]>();
+    for (const slider of visibleSliders) {
+      const group = groups.get(slider.identityKey) ?? [];
+      group.push(slider);
+      groups.set(slider.identityKey, group);
     }
-    for (const slider of this._sliders.values()) {
-      if (slider.visible) {
-        this.shouldShow = true;
-        return;
-      }
-    }
-    this.shouldShow = false;
+    for (const group of groups.values())
+      group.forEach((slider, index) => slider.setDuplicatePosition(index + 1, group.length));
+
+    this.shouldShow = visibleSliders.length > 0;
   }
 }

@@ -52,10 +52,10 @@ export function hasOverlap(rectangles: Rectangle[], target: Rectangle): boolean 
  * visibly above it.
  *
  * Windows excluded from the smart-reveal exception (such as PiP) are skipped
- * while selecting that foreground window. The next eligible window underneath
- * remains authoritative, so a fullscreen background still keeps the dock
- * hidden. If every candidate is excluded, the dock remains hidden: an excluded
- * foreground window must never become the reason for revealing it.
+ * while selecting that foreground window. A focused excluded window blocks
+ * smart reveal unconditionally; otherwise the next eligible window underneath
+ * remains authoritative. If every candidate is excluded, the dock also remains
+ * hidden: an excluded foreground window must never reveal it.
  */
 export function getBlockingOverlapState(
   candidates: OverlapCandidate[],
@@ -64,6 +64,9 @@ export function getBlockingOverlapState(
 ): BlockingOverlapState {
   const smartRevealCandidates = candidates.filter(
     (candidate) => candidate.excludedFromSmartReveal !== true,
+  );
+  const focusedCandidatePreventsSmartReveal = candidates.some(
+    (candidate) => candidate.focused === true && candidate.excludedFromSmartReveal === true,
   );
   const focusedCandidates = smartRevealCandidates.filter((candidate) => candidate.focused === true);
   const hasExplicitTopmostCandidate = candidates.some((candidate) => candidate.topmost === true);
@@ -78,6 +81,7 @@ export function getBlockingOverlapState(
           : candidates;
   const rectangles = blockingCandidates.map((candidate) => candidate.rectangle);
   const hasExclusiveWindow =
+    focusedCandidatePreventsSmartReveal ||
     blockingCandidates.some((candidate) => candidate.fullscreen === true) ||
     (blockingCandidates.length === 0 && monitorFullscreen) ||
     (candidates.length > 0 && smartRevealCandidates.length === 0);
