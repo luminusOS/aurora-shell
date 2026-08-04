@@ -162,6 +162,9 @@ export class CaptureTools extends Module {
     for (const button of [ui._shotButton, ui._castButton]) {
       scope.connect(button, 'notify::checked', () => this._syncVisibility());
     }
+    scope.connect(ui._castButton, 'notify::checked', () => {
+      if (ui._castButton.checked) ui._showPointerButton.checked = true;
+    });
 
     for (const button of [ui._selectionButton, ui._screenButton, ui._windowButton]) {
       scope.connect(button, 'notify::checked', () => ocr.clear());

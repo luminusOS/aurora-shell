@@ -3,6 +3,7 @@ export type Rectangle = { x: number; y: number; width: number; height: number };
 export type ToolbarPlacement = {
   monitor: Rectangle;
   selection: Rectangle;
+  protectedArea?: Rectangle;
   toolbar: {
     width: number;
     height: number;
@@ -52,7 +53,7 @@ export function findMonitorForSelection(
 export function calculateToolbarTranslation(
   placement: ToolbarPlacement,
 ): ToolbarTranslation | null {
-  const { monitor, selection, toolbar, margin } = placement;
+  const { monitor, selection, protectedArea, toolbar, margin } = placement;
   const coordinates = [
     monitor.x,
     monitor.y,
@@ -80,6 +81,7 @@ export function calculateToolbarTranslation(
     toolbar.height <= 0
   )
     return null;
+  if (protectedArea && !isValidRectangle(protectedArea)) return null;
 
   const anchorX = toolbar.stageX - toolbar.translationX;
   const anchorY = toolbar.stageY - toolbar.translationY;
@@ -94,11 +96,50 @@ export function calculateToolbarTranslation(
   if (desiredY < monitor.y) desiredY = selection.y + selection.height + margin;
   desiredY = Math.max(monitor.y, Math.min(desiredY, monitor.y + monitor.height - toolbar.height));
 
+  if (
+    protectedArea &&
+    rectanglesOverlap(
+      { x: desiredX, y: desiredY, width: toolbar.width, height: toolbar.height },
+      protectedArea,
+    )
+  ) {
+    const candidates = [
+      protectedArea.y - toolbar.height - margin,
+      protectedArea.y + protectedArea.height + margin,
+    ].filter((candidateY) => {
+      const toolbarRectangle = {
+        x: desiredX,
+        y: candidateY,
+        width: toolbar.width,
+        height: toolbar.height,
+      };
+      return (
+        candidateY >= monitor.y &&
+        candidateY + toolbar.height <= monitor.y + monitor.height &&
+        !rectanglesOverlap(toolbarRectangle, protectedArea)
+      );
+    });
+
+    if (candidates.length > 0) {
+      candidates.sort((first, second) => Math.abs(first - desiredY) - Math.abs(second - desiredY));
+      desiredY = candidates[0]!;
+    }
+  }
+
   const translation = {
     x: Math.round(desiredX - anchorX),
     y: Math.round(desiredY - anchorY),
   };
   return Number.isFinite(translation.x) && Number.isFinite(translation.y) ? translation : null;
+}
+
+function rectanglesOverlap(first: Rectangle, second: Rectangle): boolean {
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
 }
 
 function isValidRectangle(rectangle: Rectangle): boolean {

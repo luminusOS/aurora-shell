@@ -35,6 +35,17 @@ function resolvedIconPath(button) {
   return path;
 }
 
+function actorsOverlap(first, second) {
+  const firstBox = first.get_transformed_extents();
+  const secondBox = second.get_transformed_extents();
+  return (
+    firstBox.get_x() < secondBox.get_x() + secondBox.get_width() &&
+    firstBox.get_x() + firstBox.get_width() > secondBox.get_x() &&
+    firstBox.get_y() < secondBox.get_y() + secondBox.get_height() &&
+    firstBox.get_y() + firstBox.get_height() > secondBox.get_y()
+  );
+}
+
 export var METRICS = {};
 
 export function init() {
@@ -43,6 +54,14 @@ export function init() {
   Scripting.defineScriptEvent(
     'externalMonitorPlacement',
     'Floating toolbar follows a selection onto an external monitor',
+  );
+  Scripting.defineScriptEvent(
+    'nativeControlsAvoided',
+    'Floating toolbar avoids the native screenshot controls',
+  );
+  Scripting.defineScriptEvent(
+    'recordingPointerEnabled',
+    'Screen recording enables pointer capture automatically',
   );
   Scripting.defineScriptEvent('drawingMode', 'Drawing tool activates the capture canvas');
   Scripting.defineScriptEvent(
@@ -147,6 +166,42 @@ export async function run() {
     throw new Error('Capture toolbar produced a non-finite translation');
   if (!toolbar.has_style_class_name('screenshot-ui-panel'))
     throw new Error('Capture toolbar does not use the native screenshot panel styling');
+
+  ui._showPointerButton.checked = false;
+  ui._castButton.checked = true;
+  await Scripting.sleep(50);
+  if (!ui._showPointerButton.checked)
+    throw new Error('Record Screen did not enable pointer capture automatically');
+  ui._shotButton.checked = true;
+  await Scripting.sleep(50);
+  Scripting.scriptEvent('recordingPointerEnabled');
+
+  const primaryMonitor = Main.layoutManager.primaryMonitor;
+  const originalPrimarySelection = [
+    ui._areaSelector._startX,
+    ui._areaSelector._startY,
+    ui._areaSelector._lastX,
+    ui._areaSelector._lastY,
+  ];
+  ui._areaSelector._startX = primaryMonitor.x + 1;
+  ui._areaSelector._startY = primaryMonitor.y + 1;
+  ui._areaSelector._lastX = primaryMonitor.x + primaryMonitor.width - 1;
+  ui._areaSelector._lastY = primaryMonitor.y + primaryMonitor.height - 1;
+  ui._areaSelector._updateSelectionRect();
+  ui._areaSelector.emit('drag-ended');
+  await Scripting.sleep(250);
+  if (actorsOverlap(toolbar, ui._panel))
+    throw new Error('Capture toolbar overlaps the native screenshot controls');
+  [
+    ui._areaSelector._startX,
+    ui._areaSelector._startY,
+    ui._areaSelector._lastX,
+    ui._areaSelector._lastY,
+  ] = originalPrimarySelection;
+  ui._areaSelector._updateSelectionRect();
+  ui._areaSelector.emit('drag-ended');
+  await Scripting.sleep(250);
+  Scripting.scriptEvent('nativeControlsAvoided');
 
   const externalMonitor = Main.layoutManager.monitors.find(
     (_monitor, index) => index !== Main.layoutManager.primaryIndex,
@@ -299,6 +354,8 @@ export async function run() {
 let _attachedOnce = false;
 let _visibleOnOpen = false;
 let _externalMonitorPlacement = false;
+let _nativeControlsAvoided = false;
+let _recordingPointerEnabled = false;
 let _drawingMode = false;
 let _lifecycleRestored = false;
 
@@ -314,6 +371,14 @@ export function script_externalMonitorPlacement() {
   _externalMonitorPlacement = true;
 }
 
+export function script_nativeControlsAvoided() {
+  _nativeControlsAvoided = true;
+}
+
+export function script_recordingPointerEnabled() {
+  _recordingPointerEnabled = true;
+}
+
 export function script_drawingMode() {
   _drawingMode = true;
 }
@@ -327,6 +392,10 @@ export function finish() {
   if (!_visibleOnOpen) throw new Error('Immediate toolbar visibility was not verified');
   if (!_externalMonitorPlacement)
     throw new Error('External-monitor toolbar placement was not verified');
+  if (!_nativeControlsAvoided)
+    throw new Error('Native screenshot control avoidance was not verified');
+  if (!_recordingPointerEnabled)
+    throw new Error('Automatic recording pointer selection was not verified');
   if (!_drawingMode) throw new Error('Capture Tools drawing mode was not verified');
   if (!_lifecycleRestored) throw new Error('Capture Tools lifecycle restoration was not verified');
 }
