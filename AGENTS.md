@@ -248,7 +248,7 @@ Apply these rules during implementation and review:
   separate application. If a subprocess is unavoidable, document why D-Bus is not practical and keep
   invocation local, explicit, cancellable, and free of shell interpretation.
 - Review every Shexli finding. Fix real ownership/lifecycle defects and record accepted manual-review
-  findings or analyzer false positives in `EGO_REVIEW.md`.
+  findings or analyzer false positives in `docs/extension-review.md`.
 
 - Never use patterns like `this.disconnectObject?.(this)` on objects that do not own that signal
   connection contract.
