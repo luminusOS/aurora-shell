@@ -90,7 +90,9 @@ Do not use the development package as a regular desktop installation.
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for information on project architecture, code style, and step-by-step instructions on how to add a new module.
+We welcome contributions. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and commit
+conventions, then use the [documentation index](docs/README.md) for architecture, development,
+module, and release guidance.
 
 ## Credits & Acknowledgements
 

@@ -1,4 +1,4 @@
-# EGO Review Notes
+# GNOME Extensions Review Notes
 
 This file records the Aurora Shell review baseline for
 [the GNOME Extensions review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)

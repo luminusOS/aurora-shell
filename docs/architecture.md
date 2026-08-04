@@ -1,4 +1,4 @@
-# Aurora Shell Architecture
+# Architecture
 
 Aurora Shell is a pragmatic modular GNOME Shell extension. Features remain grouped by functional
 area (`dock`, `panel`, `desktop`, `privacy`, `clipboard`, `theme`, `patches`, and `shared`) and use
@@ -76,6 +76,9 @@ and clock presentation.
 
 ## Adding A Module
 
+See [Adding and maintaining modules](modules.md) for the complete manifest, lifecycle, and coding
+guidance.
+
 1. Add `feature.manifest.ts` and the runtime implementation in the appropriate functional area.
 2. Import the manifest into `moduleCatalog.ts` in preference order.
 3. Associate its factory in `registry.ts`.
@@ -90,7 +93,8 @@ to match the schema exactly.
 
 Pure TypeScript logic belongs in `tests/unit`. St/Clutter/Main integration belongs in
 `tests/shell`. Architectural changes are accepted only after `just validate`, `just test unit`,
-`just shexli`, and `just toolbox test all`.
+`just shexli`, and `just toolbox test all`. See [Development and testing](development.md) for the
+full command reference.
 
 ## Packaging
 
