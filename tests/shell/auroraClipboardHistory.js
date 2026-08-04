@@ -177,6 +177,10 @@ export function init() {
   Scripting.defineScriptEvent('clipboardImageWritten', 'Clipboard image written for monitor test');
   Scripting.defineScriptEvent('textCardLayoutOk', 'Text card wraps without growing horizontally');
   Scripting.defineScriptEvent('codeBadgeLayoutOk', 'Code line badge does not increase card height');
+  Scripting.defineScriptEvent(
+    'pinnedHoverActionsOk',
+    'Hover reveals actions on history items when a pinned item exists',
+  );
   Scripting.defineScriptEvent('panelOpened', 'Clipboard panel opened inside work area');
   Scripting.defineScriptEvent(
     'autoPasteOk',
@@ -393,7 +397,8 @@ export async function run() {
 
   const textOverlay = findActorByStyle(longItem, 'aurora-clipboard-item-text-overlay');
   const textBody = findActorByStyle(longItem, 'aurora-clipboard-item-text-body');
-  if (!textOverlay || !textBody) {
+  const longTextLabel = findActorByStyle(longItem, 'aurora-clipboard-item-label');
+  if (!textOverlay || !textBody || !longTextLabel) {
     throw new Error('Text card content was not found');
   }
   if (textBody.width !== textOverlay.width) {
@@ -403,11 +408,8 @@ export async function run() {
   }
 
   const widthBeforeSelection = longItem.width;
-  if (longItem.height <= shortItem.height) {
-    throw new Error(
-      `Long text card did not expand vertically: short=${shortItem.height}, long=${longItem.height}`,
-    );
-  }
+  if (longTextLabel.clutter_text.get_layout().get_line_count() <= 1)
+    throw new Error('Long text card did not wrap onto multiple lines');
 
   const longItemIndex = list._items.indexOf(longItem);
   list.moveFocus(longItemIndex);
@@ -437,6 +439,7 @@ export async function run() {
   assertFloatingActions(longItem, 'aurora-clipboard-item-text-overlay');
 
   const shortItemIndex = list._items.indexOf(shortItem);
+  const shortHeightBeforeSelection = shortItem.height;
   list.moveFocus(shortItemIndex - longItemIndex);
   await Scripting.waitLeisure();
   await Scripting.sleep(100);
@@ -444,6 +447,11 @@ export async function run() {
   const shortActions = findActorByStyle(shortItem, 'aurora-clipboard-item-actions');
   if (!shortOverlay || !shortActions) {
     throw new Error('Short text card actions were not found');
+  }
+  if (shortItem.height !== shortHeightBeforeSelection) {
+    throw new Error(
+      `Short text card height changed on focus: before=${shortHeightBeforeSelection}, after=${shortItem.height}`,
+    );
   }
   if (shortActions.y + shortActions.height > shortOverlay.height) {
     throw new Error(
@@ -483,6 +491,57 @@ export async function run() {
     );
   }
   Scripting.scriptEvent('codeBadgeLayoutOk');
+
+  clipboardModule._onTogglePin(shortItem.entry.id);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(100);
+  const refreshedList = panel._list;
+  const pinnedItem = refreshedList._items.find(
+    (item) => item.entry.text === 'Short clipboard entry',
+  );
+  const hoveredHistoryItem = refreshedList._items.find((item) => item.entry.text === longText);
+  if (!pinnedItem?.entry.pinned || !hoveredHistoryItem || hoveredHistoryItem.entry.pinned) {
+    throw new Error('Could not prepare pinned and history items for the hover actions test');
+  }
+  hoveredHistoryItem.set_hover(true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(100);
+  if (
+    refreshedList.selectedItem !== hoveredHistoryItem ||
+    !hoveredHistoryItem._removeButton.visible ||
+    !hoveredHistoryItem._menuButton.visible
+  ) {
+    throw new Error('Hover did not reveal actions on a history item beside a pinned item');
+  }
+  if (
+    !pinnedItem._actions.has_style_class_name('pinned-badge') ||
+    pinnedItem._pinButton.reactive ||
+    pinnedItem._pinButton.can_focus
+  ) {
+    throw new Error('Inactive pinned item did not become a passive borderless badge');
+  }
+  const pinnedActionsTheme = pinnedItem._actions.get_theme_node();
+  const pinnedActionsBackground = pinnedActionsTheme.get_background_color();
+  if (
+    pinnedActionsBackground.alpha !== 0 ||
+    [St.Side.TOP, St.Side.RIGHT, St.Side.BOTTOM, St.Side.LEFT].some(
+      (side) => pinnedActionsTheme.get_padding(side) !== 0,
+    )
+  ) {
+    throw new Error('Inactive pinned badge retained the action container background or padding');
+  }
+  const pinnedHeightBeforeFocus = pinnedItem.height;
+  pinnedItem.set_hover(true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(100);
+  if (pinnedItem.height !== pinnedHeightBeforeFocus) {
+    throw new Error(
+      `Pinned short card height changed on focus: before=${pinnedHeightBeforeFocus}, after=${pinnedItem.height}`,
+    );
+  }
+  pinnedItem.set_hover(false);
+  hoveredHistoryItem.set_hover(false);
+  Scripting.scriptEvent('pinnedHoverActionsOk');
 
   let targetActivationCount = 0;
   const pasteProbe = new St.Entry({ can_focus: true });
@@ -570,6 +629,7 @@ let _clipboardWritten = false;
 let _clipboardImageWritten = false;
 let _textCardLayoutOk = false;
 let _codeBadgeLayoutOk = false;
+let _pinnedHoverActionsOk = false;
 let _panelOpened = false;
 let _autoPasteOk = false;
 let _workspacePanelOk = false;
@@ -596,6 +656,9 @@ export function script_textCardLayoutOk() {
 export function script_codeBadgeLayoutOk() {
   _codeBadgeLayoutOk = true;
 }
+export function script_pinnedHoverActionsOk() {
+  _pinnedHoverActionsOk = true;
+}
 export function script_panelOpened() {
   _panelOpened = true;
 }
@@ -616,6 +679,8 @@ export function finish() {
   if (!_clipboardImageWritten) throw new Error('Clipboard image write step did not complete');
   if (!_textCardLayoutOk) throw new Error('Clipboard text card layout check did not complete');
   if (!_codeBadgeLayoutOk) throw new Error('Clipboard code badge layout check did not complete');
+  if (!_pinnedHoverActionsOk)
+    throw new Error('Clipboard pinned-item hover actions check did not complete');
   if (!_panelOpened) throw new Error('Clipboard panel did not open inside the work area');
   if (!_autoPasteOk) throw new Error('Clipboard automatic paste check did not complete');
   if (!_workspacePanelOk) throw new Error('Clipboard workspace visibility check did not complete');

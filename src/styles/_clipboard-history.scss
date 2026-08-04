@@ -5,6 +5,7 @@
 $aurora-clipboard-card-max-height: 84px;
 $aurora-clipboard-card-content-height: 68px;
 $aurora-clipboard-card-image-height: 100px;
+$aurora-clipboard-card-actions-height: 32px;
 
 .aurora-clipboard-panel {
   background-color: vars.$aurora-overview-bg;
@@ -114,6 +115,7 @@ $aurora-clipboard-card-image-height: 100px;
 }
 
 .aurora-clipboard-item-text-overlay {
+  min-height: $aurora-clipboard-card-actions-height;
   max-height: $aurora-clipboard-card-content-height;
 }
 
@@ -174,7 +176,7 @@ $aurora-clipboard-card-image-height: 100px;
 
 .aurora-clipboard-item-code-badge {
   margin: 0 1px 1px 0;
-  padding: 2px 5px;
+  padding: 1px 5px;
   border-radius: 6px;
   font-size: 0.74em;
   background-color: rgba(0, 0, 0, 0.62);
@@ -184,9 +186,14 @@ $aurora-clipboard-card-image-height: 100px;
 
 .aurora-clipboard-item-actions {
   spacing: 4px;
-  padding: 5px;
+  padding: 2px 5px;
   border-radius: 12px;
   background-color: st-mix(vars.$aurora-overview-bg, vars.$aurora-overview-fg, 88%);
+
+  &.pinned-badge {
+    padding: 0;
+    background-color: transparent;
+  }
 }
 
 .aurora-clipboard-item-action {

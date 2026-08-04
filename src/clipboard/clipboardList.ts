@@ -139,6 +139,12 @@ export class ClipboardList extends St.BoxLayout {
       cbs: ListCallbacks,
     ) => ClipboardItem)(entry, this._callbacks);
     item.connect('clicked', () => this._callbacks.onActivate(entry));
+    item.connect('notify::hover', () => {
+      if (!item.hover) return;
+
+      const index = this._items.indexOf(item);
+      if (index >= 0) this._setSelected(index);
+    });
     this._items.push(item);
     this.add_child(item);
   }

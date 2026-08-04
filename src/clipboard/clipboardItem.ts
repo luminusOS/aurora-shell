@@ -97,9 +97,14 @@ export class ClipboardItem extends St.Button {
   setActionsVisible(visible: boolean): void {
     const showPinnedBadge = !visible && this._entry.pinned;
     this._actions.visible = visible || showPinnedBadge;
+    if (showPinnedBadge) {
+      this._actions.add_style_class_name('pinned-badge');
+    } else {
+      this._actions.remove_style_class_name('pinned-badge');
+    }
 
     this._pinButton.visible = visible || this._entry.pinned;
-    this._pinButton.reactive = visible || showPinnedBadge;
+    this._pinButton.reactive = visible;
     this._pinButton.can_focus = visible;
 
     for (const button of [this._removeButton, this._menuButton]) {
