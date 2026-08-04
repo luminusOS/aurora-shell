@@ -115,9 +115,16 @@ export class CaptureToolbarPositioner {
     }
 
     const [stageX, stageY] = this._toolbar.get_transformed_position();
+    const panelExtents = this._ui._panel.get_transformed_extents();
     const translation = calculateToolbarTranslation({
       monitor,
       selection: selectionRectangle,
+      protectedArea: {
+        x: panelExtents.get_x(),
+        y: panelExtents.get_y(),
+        width: panelExtents.get_width(),
+        height: panelExtents.get_height(),
+      },
       toolbar: {
         width: this._toolbar.width,
         height: this._toolbar.height,

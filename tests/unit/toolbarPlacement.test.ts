@@ -35,6 +35,28 @@ test('toolbar placement moves below selections that have no room above', () => {
   );
 });
 
+test('toolbar placement avoids protected native controls', () => {
+  assert.deepEqual(
+    calculateToolbarTranslation({
+      ...placement,
+      selection: { x: 500, y: 10, width: 800, height: 900 },
+      protectedArea: { x: 0, y: 850, width: 1920, height: 200 },
+    }),
+    { x: -60, y: 790 },
+  );
+});
+
+test('toolbar placement ignores a protected area outside its horizontal path', () => {
+  assert.deepEqual(
+    calculateToolbarTranslation({
+      ...placement,
+      selection: { x: 20, y: 10, width: 300, height: 200 },
+      protectedArea: { x: 1400, y: 200, width: 400, height: 200 },
+    }),
+    { x: -660, y: 222 },
+  );
+});
+
 test('toolbar placement selects the monitor containing most of the selection', () => {
   const monitors = [
     { x: 0, y: 0, width: 1920, height: 1080 },
