@@ -7,6 +7,7 @@ import { manifest as captureTools } from '~/capture/captureTools.manifest.ts';
 import { manifest as themeChanger } from '~/theme/themeChanger.manifest.ts';
 import { manifest as dock } from '~/dock/dock.manifest.ts';
 import { manifest as auroraMenu } from '~/panel/auroraMenu.manifest.ts';
+import { manifest as powerMenuAvatar } from '~/panel/powerMenuAvatar.manifest.ts';
 import { manifest as volumeMixer } from '~/panel/volumeMixer/volumeMixer.manifest.ts';
 import { manifest as lowBatteryPercentage } from '~/panel/lowBatteryPercentage.manifest.ts';
 import { manifest as lockKeyIndicators } from '~/panel/lockKeyIndicators.manifest.ts';
@@ -43,6 +44,7 @@ const MODULE_CATALOG: readonly ModuleManifest[] = [
   themeChanger,
   dock,
   auroraMenu,
+  powerMenuAvatar,
   volumeMixer,
   lowBatteryPercentage,
   lockKeyIndicators,
