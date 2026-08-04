@@ -208,6 +208,7 @@ test('catalog — desktop module baseline is preserved', () => {
     'theme-changer',
     'dock',
     'aurora-menu',
+    'power-menu-avatar',
     'volume-mixer',
     'low-battery-percentage',
     'lock-key-indicators',

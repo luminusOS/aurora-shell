@@ -6,6 +6,7 @@ import { CaptureTools } from '~/capture/captureTools.ts';
 import { ThemeChanger } from '~/theme/themeChanger.ts';
 import { Dock } from '~/dock/dock.ts';
 import { AuroraMenu } from '~/panel/auroraMenu.ts';
+import { PowerMenuAvatar } from '~/panel/powerMenuAvatar.ts';
 import { VolumeMixer } from '~/panel/volumeMixer/volumeMixer.ts';
 import { LowBatteryPercentage } from '~/panel/lowBatteryPercentage.ts';
 import { LockKeyIndicators } from '~/panel/lockKeyIndicators.ts';
@@ -31,6 +32,7 @@ const factories = {
   'theme-changer': (context) => new ThemeChanger(context),
   dock: (context) => new Dock(context),
   'aurora-menu': (context) => new AuroraMenu(context),
+  'power-menu-avatar': (context) => new PowerMenuAvatar(context),
   'volume-mixer': (context) => new VolumeMixer(context),
   'low-battery-percentage': (context) => new LowBatteryPercentage(context),
   'lock-key-indicators': (context) => new LockKeyIndicators(context),

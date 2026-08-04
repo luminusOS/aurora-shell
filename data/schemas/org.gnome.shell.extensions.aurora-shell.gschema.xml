@@ -67,6 +67,11 @@
       <summary>Enable Volume Mixer module</summary>
       <description>Per-application volume control in Quick Settings</description>
     </key>
+    <key name="module-power-menu-avatar" type="b">
+      <default>true</default>
+      <summary>Enable Power Menu Avatar module</summary>
+      <description>Shows the current user's avatar and name in the power menu</description>
+    </key>
     <key name="volume-mixer-always-show" type="b">
       <default>false</default>
       <summary>Always show Volume Mixer</summary>

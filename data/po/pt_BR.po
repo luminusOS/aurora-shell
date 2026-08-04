@@ -749,6 +749,14 @@ msgid "Shows battery percentage in the panel while below 30%"
 msgstr ""
 "Mostra a porcentagem da bateria no painel enquanto estiver abaixo de 30%"
 
+#: dist/panel/powerMenuAvatar.manifest.js:8
+msgid "Power Menu Avatar"
+msgstr "Avatar no menu de energia"
+
+#: dist/panel/powerMenuAvatar.manifest.js:9
+msgid "Shows the current user's avatar and name in the power menu"
+msgstr "Mostra o avatar e o nome do usuário atual no menu de energia"
+
 #: dist/panel/volumeMixer/mixerItem.js:114
 msgid "Audio"
 msgstr "Áudio"
