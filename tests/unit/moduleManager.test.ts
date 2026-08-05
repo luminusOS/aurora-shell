@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import type { ExtensionContext } from '../../src/core/context.ts';
-import type { DeviceChangeListener, DeviceService } from '../../src/device/device.ts';
-import { createDeviceSnapshot, type DeviceSnapshot } from '../../src/device/runtime.ts';
-import type { Module, ModuleDefinition, ModuleManifest } from '../../src/module.ts';
-import { ModuleManager } from '../../src/moduleManager.ts';
+import type { ExtensionContext } from '~/core/context.ts';
+import type { DeviceChangeListener, DeviceService } from '~/device/device.ts';
+import { createDeviceSnapshot, type DeviceSnapshot } from '~/device/runtime.ts';
+import type { Module, ModuleDefinition, ModuleManifest } from '~/module.ts';
+import { ModuleManager } from '~/moduleManager.ts';
 
 class FakeSettings {
   values = new Map<string, boolean>();

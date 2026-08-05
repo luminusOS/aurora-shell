@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# Run GNOME Shell --devkit inside the Vagrant VM.
-# Called by: just vagrant run
-
-set -e
+set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 

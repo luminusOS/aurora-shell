@@ -93,7 +93,7 @@ to match the schema exactly.
 
 Pure TypeScript logic belongs in `tests/unit`. St/Clutter/Main integration belongs in
 `tests/shell`. Architectural changes are accepted only after `just validate`, `just test unit`,
-`just shexli`, and `just toolbox test all`. See [Development and testing](development.md) for the
+`just shexli`, and `just toolbox test`. See [Development and testing](development.md) for the
 full command reference.
 
 ## Packaging

@@ -62,7 +62,7 @@ just shexli
 ```
 
 Run the relevant Shell integration test for a feature-level change. Use
-`just toolbox test all` for architectural or cross-cutting work. See
+`just toolbox test` for architectural or cross-cutting work. See
 [Development and testing](docs/development.md) for the complete command reference and environment
 details.
 
@@ -89,3 +89,7 @@ it introduces, and how it was tested.
 - [Adding and maintaining modules](docs/modules.md)
 - [Releases and backports](docs/releases.md)
 - [GNOME Extensions review notes](docs/extension-review.md)
+- [GJS extension debugging](https://gjs.guide/extensions/development/debugging.html)
+- [GJS imports and modules](https://gjs.guide/extensions/overview/imports-and-modules.html)
+- [GNOME Shell Extensions review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)
+- [Automated testing of GNOME Shell](https://blogs.gnome.org/shell-dev/2022/12/02/automated-testing-of-gnome-shell/)

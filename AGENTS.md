@@ -13,16 +13,16 @@ or `just shexli` unless the task specifically requires that validation.
 1.  **Run `just validate`** — type-checks the source, lints, and checks formatting. Fix any reported errors.
 2.  **Run `just shexli`** — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP. Review every finding. Some `warning` or `manual_review` findings can be false positives or accepted GNOME-review tradeoffs, but they must be called out explicitly; fix any real regression before finishing.
 3.  **Run targeted integration tests:**
-    - If you modified only **one module**, run only the integration test for that module (e.g., `just test shell tests/shell/auroraTrayIcons.js`).
+    - If you modified only **one module**, run only its Shell test (e.g., `just test shell tests/shell/desktop/trayIcons`).
     - If you made **formatting-only changes** (Prettier) and have already passed the tests in a previous turn, you only need to run `just validate` and `just shexli`.
-    - If you made **architectural or cross-cutting changes**, run `just toolbox test all`.
+    - If you made **architectural or cross-cutting changes**, run `just toolbox test`.
 
-**IMPORTANT:** Never execute `just test shell`, `just test all`, or `just toolbox test` chained with another command using `&&`. Always run tests as a separate standalone turn.
+**IMPORTANT:** Never execute `just test shell` or `just toolbox test` chained with another command using `&&`. Always run tests as a separate standalone turn.
 
 To read only the relevant output from a full test run (pass/fail summary):
 
 ```sh
-just toolbox test all 2>&1 | grep -E "PASS:|FAIL:|Results:"
+just toolbox test 2>&1 | grep -E "PASS:|FAIL:|Results:"
 ```
 
 Do not leave a task incomplete if either command reports errors or failures.
@@ -49,18 +49,17 @@ Do not leave a task incomplete if either command reports errors or failures.
 - **Deep clean:** `just clean all` — removes `dist/` and `node_modules/`
 - **Unit tests:** `just test unit` — runs unit tests with Node's test runner
 - **Coverage:** `just test coverage` — runs unit tests with coverage report
-- **Single integration test:** `just test shell <script>` — packages and runs one shell test script headlessly (e.g., `just test shell tests/shell/auroraTrayIcons.js`)
-- **All integration tests:** `just test all` — packages and runs all `tests/shell/aurora*.js` on the host, printing a pass/fail summary
-- **DevTool integration test:** `just test dev` — tests `auroraDevTool.js` against the development ZIP
-- **All integration tests (toolbox):** `just toolbox test all` — same as above but inside the Fedora toolbox (preferred; use this instead of `just test all`)
-- **Single integration test (toolbox):** `just toolbox test <script>` — packages and runs one test inside the toolbox
+- **Shell tests:** `just test shell [file-or-directory]` — packages and runs all Shell tests, or a recursive target, on the host
+- **DevTool Shell test:** `just test dev` — tests `tests/shell/dev/devTool.test.js` against the development ZIP
+- **Shell tests (toolbox):** `just toolbox test [file-or-directory]` — preferred full or targeted execution inside the Fedora toolbox
+- **DevTool Shell test (toolbox):** `just toolbox test-dev` — runs the development test inside the toolbox
 - **Vagrant VM:** `just vagrant create|run|ssh|remove` — full Arch VM kept for manual GNOME environment testing
 
-### Translation commands
+### i18n commands
 
-- **Regenerate POT template:** `just translation pot` — builds, then scans compiled JS (`dist/`) and writes the `.pot` into `dist/` (a build artifact, **not** committed — avoids `POT-Creation-Date` churn). Run this whenever translatable strings are added or removed.
-- **Merge new strings into .po files:** `just translation update` — depends on `translation pot`; regenerates the template into `dist/` then runs `msgmerge` on every `data/po/*.po` against it. The hand-translated `data/po/*.po` files are the committed source of truth.
-- **Compile .mo binaries:** `just translation compile` — compiles each `po/*.po` into `dist/locale/<lang>/LC_MESSAGES/*.mo`. Called automatically by `just build`.
+- **Regenerate POT template:** `just i18n pot` — builds, then scans compiled JS (`dist/`) and writes the `.pot` into `dist/` (a build artifact, **not** committed — avoids `POT-Creation-Date` churn). Run this whenever translatable strings are added or removed.
+- **Merge new strings into .po files:** `just i18n update` — depends on `i18n pot`; regenerates the template into `dist/` then runs `msgmerge` on every `data/po/*.po` against it. The hand-translated `data/po/*.po` files are the committed source of truth.
+- **Compile .mo binaries:** `just i18n compile` — compiles each `po/*.po` into `dist/locale/<lang>/LC_MESSAGES/*.mo`. Called automatically by `just build`.
 
 ## Repository Structure
 
@@ -95,8 +94,8 @@ Do not leave a task incomplete if either command reports errors or failures.
   - `icons/` — SVG icons used in the project
   - `po/` — translation files
 - `tests/` — automated tests
-  - `unit/` — Node test-runner unit tests (`node --test` via `tsx`), auto-discovered by the `tests/unit/*.test.ts` glob — just drop a new `*.test.ts` file in here, no `package.json` edit needed. For pure logic that does not import shell internals.
-  - `shell/` — GNOME Shell integration test scripts (run via `gnome-shell-test-tool`) — exercise modules against a real headless GNOME Shell
+  - `unit/` — recursively discovered `*.test.ts` tests, organized by the same domains as `src/`; for pure logic that does not import Shell internals
+  - `shell/` — recursively discovered `*.test.js` scripts organized by domain; exercise modules in a real headless GNOME Shell
 - `.github/workflows/ci.yml` — CI pipeline (lint + type-check → unit tests + build → integration tests)
 - `Containerfile` — shared Fedora/GNOME build and integration-test environment used by CI and Toolbox
 - `scripts/` — focused helpers for GNOME Shell tests, Toolbox devkit, and Vagrant devkit
@@ -109,8 +108,8 @@ Do not leave a task incomplete if either command reports errors or failures.
 ## Architecture
 
 1. **Settings via context:** Modules receive an `ExtensionContext` in their constructor and read configuration through `this.context.settings` (the `SettingsManager` abstraction) rather than touching `Gio.Settings` directly.
-2. **`Main` is fair game:** Importing `Main` (`resource:///org/gnome/shell/ui/main.js`) directly is the idiomatic GNOME-extension way and is expected — there is no shell adapter. Confidence in shell interactions comes from the `tests/shell/` integration suite running a real headless GNOME Shell, not from mocking `Main`.
-3. **Layering & testability:** Keep UI logic (Clutter/St) separated from pure domain logic. Extract complex algorithms into pure TypeScript files with no shell imports (e.g., `src/dock/monitorTopology.ts`, `src/desktop/trayIcons/trayState.ts`) so they can be unit-tested with `node --test`. UI/shell glue is covered by integration tests instead.
+2. **`Main` is fair game:** Importing `Main` (`resource:///org/gnome/shell/ui/main.js`) directly follows the [GJS module guidance](https://gjs.guide/extensions/overview/imports-and-modules.html) and is expected — there is no shell adapter. Confidence in shell interactions comes from the `tests/shell/` integration suite running a real headless GNOME Shell, not from mocking `Main`.
+3. **Layering & testability:** Keep UI logic (Clutter/St) separated from pure domain logic. Extract complex algorithms into pure TypeScript files with no shell imports (e.g., `src/dock/monitorTopology.ts`, `src/desktop/trayIcons/trayState.ts`) so they can be unit-tested with `node --test`. UI/shell glue is covered by integration tests instead, following the same whole-Shell approach described by [GNOME Shell's automated testing notes](https://blogs.gnome.org/shell-dev/2022/12/02/automated-testing-of-gnome-shell/).
 4. **Metadata-Driven UI:** Each feature owns a Shell-free `*.manifest.ts`. `moduleCatalog.ts` is the single ordered metadata source consumed by preferences and runtime.
 5. **Factories:** Runtime implementations export their classes. `registry.ts` is the explicit association between catalog keys and factories; implementation files contain no preference metadata.
 
