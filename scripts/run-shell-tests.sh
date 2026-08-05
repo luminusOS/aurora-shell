@@ -1,81 +1,59 @@
 #!/usr/bin/env bash
 
-set -uo pipefail
-
-run_wrapped_shell() {
-  local extra_monitors="${AURORA_TEST_EXTRA_MONITORS:-}"
-  if [[ ! "$extra_monitors" =~ ^[0-9]+$ ]]; then
-    echo "Invalid AURORA_TEST_EXTRA_MONITORS value: $extra_monitors" >&2
-    exit 2
-  fi
-
-  local shell="$1"
-  shift
-  local monitor_args=()
-  local index
-  for ((index = 0; index < extra_monitors; index++)); do
-    monitor_args+=(--virtual-monitor 1280x720)
-  done
-
-  exec "$shell" "$@" "${monitor_args[@]}"
-}
-
-if [[ -n "${AURORA_TEST_EXTRA_MONITORS:-}" ]]; then
-  run_wrapped_shell "$@"
-fi
+set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-EXTENSION_ZIP="${1:-$PROJECT_DIR/dist/target/aurora-shell@luminusos.github.io.shell-extension.zip}"
-shift || true
+EXTENSION_ZIP="$PROJECT_DIR/dist/target/aurora-shell@luminusos.github.io.shell-extension.zip"
+TARGETS=()
+TEST_SCRIPTS=()
+PASS=0
+FAIL=0
+LOG_FILE=""
+
+usage() {
+  echo "Usage: $(basename "$0") [--package ZIP] [FILE_OR_DIRECTORY ...]"
+}
 
 absolute_path() {
-  local path="$1"
-
-  if [[ "$path" = /* ]]; then
-    printf '%s\n' "$path"
+  if [[ "$1" = /* ]]; then
+    printf '%s\n' "$1"
   else
-    printf '%s/%s\n' "$PROJECT_DIR" "$path"
+    printf '%s/%s\n' "$PROJECT_DIR" "$1"
   fi
 }
 
-EXTENSION_ZIP="$(absolute_path "$EXTENSION_ZIP")"
+collect_tests() {
+  local target="$1"
+  local test_script
 
-if [[ ! -f "$EXTENSION_ZIP" ]]; then
-  echo "Extension package not found: $EXTENSION_ZIP" >&2
-  exit 2
-fi
+  if [[ -d "$target" ]]; then
+    while IFS= read -r -d '' test_script; do
+      TEST_SCRIPTS+=("$test_script")
+    done < <(find "$target" -type f -name '*.test.js' -print0)
+  elif [[ -f "$target" && "$target" == *.test.js ]]; then
+    TEST_SCRIPTS+=("$target")
+  else
+    echo "Shell test target not found: $target" >&2
+    exit 2
+  fi
+}
 
-if (( $# > 0 )); then
-  TEST_SCRIPTS=("$@")
-else
-  shopt -s nullglob
-  TEST_SCRIPTS=("$PROJECT_DIR"/tests/shell/aurora*.js)
-  shopt -u nullglob
-  PROD_TEST_SCRIPTS=()
-  for script in "${TEST_SCRIPTS[@]}"; do
-    if [[ "$(basename "$script")" != "auroraDevTool.js" ]]; then
-      PROD_TEST_SCRIPTS+=("$script")
-    fi
-  done
-  TEST_SCRIPTS=("${PROD_TEST_SCRIPTS[@]}")
-fi
-
-if (( ${#TEST_SCRIPTS[@]} == 0 )); then
-  echo "No GNOME Shell test scripts found." >&2
-  exit 2
-fi
+extra_monitors_for() {
+  case "$1" in
+    */capture/captureTools.test.js|*/clipboard/clipboardHistory.test.js) echo 1 ;;
+    */dock/dock.test.js) echo 2 ;;
+    *) echo 0 ;;
+  esac
+}
 
 run_test() {
-  local script
-  script="$(absolute_path "$1")"
+  local script="$1"
+  local extra_monitors
 
-  if [[ ! -f "$script" ]]; then
-    echo "Test script not found: $script" >&2
-    return 2
-  fi
-
+  extra_monitors="$(extra_monitors_for "$script")"
   GDK_DEBUG="${GDK_DEBUG:-no-portals}" \
     GSETTINGS_SCHEMA_DIR="${GSETTINGS_SCHEMA_DIR:-/usr/share/glib-2.0/schemas}" \
+    AURORA_TEST_EXTRA_MONITORS="$extra_monitors" \
     dbus-run-session bash -c '
       if command -v dbus-update-activation-environment >/dev/null 2>&1; then
         dbus-update-activation-environment \
@@ -84,28 +62,13 @@ run_test() {
       fi
 
       test_args=(--headless --extension "$1")
-      extra_monitors=0
-      case "$(basename "$2")" in
-        auroraCaptureTools.js | auroraClipboardHistory.js)
-          extra_monitors=1
-          ;;
-        auroraDock.js)
-          extra_monitors=2
-          ;;
-      esac
-
-      if (( extra_monitors > 0 )); then
-        export AURORA_TEST_EXTRA_MONITORS="$extra_monitors"
+      if (( $4 > 0 )); then
         test_args+=(--wrap "$3")
       fi
 
       exec gnome-shell-test-tool "${test_args[@]}" "$2"
-    ' -- "$EXTENSION_ZIP" "$script" "$PROJECT_DIR/scripts/run-shell-tests.sh"
+    ' -- "$EXTENSION_ZIP" "$script" "$PROJECT_DIR/scripts/wrap-gnome-shell.sh" "$extra_monitors"
 }
-
-PASS=0
-FAIL=0
-LOG_FILE=""
 
 cleanup() {
   if [[ -n "$LOG_FILE" && -f "$LOG_FILE" ]]; then
@@ -113,19 +76,60 @@ cleanup() {
   fi
 }
 
+while (( $# > 0 )); do
+  case "$1" in
+    --package)
+      [[ $# -ge 2 ]] || { echo "Missing package path." >&2; exit 2; }
+      EXTENSION_ZIP="$(absolute_path "$2")"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      TARGETS+=("$@")
+      break
+      ;;
+    --*)
+      echo "Unknown option: $1" >&2
+      exit 2
+      ;;
+    *)
+      TARGETS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+[[ -f "$EXTENSION_ZIP" ]] || { echo "Extension package not found: $EXTENSION_ZIP" >&2; exit 2; }
+
+if (( ${#TARGETS[@]} == 0 )); then
+  while IFS= read -r -d '' test_script; do
+    [[ "$test_script" == "$PROJECT_DIR/tests/shell/dev/"* ]] || TEST_SCRIPTS+=("$test_script")
+  done < <(find "$PROJECT_DIR/tests/shell" -type f -name '*.test.js' -print0)
+else
+  for target in "${TARGETS[@]}"; do
+    collect_tests "$(absolute_path "$target")"
+  done
+fi
+
+mapfile -d '' TEST_SCRIPTS < <(printf '%s\0' "${TEST_SCRIPTS[@]}" | sort -zu)
+(( ${#TEST_SCRIPTS[@]} > 0 )) || { echo "No GNOME Shell tests found." >&2; exit 2; }
+
 trap cleanup EXIT INT TERM
 
 for script in "${TEST_SCRIPTS[@]}"; do
-  script="$(absolute_path "$script")"
-  echo "==> Running $script"
+  echo "==> Running ${script#"$PROJECT_DIR/"}"
   LOG_FILE="$(mktemp)"
 
   if run_test "$script" >"$LOG_FILE" 2>&1; then
-    echo "    PASS: $script"
+    echo "    PASS: ${script#"$PROJECT_DIR/"}"
     PASS=$((PASS + 1))
   else
     cat "$LOG_FILE"
-    echo "    FAIL: $script"
+    echo "    FAIL: ${script#"$PROJECT_DIR/"}"
     FAIL=$((FAIL + 1))
   fi
 

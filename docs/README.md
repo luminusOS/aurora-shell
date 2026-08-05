@@ -6,8 +6,6 @@ and files required by GitHub, contributors, or packaging.
 ## Project Design
 
 - [Architecture](architecture.md) describes the runtime, source layout, and test boundaries.
-- [GNOME Shell adapter decision](gnome-shell-adapter.md) records why modules use Shell APIs
-  directly.
 - [Adding and maintaining modules](modules.md) covers manifests, lifecycle, settings, and coding
   conventions.
 
@@ -17,8 +15,6 @@ and files required by GitHub, contributors, or packaging.
   Toolbox, and CI.
 - [Releases and backports](releases.md) covers maintenance branches, release candidates, stable
   releases, and automated backports.
-- [Dock autohide input fixes](backports/dock-autohide-input-fixes.md) records the related fixes and
-  validation required for their maintenance backport.
 - [GNOME Extensions review notes](extension-review.md) records the current Shexli findings and
   review decisions.
 

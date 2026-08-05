@@ -169,29 +169,4 @@ jobs:
           XDG_RUNTIME_DIR: /tmp/xdg-runtime
           XDG_SESSION_ID: aurora_ci
         run: |
-          install -d -m 0700 "$XDG_RUNTIME_DIR"
-          mkdir -p /run/dbus
-          mkdir -p /run/systemd/seats
-          dbus-daemon --system --fork --nopidfile
-          python3 -m dbusmock --system --template logind &
-          logind_pid=$!
-          python3 -m dbusmock --system --template tests/dbusmock/gdm.py &
-          gdm_pid=$!
-          trap 'kill "$logind_pid" "$gdm_pid" 2>/dev/null || true' EXIT
-          sleep 1
-          gdbus call --system \
-            --dest org.freedesktop.login1 \
-            --object-path /org/freedesktop/login1 \
-            --method org.freedesktop.DBus.Mock.AddMethod \
-            org.freedesktop.login1.Manager GetUser u o \
-            'ret = "/org/freedesktop/login1/user/" + str(args[0])'
-          gdbus call --system \
-            --dest org.freedesktop.login1 \
-            --object-path /org/freedesktop/login1 \
-            --method org.freedesktop.DBus.Mock.AddSession \
-            "$XDG_SESSION_ID" seat0 "$(id -u)" "$(id -un)" true
-          bash scripts/run-shell-tests.sh \
-            dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
-          AURORA_DEVTOOLS=1 bash scripts/run-shell-tests.sh \
-            dist/target/aurora-shell@luminusos.github.io.development.shell-extension.zip \
-            tests/shell/auroraDevTool.js
+          scripts/run-ci-shell-tests.sh

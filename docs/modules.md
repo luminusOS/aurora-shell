@@ -33,7 +33,8 @@ export const manifest: ModuleManifest = {
 ```
 
 `tests/unit/registry.test.ts` enforces catalog order, uniqueness, known sections, and factory
-coverage. `tests/unit/schema.test.ts` requires manifest-declared setting keys to match the schema.
+coverage. `tests/unit/project/schema.test.ts` requires manifest-declared setting keys to match the
+schema.
 
 ## Lifecycle and Dependencies
 
@@ -43,7 +44,7 @@ timers, D-Bus subscriptions, and other stateful GNOME APIs explicit at their cal
 
 Read settings through the shared context. Direct imports of `Main`, Shell, St, and Clutter are
 idiomatic for GNOME integration; extract complex calculations into Shell-free TypeScript when they
-can be tested independently. See the [adapter decision](gnome-shell-adapter.md) for the rationale.
+can be tested independently.
 
 ## Coding Conventions
 

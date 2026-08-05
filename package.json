@@ -16,11 +16,11 @@
     "build": "yarn clear && yarn build:css && yarn build:ts",
     "lint": "cross-env NODE_OPTIONS=--import=tsx/esm eslint .",
     "validate": "yarn check && yarn lint && yarn prettier:check && yarn stylelint",
-    "prettier:check": "prettier --check \"src/**/*.{ts,scss}\"",
+    "prettier:check": "prettier --check \"{src,tests,scripts}/**/*.{ts,js,scss}\"",
     "stylelint": "stylelint \"src/styles/**/*.scss\"",
     "watch:css": "tsx sass.config.ts --watch",
-    "test:unit": "node --import tsx/esm --test tests/unit/*.test.ts",
-    "test:unit:coverage": "node --import tsx/esm --experimental-test-coverage --test tests/unit/*.test.ts"
+    "test:unit": "node --import tsx/esm --test \"tests/unit/**/*.test.ts\"",
+    "test:unit:coverage": "node --import tsx/esm --experimental-test-coverage --test \"tests/unit/**/*.test.ts\""
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

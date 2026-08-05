@@ -31,14 +31,14 @@ Pure logic belongs in `tests/unit/`. GNOME Shell, St, and Clutter integration be
 Run one feature test on the host with:
 
 ```bash
-just test shell tests/shell/auroraTrayIcons.js
+just test shell tests/shell/desktop/trayIcons
 ```
 
-Run all Shell tests with `just test all`, or use the preferred Toolbox environment:
+Run all Shell tests with `just test shell`, or use the preferred Toolbox environment:
 
 ```bash
 just toolbox create
-just toolbox test all
+just toolbox test
 ```
 
 The Toolbox uses the public, versioned GNOME image from
