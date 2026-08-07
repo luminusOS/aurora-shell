@@ -1,5 +1,19 @@
 import '@girs/gjs';
 
-import { AuroraShellExtensionBase } from '~/core/extensionBase.ts';
+import { Extension } from '@girs/gnome-shell/extensions/extension';
 
-export default class AuroraShellExtension extends AuroraShellExtensionBase {}
+import { ShellRuntime } from '~/core/shellRuntime.ts';
+
+export default class AuroraShellExtension extends Extension {
+  private _runtime: ShellRuntime | null = null;
+
+  override enable(): void {
+    this._runtime = new ShellRuntime(this);
+    this._runtime.start();
+  }
+
+  override disable(): void {
+    this._runtime?.stop();
+    this._runtime = null;
+  }
+}

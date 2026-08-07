@@ -198,6 +198,8 @@ Per the GNOME review guidelines, clipboard-related keyboard shortcuts must not s
 
 Avoid code that only looks plausible. A human reviewer should be able to read a change and see a real contract, not a guess.
 
+When reporting a review, prioritize code and concrete findings. Keep explanations short and list removed noise or simplifications as concise bullets; do not produce long change summaries.
+
 ### EGO review policy
 
 Changes intended for the production extension must follow both:
@@ -258,6 +260,14 @@ Apply these rules during implementation and review:
 - Keep strings and metadata truthful and synchronized across `*.manifest.ts`, `moduleCatalog.ts`, schema XML, README/architecture docs, and `.po` files when strings change.
 - Search for obvious generated-code artifacts before finishing: broken joined words in docs, stale project names, obsolete env vars, and UI descriptions that exceed what is implemented.
 - Prefer explicit D-Bus/property handling over no-op calls that only log success. If a feature cannot be safely implemented yet, make the limitation visible in the title/subtitle/docs rather than implying it works.
+
+### Clean code and AI slop
+
+- Avoid generic helpers and speculative abstractions. Names must express domain behavior: `handleMonitorsChanged`
+  is fine because it names the event, `handleEvent` or `processData` are not. Preserve established terms such as
+  `ModuleManager` when they describe real ownership.
+- Keep important lifecycle behavior visible at concrete entrypoints. Do not leave an entrypoint empty
+  merely to hide its primary `enable()`/`disable()` orchestration behind inheritance.
 
 ## Logging Style
 

@@ -1,25 +1,29 @@
 import '@girs/gjs';
 
 import GLib from '@girs/glib-2.0';
+import { Extension } from '@girs/gnome-shell/extensions/extension';
 
-import { AuroraShellExtensionBase } from '~/core/extensionBase.ts';
 import { logger } from '~/core/logger.ts';
+import { ShellRuntime } from '~/core/shellRuntime.ts';
 import { DevTool } from '~/dev/devTool.ts';
 
 const LOG_PREFIX = 'AuroraShell';
 
-export default class AuroraShellDevelopmentExtension extends AuroraShellExtensionBase {
+export default class AuroraShellDevelopmentExtension extends Extension {
+  private _runtime: ShellRuntime | null = null;
   private _devTool: DevTool | null = null;
 
   override enable(): void {
-    super.enable();
-    const context = this._context;
-    const manager = this._manager;
-    if (GLib.getenv('AURORA_DEVTOOLS') !== '1' || !context || !manager) return;
+    const runtime = new ShellRuntime(this);
+    this._runtime = runtime;
+    runtime.start();
+
+    const context = runtime.context;
+    if (GLib.getenv('AURORA_DEVTOOLS') !== '1' || !context) return;
 
     try {
       this._devTool = new DevTool(context, {
-        getModule: (key) => manager.getModule(key),
+        getModule: (key) => runtime.getModule(key),
         openPreferences: () => this.openPreferences(),
       });
       this._devTool.enable();
@@ -39,6 +43,7 @@ export default class AuroraShellDevelopmentExtension extends AuroraShellExtensio
 
     if (devTool) devTool.disable();
 
-    super.disable();
+    this._runtime?.stop();
+    this._runtime = null;
   }
 }

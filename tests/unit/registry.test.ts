@@ -175,7 +175,7 @@ test('prefs uses the manifest-only catalog and extension core uses the runtime r
       statement.moduleSpecifier.text === '~/moduleCatalog.ts',
   );
   assert.equal(importsCatalog, true);
-  const extension = sourceFile('src/core/extensionBase.ts');
+  const extension = sourceFile('src/core/shellRuntime.ts');
   const importsRegistry = extension.statements.some(
     (statement) =>
       ts.isImportDeclaration(statement) &&
