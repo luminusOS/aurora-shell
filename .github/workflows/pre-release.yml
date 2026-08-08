@@ -65,10 +65,12 @@ jobs:
             fi
           fi
 
-          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
-          echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
-          echo "should_release=$SHOULD_RELEASE" >> "$GITHUB_OUTPUT"
-          echo "tag_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
+          {
+            echo "head_sha=$HEAD_SHA"
+            echo "release_name=$RELEASE_NAME"
+            echo "should_release=$SHOULD_RELEASE"
+            echo "tag_name=$RELEASE_NAME"
+          } >> "$GITHUB_OUTPUT"
 
           if [[ "$SHOULD_RELEASE" == "true" ]]; then
             echo "Nightly ${RELEASE_NAME} will be built from ${HEAD_SHA}." >> "$GITHUB_STEP_SUMMARY"
