@@ -9,7 +9,7 @@ import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
 import { logger } from '~/core/logger.ts';
 
-import type { TrayItem } from './trayState.ts';
+import { TRAY_ICON_FALLBACK_NAME, type TrayItem } from './trayState.ts';
 import { DBusMenuClient } from './dbusMenu.ts';
 
 const BADGE_SIZE = 6;
@@ -108,7 +108,7 @@ export const TrayIconItem = GObject.registerClass(
 
       this._iconWidget = new St.Icon({
         icon_size: iconSize,
-        fallback_icon_name: 'image-missing-symbolic',
+        fallback_icon_name: TRAY_ICON_FALLBACK_NAME,
         reactive: false,
       });
       box.add_child(this._iconWidget);

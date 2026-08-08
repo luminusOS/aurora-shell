@@ -1,6 +1,8 @@
 import type Gio from '@girs/gio-2.0';
 import type GdkPixbuf from '@girs/gdkpixbuf-2.0';
 
+export const TRAY_ICON_FALLBACK_NAME = 'application-x-executable-symbolic';
+
 export type TrayItemStatus = 'Passive' | 'Active' | 'NeedsAttention';
 
 export type TrayMenuItem = { label: string; action: () => void };

@@ -5,7 +5,7 @@ import GLib from '@girs/glib-2.0';
 import GdkPixbuf from '@girs/gdkpixbuf-2.0';
 import St from '@girs/st-18';
 
-import type { TrayItem, TrayItemStatus } from './trayState.ts';
+import { TRAY_ICON_FALLBACK_NAME, type TrayItem, type TrayItemStatus } from './trayState.ts';
 import type { SniWatcher } from './sniWatcher.ts';
 import { sniIdentityMatchesAppId } from './appIdentity.ts';
 import { isSymbolicSniArgb } from './sniIconState.ts';
@@ -231,7 +231,7 @@ export class SniHost {
     }
 
     logger.debug(`SNI icon ${itemId} reason=${reason} source=fallback`, { prefix: LOG_PREFIX });
-    return 'image-missing-symbolic';
+    return TRAY_ICON_FALLBACK_NAME;
   }
 
   refreshIcons(reason = 'theme-change'): void {

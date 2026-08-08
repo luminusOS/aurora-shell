@@ -6,8 +6,13 @@ import {
   applyScroll,
   addAttention,
   clearAttention,
+  TRAY_ICON_FALLBACK_NAME,
 } from '~/desktop/trayIcons/trayState.ts';
 import type { TrayItem } from '~/desktop/trayIcons/trayState.ts';
+
+test('Tray Icons use the generic executable icon as their shared fallback', () => {
+  assert.strictEqual(TRAY_ICON_FALLBACK_NAME, 'application-x-executable-symbolic');
+});
 
 test('createTrayState returns collapsed=true, offset=0, empty attention set', () => {
   const state = createTrayState();
