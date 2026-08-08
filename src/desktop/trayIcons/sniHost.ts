@@ -37,7 +37,6 @@ const SNI_ITEM_XML = `
   </interface>
 </node>`;
 
-const SniItemInterfaceInfo = Gio.DBusInterfaceInfo.new_for_xml(SNI_ITEM_XML);
 const MIN_PIXMAP_SIZE = 8;
 const SYMBOLIC_CHANNEL_TOLERANCE = 18;
 const SYMBOLIC_REQUIRED_RATIO = 0.92;
@@ -63,6 +62,7 @@ type SniHostOptions = {
 };
 
 export class SniHost {
+  private readonly _itemInterfaceInfo: Gio.DBusInterfaceInfo;
   private _entries = new Map<string, SniEntry>();
   private _pendingRegistrations = new Map<string, Gio.Cancellable>();
   private _callbacks: HostCallbacks;
@@ -71,6 +71,7 @@ export class SniHost {
   private _shouldRecolorSymbolicPixmaps: () => boolean;
 
   constructor(watcher: SniWatcher, callbacks: HostCallbacks, options: SniHostOptions = {}) {
+    this._itemInterfaceInfo = Gio.DBusInterfaceInfo.new_for_xml(SNI_ITEM_XML);
     this._watcher = watcher;
     this._callbacks = callbacks;
     this._getColorScheme = options.getColorScheme || (() => 'prefer-dark');
@@ -86,7 +87,7 @@ export class SniHost {
     const proxy = new Gio.DBusProxy({
       g_connection: Gio.DBus.session,
       g_interface_name: 'org.kde.StatusNotifierItem',
-      g_interface_info: SniItemInterfaceInfo,
+      g_interface_info: this._itemInterfaceInfo,
       g_name: busName,
       g_object_path: objectPath,
       g_flags: Gio.DBusProxyFlags.GET_INVALIDATED_PROPERTIES,

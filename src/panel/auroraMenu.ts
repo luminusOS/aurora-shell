@@ -52,11 +52,10 @@ const MENU_ICONS = {
 
 type MenuIconKey = keyof typeof MENU_ICONS;
 
-type MenuCommand = {
+type MenuAction = {
   title: string;
   iconName: string;
-  argv?: string[];
-  activate?: () => void;
+  activate: () => void;
 };
 
 type RecentSubmenuItem = PopupMenu.PopupSubMenuMenuItem & {
@@ -183,10 +182,10 @@ export class AuroraMenu extends Module {
     menu.removeAll();
     this._lockMenuWidth(menu);
 
-    let hasItems = this._addCommandIfVisible(menu, SHOW_ABOUT_KEY, {
+    let hasItems = this._addActionIfVisible(menu, SHOW_ABOUT_KEY, {
       title: _('About This PC'),
-      argv: ['gnome-control-center', 'about'],
       iconName: 'help-about-symbolic',
+      activate: () => this._spawn(['gnome-control-center', 'about']),
     });
 
     const filesAdded = await this._addSection(
@@ -194,16 +193,17 @@ export class AuroraMenu extends Module {
       hasItems,
       [
         () =>
-          this._addCommandIfVisible(menu, SHOW_HOME_KEY, {
+          this._addActionIfVisible(menu, SHOW_HOME_KEY, {
             title: _('Home Folder'),
-            argv: ['xdg-open', GLib.get_home_dir()],
             iconName: 'user-home-symbolic',
+            activate: () => this._spawn(['xdg-open', GLib.get_home_dir()]),
           }),
         () =>
-          this._addCommandIfVisible(menu, SHOW_DOWNLOADS_KEY, {
+          this._addActionIfVisible(menu, SHOW_DOWNLOADS_KEY, {
             title: _('Downloads'),
-            argv: ['xdg-open', this._getDownloadsDirectory() || GLib.get_home_dir()],
             iconName: 'folder-download-symbolic',
+            activate: () =>
+              this._spawn(['xdg-open', this._getDownloadsDirectory() || GLib.get_home_dir()]),
           }),
         () => this._addRecentItems(menu, cancellable),
       ],
@@ -218,19 +218,20 @@ export class AuroraMenu extends Module {
       hasItems,
       [
         () =>
-          this._addCommandIfVisible(menu, SHOW_SETTINGS_KEY, {
+          this._addActionIfVisible(menu, SHOW_SETTINGS_KEY, {
             title: _('System Settings'),
-            argv: ['gnome-control-center'],
             iconName: 'emblem-system-symbolic',
+            activate: () => this._spawn(['gnome-control-center']),
           }),
         () =>
-          this._addCommandIfVisible(menu, SHOW_SOFTWARE_KEY, {
+          this._addActionIfVisible(menu, SHOW_SOFTWARE_KEY, {
             title: _('Software'),
-            argv: this._parseCommand(APP_STORE_COMMAND_KEY, ['gnome-software']),
             iconName: 'system-software-install-symbolic',
+            activate: () =>
+              this._spawn(this._parseCommand(APP_STORE_COMMAND_KEY, ['gnome-software'])),
           }),
         () =>
-          this._addCommandIfVisible(menu, SHOW_EXTENSIONS_KEY, {
+          this._addActionIfVisible(menu, SHOW_EXTENSIONS_KEY, {
             title: _('Extensions'),
             iconName: 'application-x-addon-symbolic',
             activate: () => this._openExtensionsManager(),
@@ -247,24 +248,21 @@ export class AuroraMenu extends Module {
     );
   }
 
-  private _addCommand(menu: PopupMenu.PopupMenu, command: MenuCommand): void {
-    const item = new PopupMenu.PopupMenuItem(command.title);
-    this._decorateItem(item, command.iconName);
-    item.connect('activate', () => {
-      if (command.activate) command.activate();
-      else if (command.argv) this._spawn(command.argv);
-    });
+  private _addAction(menu: PopupMenu.PopupMenu, action: MenuAction): void {
+    const item = new PopupMenu.PopupMenuItem(action.title);
+    this._decorateItem(item, action.iconName);
+    item.connect('activate', action.activate);
     menu.addMenuItem(item);
   }
 
-  private _addCommandIfVisible(
+  private _addActionIfVisible(
     menu: PopupMenu.PopupMenu,
     visibleKey: string,
-    command: MenuCommand,
+    action: MenuAction,
   ): boolean {
     if (!this.context.settings.getBoolean(visibleKey)) return false;
 
-    this._addCommand(menu, command);
+    this._addAction(menu, action);
     return true;
   }
 
@@ -302,10 +300,11 @@ export class AuroraMenu extends Module {
       const argv = this._parseCommandLine(command.command, CUSTOM_ITEMS_KEY);
       if (argv.length === 0) continue;
 
-      this._addCommand(menu, {
+      this._addAction(menu, {
         title: command.label,
-        argv,
         iconName: 'application-x-executable-symbolic',
+        // The final argv is exactly the result of GLib.shell_parse_argv(); no shell is involved.
+        activate: () => this._spawn(argv),
       });
       added = true;
     }

@@ -85,6 +85,35 @@ test('LifecycleScope — disposes an active managed source', () => {
   assert.deepEqual(removed, [9]);
 });
 
+test('LifecycleScope — disposes every active source in reverse registration order', () => {
+  const removed: number[] = [];
+  const scope = new LifecycleScope();
+  const first = scope.manageSource((id) => removed.push(id));
+  const second = scope.manageSource((id) => removed.push(id));
+
+  first.replace(() => 1);
+  second.replace(() => 2);
+  scope.dispose();
+
+  assert.deepEqual(removed, [2, 1]);
+});
+
+test('LifecycleScope — remains idempotent when a source remover reenters dispose', () => {
+  const events: string[] = [];
+  const scope = new LifecycleScope();
+  const source = scope.manageSource((id) => {
+    events.push(`remove:${id}`);
+    scope.dispose();
+  });
+  scope.onDispose(() => events.push('teardown'));
+  source.replace(() => 5);
+
+  assert.doesNotThrow(() => scope.dispose());
+  scope.dispose();
+
+  assert.deepEqual(events, ['remove:5', 'teardown']);
+});
+
 test('LifecycleScope — does not create a managed source after disposal', () => {
   const removed: number[] = [];
   let created = false;
