@@ -141,7 +141,7 @@ export function normalizeWebSearchEngine(value: string): WebSearchEngine {
 }
 
 export function buildWebSearchUri(text: string, engine?: string): string {
-  return `${WEB_SEARCH_URLS[normalizeWebSearchEngine(engine ?? '')]}${encodeURIComponent(text.trim())}`;
+  return `${WEB_SEARCH_URLS[normalizeWebSearchEngine(engine || '')]}${encodeURIComponent(text.trim())}`;
 }
 
 export function placeOcrActionBelow(

@@ -69,7 +69,7 @@ export class BackgroundAppsSource {
     if (!this._proxy || !this._appSystem) return;
 
     const backgroundApps = (this._proxy as any).BackgroundApps;
-    const currentApps = new Map<string, { app: Shell.App; message: string | null }>();
+    const currentApps = new Map<string, { app: Shell.App; message: string | undefined }>();
 
     if (backgroundApps) {
       // GJS might have already unpacked the aa{sv} into an array of objects
@@ -93,7 +93,7 @@ export class BackgroundAppsSource {
         };
 
         const appId = unpackStr(dict['app_id']);
-        const message = unpackStr(dict['message']) ?? null;
+        const message = unpackStr(dict['message']);
 
         if (!appId) continue;
 
@@ -122,14 +122,14 @@ export class BackgroundAppsSource {
     }
   }
 
-  private _makeItem(appId: string, app: Shell.App, message: string | null): TrayItem {
+  private _makeItem(appId: string, app: Shell.App, message?: string): TrayItem {
     return {
       id: `bg:${appId}`,
       get icon() {
-        return app.get_icon() ?? 'application-x-executable-symbolic';
+        return app.get_icon() || 'application-x-executable-symbolic';
       },
       get tooltip() {
-        return message ?? '';
+        return message || '';
       },
       get status(): TrayItemStatus {
         return 'Active';
@@ -148,7 +148,6 @@ export class BackgroundAppsSource {
           },
         },
       ],
-      destroy() {},
     };
   }
 

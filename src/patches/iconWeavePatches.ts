@@ -13,7 +13,9 @@ export class IconWeavePatches {
     const originalGetWindowApp = Shell.WindowTracker.prototype.get_window_app;
 
     this._install(Shell.WindowTracker.prototype, 'get_window_app', function (original, win: any) {
-      return map.get(win) ?? original.call(this, win);
+      const mappedApp = map.get(win);
+      if (mappedApp) return mappedApp;
+      return original.call(this, win);
     });
 
     this._install(Shell.App.prototype, 'get_windows', function (original) {

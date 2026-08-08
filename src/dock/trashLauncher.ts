@@ -8,14 +8,13 @@ export interface TrashLaunchStrategy {
 }
 
 export interface TrashAvailabilityStrategy {
-  getNautilusExecutable(): string | null;
+  getNautilusExecutable(): string | null | undefined;
 }
 
 export function canLaunchTrash(strategy: TrashAvailabilityStrategy): boolean {
-  return strategy.getNautilusExecutable() !== null;
+  return Boolean(strategy.getNautilusExecutable());
 }
 
-/** Opens the trash explicitly through Nautilus. */
 export function launchTrash(strategy: TrashLaunchStrategy): TrashLaunchResult {
   if (strategy.launchNautilus()) return 'nautilus';
   throw new Error('Nautilus refused the trash URI');

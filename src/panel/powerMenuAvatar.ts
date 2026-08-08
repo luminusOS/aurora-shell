@@ -23,10 +23,11 @@ type SystemItem = {
   menu: PowerMenu;
 };
 
-type UserWidgetConstructor = new (user: AccountsService.User) => UserWidget;
+const UserWidgetWithUser = UserWidget as typeof UserWidget & {
+  new (user: AccountsService.User): UserWidget;
+};
 
 function createUserWidget(user: AccountsService.User): UserWidget {
-  const UserWidgetWithUser = UserWidget as unknown as UserWidgetConstructor;
   return new UserWidgetWithUser(user);
 }
 
@@ -61,9 +62,12 @@ export class PowerMenuAvatar extends Module {
     const grid = getQuickSettingsGrid();
     if (!grid) return null;
 
-    return (
-      grid.get_children().find((child: any) => child.constructor.name === 'SystemItem') ?? null
-    );
+    const systemItem = grid
+      .get_children()
+      .find((child: any) => child.constructor.name === 'SystemItem');
+    if (!systemItem) return null;
+
+    return systemItem;
   }
 
   private _attach(systemItem: SystemItem): void {

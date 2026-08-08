@@ -9,8 +9,6 @@ export interface Logger {
   log(msg: string, ...args: any[]): void;
   debug(msg: string, options: LogOptions, ...args: any[]): void;
   debug(msg: string, ...args: any[]): void;
-  info(msg: string, options: LogOptions, ...args: any[]): void;
-  info(msg: string, ...args: any[]): void;
   warn(msg: string, options: LogOptions, ...args: any[]): void;
   warn(msg: string, ...args: any[]): void;
   error(msg: string, options: LogOptions, ...args: any[]): void;
@@ -64,11 +62,6 @@ export class ConsoleLogger implements Logger {
     this._emit(GLib.LogLevelFlags.LEVEL_DEBUG, this._fmt(msg, rest, options));
   }
 
-  info(msg: string, ...args: any[]): void {
-    const { options, args: rest } = this._splitArgs(args);
-    this._emit(GLib.LogLevelFlags.LEVEL_MESSAGE, this._fmt(msg, rest, options));
-  }
-
   warn(msg: string, ...args: any[]): void {
     const { options, args: rest } = this._splitArgs(args);
     this._emit(GLib.LogLevelFlags.LEVEL_WARNING, this._fmt(msg, rest, options));
@@ -83,14 +76,13 @@ export class ConsoleLogger implements Logger {
 let _activeLogger: Logger | null = null;
 
 function _getActiveLogger(): Logger {
-  _activeLogger ??= new ConsoleLogger();
+  if (!_activeLogger) _activeLogger = new ConsoleLogger();
   return _activeLogger;
 }
 
 export const logger: Logger = {
   log: (...args) => _getActiveLogger().log(...args),
   debug: (...args) => _getActiveLogger().debug(...args),
-  info: (...args) => _getActiveLogger().info(...args),
   warn: (...args) => _getActiveLogger().warn(...args),
   error: (...args) => _getActiveLogger().error(...args),
 };

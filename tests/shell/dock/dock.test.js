@@ -10,6 +10,7 @@ import St from 'gi://St';
 import {
   ensureOverviewHidden,
   EXTENSION_UUID,
+  getAuroraModule,
   getAuroraSettings,
   waitForExtension,
 } from '../support/testUtils.js';
@@ -28,10 +29,10 @@ function findDockActor() {
 }
 
 function clearIntellihideQueuedRefreshes(intellihide) {
-  for (const id of intellihide._queuedRefreshIds ?? []) {
+  for (const id of intellihide._queuedRefreshIds || []) {
     GLib.source_remove(id);
   }
-  intellihide._queuedRefreshIds?.clear?.();
+  if (intellihide._queuedRefreshIds) intellihide._queuedRefreshIds.clear();
   if (intellihide._settleId) {
     GLib.source_remove(intellihide._settleId);
     intellihide._settleId = 0;
@@ -170,29 +171,30 @@ export async function run() {
 
   Scripting.scriptEvent('panelIntact');
 
-  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
-  const dock = extension?.stateObj?._modules?.get('dock');
-  if (!dock) throw new Error('Dock module instance not found');
+  const dock = getAuroraModule('dock');
 
   await exerciseMonitorScope(settings, dock);
 
   const dash = dock?.bindings?.[0]?.dash;
   const showAppsIcon = dash?._showAppsIcon;
-  const dashChildren = dash?._dashContainer?.get_children?.() ?? [];
+  const dashChildren = dash?._dashContainer?.get_children ? dash._dashContainer.get_children() : [];
   const showAppsIndex = dashChildren.indexOf(showAppsIcon);
   const trashIcon = showAppsIndex > 0 ? dashChildren[showAppsIndex - 1] : null;
   const trashIndex = dashChildren.indexOf(trashIcon);
+  let trashUri;
+  if (trashIcon && trashIcon._trashFile && trashIcon._trashFile.get_uri)
+    trashUri = trashIcon._trashFile.get_uri();
   const nautilus = Shell.AppSystem.get_default().lookup_app('org.gnome.Nautilus.desktop');
   const hasNautilus = Boolean(nautilus?.get_app_info().get_executable());
 
   if (!hasNautilus) {
-    if (trashIcon?._trashFile?.get_uri?.() === 'trash:///')
+    if (trashUri === 'trash:///')
       throw new Error('Trash icon was created without Nautilus installed');
 
     Scripting.scriptEvent('trashIconValid');
     Scripting.scriptEvent('trashClickWired');
   } else {
-    if (trashIcon?._trashFile?.get_uri?.() !== 'trash:///')
+    if (trashUri !== 'trash:///')
       throw new Error('Trash icon was not created while dock-show-trash is enabled');
     if (trashIcon._iconActor?.icon_name?.endsWith('-symbolic'))
       throw new Error(`Trash icon is still symbolic: ${trashIcon._iconActor.icon_name}`);
@@ -200,7 +202,7 @@ export async function run() {
       throw new Error(
         `Trash icon must immediately precede Show Apps (trash=${trashIndex}, showApps=${showAppsIndex})`,
       );
-    if (dash._box?.contains?.(trashIcon))
+    if (dash._box?.contains && dash._box.contains(trashIcon))
       throw new Error('Trash icon is inside the app list instead of being a fixed dock item');
     if (dash._fixedItems._trash !== trashIcon)
       throw new Error('Dash lost its fixed trash icon reference after GObject construction');
@@ -293,7 +295,7 @@ export async function run() {
 
     const themeNode = dash.get_theme_node();
     const spacing = themeNode.get_length('spacing');
-    const firstButton = (boxIconChildren[0] ?? fixedIcons[0]).child;
+    const firstButton = (boxIconChildren[0] || fixedIcons[0]).child;
     const firstIcon = firstButton._delegate.icon;
     firstIcon.icon.ensure_style();
     const [, , iconNatWidth] = firstIcon.icon.get_preferred_size();

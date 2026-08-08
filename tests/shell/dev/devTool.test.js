@@ -77,7 +77,7 @@ export async function run() {
   await exerciseMeetingClock(settings, devTool);
   Scripting.scriptEvent('meetingClockToolPassed');
 
-  await exerciseDock(settings, devTool, extension);
+  await exerciseDock(settings, devTool);
   Scripting.scriptEvent('dockToolPassed');
 }
 

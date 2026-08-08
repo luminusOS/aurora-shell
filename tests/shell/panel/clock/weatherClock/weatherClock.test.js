@@ -2,7 +2,12 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../../../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraModule,
+  getAuroraSettings,
+  waitForExtension,
+} from '../../../support/testUtils.js';
 
 const WEATHER_MODULE_KEY = 'module-weather-clock';
 const MEETING_MODULE_KEY = 'module-meeting-clock';
@@ -32,9 +37,7 @@ export async function run() {
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
 
-  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
-  const weatherClock = extension?.stateObj?._modules?.get('weather-clock');
-  if (!weatherClock) throw new Error('Weather Clock module instance not found');
+  const weatherClock = getAuroraModule('weather-clock');
 
   weatherClock.setWeatherSnapshot('aurora-test', {
     iconName: 'weather-clear-symbolic',
@@ -50,13 +53,19 @@ export async function run() {
 
   const weatherWidget = wrapper
     .get_children()
-    .find((child) => child.has_style_class_name?.('aurora-weather-clock-widget'));
+    .find(
+      (child) =>
+        child.has_style_class_name && child.has_style_class_name('aurora-weather-clock-widget'),
+    );
   if (!weatherWidget?.visible)
     throw new Error('Weather Clock widget did not render the fake weather snapshot');
 
   const weatherLabel = weatherWidget
     .get_children()
-    .find((child) => child.has_style_class_name?.('aurora-weather-clock-label'));
+    .find(
+      (child) =>
+        child.has_style_class_name && child.has_style_class_name('aurora-weather-clock-label'),
+    );
   await Scripting.sleep(2000);
   if (weatherLabel?.text !== '24°')
     throw new Error(`Weather Clock label changed from temperature to "${weatherLabel?.text}"`);
@@ -65,8 +74,7 @@ export async function run() {
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
 
-  const meetingClock = extension?.stateObj?._modules?.get('meeting-clock');
-  if (!meetingClock) throw new Error('Meeting Clock module instance not found');
+  const meetingClock = getAuroraModule('meeting-clock');
 
   const now = Math.floor(Date.now() / 1000);
   meetingClock.setSourceEvents('aurora-test', [
@@ -88,12 +96,14 @@ export async function run() {
   await Scripting.sleep(300);
 
   const children = wrapper.get_children();
-  const weatherIndex = children.findIndex((child) =>
-    child.has_style_class_name?.('aurora-weather-clock-widget'),
+  const weatherIndex = children.findIndex(
+    (child) =>
+      child.has_style_class_name && child.has_style_class_name('aurora-weather-clock-widget'),
   );
   const clockIndex = children.indexOf(originalClockDisplay);
-  const meetingIndex = children.findIndex((child) =>
-    child.has_style_class_name?.('aurora-meeting-clock-widget'),
+  const meetingIndex = children.findIndex(
+    (child) =>
+      child.has_style_class_name && child.has_style_class_name('aurora-meeting-clock-widget'),
   );
 
   if (!(weatherIndex >= 0 && clockIndex >= 0 && meetingIndex >= 0))

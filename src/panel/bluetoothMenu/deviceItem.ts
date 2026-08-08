@@ -205,7 +205,7 @@ export class BluetoothDeviceItemPatcher {
   }
 
   disable(options: DisableOptions = {}): void {
-    const restoreOriginalChildren = options.restoreOriginalChildren ?? true;
+    const { restoreOriginalChildren = true } = options;
 
     this._lifecycle?.dispose();
     this._lifecycle = null;

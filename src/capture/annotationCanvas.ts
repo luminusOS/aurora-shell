@@ -178,7 +178,7 @@ function renderAnnotation(
   points: readonly Point[],
   widthScale: number,
 ): void {
-  const color = parseHexColor(annotation.color) ?? [1, 0, 0];
+  const color = parseHexColor(annotation.color) || [1, 0, 0];
   const lineWidth = Math.max(1, annotation.width * widthScale);
   cr.setLineCap(Cairo.LineCap.ROUND);
   cr.setLineJoin(Cairo.LineJoin.ROUND);
@@ -248,9 +248,10 @@ function renderAnnotation(
   if (annotation.tool === 'text') {
     const start = points[0]!;
     const fontSize = Math.max(16 * widthScale, lineWidth * 4);
+    const { text = '' } = annotation;
     cr.selectFontFace('Sans', Cairo.FontSlant.NORMAL, Cairo.FontWeight.BOLD);
     cr.setFontSize(fontSize);
-    for (const [index, line] of (annotation.text ?? '').split('\n').entries()) {
+    for (const [index, line] of text.split('\n').entries()) {
       cr.moveTo(start.x, start.y + fontSize * (index + 1));
       cr.showText(line);
     }
@@ -260,9 +261,10 @@ function renderAnnotation(
   if (annotation.tool === 'stamp') {
     const center = points[0]!;
     const radius = Math.max(12 * widthScale, lineWidth * 2.5);
+    const { counter = 1 } = annotation;
     cr.arc(center.x, center.y, radius, 0, Math.PI * 2);
     cr.fill();
-    const label = String(annotation.counter ?? 1);
+    const label = String(counter);
     cr.setSourceRGBA(1, 1, 1, 1);
     cr.selectFontFace('Sans', Cairo.FontSlant.NORMAL, Cairo.FontWeight.BOLD);
     cr.setFontSize(radius * 1.15);

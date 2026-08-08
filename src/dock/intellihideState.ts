@@ -18,7 +18,6 @@ export interface BlockingOverlapState {
   rectangles: Rectangle[];
 }
 
-/** Whether a window belongs to the workspace currently displayed by a dock. */
 export function isOnActiveWorkspace(
   windowWorkspace: object | null,
   activeWorkspace: object | null,
@@ -37,7 +36,6 @@ export function rectanglesOverlap(first: Rectangle, second: Rectangle): boolean 
   return !(firstIsLeft || firstIsRight || firstIsAbove || firstIsBelow);
 }
 
-/** Intellihide is blocked when any relevant window overlaps the dock. */
 export function hasOverlap(rectangles: Rectangle[], target: Rectangle): boolean {
   return rectangles.some((rectangle) => rectanglesOverlap(rectangle, target));
 }

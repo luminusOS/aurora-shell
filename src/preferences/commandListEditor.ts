@@ -202,14 +202,16 @@ class CommandListEditor {
   }
 
   private _showEditor(parent: Gtk.Widget, index?: number, command?: CustomMenuCommand): void {
+    const label = command ? command.label : '';
+    const commandText = command ? command.command : '';
     const labelRow = new Adw.EntryRow({
       title: _('Name'),
-      text: command?.label ?? '',
+      text: label,
       activates_default: true,
     });
     const commandRow = new Adw.EntryRow({
       title: _('Command'),
-      text: command?.command ?? '',
+      text: commandText,
       activates_default: true,
     });
     commandRow.add_prefix(

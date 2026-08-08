@@ -4,7 +4,6 @@ import { gettext as _ } from '~/shared/i18n.ts';
 import Clutter from '@girs/clutter-18';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
-import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
 
 import type { ExtensionContext } from '~/core/context.ts';
@@ -15,18 +14,11 @@ import { Module } from '~/module.ts';
 const LOG_PREFIX = 'LockKeyIndicators';
 const STATUS_AREA_ID = 'aurora-lock-key-indicators';
 
-type Keymap = {
-  connect(signal: 'state-changed', callback: () => void): number;
-  disconnect(id: number): void;
-  get_caps_lock_state(): boolean;
-  get_num_lock_state(): boolean;
-};
-
 export class LockKeyIndicators extends Module {
   private _button: PanelMenu.Button | null = null;
   private _capsLabel: St.Label | null = null;
   private _numLabel: St.Label | null = null;
-  private _keymap: Keymap | null = null;
+  private _keymap: Clutter.Keymap | null = null;
   private _lifecycle: LifecycleScope | null = null;
 
   constructor(context: ExtensionContext) {
@@ -60,12 +52,7 @@ export class LockKeyIndicators extends Module {
     this._lifecycle.connect(this._keymap, 'state-changed', () => this._sync());
     this._sync();
 
-    Main.panel.addToStatusArea(
-      STATUS_AREA_ID,
-      this._button as unknown as PanelMenuButton,
-      0,
-      'right',
-    );
+    Main.panel.addToStatusArea(STATUS_AREA_ID, this._button, 0, 'right');
   }
 
   override disable(): void {
@@ -78,8 +65,8 @@ export class LockKeyIndicators extends Module {
     this._keymap = null;
   }
 
-  private _getKeymap(): Keymap | null {
-    return Clutter.get_default_backend().get_default_seat().get_keymap() as unknown as Keymap;
+  private _getKeymap(): Clutter.Keymap | null {
+    return Clutter.get_default_backend().get_default_seat().get_keymap();
   }
 
   private _makeLabel(text: string): St.Label {

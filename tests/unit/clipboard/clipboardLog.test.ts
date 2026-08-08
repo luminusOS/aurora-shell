@@ -9,6 +9,7 @@ import {
   encodePinOp,
   encodeUnpinOp,
   parseClipboardLog,
+  removeClipboardEntry,
 } from '~/clipboard/clipboardLog.ts';
 
 const alpha = {
@@ -100,4 +101,13 @@ test('clipboard log preserves image metadata', () => {
   assert.equal(state.history[0]?.mimeType, 'image/png');
   assert.equal(state.history[0]?.filePath, '/tmp/aurora-clipboard-test.png');
   assert.equal(state.history[0]?.contentKey, 'image:image/png:4-deadbeef');
+});
+
+test('clipboard entries are removed by identity', () => {
+  const entries = [alpha, beta];
+
+  removeClipboardEntry(entries, alpha);
+  removeClipboardEntry(entries, alpha);
+
+  assert.deepEqual(entries, [beta]);
 });

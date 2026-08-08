@@ -5,6 +5,7 @@ import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
+import { openClockMenu } from '~/shared/clockPill.ts';
 
 import { CalendarServerBackend } from './calendarServerBackend.ts';
 import { MeetingAlertController } from './meetingAlertController.ts';
@@ -113,7 +114,7 @@ export class MeetingClock extends Module {
   setSourceEvents(sourceKey: string, events: readonly MeetingEvent[]): void {
     if (!this._lifecycle || !this._alerts) return;
 
-    const previousIds = new Set(this._eventsBySource.get(sourceKey)?.map((event) => event.id));
+    const previousIds = new Set(this.getSourceEvents(sourceKey).map((event) => event.id));
     const nextEvents = [...events];
 
     for (const event of nextEvents) {
@@ -126,7 +127,7 @@ export class MeetingClock extends Module {
   }
 
   clearSourceEvents(sourceKey: string): void {
-    const removedIds = new Set(this._eventsBySource.get(sourceKey)?.map((event) => event.id));
+    const removedIds = new Set(this.getSourceEvents(sourceKey).map((event) => event.id));
     this._eventsBySource.delete(sourceKey);
     if (this._alerts) this._alerts.clearEventState(removedIds);
 
@@ -134,7 +135,10 @@ export class MeetingClock extends Module {
   }
 
   getSourceEvents(sourceKey: string): MeetingEvent[] {
-    return [...(this._eventsBySource.get(sourceKey) ?? [])];
+    const events = this._eventsBySource.get(sourceKey);
+    if (!events) return [];
+
+    return [...events];
   }
 
   showAlert(eventId: string | null = null): boolean {
@@ -149,7 +153,7 @@ export class MeetingClock extends Module {
     }
 
     this._render();
-    return this._pill.openMenu();
+    return openClockMenu();
   }
 
   get eventCount(): number {

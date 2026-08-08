@@ -69,7 +69,7 @@ export interface BaseIconLike {
   _iconBin?: St.Bin;
 }
 
-export type MotionTarget = St.Button & {
+export type MotionTarget = Omit<St.Button, '_delegate'> & {
   app?: Shell.App | null;
   icon?: BaseIconLike;
   _delegate?: { icon?: BaseIconLike };
@@ -272,7 +272,7 @@ export class IconMotionController {
     const hoverDuration = this._hovered
       ? this._recipe.hover.duration
       : Math.round(this._recipe.hover.duration * 1.15);
-    const baseDuration = durationOverride ?? hoverDuration;
+    const baseDuration = durationOverride === null ? hoverDuration : durationOverride;
     const duration = animationsEnabled ? baseDuration : 0;
     const properties: AppliedProperties = {
       scale_x: this._original.scaleX * transform.scaleX,

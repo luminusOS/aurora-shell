@@ -6,7 +6,6 @@ import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import Shell from '@girs/shell-18';
-import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 
 // @ts-ignore
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
@@ -61,19 +60,11 @@ export class TrayIcons extends Module {
       this._hideBgAppsQuickSettings();
     }
 
-    const container = new (TrayContainer as unknown as new (
-      iconSize: number,
-      limit: number,
-    ) => TrayContainer)(iconSize, limit);
+    const container = new TrayContainer(iconSize, limit);
     this._container = container;
     container.setAttentionTimeout(attentionTimeout);
 
-    Main.panel.addToStatusArea(
-      PANEL_INDICATOR_ID,
-      container as unknown as PanelMenuButton,
-      0,
-      'right',
-    );
+    Main.panel.addToStatusArea(PANEL_INDICATOR_ID, container, 0, 'right');
 
     const sniWatcher = new SniWatcher(
       (busName, objectPath) => {
@@ -187,7 +178,7 @@ export class TrayIcons extends Module {
   }
 
   private _onSniItemAdded(item: TrayItem): void {
-    logger.debug(`SNI item added: ${item.id} (menuBus=${item.menuBusName ?? 'none'})`, {
+    logger.debug(`SNI item added: ${item.id} (menuBus=${item.menuBusName || 'none'})`, {
       prefix: LOG_PREFIX,
     });
     this._container?.addItem(item);
@@ -313,7 +304,7 @@ export class TrayIcons extends Module {
       const flatpakMatch = flatpakAppId ? candidates.has(flatpakAppId.toLowerCase()) : false;
       const covered = ancestorMatch || trackerMatch || flatpakMatch;
       logger.debug(
-        `SNI covers ${appId}? sni-bus=${busName} sni-pid=${sniPid} flatpak=${flatpakAppId ?? 'none'} app-pids=[${appPids.join(', ')}] pid-match=${covered}`,
+        `SNI covers ${appId}? sni-bus=${busName} sni-pid=${sniPid} flatpak=${flatpakAppId || 'none'} app-pids=[${appPids.join(', ')}] pid-match=${covered}`,
         { prefix: LOG_PREFIX },
       );
       if (covered) return true;
@@ -325,8 +316,14 @@ export class TrayIcons extends Module {
   private async _getFlatpakAppId(pid: number): Promise<string | null> {
     const text = await this._readProcText(`/proc/${pid}/root/.flatpak-info`);
     if (!text) return null;
+
     const match = /^name=(.+)$/m.exec(text);
-    return match?.[1]?.trim() || null;
+    if (!match) return null;
+
+    const appId = match[1]?.trim();
+    if (!appId) return null;
+
+    return appId;
   }
 
   private async _readProcText(path: string): Promise<string | null> {

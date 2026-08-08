@@ -155,7 +155,8 @@ export class DBusMenuClient {
     const get = (key: string, def: unknown): unknown => {
       const v = props[key];
       if (v instanceof GLib.Variant) return v.unpack();
-      return v ?? def;
+      if (v === undefined || v === null) return def;
+      return v;
     };
 
     return {

@@ -1,8 +1,16 @@
 import * as Main from '@girs/gnome-shell/ui/main';
 
-/** The Quick Settings menu grid, or null if it does not exist yet. */
 export function getQuickSettingsGrid(): any | null {
-  return Main.panel.statusArea.quickSettings?.menu?._grid ?? null;
+  const quickSettings = Main.panel.statusArea.quickSettings;
+  if (!quickSettings) return null;
+
+  const menu = quickSettings.menu;
+  if (!menu) return null;
+
+  const grid = menu._grid;
+  if (!grid) return null;
+
+  return grid;
 }
 
 /**

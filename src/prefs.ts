@@ -82,7 +82,7 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
   }
 
   private _buildWebsiteButton(): Gtk.LinkButton {
-    const websiteUrl = this.metadata['url'] ?? WEBSITE_URL;
+    const websiteUrl = this.metadata['url'] || WEBSITE_URL;
     const label = _('Access website');
     const content = new Gtk.Box({
       orientation: Gtk.Orientation.HORIZONTAL,
@@ -154,12 +154,13 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
         settings.bind(option.key!, row, 'text', Gio.SettingsBindFlags.DEFAULT);
         expander.add_row(row);
       } else if (option.type === 'spin') {
+        const { min: lower = 0, max: upper = 100 } = option;
         const row = new Adw.SpinRow({
           title: option.title,
           subtitle: option.subtitle,
           adjustment: new Gtk.Adjustment({
-            lower: option.min ?? 0,
-            upper: option.max ?? 100,
+            lower,
+            upper,
             step_increment: 1,
             page_increment: 10,
           }),
@@ -235,7 +236,7 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
   }
 
   private _buildSelectRow(option: ModuleOption, settings: Gio.Settings): Adw.ComboRow {
-    const choices = option.choices ?? [];
+    const choices = option.choices || [];
     const row = new Adw.ComboRow({
       title: option.title,
       subtitle: option.subtitle,
@@ -262,7 +263,7 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
   }
 
   private _buildIconSelectRow(option: ModuleOption, settings: Gio.Settings): Adw.ActionRow {
-    const choices = option.choices ?? [];
+    const choices = option.choices || [];
     const row = new Adw.ActionRow({
       title: option.title,
       subtitle: option.subtitle,
@@ -295,7 +296,7 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
 
     for (const [index, choice] of choices.entries()) {
       const icon = new Gtk.Image({
-        icon_name: choice.iconName ?? 'image-missing-symbolic',
+        icon_name: choice.iconName || 'image-missing-symbolic',
         pixel_size: 24,
         valign: Gtk.Align.CENTER,
         halign: Gtk.Align.CENTER,
@@ -329,9 +330,10 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
     const syncSelection = () => {
       if (choices.length === 0) return;
 
-      const selected =
-        choices.find((choice) => choice.value === settings.get_string(option.key!)) ?? choices[0]!;
-      selectedIcon.icon_name = selected.iconName ?? 'image-missing-symbolic';
+      let selected = choices.find((choice) => choice.value === settings.get_string(option.key!));
+      if (!selected) selected = choices[0]!;
+
+      selectedIcon.icon_name = selected.iconName || 'image-missing-symbolic';
       button.tooltip_text = selected.title;
     };
 
@@ -364,7 +366,8 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
     });
 
     const syncLabel = () => {
-      label.accelerator = settings.get_strv(key)[0] ?? '';
+      const [accelerator = ''] = settings.get_strv(key);
+      label.accelerator = accelerator;
     };
     syncLabel();
 

@@ -38,7 +38,7 @@ export async function run() {
   await Scripting.sleep(200);
 
   const statusArea = Main.panel.statusArea;
-  const indicator = statusArea.screenSharing ?? statusArea.quickSettings?._remoteAccess ?? null;
+  const indicator = statusArea.screenSharing || statusArea.quickSettings?._remoteAccess;
 
   if (!indicator) {
     console.debug(

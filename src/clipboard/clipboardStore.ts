@@ -13,6 +13,7 @@ import {
   encodePinOp,
   encodeUnpinOp,
   parseClipboardLog,
+  removeClipboardEntry,
   type ClipboardEntrySnapshot,
 } from '~/clipboard/clipboardLog.ts';
 
@@ -53,6 +54,7 @@ export class ClipboardStore {
   private _pendingWrites: string[] = [];
   private _writing: boolean = false;
   private _compactionRequested: boolean = false;
+  private _writeRequestVersion = 0;
 
   constructor(filePath: string, mediaDir: string) {
     this._filePath = filePath;
@@ -171,7 +173,7 @@ export class ClipboardStore {
     const entry = this._byId.get(id);
     if (!entry || entry.pinned) return;
 
-    this._removeFromList(this._history, entry);
+    removeClipboardEntry(this._history, entry);
     entry.pinned = true;
     this._pinned.unshift(entry);
     this._appendLog(encodePinOp(id));
@@ -181,7 +183,7 @@ export class ClipboardStore {
     const entry = this._byId.get(id);
     if (!entry || !entry.pinned) return;
 
-    this._removeFromList(this._pinned, entry);
+    removeClipboardEntry(this._pinned, entry);
     entry.pinned = false;
     this._history.unshift(entry);
     this._wastedOps += 2;
@@ -193,8 +195,8 @@ export class ClipboardStore {
     const entry = this._byId.get(id);
     if (!entry) return;
 
-    this._removeFromList(this._pinned, entry);
-    this._removeFromList(this._history, entry);
+    removeClipboardEntry(this._pinned, entry);
+    removeClipboardEntry(this._history, entry);
     this._byId.delete(id);
     this._byContentKey.delete(entry.contentKey);
     this._deleteMediaFile(entry);
@@ -241,21 +243,18 @@ export class ClipboardStore {
 
   private _moveToFront(entry: ClipboardEntry): void {
     const list = entry.pinned ? this._pinned : this._history;
-    this._removeFromList(list, entry);
+    removeClipboardEntry(list, entry);
     list.unshift(entry);
-  }
-
-  private _removeFromList(list: ClipboardEntry[], entry: ClipboardEntry): void {
-    const index = list.indexOf(entry);
-    if (index !== -1) list.splice(index, 1);
   }
 
   private _rebuildIndexes(): void {
     this._byId.clear();
     this._byContentKey.clear();
     for (const entry of [...this._pinned, ...this._history]) {
-      entry.kind ??= 'text';
-      entry.contentKey ??= entry.kind === 'image' ? 'image:' + entry.id : 'text:' + entry.text;
+      if (entry.kind === undefined) entry.kind = 'text';
+      if (entry.contentKey === undefined) {
+        entry.contentKey = entry.kind === 'image' ? 'image:' + entry.id : 'text:' + entry.text;
+      }
       this._byId.set(entry.id, entry);
       this._byContentKey.set(entry.contentKey, entry);
     }
@@ -276,7 +275,7 @@ export class ClipboardStore {
       } catch (e) {
         removed++;
         logger.warn(
-          `Dropped invalid clipboard image from history: id=${entry.id}, path=${entry.filePath ?? '(none)'}`,
+          `Dropped invalid clipboard image from history: id=${entry.id}, path=${entry.filePath || '(none)'}`,
           { prefix: LOG_PREFIX },
           e as Error,
         );
@@ -294,18 +293,21 @@ export class ClipboardStore {
 
   private _appendLog(data: string): void {
     this._pendingWrites.push(data);
+    this._writeRequestVersion++;
     void this._drainWrites();
   }
 
   private _requestCompactionIfNeeded(): void {
     if (this._wastedOps < MAX_WASTED_OPS) return;
     this._compactionRequested = true;
+    this._writeRequestVersion++;
     void this._drainWrites();
   }
 
   private async _drainWrites(): Promise<void> {
     if (this._writing) return;
     this._writing = true;
+    const requestVersion = this._writeRequestVersion;
 
     try {
       while (this._pendingWrites.length > 0 || this._compactionRequested) {
@@ -321,15 +323,15 @@ export class ClipboardStore {
         }
 
         if (this._compactionRequested) {
-          this._compactionRequested = false;
           await this._compactLog();
+          this._compactionRequested = false;
         }
       }
     } catch (e) {
       logger.error('Failed to write clipboard history log:', { prefix: LOG_PREFIX }, e as Error);
     } finally {
       this._writing = false;
-      if (this._pendingWrites.length > 0 || this._compactionRequested) {
+      if (this._writeRequestVersion !== requestVersion) {
         void this._drainWrites();
       }
     }
@@ -411,25 +413,16 @@ export class ClipboardStore {
   }
 
   private _validateImageBytes(mimeType: string, bytes: GLib.Bytes): void {
-    let loader: GdkPixbuf.PixbufLoader | null = null;
+    const loader = GdkPixbuf.PixbufLoader.new_with_mime_type(mimeType);
 
     try {
-      loader = GdkPixbuf.PixbufLoader.new_with_mime_type(mimeType);
       loader.write_bytes(bytes);
+    } finally {
       loader.close();
+    }
 
-      if (!loader.get_pixbuf() && !loader.get_animation()) {
-        throw new Error('Image decoder did not produce a pixbuf or animation');
-      }
-    } catch (e) {
-      if (loader) {
-        try {
-          loader.close();
-        } catch (_closeError) {
-          // The original decoder error is the useful one.
-        }
-      }
-      throw e;
+    if (!loader.get_pixbuf() && !loader.get_animation()) {
+      throw new Error('Image decoder did not produce a pixbuf or animation');
     }
   }
 

@@ -23,9 +23,10 @@ export function init() {
  */
 function findActorWithStyleClass(actor, styleClass) {
   if (!actor) return null;
-  if (actor.has_style_class_name?.(styleClass)) return actor;
+  if (actor.has_style_class_name && actor.has_style_class_name(styleClass)) return actor;
 
-  for (const child of actor.get_children?.() ?? []) {
+  const children = actor.get_children ? actor.get_children() : [];
+  for (const child of children) {
     const match = findActorWithStyleClass(child, styleClass);
     if (match) return match;
   }
@@ -36,9 +37,13 @@ function findActorWithStyleClass(actor, styleClass) {
 /** @returns {import('@girs/clutter-18').Actor | null} */
 function findBackgroundAppsToggle() {
   const quickSettings = Main.panel.statusArea.quickSettings;
-  const directItem = quickSettings?._backgroundApps?.quickSettingsItems?.find?.((item) =>
-    item?.has_style_class_name?.(BG_APPS_TOGGLE_CLASS),
-  );
+  const items = quickSettings?._backgroundApps?.quickSettingsItems;
+  const directItem = items
+    ? items.find(
+        (item) =>
+          item && item.has_style_class_name && item.has_style_class_name(BG_APPS_TOGGLE_CLASS),
+      )
+    : undefined;
   if (directItem) return directItem;
 
   return findActorWithStyleClass(quickSettings?.menu?._grid, BG_APPS_TOGGLE_CLASS);

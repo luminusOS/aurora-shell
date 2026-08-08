@@ -7,7 +7,6 @@ import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
-import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 
 import type { ExtensionContext } from '~/core/context.ts';
@@ -152,12 +151,7 @@ export class AuroraMenu extends Module {
   private _registerButton(): void {
     if (!this._button) return;
 
-    Main.panel.addToStatusArea(
-      STATUS_AREA_ID,
-      this._button as unknown as PanelMenuButton,
-      0,
-      'left',
-    );
+    Main.panel.addToStatusArea(STATUS_AREA_ID, this._button, 0, 'left');
   }
 
   private _rebuildMenu(): void {
@@ -208,7 +202,7 @@ export class AuroraMenu extends Module {
         () =>
           this._addCommandIfVisible(menu, SHOW_DOWNLOADS_KEY, {
             title: _('Downloads'),
-            argv: ['xdg-open', this._getDownloadsDirectory() ?? GLib.get_home_dir()],
+            argv: ['xdg-open', this._getDownloadsDirectory() || GLib.get_home_dir()],
             iconName: 'folder-download-symbolic',
           }),
         () => this._addRecentItems(menu, cancellable),
@@ -519,7 +513,9 @@ export class AuroraMenu extends Module {
 
   private _getDownloadsDirectory(): string | null {
     const path = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD);
-    return path || null;
+    if (!path) return null;
+
+    return path;
   }
 
   private _desktopFileExists(desktopId: string): boolean {

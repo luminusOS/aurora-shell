@@ -1,7 +1,12 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraModule,
+  getAuroraSettings,
+  waitForExtension,
+} from '../support/testUtils.js';
 
 const MODULE_KEY = 'vela-vpn-quick-settings';
 const MODULE_SETTING = 'module-vela-vpn-quick-settings';
@@ -17,7 +22,7 @@ export function init() {
 }
 
 export async function run() {
-  let extension = await waitForExtension(EXTENSION_UUID);
+  await waitForExtension(EXTENSION_UUID);
   const settings = getAuroraSettings();
   const originalModuleEnabled = settings.get_boolean(MODULE_SETTING);
   const originalFallbackEnabled = settings.get_boolean(FALLBACK_SETTING);
@@ -35,9 +40,8 @@ export async function run() {
     await Scripting.waitLeisure();
     await Scripting.sleep(200);
 
-    extension = await waitForExtension(EXTENSION_UUID);
-    const module = extension.stateObj?._modules?.get(MODULE_KEY);
-    if (!module) throw new Error('Vela VPN Quick Settings module is not active');
+    await waitForExtension(EXTENSION_UUID);
+    const module = getAuroraModule(MODULE_KEY);
 
     const connection = {
       get_path: () => '/org/freedesktop/NetworkManager/Settings/999999',

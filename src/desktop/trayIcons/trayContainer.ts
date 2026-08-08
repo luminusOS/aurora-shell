@@ -22,543 +22,545 @@ const ANIM_DURATION = 600;
 const PANEL_SAFETY_GAP = 8;
 const LOG_PREFIX = 'AuroraTray';
 
-@GObject.registerClass
-export class TrayContainer extends PanelMenu.Button {
-  static [GObject.properties] = {
-    'anim-scroll': GObject.ParamSpec.double(
-      'anim-scroll',
-      'anim-scroll',
-      'Animated scroll position snapped to pixels',
-      GObject.ParamFlags.READWRITE,
-      -10000,
-      10000,
-      0,
-    ),
-  };
+export const TrayContainer = GObject.registerClass(
+  class TrayContainer extends PanelMenu.Button {
+    static [GObject.properties]: Record<string, GObject.ParamSpec> = {
+      'anim-scroll': GObject.ParamSpec.double(
+        'anim-scroll',
+        'anim-scroll',
+        'Animated scroll position snapped to pixels',
+        GObject.ParamFlags.READWRITE,
+        -10000,
+        10000,
+        0,
+      ),
+    };
 
-  declare private _state: TrayState;
-  declare private _iconSize: number;
-  declare private _limit: number;
-  declare private _items: Map<string, TrayIconItem>;
-  declare private _chevron: St.Button;
-  declare private _chevronIcon: St.Icon | null;
-  declare private _clipArea: TrayClipArea;
-  declare private _iconRow: St.BoxLayout;
-  declare private _outerBox: St.BoxLayout;
-  declare private _userInteracted: boolean;
-  declare private _attentionTimeoutSeconds: number;
-  declare private _lifecycle: LifecycleScope;
-  declare private _autoCollapseTimeout: ManagedSource;
-  declare private _debugPostAllocate: ManagedSource;
-  declare private _postAllocateRelayout: ManagedSource;
-  declare private _opacityTargets: WeakMap<TrayIconItem, number>;
-  declare private _scrollTarget: number;
-  declare private _smoothScrollAccumulator: number;
+    declare private _state: TrayState;
+    declare private _iconSize: number;
+    declare private _limit: number;
+    declare private _items: Map<string, TrayIconItem>;
+    declare private _chevron: St.Button;
+    declare private _chevronIcon: St.Icon | null;
+    declare private _clipArea: TrayClipArea;
+    declare private _iconRow: St.BoxLayout;
+    declare private _outerBox: St.BoxLayout;
+    declare private _userInteracted: boolean;
+    declare private _attentionTimeoutSeconds: number;
+    declare private _lifecycle: LifecycleScope;
+    declare private _autoCollapseTimeout: ManagedSource;
+    declare private _debugPostAllocate: ManagedSource;
+    declare private _postAllocateRelayout: ManagedSource;
+    declare private _opacityTargets: WeakMap<TrayIconItem, number>;
+    declare private _scrollTarget: number;
+    declare private _smoothScrollAccumulator: number;
 
-  private _animScrollValue = 0;
+    private _animScrollValue = 0;
 
-  get anim_scroll(): number {
-    return this._animScrollValue;
-  }
-
-  set anim_scroll(v: number) {
-    this._animScrollValue = v;
-    const rounded = Math.round(v);
-    if (this._iconRow.translationX !== rounded) {
-      this._iconRow.translationX = rounded;
+    get anim_scroll(): number {
+      return this._animScrollValue;
     }
-  }
 
-  override vfunc_allocate(box: Clutter.ActorBox): void {
-    // Snap the box to integer pixels to avoid parent BoxLayout sub-pixel jitter.
-    box.x1 = Math.round(box.x1);
-    box.x2 = Math.round(box.x2);
-    box.y1 = Math.round(box.y1);
-    box.y2 = Math.round(box.y2);
-    super.vfunc_allocate(box);
-    this._schedulePostAllocateRelayoutIfNeeded();
-  }
+    set anim_scroll(v: number) {
+      this._animScrollValue = v;
+      const rounded = Math.round(v);
+      if (this._iconRow.translationX !== rounded) {
+        this._iconRow.translationX = rounded;
+      }
+    }
 
-  // @ts-expect-error Our _init signature differs from PanelMenu.Button._init overloads,
-  // which is the standard GJS GObject subclassing pattern when using custom constructor args.
-  override _init(iconSize: number, limit: number): void {
-    super._init(0.0, 'aurora-tray-icons', true); // dontCreateMenu = true
-    this._lifecycle = new LifecycleScope();
-    this._autoCollapseTimeout = createManagedSource(this._lifecycle);
-    this._debugPostAllocate = createManagedSource(this._lifecycle);
-    this._postAllocateRelayout = createManagedSource(this._lifecycle);
-    this.add_style_class_name('aurora-tray-button');
-    this.track_hover = false; // highlight only individual icon items, not the whole button area
-    this._state = createTrayState();
-    this._iconSize = iconSize;
-    this._limit = limit;
-    this._items = new Map();
-    this._userInteracted = false;
-    this._attentionTimeoutSeconds = 5;
-    this._opacityTargets = new WeakMap();
-    this._scrollTarget = 0;
-    this._smoothScrollAccumulator = 0;
+    override vfunc_allocate(box: Clutter.ActorBox): void {
+      // Snap the box to integer pixels to avoid parent BoxLayout sub-pixel jitter.
+      box.x1 = Math.round(box.x1);
+      box.x2 = Math.round(box.x2);
+      box.y1 = Math.round(box.y1);
+      box.y2 = Math.round(box.y2);
+      super.vfunc_allocate(box);
+      this._schedulePostAllocateRelayoutIfNeeded();
+    }
 
-    this._chevronIcon = new St.Icon({
-      icon_name: 'pan-end-symbolic',
-      icon_size: 14,
-      style_class: 'aurora-tray-chevron-icon',
-    });
-    this._chevronIcon.set_pivot_point(0.5, 0.5);
-    this._chevronIcon.rotation_angle_z = 180; // starts collapsed → pointing left
-    this._chevron = new St.Button({
-      child: this._chevronIcon,
-      style_class: 'aurora-tray-chevron',
-      can_focus: true,
-      visible: false,
-    });
-    this._chevron.connect('clicked', () => {
-      this._userInteracted = true;
-      toggleCollapsed(this._state);
-      logger.debug(`Chevron toggled collapsed=${this._state.collapsed}`, { prefix: LOG_PREFIX });
-      this._syncLayout(true);
-    });
+    // @ts-expect-error Our _init signature differs from PanelMenu.Button._init overloads,
+    // which is the standard GJS GObject subclassing pattern when using custom constructor args.
+    override _init(iconSize: number, limit: number): void {
+      super._init(0.0, 'aurora-tray-icons', true); // dontCreateMenu = true
+      this._lifecycle = new LifecycleScope();
+      this._autoCollapseTimeout = createManagedSource(this._lifecycle);
+      this._debugPostAllocate = createManagedSource(this._lifecycle);
+      this._postAllocateRelayout = createManagedSource(this._lifecycle);
+      this.add_style_class_name('aurora-tray-button');
+      this.track_hover = false; // highlight only individual icon items, not the whole button area
+      this._state = createTrayState();
+      this._iconSize = iconSize;
+      this._limit = limit;
+      this._items = new Map();
+      this._userInteracted = false;
+      this._attentionTimeoutSeconds = 5;
+      this._opacityTargets = new WeakMap();
+      this._scrollTarget = 0;
+      this._smoothScrollAccumulator = 0;
 
-    this._iconRow = new St.BoxLayout({
-      style_class: 'aurora-tray-icon-row',
-    });
-    (this._iconRow.layout_manager as Clutter.BoxLayout).spacing = ICON_GAP;
+      this._chevronIcon = new St.Icon({
+        icon_name: 'pan-end-symbolic',
+        icon_size: 14,
+        style_class: 'aurora-tray-chevron-icon',
+      });
+      this._chevronIcon.set_pivot_point(0.5, 0.5);
+      this._chevronIcon.rotation_angle_z = 180; // starts collapsed → pointing left
+      this._chevron = new St.Button({
+        child: this._chevronIcon,
+        style_class: 'aurora-tray-chevron',
+        can_focus: true,
+        visible: false,
+      });
+      this._chevron.connect('clicked', () => {
+        this._userInteracted = true;
+        toggleCollapsed(this._state);
+        logger.debug(`Chevron toggled collapsed=${this._state.collapsed}`, { prefix: LOG_PREFIX });
+        this._syncLayout(true);
+      });
 
-    this._clipArea = new TrayClipArea();
-    this._clipArea.add_child(this._iconRow);
+      this._iconRow = new St.BoxLayout({
+        style_class: 'aurora-tray-icon-row',
+      });
+      (this._iconRow.layout_manager as Clutter.BoxLayout).spacing = ICON_GAP;
 
-    this._outerBox = new St.BoxLayout({
-      style_class: 'aurora-tray-container',
-    });
-    this._outerBox.add_child(this._chevron);
-    this._outerBox.add_child(this._clipArea);
-    this.add_child(this._outerBox);
+      this._clipArea = new TrayClipArea();
+      this._clipArea.add_child(this._iconRow);
 
-    this.connect('scroll-event', (_actor: Clutter.Actor, event: Clutter.Event) => {
-      if (!this._canScrollIcons()) return Clutter.EVENT_PROPAGATE;
-      const direction = event.get_scroll_direction();
-      if (direction === Clutter.ScrollDirection.SMOOTH) {
-        const [dx, dy] = event.get_scroll_delta();
-        const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-        this._smoothScrollAccumulator += delta;
-        if (Math.abs(this._smoothScrollAccumulator) < 1) return Clutter.EVENT_STOP;
-        if (!this._scrollByItems(this._smoothScrollAccumulator > 0 ? -1 : 1))
-          return Clutter.EVENT_PROPAGATE;
-        this._smoothScrollAccumulator = 0;
-        return Clutter.EVENT_STOP;
+      this._outerBox = new St.BoxLayout({
+        style_class: 'aurora-tray-container',
+      });
+      this._outerBox.add_child(this._chevron);
+      this._outerBox.add_child(this._clipArea);
+      this.add_child(this._outerBox);
+
+      this.connect('scroll-event', (_actor: Clutter.Actor, event: Clutter.Event) => {
+        if (!this._canScrollIcons()) return Clutter.EVENT_PROPAGATE;
+        const direction = event.get_scroll_direction();
+        if (direction === Clutter.ScrollDirection.SMOOTH) {
+          const [dx, dy] = event.get_scroll_delta();
+          const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+          this._smoothScrollAccumulator += delta;
+          if (Math.abs(this._smoothScrollAccumulator) < 1) return Clutter.EVENT_STOP;
+          if (!this._scrollByItems(this._smoothScrollAccumulator > 0 ? -1 : 1))
+            return Clutter.EVENT_PROPAGATE;
+          this._smoothScrollAccumulator = 0;
+          return Clutter.EVENT_STOP;
+        }
+
+        const deltaItems =
+          direction === Clutter.ScrollDirection.UP || direction === Clutter.ScrollDirection.LEFT
+            ? 1
+            : -1;
+        return this._scrollByItems(deltaItems) ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
+      });
+    }
+
+    private _itemWidth(): number {
+      return this._iconSize + 2 * ITEM_PADDING;
+    }
+
+    private _maxScroll(): number {
+      return this._maxScrollForLimit(this._effectiveLimit());
+    }
+
+    private _maxExpandedScroll(): number {
+      return Math.max(0, Math.round(this._clipArea.fullWidth - this._clipArea.reservedWidth));
+    }
+
+    private _maxScrollForLimit(limit: number): number {
+      const hiddenCount = Math.max(0, this._items.size - limit);
+      return hiddenCount * (this._itemWidth() + ICON_GAP);
+    }
+
+    private _effectiveLimit(maxClipWidth = this._availableClipWidth(true)): number {
+      return getEffectiveTrayLimit(this._limit, this._itemWidth(), ICON_GAP, maxClipWidth);
+    }
+
+    private _availableClipWidth(includeChevron: boolean): number | null {
+      const panelContainer = this.container;
+      const parent = panelContainer.get_parent();
+      if (!parent) return null;
+
+      const parentWidth = this._availablePanelSideWidth(parent);
+      if (parentWidth <= 0) return null;
+
+      let siblingsWidth = 0;
+      for (const child of parent.get_children()) {
+        if (child === panelContainer || !child.visible) continue;
+        const [, naturalWidth] = child.get_preferred_width(-1);
+        siblingsWidth += Math.ceil(naturalWidth);
       }
 
-      const deltaItems =
-        direction === Clutter.ScrollDirection.UP || direction === Clutter.ScrollDirection.LEFT
-          ? 1
-          : -1;
-      return this._scrollByItems(deltaItems) ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
-    });
-  }
-
-  private _itemWidth(): number {
-    return this._iconSize + 2 * ITEM_PADDING;
-  }
-
-  private _maxScroll(): number {
-    return this._maxScrollForLimit(this._effectiveLimit());
-  }
-
-  private _maxExpandedScroll(): number {
-    return Math.max(0, Math.round(this._clipArea.fullWidth - this._clipArea.reservedWidth));
-  }
-
-  private _maxScrollForLimit(limit: number): number {
-    const hiddenCount = Math.max(0, this._items.size - limit);
-    return hiddenCount * (this._itemWidth() + ICON_GAP);
-  }
-
-  private _effectiveLimit(maxClipWidth = this._availableClipWidth(true)): number {
-    return getEffectiveTrayLimit(this._limit, this._itemWidth(), ICON_GAP, maxClipWidth);
-  }
-
-  private _availableClipWidth(includeChevron: boolean): number | null {
-    const panelContainer = (this as unknown as { container: Clutter.Actor }).container;
-    const parent = panelContainer.get_parent();
-    if (!parent) return null;
-
-    const parentWidth = this._availablePanelSideWidth(parent);
-    if (parentWidth <= 0) return null;
-
-    let siblingsWidth = 0;
-    for (const child of parent.get_children()) {
-      if (child === panelContainer || !child.visible) continue;
-      const [, naturalWidth] = child.get_preferred_width(-1);
-      siblingsWidth += Math.ceil(naturalWidth);
+      const [, chevronWidth] = includeChevron ? this._chevron.get_preferred_width(-1) : [0, 0];
+      const availableWidth =
+        parentWidth -
+        siblingsWidth -
+        Math.ceil(chevronWidth) -
+        (includeChevron ? ICON_GAP : 0) -
+        PANEL_SAFETY_GAP;
+      return Math.max(this._itemWidth(), Math.floor(availableWidth));
     }
 
-    const [, chevronWidth] = includeChevron ? this._chevron.get_preferred_width(-1) : [0, 0];
-    const availableWidth =
-      parentWidth -
-      siblingsWidth -
-      Math.ceil(chevronWidth) -
-      (includeChevron ? ICON_GAP : 0) -
-      PANEL_SAFETY_GAP;
-    return Math.max(this._itemWidth(), Math.floor(availableWidth));
-  }
+    private _availablePanelSideWidth(parent: Clutter.Actor): number {
+      const fallbackWidth = Math.round(parent.allocation.x2 - parent.allocation.x1);
+      const panel = parent.get_parent() as (Clutter.Actor & { _centerBox: Clutter.Actor }) | null;
+      if (!panel) return fallbackWidth;
 
-  private _availablePanelSideWidth(parent: Clutter.Actor): number {
-    const fallbackWidth = Math.round(parent.allocation.x2 - parent.allocation.x1);
-    const panel = parent.get_parent() as (Clutter.Actor & { _centerBox: Clutter.Actor }) | null;
-    if (!panel) return fallbackWidth;
+      const centerBox = panel._centerBox;
 
-    const centerBox = panel._centerBox;
+      if (this.get_text_direction() === Clutter.TextDirection.RTL) {
+        const sideWidth = Math.round(centerBox.allocation.x1 - parent.allocation.x1);
+        return sideWidth > 0 ? sideWidth : fallbackWidth;
+      }
 
-    if (this.get_text_direction() === Clutter.TextDirection.RTL) {
-      const sideWidth = Math.round(centerBox.allocation.x1 - parent.allocation.x1);
+      const sideWidth = Math.round(parent.allocation.x2 - centerBox.allocation.x2);
       return sideWidth > 0 ? sideWidth : fallbackWidth;
     }
 
-    const sideWidth = Math.round(parent.allocation.x2 - centerBox.allocation.x2);
-    return sideWidth > 0 ? sideWidth : fallbackWidth;
-  }
-
-  private _canScrollIcons(): boolean {
-    return this._state.collapsed ? this._maxScroll() > 0 : this._maxExpandedScroll() > 0;
-  }
-
-  private _scrollByItems(deltaItems: number): boolean {
-    const maxScroll = this._state.collapsed ? this._maxScroll() : this._maxExpandedScroll();
-    if (maxScroll <= 0) return false;
-
-    this._userInteracted = true;
-    const itemStride = this._itemWidth() + ICON_GAP;
-    const signedDelta = this._state.collapsed ? deltaItems : -deltaItems;
-    this._state.scrollOffset = Math.max(
-      0,
-      Math.min(maxScroll, this._state.scrollOffset + signedDelta * itemStride),
-    );
-    this._syncScrollPosition();
-    this._applyIconOpacity();
-    return true;
-  }
-
-  addItem(item: TrayItem): void {
-    // Immediate dedup removal — no pop-out animation to avoid _syncLayout conflicts
-    const oldWidget = this._items.get(item.id);
-    if (oldWidget) {
-      this._items.delete(item.id);
-      this._opacityTargets.delete(oldWidget);
-      this._iconRow.remove_child(oldWidget);
-      oldWidget.destroy();
+    private _canScrollIcons(): boolean {
+      return this._state.collapsed ? this._maxScroll() > 0 : this._maxExpandedScroll() > 0;
     }
 
-    const widget = new (TrayIconItem as unknown as new (
-      item: TrayItem,
-      iconSize: number,
-    ) => TrayIconItem)(item, this._iconSize);
-    this._items.set(item.id, widget);
-    this._iconRow.add_child(widget);
+    private _scrollByItems(deltaItems: number): boolean {
+      const maxScroll = this._state.collapsed ? this._maxScroll() : this._maxExpandedScroll();
+      if (maxScroll <= 0) return false;
 
-    // Non-animated sync sets correct opacity immediately — no layout animation thrash.
-    this._syncLayout(false);
+      this._userInteracted = true;
+      const itemStride = this._itemWidth() + ICON_GAP;
+      const signedDelta = this._state.collapsed ? deltaItems : -deltaItems;
+      this._state.scrollOffset = Math.max(
+        0,
+        Math.min(maxScroll, this._state.scrollOffset + signedDelta * itemStride),
+      );
+      this._syncScrollPosition();
+      this._applyIconOpacity();
+      return true;
+    }
 
-    // Pop-in only for icons that ended up visible.
-    if (widget.opacity === 255) {
+    addItem(item: TrayItem): void {
+      // Immediate dedup removal — no pop-out animation to avoid _syncLayout conflicts
+      const oldWidget = this._items.get(item.id);
+      if (oldWidget) {
+        this._items.delete(item.id);
+        this._opacityTargets.delete(oldWidget);
+        this._iconRow.remove_child(oldWidget);
+        oldWidget.destroy();
+      }
+
+      const widget = new TrayIconItem(item, this._iconSize);
+      this._items.set(item.id, widget);
+      this._iconRow.add_child(widget);
+
+      // Non-animated sync sets correct opacity immediately — no layout animation thrash.
+      this._syncLayout(false);
+
+      // Pop-in only for icons that ended up visible.
+      if (widget.opacity === 255) {
+        widget.set_pivot_point(0.5, 0.5);
+        widget.set_scale(0.5, 0.5);
+        widget.ease({
+          scaleX: 1.0,
+          scaleY: 1.0,
+          duration: 500,
+          mode: Clutter.AnimationMode.EASE_OUT_BACK,
+        });
+      }
+    }
+
+    updateItemIcon(id: string): void {
+      this._items.get(id)?.updateIcon();
+    }
+
+    removeItem(id: string): void {
+      const widget = this._items.get(id);
+      if (!widget) return;
+      this._items.delete(id);
+      this._opacityTargets.delete(widget);
+
+      // Pop-out: scale→0.5, opacity→0, then remove from DOM and sync layout.
       widget.set_pivot_point(0.5, 0.5);
-      widget.set_scale(0.5, 0.5);
       widget.ease({
-        scaleX: 1.0,
-        scaleY: 1.0,
-        duration: 500,
-        mode: Clutter.AnimationMode.EASE_OUT_BACK,
+        scaleX: 0.5,
+        scaleY: 0.5,
+        opacity: 0,
+        duration: 400,
+        mode: Clutter.AnimationMode.EASE_IN_QUAD,
+        onComplete: () => {
+          this._iconRow.remove_child(widget);
+          widget.destroy();
+          this._syncLayout(false);
+        },
       });
     }
-  }
 
-  updateItemIcon(id: string): void {
-    this._items.get(id)?.updateIcon();
-  }
+    notifyAttention(id: string): void {
+      addAttention(this._state, id);
+      const widget = this._items.get(id);
 
-  removeItem(id: string): void {
-    const widget = this._items.get(id);
-    if (!widget) return;
-    this._items.delete(id);
-    this._opacityTargets.delete(widget);
-
-    // Pop-out: scale→0.5, opacity→0, then remove from DOM and sync layout.
-    widget.set_pivot_point(0.5, 0.5);
-    widget.ease({
-      scaleX: 0.5,
-      scaleY: 0.5,
-      opacity: 0,
-      duration: 400,
-      mode: Clutter.AnimationMode.EASE_IN_QUAD,
-      onComplete: () => {
-        this._iconRow.remove_child(widget);
-        widget.destroy();
-        this._syncLayout(false);
-      },
-    });
-  }
-
-  notifyAttention(id: string): void {
-    addAttention(this._state, id);
-    const widget = this._items.get(id);
-
-    const isHidden = !this._visibleIds().has(id);
-    if (isHidden && this._state.collapsed) {
-      this._state.collapsed = false;
-      this._syncLayout(true);
-    }
-
-    widget?.showBadge();
-    widget?.bounce();
-    this._scheduleAutoCollapse();
-  }
-
-  clearAttentionBadge(id: string): void {
-    clearAttention(this._state, id);
-    this._items.get(id)?.hideBadge();
-  }
-
-  setLimit(limit: number): void {
-    this._limit = limit;
-    this._syncLayout(false);
-  }
-
-  setIconSize(size: number): void {
-    this._iconSize = size;
-    for (const widget of this._items.values()) {
-      widget.setIconSize(size);
-    }
-    this._syncLayout(false);
-  }
-
-  setAttentionTimeout(seconds: number): void {
-    this._attentionTimeoutSeconds = seconds;
-  }
-
-  private _scheduleAutoCollapse(): void {
-    this._autoCollapseTimeout.replace(() =>
-      GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, this._attentionTimeoutSeconds, () => {
-        this._autoCollapseTimeout.complete();
-        if (!this._userInteracted && !this._state.collapsed) {
-          this._state.collapsed = true;
-          this._syncLayout(true);
-        }
-        this._userInteracted = false; // reset for next attention cycle
-        return GLib.SOURCE_REMOVE;
-      }),
-    );
-  }
-
-  private _visibleIds(): Set<string> {
-    const keys = [...this._items.keys()];
-    const limit = this._effectiveLimit();
-    const { start, end } = visibleTrayIndexes(
-      keys.length,
-      limit,
-      this._state.scrollOffset,
-      this._itemWidth(),
-      ICON_GAP,
-    );
-    return new Set(keys.slice(start, end));
-  }
-
-  private _syncLayout(animated = false): void {
-    const count = this._items.size;
-    this.visible = count > 0;
-    const itemW = this._itemWidth();
-    const availableClipWidthWithoutChevron = this._availableClipWidth(false);
-    const effectiveLimitWithoutChevron = this._effectiveLimit(availableClipWidthWithoutChevron);
-    const shouldReserveChevron = count > effectiveLimitWithoutChevron;
-    const availableClipWidth = this._availableClipWidth(shouldReserveChevron);
-    const effectiveLimit = this._effectiveLimit(availableClipWidth);
-    const layout = calculateTrayLayout({
-      count,
-      itemWidth: itemW,
-      gap: ICON_GAP,
-      configuredLimit: effectiveLimit,
-      availableWidth: availableClipWidth,
-      collapsed: this._state.collapsed,
-    });
-    const { fullWidth, hasOverflow, reservedWidth } = layout;
-    this._chevron.visible = hasOverflow;
-
-    // Chevron rotation: 0° = expanded (points right), 180° = collapsed (points left).
-    this._chevronIcon?.ease({
-      rotationAngleZ: this._state.collapsed ? 180 : 0,
-      duration: animated ? ANIM_DURATION : 0,
-      mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-    });
-
-    const visibleCount = Math.min(count, effectiveLimit);
-    // collapsed -> maxScroll anchors the row to newest icons (right-aligned in clip).
-    // expanded -> 0 resets any manual scroll.
-    this._state.scrollOffset = this._state.collapsed ? this._maxScrollForLimit(effectiveLimit) : 0;
-    if (!this._state.collapsed) this._smoothScrollAccumulator = 0;
-
-    const targetViewportWidth = layout.viewportWidth;
-    const targetClipStart = layout.clipStart;
-    const startViewportWidth = Math.round(this._clipArea.viewportWidth || targetViewportWidth);
-    const startClipStart = Math.round(this._clipArea.clipStart);
-
-    if (animated) {
-      logger.debug(
-        [
-          `Viewport animation collapsed=${this._state.collapsed}`,
-          `count=${count}`,
-          `limit=${this._limit}`,
-          `effectiveLimit=${effectiveLimit}`,
-          `visible=${visibleCount}`,
-          `fullWidth=${fullWidth}`,
-          `reservedWidth=${reservedWidth}`,
-          `availableClipWidth=${availableClipWidth ?? 'none'}`,
-          `fromViewport=${startViewportWidth}`,
-          `toViewport=${targetViewportWidth}`,
-          `fromClipStart=${startClipStart}`,
-          `toClipStart=${targetClipStart}`,
-          `scrollOffset=${this._state.scrollOffset}`,
-          `chevronX=${Math.round(this._chevron.translationX)}`,
-          this._clipArea.layoutSnapshot(),
-        ].join(' '),
-        { prefix: LOG_PREFIX },
-      );
-    }
-
-    if (count === 0) {
-      this._clipArea.remove_all_transitions();
-      this._clipArea.cancelViewportAnimation();
-      this._clipArea.setViewport(0, 0, 0);
-      this._outerBox.translationX = 0;
-      this._setChevronAnchor(0);
-      this._syncScrollPosition(0);
-      return;
-    }
-
-    this._clipArea.remove_all_transitions();
-    this._clipArea.cancelViewportAnimation();
-    this._outerBox.translationX = 0;
-
-    if (
-      animated &&
-      (startViewportWidth !== targetViewportWidth || startClipStart !== targetClipStart)
-    ) {
-      if (this._state.collapsed) {
-        for (const widget of [...this._items.values()]) {
-          widget.remove_transition('opacity');
-          this._opacityTargets.set(widget, 255);
-          widget.opacity = 255;
-        }
+      const isHidden = !this._visibleIds().has(id);
+      if (isHidden && this._state.collapsed) {
+        this._state.collapsed = false;
+        this._syncLayout(true);
       }
-      this._clipArea.setViewport(fullWidth, startViewportWidth, startClipStart, reservedWidth);
-      this._setChevronAnchor(startClipStart);
-      this._clipArea.animateViewport(
-        startViewportWidth,
-        startClipStart,
-        targetViewportWidth,
-        targetClipStart,
-        ANIM_DURATION,
-        (_viewportWidth, clipStart) => {
-          this._setChevronAnchor(clipStart);
-        },
-        () => {
-          this._applyIconOpacity();
-          logger.debug(
-            `Viewport animation complete chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
-            { prefix: LOG_PREFIX },
-          );
-        },
-      );
-      this._debugPostAllocate.replace(() =>
-        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-          this._debugPostAllocate.complete();
-          logger.debug(
-            `Viewport post-allocate chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
-            { prefix: LOG_PREFIX },
-          );
+
+      widget?.showBadge();
+      widget?.bounce();
+      this._scheduleAutoCollapse();
+    }
+
+    clearAttentionBadge(id: string): void {
+      clearAttention(this._state, id);
+      this._items.get(id)?.hideBadge();
+    }
+
+    setLimit(limit: number): void {
+      this._limit = limit;
+      this._syncLayout(false);
+    }
+
+    setIconSize(size: number): void {
+      this._iconSize = size;
+      for (const widget of this._items.values()) {
+        widget.setIconSize(size);
+      }
+      this._syncLayout(false);
+    }
+
+    setAttentionTimeout(seconds: number): void {
+      this._attentionTimeoutSeconds = seconds;
+    }
+
+    private _scheduleAutoCollapse(): void {
+      this._autoCollapseTimeout.replace(() =>
+        GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, this._attentionTimeoutSeconds, () => {
+          this._autoCollapseTimeout.complete();
+          if (!this._userInteracted && !this._state.collapsed) {
+            this._state.collapsed = true;
+            this._syncLayout(true);
+          }
+          this._userInteracted = false; // reset for next attention cycle
           return GLib.SOURCE_REMOVE;
         }),
       );
-    } else {
-      this._clipArea.setViewport(fullWidth, targetViewportWidth, targetClipStart, reservedWidth);
-      this._setChevronAnchor(targetClipStart);
-      this._applyIconOpacity();
     }
 
-    if (animated && !this._state.collapsed) this._applyIconOpacity();
-
-    this._syncScrollPosition(0);
-  }
-
-  private _setChevronAnchor(x: number): void {
-    const rounded = Math.round(x);
-    if (this._chevron.translationX !== rounded) this._chevron.translationX = rounded;
-  }
-
-  private _schedulePostAllocateRelayoutIfNeeded(): void {
-    const availableClipWidth = this._availableClipWidth(this._chevron.visible);
-    if (
-      availableClipWidth === null ||
-      Math.round(this._clipArea.reservedWidth) <= availableClipWidth ||
-      this._postAllocateRelayout.active
-    ) {
-      return;
+    private _visibleIds(): Set<string> {
+      const keys = [...this._items.keys()];
+      const limit = this._effectiveLimit();
+      const { start, end } = visibleTrayIndexes(
+        keys.length,
+        limit,
+        this._state.scrollOffset,
+        this._itemWidth(),
+        ICON_GAP,
+      );
+      return new Set(keys.slice(start, end));
     }
 
-    this._postAllocateRelayout.replace(() =>
-      GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-        this._postAllocateRelayout.complete();
-        this._syncLayout(false);
-        return GLib.SOURCE_REMOVE;
-      }),
-    );
-  }
+    private _syncLayout(animated = false): void {
+      const count = this._items.size;
+      this.visible = count > 0;
+      const itemW = this._itemWidth();
+      const availableClipWidthWithoutChevron = this._availableClipWidth(false);
+      const effectiveLimitWithoutChevron = this._effectiveLimit(availableClipWidthWithoutChevron);
+      const shouldReserveChevron = count > effectiveLimitWithoutChevron;
+      const availableClipWidth = this._availableClipWidth(shouldReserveChevron);
+      const effectiveLimit = this._effectiveLimit(availableClipWidth);
+      const layout = calculateTrayLayout({
+        count,
+        itemWidth: itemW,
+        gap: ICON_GAP,
+        configuredLimit: effectiveLimit,
+        availableWidth: availableClipWidth,
+        collapsed: this._state.collapsed,
+      });
+      const { fullWidth, hasOverflow, reservedWidth } = layout;
+      this._chevron.visible = hasOverflow;
 
-  private _applyIconOpacity(): void {
-    const visibleIds = this._visibleIds();
-    for (const [id, widget] of this._items) {
-      const targetOpacity = !this._state.collapsed || visibleIds.has(id) ? 255 : 0;
-      if (this._opacityTargets.get(widget) === targetOpacity) continue;
-      this._opacityTargets.set(widget, targetOpacity);
-      widget.remove_transition('opacity');
-      widget.opacity = targetOpacity;
+      // Chevron rotation: 0° = expanded (points right), 180° = collapsed (points left).
+      this._chevronIcon?.ease({
+        rotationAngleZ: this._state.collapsed ? 180 : 0,
+        duration: animated ? ANIM_DURATION : 0,
+        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+      });
+
+      const visibleCount = Math.min(count, effectiveLimit);
+      // collapsed -> maxScroll anchors the row to newest icons (right-aligned in clip).
+      // expanded -> 0 resets any manual scroll.
+      this._state.scrollOffset = this._state.collapsed
+        ? this._maxScrollForLimit(effectiveLimit)
+        : 0;
+      if (!this._state.collapsed) this._smoothScrollAccumulator = 0;
+
+      const targetViewportWidth = layout.viewportWidth;
+      const targetClipStart = layout.clipStart;
+      const startViewportWidth = Math.round(this._clipArea.viewportWidth || targetViewportWidth);
+      const startClipStart = Math.round(this._clipArea.clipStart);
+
+      if (animated) {
+        logger.debug(
+          [
+            `Viewport animation collapsed=${this._state.collapsed}`,
+            `count=${count}`,
+            `limit=${this._limit}`,
+            `effectiveLimit=${effectiveLimit}`,
+            `visible=${visibleCount}`,
+            `fullWidth=${fullWidth}`,
+            `reservedWidth=${reservedWidth}`,
+            `availableClipWidth=${availableClipWidth === null ? 'none' : availableClipWidth}`,
+            `fromViewport=${startViewportWidth}`,
+            `toViewport=${targetViewportWidth}`,
+            `fromClipStart=${startClipStart}`,
+            `toClipStart=${targetClipStart}`,
+            `scrollOffset=${this._state.scrollOffset}`,
+            `chevronX=${Math.round(this._chevron.translationX)}`,
+            this._clipArea.layoutSnapshot(),
+          ].join(' '),
+          { prefix: LOG_PREFIX },
+        );
+      }
+
+      if (count === 0) {
+        this._clipArea.remove_all_transitions();
+        this._clipArea.cancelViewportAnimation();
+        this._clipArea.setViewport(0, 0, 0);
+        this._outerBox.translationX = 0;
+        this._setChevronAnchor(0);
+        this._syncScrollPosition(0);
+        return;
+      }
+
+      this._clipArea.remove_all_transitions();
+      this._clipArea.cancelViewportAnimation();
+      this._outerBox.translationX = 0;
+
+      if (
+        animated &&
+        (startViewportWidth !== targetViewportWidth || startClipStart !== targetClipStart)
+      ) {
+        if (this._state.collapsed) {
+          for (const widget of [...this._items.values()]) {
+            widget.remove_transition('opacity');
+            this._opacityTargets.set(widget, 255);
+            widget.opacity = 255;
+          }
+        }
+        this._clipArea.setViewport(fullWidth, startViewportWidth, startClipStart, reservedWidth);
+        this._setChevronAnchor(startClipStart);
+        this._clipArea.animateViewport(
+          startViewportWidth,
+          startClipStart,
+          targetViewportWidth,
+          targetClipStart,
+          ANIM_DURATION,
+          (_viewportWidth, clipStart) => {
+            this._setChevronAnchor(clipStart);
+          },
+          () => {
+            this._applyIconOpacity();
+            logger.debug(
+              `Viewport animation complete chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+              { prefix: LOG_PREFIX },
+            );
+          },
+        );
+        this._debugPostAllocate.replace(() =>
+          GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._debugPostAllocate.complete();
+            logger.debug(
+              `Viewport post-allocate chevronX=${Math.round(this._chevron.translationX)} ${this._clipArea.layoutSnapshot()}`,
+              { prefix: LOG_PREFIX },
+            );
+            return GLib.SOURCE_REMOVE;
+          }),
+        );
+      } else {
+        this._clipArea.setViewport(fullWidth, targetViewportWidth, targetClipStart, reservedWidth);
+        this._setChevronAnchor(targetClipStart);
+        this._applyIconOpacity();
+      }
+
+      if (animated && !this._state.collapsed) this._applyIconOpacity();
+
+      this._syncScrollPosition(0);
     }
-  }
 
-  private _syncScrollPosition(duration = 150): void {
-    // Right-aligned allocation shows newest icons at translationX=0. Positive
-    // translationX shifts the row right, revealing older icons on the left.
-    const targetX = this._state.collapsed
-      ? this._maxScroll() - this._state.scrollOffset
-      : this._state.scrollOffset;
+    private _setChevronAnchor(x: number): void {
+      const rounded = Math.round(x);
+      if (this._chevron.translationX !== rounded) this._chevron.translationX = rounded;
+    }
 
-    if (this._scrollTarget === targetX) return;
-    this._scrollTarget = targetX;
-    if (duration > 0) {
-      logger.debug(
-        `Scroll animation collapsed=${this._state.collapsed} targetX=${targetX} maxScroll=${this._maxScroll()} offset=${this._state.scrollOffset} duration=${duration}`,
-        { prefix: LOG_PREFIX },
+    private _schedulePostAllocateRelayoutIfNeeded(): void {
+      const availableClipWidth = this._availableClipWidth(this._chevron.visible);
+      if (
+        availableClipWidth === null ||
+        Math.round(this._clipArea.reservedWidth) <= availableClipWidth ||
+        this._postAllocateRelayout.active
+      ) {
+        return;
+      }
+
+      this._postAllocateRelayout.replace(() =>
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+          this._postAllocateRelayout.complete();
+          this._syncLayout(false);
+          return GLib.SOURCE_REMOVE;
+        }),
       );
     }
 
-    if (duration > 0) {
-      this.remove_transition('anim-scroll');
-      this.ease({
-        anim_scroll: targetX,
-        duration,
-        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-      } as Parameters<Clutter.Actor['ease']>[0] & { anim_scroll: number });
-    } else {
-      this.remove_transition('anim-scroll');
-      this.anim_scroll = targetX;
+    private _applyIconOpacity(): void {
+      const visibleIds = this._visibleIds();
+      for (const [id, widget] of this._items) {
+        const targetOpacity = !this._state.collapsed || visibleIds.has(id) ? 255 : 0;
+        if (this._opacityTargets.get(widget) === targetOpacity) continue;
+        this._opacityTargets.set(widget, targetOpacity);
+        widget.remove_transition('opacity');
+        widget.opacity = targetOpacity;
+      }
     }
-  }
 
-  override destroy(): void {
-    this._clipArea.cancelViewportAnimation();
-    this._lifecycle.dispose();
-    destroyTooltip();
-    for (const widget of this._items.values()) widget.destroy();
-    this._items.clear();
-    this._chevronIcon?.destroy();
-    this._chevronIcon = null;
-    super.destroy();
-  }
-}
+    private _syncScrollPosition(duration = 150): void {
+      // Right-aligned allocation shows newest icons at translationX=0. Positive
+      // translationX shifts the row right, revealing older icons on the left.
+      const targetX = this._state.collapsed
+        ? this._maxScroll() - this._state.scrollOffset
+        : this._state.scrollOffset;
+
+      if (this._scrollTarget === targetX) return;
+      this._scrollTarget = targetX;
+      if (duration > 0) {
+        logger.debug(
+          `Scroll animation collapsed=${this._state.collapsed} targetX=${targetX} maxScroll=${this._maxScroll()} offset=${this._state.scrollOffset} duration=${duration}`,
+          { prefix: LOG_PREFIX },
+        );
+      }
+
+      if (duration > 0) {
+        this.remove_transition('anim-scroll');
+        this.ease({
+          anim_scroll: targetX,
+          duration,
+          mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+        } as Parameters<Clutter.Actor['ease']>[0] & { anim_scroll: number });
+      } else {
+        this.remove_transition('anim-scroll');
+        this.anim_scroll = targetX;
+      }
+    }
+
+    override destroy(): void {
+      this._clipArea.cancelViewportAnimation();
+      this._lifecycle.dispose();
+      destroyTooltip();
+      for (const widget of this._items.values()) widget.destroy();
+      this._items.clear();
+      this._chevronIcon?.destroy();
+      this._chevronIcon = null;
+      super.destroy();
+    }
+  },
+);
+
+export type TrayContainer = InstanceType<typeof TrayContainer>;

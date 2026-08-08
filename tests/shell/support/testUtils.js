@@ -27,6 +27,20 @@ export function getAuroraSettings() {
   return ext.stateObj.getSettings();
 }
 
+export function getAuroraModule(key) {
+  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
+  if (!extension?.stateObj)
+    throw new Error(`Extension ${EXTENSION_UUID} has no active state object`);
+
+  const runtime = extension.stateObj._runtime;
+  if (!runtime) throw new Error(`Extension ${EXTENSION_UUID} has no active runtime`);
+
+  const module = runtime.getModule(key);
+  if (!module) throw new Error(`Aurora module ${key} is not active`);
+
+  return module;
+}
+
 /**
  * Wait for extension to reach ACTIVE state.
  *
@@ -53,7 +67,7 @@ export async function waitForExtension(uuid, timeoutMs = 8000) {
   }
   const ext = Main.extensionManager.lookup(uuid);
   throw new Error(
-    `Extension ${uuid} not active after ${timeoutMs}ms (state=${ext?.state ?? 'not found'})`,
+    `Extension ${uuid} not active after ${timeoutMs}ms (state=${ext?.state || 'not found'})`,
   );
 }
 

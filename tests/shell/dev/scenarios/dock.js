@@ -1,9 +1,11 @@
 import GLib from 'gi://GLib';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+import { getAuroraModule } from '../../support/testUtils.js';
 
 function collectText(actor) {
   const text = typeof actor?.text === 'string' ? [actor.text] : [];
-  for (const child of actor?.get_children?.() ?? []) text.push(...collectText(child));
+  const children = actor && actor.get_children ? actor.get_children() : [];
+  for (const child of children) text.push(...collectText(child));
   return text;
 }
 
@@ -16,7 +18,7 @@ async function waitForCondition(condition, timeoutMs = 3000) {
   return condition();
 }
 
-export async function exerciseDock(settings, devTool, extension) {
+export async function exerciseDock(settings, devTool) {
   settings.set_boolean('module-dock', true);
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
@@ -26,8 +28,7 @@ export async function exerciseDock(settings, devTool, extension) {
   if (tool.iconName !== 'view-app-grid-symbolic')
     throw new Error(`Unexpected Dock DevTool icon: ${tool.iconName}`);
 
-  const dock = extension?.stateObj?._modules?.get('dock');
-  if (!dock) throw new Error('Dock module not found for Dock DevTool test');
+  const dock = getAuroraModule('dock');
   if (dock.bindings.length === 0) throw new Error('Dock test requires at least one binding');
 
   if (!tool.revealAll()) throw new Error('Dock revealAll returned false');

@@ -1,4 +1,4 @@
-import { Extension } from '@girs/gnome-shell/extensions/extension';
+import type { Extension } from '@girs/gnome-shell/extensions/extension';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { DefaultExtensionContext } from '~/core/context.ts';
@@ -12,33 +12,43 @@ import { cleanupIcons, initIcons } from '~/shared/icons.ts';
 
 const LOG_PREFIX = 'AuroraShell';
 
-export class AuroraShellExtensionBase extends Extension {
-  protected _manager: ModuleManager | null = null;
-  protected _context: ExtensionContext | null = null;
+/**
+ * Owns every resource the extension allocates while enabled.
+ *
+ * The entry points create one runtime in `enable()` and drop it in `disable()`,
+ * so `start()` and `stop()` stay a symmetric pair.
+ */
+export class ShellRuntime {
+  private _manager: ModuleManager | null = null;
+  private _context: ExtensionContext | null = null;
 
-  get _modules(): ReadonlyMap<string, Module> {
-    const manager = this._manager;
-    if (!manager) {
-      return new Map();
-    }
+  constructor(private readonly _extension: Extension) {}
 
-    return manager.modules;
+  get context(): ExtensionContext | null {
+    return this._context;
   }
 
-  override enable(): void {
-    const consoleLogger = new ConsoleLogger('Aurora Shell', this.uuid);
+  getModule(key: string): Module | null {
+    if (!this._manager) return null;
+
+    return this._manager.getModule(key);
+  }
+
+  start(): void {
+    const extension = this._extension;
+    const consoleLogger = new ConsoleLogger('Aurora Shell', extension.uuid);
     setGlobalLogger(consoleLogger);
     consoleLogger.debug('Enabling extension', { prefix: LOG_PREFIX });
 
     const device = new DefaultDeviceService();
     this._context = new DefaultExtensionContext(
-      this.uuid,
-      this.path,
-      new GSettingsManager(this.getSettings()),
+      extension.uuid,
+      extension.path,
+      new GSettingsManager(extension.getSettings()),
       device,
     );
 
-    initIcons(this.path);
+    initIcons(extension.path);
     this._manager = new ModuleManager(getModuleRegistry(), this._context, {
       debug: (message) => logger.debug(message, { prefix: LOG_PREFIX }),
       error: (message) => logger.error(message, { prefix: LOG_PREFIX }),
@@ -46,7 +56,7 @@ export class AuroraShellExtensionBase extends Extension {
     this._manager.start();
   }
 
-  override disable(): void {
+  stop(): void {
     logger.debug('Disabling extension', { prefix: LOG_PREFIX });
     this._manager?.stop();
     this._manager = null;

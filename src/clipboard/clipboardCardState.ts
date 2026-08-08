@@ -12,7 +12,8 @@ export function parseClipboardUrl(text: string): ParsedClipboardUrl | null {
   const rawPath = slashIndex === -1 ? '' : withoutScheme.slice(slashIndex);
   if (!host || !host.includes('.')) return null;
 
-  return { host, path: rawPath.split('?')[0] ?? '' };
+  const [path = ''] = rawPath.split('?');
+  return { host, path };
 }
 
 export function isClipboardCode(text: string): boolean {

@@ -24,13 +24,18 @@ const TEXT_TOOL_CLASS = 'capture-tools-tool-text';
 
 function findActors(root, styleClass) {
   const found = [];
-  if (root?.has_style_class_name?.(styleClass)) found.push(root);
-  for (const child of root?.get_children?.() ?? []) found.push(...findActors(child, styleClass));
+  if (root && root.has_style_class_name && root.has_style_class_name(styleClass)) found.push(root);
+  const children = root && root.get_children ? root.get_children() : [];
+  for (const child of children) found.push(...findActors(child, styleClass));
   return found;
 }
 
 function resolvedIconPath(button) {
-  const path = button.get_child()?.gicon?.get_file?.().get_path?.();
+  const icon = button.get_child()?.gicon;
+  if (!icon?.get_file) throw new Error('Icon does not expose a theme file');
+  const file = icon.get_file();
+  if (!file?.get_path) throw new Error('Icon theme file does not expose a path');
+  const path = file.get_path();
   if (!path) throw new Error('Icon was not resolved to a theme file');
   return path;
 }
@@ -117,7 +122,7 @@ export async function run() {
   const toolbarChildren = toolbar.get_children();
   if (!dragHandle || !selectionButton || !pointerButton)
     throw new Error('Toolbar movement, selection, or pointer control is missing');
-  const locale = GLib.getenv('LANGUAGE') ?? GLib.getenv('LC_ALL') ?? GLib.getenv('LANG') ?? 'C';
+  const locale = GLib.getenv('LANGUAGE') || GLib.getenv('LC_ALL') || GLib.getenv('LANG') || 'C';
   const expectedSelectionLabel = locale.toLowerCase().startsWith('pt_br') ? 'Seleção' : 'Selection';
   if (selectionButton.accessible_name !== expectedSelectionLabel)
     throw new Error(

@@ -96,8 +96,8 @@ export class IconWeaveInspector {
   }
 
   private _removeWindow(window: any): void {
-    const wmClass: string = window.get_wm_class() ?? '';
-    const appId: string = window.get_gtk_application_id() ?? '';
+    const wmClass: string = window.get_wm_class() || '';
+    const appId: string = window.get_gtk_application_id() || '';
     this._options.registry.remove(window, wmClass, appId);
 
     this._titleScopes.get(window)?.dispose();
@@ -150,8 +150,8 @@ export class IconWeaveInspector {
   }
 
   private _matchWindow(window: any): void {
-    const wmClass: string = window.get_wm_class() ?? '';
-    const appId: string = window.get_gtk_application_id() ?? '';
+    const wmClass: string = window.get_wm_class() || '';
+    const appId: string = window.get_gtk_application_id() || '';
 
     if (!wmClass && !appId) {
       this._waitForTitle(window);
@@ -174,7 +174,7 @@ export class IconWeaveInspector {
       return;
     }
 
-    const title: string = window.get_title() ?? '';
+    const title: string = window.get_title() || '';
     logger.log(`untracked window: title="${title}" wm_class="${wmClass}" app_id="${appId}"`, {
       prefix: LOG_PREFIX,
     });
@@ -236,14 +236,14 @@ export class IconWeaveInspector {
   private _isValidApp(app: any): boolean {
     if (!app) return false;
 
-    const id: string = app.get_id() ?? '';
+    const id: string = app.get_id() || '';
     return id.length > 0 && !id.startsWith('window:');
   }
 
   private _isGenericSteamApp(app: any): boolean {
     if (!app) return false;
 
-    const id: string = app.get_id() ?? '';
+    const id: string = app.get_id() || '';
     const lowerId = id.toLowerCase();
     return lowerId === 'steam.desktop' || lowerId === 'com.valvesoftware.steam.desktop';
   }
@@ -299,8 +299,8 @@ export class IconWeaveInspector {
   }
 
   private _scoreCandidate(app: any, wmClass: string, appId: string, title: string): number {
-    const desktopId = (app.get_id() ?? '').toLowerCase().replace(/\.desktop$/, '');
-    const appName = String(app.get_name() ?? '').toLowerCase();
+    const desktopId = (app.get_id() || '').toLowerCase().replace(/\.desktop$/, '');
+    const appName = String(app.get_name() || '').toLowerCase();
 
     if (this._isSteamGame(app, wmClass)) return 99;
 
@@ -309,7 +309,7 @@ export class IconWeaveInspector {
 
   private _isSteamGame(app: any, wmClass: string): boolean {
     const info = GioUnix.DesktopAppInfo.new(app.get_id());
-    const executable: string = info?.get_string('Exec') ?? '';
+    const executable: string = info?.get_string('Exec') || '';
     const steamMatch = executable.match(/steam:\/\/rungameid\/(\d+)/);
     if (!steamMatch) return false;
 
@@ -317,7 +317,7 @@ export class IconWeaveInspector {
     const normalizedClass = normalize(wmClass);
     if (normalizedClass === `steamapp${gameId}`) return true;
 
-    const appName = String(app.get_name() ?? '').toLowerCase();
+    const appName = String(app.get_name() || '').toLowerCase();
     const words = appName.split(/[^a-z0-9]/).filter((word: string) => word.length > 0);
     const abbreviation = words.map((word: string) => word[0]).join('');
     return normalizedClass === abbreviation && abbreviation.length >= 2;

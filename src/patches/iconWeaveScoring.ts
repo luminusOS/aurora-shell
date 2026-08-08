@@ -31,7 +31,7 @@ const SHORT_ID_MIN_COVERAGE = 0.45;
 export function scoreIconWeaveCandidate(input: IconWeaveScoreInput): number {
   const desktopId = input.desktopId.toLowerCase().replace(/\.desktop$/, '');
   const appName = input.appName.toLowerCase();
-  const shortId = desktopId.split('.').pop() ?? desktopId;
+  const shortId = desktopId.split('.').pop() || desktopId;
 
   if (isSubprocessClass(wmClassLower(input.wmClass), desktopId, shortId)) return 0;
 

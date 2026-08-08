@@ -1,10 +1,6 @@
 import type { DashBounds } from '~/shared/ui/dash.ts';
 
 /**
- * Pure domain logic for analyzing monitor topology.
- */
-
-/**
  * Returns true if no other monitor sits directly below this one.
  * Used to avoid placing a dock between vertically stacked monitors.
  */

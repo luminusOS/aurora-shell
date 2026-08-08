@@ -78,7 +78,7 @@ export class CaptureTools extends Module {
     this._settings = settings;
     this._model = model;
     const configuredColor = settings.getString(COLOR_KEY).toLowerCase();
-    model.setColor(COLORS.find((color) => color === configuredColor) ?? COLORS[2]);
+    model.setColor(COLORS.find((color) => color === configuredColor) || COLORS[2]);
     model.setWidth(Math.min(LINE_WIDTH_MAX, settings.getInt(WIDTH_KEY)));
 
     const canvas = new AnnotationCanvas();

@@ -20,25 +20,32 @@ export type WeatherPresentation = {
 const DEFAULT_STALE_SECONDS = 30 * 60;
 
 function _cleanString(value: unknown): string {
-  return String(value ?? '').trim();
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
 }
 
 export function normalizeWeatherSnapshot(
   snapshot: Partial<WeatherSnapshot>,
   nowEpochSeconds: number,
 ): WeatherSnapshot {
+  const {
+    available = true,
+    hasConnectivity = true,
+    updatedAtEpochSeconds = nowEpochSeconds,
+  } = snapshot;
+
   return {
     iconName: _cleanString(snapshot.iconName),
     temperature: _cleanString(snapshot.temperature),
     description: _cleanString(snapshot.description),
-    available: snapshot.available ?? true,
-    hasConnectivity: snapshot.hasConnectivity ?? true,
-    updatedAtEpochSeconds: snapshot.updatedAtEpochSeconds ?? nowEpochSeconds,
+    available,
+    hasConnectivity,
+    updatedAtEpochSeconds,
   };
 }
 
 export function deriveWeatherPresentation(
-  snapshot: WeatherSnapshot | null,
+  snapshot: WeatherSnapshot | undefined,
   nowEpochSeconds: number,
   staleSeconds = DEFAULT_STALE_SECONDS,
 ): WeatherPresentation {

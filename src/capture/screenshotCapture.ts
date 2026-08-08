@@ -153,7 +153,8 @@ function getCaptureTarget(ui: ScreenshotUi): CaptureTarget | null {
 
 async function compositeTarget(target: CaptureTarget): Promise<GdkPixbuf.Pixbuf> {
   const stream = Gio.MemoryOutputStream.new_resizable();
-  const [x, y, width, height] = target.geometry ?? [0, 0, -1, -1];
+  const geometry = target.geometry || [0, 0, -1, -1];
+  const [x, y, width, height] = geometry;
   try {
     return await new Promise<GdkPixbuf.Pixbuf>((resolve, reject) => {
       Shell.Screenshot.composite_to_stream(
@@ -257,7 +258,7 @@ function saveScreenshot(bytes: GLib.Bytes): Gio.File | null {
   if (lockdown.get_boolean('disable-save-to-disk')) return null;
 
   const pictures =
-    GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_PICTURES) ?? GLib.get_home_dir();
+    GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_PICTURES) || GLib.get_home_dir();
   const directory = Gio.File.new_for_path(GLib.build_filenamev([pictures, _('Screenshots')]));
   try {
     directory.make_directory_with_parents(null);
@@ -267,7 +268,7 @@ function saveScreenshot(bytes: GLib.Bytes): Gio.File | null {
   }
 
   const timestamp = GLib.DateTime.new_now_local().format('%Y-%m-%d %H-%M-%S');
-  const baseName = _('Screenshot From %s').replace('%s', timestamp ?? '');
+  const baseName = _('Screenshot From %s').replace('%s', timestamp || '');
   for (let suffix = 0; ; suffix++) {
     const suffixText = suffix === 0 ? '' : `-${suffix}`;
     const file = directory.get_child(`${baseName}${suffixText}.png`);

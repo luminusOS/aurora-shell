@@ -4,11 +4,7 @@ import St from '@girs/st-18';
 
 import type { LifecycleScope, ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
-import {
-  openClockMenu,
-  registerClockPillWidget,
-  type ClockPillRegistration,
-} from '~/shared/clockPill.ts';
+import { registerClockPillWidget, type ClockPillRegistration } from '~/shared/clockPill.ts';
 
 const CLOCK_PILL_ID = 'meeting-clock';
 const VISIBLE_SECONDS = 8;
@@ -116,10 +112,6 @@ export class MeetingClockPill {
         this._widget.visible = false;
       },
     });
-  }
-
-  openMenu(): boolean {
-    return openClockMenu();
   }
 
   destroy(): void {

@@ -11,15 +11,23 @@ export function findClipboardPanelMonitorAtPoint(
   monitors: readonly ClipboardPanelBounds[],
   fallbackMonitorIndex: number,
 ): number {
-  const monitorIndex = monitors.findIndex(
+  const monitorIndex = findMonitorIndexAtPoint(x, y, monitors);
+
+  return monitorIndex >= 0 ? monitorIndex : fallbackMonitorIndex;
+}
+
+function findMonitorIndexAtPoint(
+  x: number,
+  y: number,
+  monitors: readonly ClipboardPanelBounds[],
+): number {
+  return monitors.findIndex(
     (monitor) =>
       x >= monitor.x &&
       x < monitor.x + monitor.width &&
       y >= monitor.y &&
       y < monitor.y + monitor.height,
   );
-
-  return monitorIndex >= 0 ? monitorIndex : fallbackMonitorIndex;
 }
 
 export function resolveClipboardPanelMonitor(
@@ -29,11 +37,12 @@ export function resolveClipboardPanelMonitor(
   monitors: readonly ClipboardPanelBounds[],
   fallbackMonitorIndex: number,
 ): number {
-  if (currentMonitorIndex >= 0 && currentMonitorIndex < monitors.length) {
-    return currentMonitorIndex;
-  }
+  const pointerMonitorIndex = findMonitorIndexAtPoint(pointerX, pointerY, monitors);
+  if (pointerMonitorIndex >= 0) return pointerMonitorIndex;
 
-  return findClipboardPanelMonitorAtPoint(pointerX, pointerY, monitors, fallbackMonitorIndex);
+  if (currentMonitorIndex >= 0 && currentMonitorIndex < monitors.length) return currentMonitorIndex;
+
+  return fallbackMonitorIndex;
 }
 
 export function placeClipboardPanelNearPointer(

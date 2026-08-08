@@ -28,13 +28,13 @@ test('findClipboardPanelMonitorAtPoint falls back when the pointer is outside al
   assert.equal(findClipboardPanelMonitorAtPoint(-100, 400, monitors, 0), 0);
 });
 
-test('resolveClipboardPanelMonitor trusts Mutter when pointer coordinates are stale after unlock', () => {
+test('resolveClipboardPanelMonitor follows pointer coordinates instead of stale Mutter state', () => {
   const monitors = [
     { x: 0, y: 0, width: 1920, height: 1080 },
     { x: 1920, y: 0, width: 2560, height: 1440 },
   ];
 
-  assert.equal(resolveClipboardPanelMonitor(1, 800, 400, monitors, 0), 1);
+  assert.equal(resolveClipboardPanelMonitor(1, 800, 400, monitors, 0), 0);
 });
 
 test('resolveClipboardPanelMonitor falls back to coordinates for an invalid Mutter monitor', () => {
@@ -44,6 +44,24 @@ test('resolveClipboardPanelMonitor falls back to coordinates for an invalid Mutt
   ];
 
   assert.equal(resolveClipboardPanelMonitor(-1, 2400, 400, monitors, 0), 1);
+});
+
+test('resolveClipboardPanelMonitor follows the pointer when Mutter reports another monitor', () => {
+  const monitors = [
+    { x: 0, y: 0, width: 1920, height: 1080 },
+    { x: 1920, y: 0, width: 2560, height: 1440 },
+  ];
+
+  assert.equal(resolveClipboardPanelMonitor(0, 2400, 400, monitors, 0), 1);
+});
+
+test('resolveClipboardPanelMonitor uses Mutter when the pointer is outside every monitor', () => {
+  const monitors = [
+    { x: 0, y: 0, width: 1920, height: 1080 },
+    { x: 1920, y: 0, width: 2560, height: 1440 },
+  ];
+
+  assert.equal(resolveClipboardPanelMonitor(1, -100, -100, monitors, 0), 1);
 });
 
 test('placeClipboardPanelNearPointer places panel below and right of pointer', () => {

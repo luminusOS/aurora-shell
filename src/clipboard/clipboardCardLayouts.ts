@@ -27,49 +27,55 @@ function allocateTopRight(actor: Clutter.Actor | undefined, allocation: Clutter.
   );
 }
 
-@GObject.registerClass
-export class FloatingActionsLayout extends Clutter.LayoutManager {
-  override vfunc_get_preferred_width(
-    container: Clutter.Actor,
-    forHeight: number,
-  ): [number, number] {
-    const content = container.first_child;
-    if (!content) return [0, 0];
+export const FloatingActionsLayout = GObject.registerClass(
+  class FloatingActionsLayout extends Clutter.LayoutManager {
+    override vfunc_get_preferred_width(
+      container: Clutter.Actor,
+      forHeight: number,
+    ): [number, number] {
+      const content = container.first_child;
+      if (!content) return [0, 0];
 
-    return content.get_preferred_width(forHeight);
-  }
+      return content.get_preferred_width(forHeight);
+    }
 
-  override vfunc_get_preferred_height(
-    container: Clutter.Actor,
-    forWidth: number,
-  ): [number, number] {
-    return getOverlayPreferredHeight(container, forWidth);
-  }
+    override vfunc_get_preferred_height(
+      container: Clutter.Actor,
+      forWidth: number,
+    ): [number, number] {
+      return getOverlayPreferredHeight(container, forWidth);
+    }
 
-  override vfunc_allocate(container: Clutter.Actor, allocation: Clutter.ActorBox): void {
-    const [content, actions] = container.get_children();
-    if (content) content.allocate(allocation);
+    override vfunc_allocate(container: Clutter.Actor, allocation: Clutter.ActorBox): void {
+      const [content, actions] = container.get_children();
+      if (content) content.allocate(allocation);
 
-    allocateTopRight(actions, allocation);
-  }
-}
+      allocateTopRight(actions, allocation);
+    }
+  },
+);
 
-@GObject.registerClass
-export class CodeCardOverlayLayout extends FloatingActionsLayout {
-  override vfunc_allocate(container: Clutter.Actor, allocation: Clutter.ActorBox): void {
-    super.vfunc_allocate(container, allocation);
-    const badge = container.get_children()[2];
-    if (!badge) return;
+export type FloatingActionsLayout = InstanceType<typeof FloatingActionsLayout>;
 
-    const [, width] = badge.get_preferred_width(-1);
-    const [, height] = badge.get_preferred_height(width);
-    badge.allocate(
-      new Clutter.ActorBox({
-        x1: allocation.x2 - width,
-        y1: allocation.y2 - height,
-        x2: allocation.x2,
-        y2: allocation.y2,
-      }),
-    );
-  }
-}
+export const CodeCardOverlayLayout = GObject.registerClass(
+  class CodeCardOverlayLayout extends FloatingActionsLayout {
+    override vfunc_allocate(container: Clutter.Actor, allocation: Clutter.ActorBox): void {
+      super.vfunc_allocate(container, allocation);
+      const badge = container.get_children()[2];
+      if (!badge) return;
+
+      const [, width] = badge.get_preferred_width(-1);
+      const [, height] = badge.get_preferred_height(width);
+      badge.allocate(
+        new Clutter.ActorBox({
+          x1: allocation.x2 - width,
+          y1: allocation.y2 - height,
+          x2: allocation.x2,
+          y2: allocation.y2,
+        }),
+      );
+    }
+  },
+);
+
+export type CodeCardOverlayLayout = InstanceType<typeof CodeCardOverlayLayout>;

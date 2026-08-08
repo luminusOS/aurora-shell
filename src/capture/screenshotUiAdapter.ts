@@ -48,11 +48,8 @@ export function getScreenshotUi(): ScreenshotUi {
   return Main.screenshotUI as ScreenshotUi;
 }
 
-export function selectedWindow(ui: ScreenshotUi): ScreenshotWindow | null {
-  return (
-    ui._windowSelectors.flatMap((selector) => selector.windows()).find((item) => item.checked) ??
-    null
-  );
+export function selectedWindow(ui: ScreenshotUi): ScreenshotWindow | undefined {
+  return ui._windowSelectors.flatMap((selector) => selector.windows()).find((item) => item.checked);
 }
 
 export function textureFromContent(content: Clutter.Content | null): Cogl.Texture | null {
