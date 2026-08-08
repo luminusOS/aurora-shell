@@ -5,7 +5,7 @@ import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 import Shell from '@girs/shell-18';
 
-import type { TrayItem, TrayItemStatus } from './trayState.ts';
+import { TRAY_ICON_FALLBACK_NAME, type TrayItem, type TrayItemStatus } from './trayState.ts';
 import { logger } from '~/core/logger.ts';
 
 const DBUS_NAME = 'org.freedesktop.background.Monitor';
@@ -126,7 +126,7 @@ export class BackgroundAppsSource {
     return {
       id: `bg:${appId}`,
       get icon() {
-        return app.get_icon() || 'application-x-executable-symbolic';
+        return app.get_icon() || TRAY_ICON_FALLBACK_NAME;
       },
       get tooltip() {
         return message || '';
