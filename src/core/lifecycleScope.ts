@@ -50,6 +50,7 @@ class ManagedSourceImpl implements ManagedSource {
 
 export class LifecycleScope {
   private _teardowns: Teardown[] | null = [];
+  private _sources: ManagedSourceImpl[] | null = [];
 
   onDispose(teardown: Teardown): void {
     if (!this._teardowns) {
@@ -71,15 +72,30 @@ export class LifecycleScope {
 
   manageSource(remove: SourceRemover): ManagedSource {
     const source = new ManagedSourceImpl(remove);
-    this.onDispose(() => source.dispose());
+    if (!this._sources) {
+      source.dispose();
+      return source;
+    }
+
+    this._sources.push(source);
     return source;
   }
 
   dispose(): void {
-    if (!this._teardowns) return;
-    const teardowns = this._teardowns;
+    if (!this._teardowns || !this._sources) return;
+
+    // Main-loop sources are owned explicitly by the scope. Every module/widget disposes
+    // its scope from disable()/destroy(), so no timeout or idle callback survives teardown.
+    const ownedSources = this._sources;
+    const ownedTeardowns = this._teardowns;
+    this._sources = null;
     this._teardowns = null;
-    for (const teardown of teardowns.reverse()) {
+
+    for (const source of ownedSources.reverse()) {
+      source.dispose();
+    }
+
+    for (const teardown of ownedTeardowns.reverse()) {
       teardown();
     }
   }

@@ -31,8 +31,6 @@ const DBUS_MENU_XML = `
   </interface>
 </node>`;
 
-const DBusMenuInterfaceInfo = Gio.DBusInterfaceInfo.new_for_xml(DBUS_MENU_XML);
-
 // @ts-ignore — _promisify is a GJS extension not reflected in .d.ts
 Gio._promisify(Gio.DBusProxy.prototype, 'init_async');
 // @ts-ignore
@@ -48,6 +46,7 @@ type MenuNode = {
 };
 
 export class DBusMenuClient {
+  private readonly _interfaceInfo: Gio.DBusInterfaceInfo;
   private _proxy: Gio.DBusProxy | null = null;
   private _busName: string;
   private _objectPath: string;
@@ -55,6 +54,7 @@ export class DBusMenuClient {
   private _initialized = false;
 
   constructor(busName: string, objectPath: string) {
+    this._interfaceInfo = Gio.DBusInterfaceInfo.new_for_xml(DBUS_MENU_XML);
     this._busName = busName;
     this._objectPath = objectPath;
     this._cancellable = new Gio.Cancellable();
@@ -69,7 +69,7 @@ export class DBusMenuClient {
       g_name: this._busName,
       g_object_path: this._objectPath,
       g_interface_name: DBUS_MENU_IFACE,
-      g_interface_info: DBusMenuInterfaceInfo,
+      g_interface_info: this._interfaceInfo,
       g_flags: Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES,
     });
 

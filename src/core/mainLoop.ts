@@ -7,6 +7,12 @@ export function removeSource(sourceId: number): 0 {
   return 0;
 }
 
+/**
+ * Registers one replaceable GLib source with an owner's LifecycleScope.
+ *
+ * ManagedSource.replace() removes the previous source before creating another one,
+ * and LifecycleScope.dispose() removes every source still active on disable/destroy.
+ */
 export function createManagedSource(scope: LifecycleScope): ManagedSource {
   return scope.manageSource(removeSource);
 }
