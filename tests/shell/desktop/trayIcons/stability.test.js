@@ -1,8 +1,7 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, waitForExtension } from '../../support/testUtils.js';
+import { EXTENSION_UUID, getAuroraModule, waitForExtension } from '../../support/testUtils.js';
 
 export var METRICS = {};
 
@@ -18,11 +17,7 @@ export async function run() {
   Scripting.scriptEvent('extensionEnabled');
   await Scripting.sleep(500);
 
-  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
-  if (!extension || !extension.stateObj) throw new Error('Extension state object not found');
-
-  const trayIconsModule = extension.stateObj._modules.get('tray-icons');
-  if (!trayIconsModule) throw new Error('Tray icons module not found');
+  const trayIconsModule = getAuroraModule('tray-icons');
 
   const trayContainer = trayIconsModule._container;
   if (!trayContainer) throw new Error('Tray container not found');

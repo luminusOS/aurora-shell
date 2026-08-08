@@ -47,7 +47,11 @@ export function findMonitorForSelection(
   if (selectedMonitor) return selectedMonitor;
   const primaryMonitor = monitors[primaryIndex];
   if (primaryMonitor && isValidRectangle(primaryMonitor)) return primaryMonitor;
-  return monitors.find(isValidRectangle) ?? null;
+
+  const fallbackMonitor = monitors.find(isValidRectangle);
+  if (!fallbackMonitor) return null;
+
+  return fallbackMonitor;
 }
 
 export function calculateToolbarTranslation(

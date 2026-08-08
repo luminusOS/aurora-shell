@@ -29,7 +29,9 @@ export class ShellRuntime {
   }
 
   getModule(key: string): Module | null {
-    return this._manager?.getModule(key) ?? null;
+    if (!this._manager) return null;
+
+    return this._manager.getModule(key);
   }
 
   start(): void {

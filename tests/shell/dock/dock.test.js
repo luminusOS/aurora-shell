@@ -10,6 +10,7 @@ import St from 'gi://St';
 import {
   ensureOverviewHidden,
   EXTENSION_UUID,
+  getAuroraModule,
   getAuroraSettings,
   waitForExtension,
 } from '../support/testUtils.js';
@@ -170,9 +171,7 @@ export async function run() {
 
   Scripting.scriptEvent('panelIntact');
 
-  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
-  const dock = extension?.stateObj?._modules?.get('dock');
-  if (!dock) throw new Error('Dock module instance not found');
+  const dock = getAuroraModule('dock');
 
   await exerciseMonitorScope(settings, dock);
 

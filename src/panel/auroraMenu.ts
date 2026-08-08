@@ -519,7 +519,9 @@ export class AuroraMenu extends Module {
 
   private _getDownloadsDirectory(): string | null {
     const path = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD);
-    return path || null;
+    if (!path) return null;
+
+    return path;
   }
 
   private _desktopFileExists(desktopId: string): boolean {

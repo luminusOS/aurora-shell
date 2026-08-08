@@ -178,6 +178,11 @@ Per the GNOME review guidelines, clipboard-related keyboard shortcuts must not s
 - Do not add pass-through methods that only forward the same arguments to a stored function or object.
   Expose a meaningful domain operation, return the required callable directly, or keep the call at its
   natural owner.
+- Do not add production getters, comments, or other API surface solely to expose private state to tests.
+  Keep repeated integration-test lookup and assertion logic in `tests/shell/support/`, and exercise the
+  runtime through an existing meaningful boundary.
+- Comments must explain a non-obvious reason, constraint, or contract. Remove comments that merely
+  restate a symbol name, type annotation, or the operations visible in the code.
 - Do not hide lifecycle invariants behind optional chaining with fallback values, such as
   `owner?.value ?? default` or `owner?.operation() ?? false`. At public boundaries, guard the inactive
   state explicitly and access stable fields directly during synchronous work. Reserve optional

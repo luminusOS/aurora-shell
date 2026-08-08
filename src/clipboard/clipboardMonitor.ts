@@ -100,7 +100,10 @@ export class ClipboardMonitor {
       if (mimeTypes.includes(preferred)) return preferred;
     }
 
-    return mimeTypes.find((mimeType) => mimeType.startsWith('image/')) ?? null;
+    const imageMimeType = mimeTypes.find((mimeType) => mimeType.startsWith('image/'));
+    if (!imageMimeType) return null;
+
+    return imageMimeType;
   }
 }
 

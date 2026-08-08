@@ -61,9 +61,12 @@ export class PowerMenuAvatar extends Module {
     const grid = getQuickSettingsGrid();
     if (!grid) return null;
 
-    return (
-      grid.get_children().find((child: any) => child.constructor.name === 'SystemItem') ?? null
-    );
+    const systemItem = grid
+      .get_children()
+      .find((child: any) => child.constructor.name === 'SystemItem');
+    if (!systemItem) return null;
+
+    return systemItem;
   }
 
   private _attach(systemItem: SystemItem): void {

@@ -325,8 +325,14 @@ export class TrayIcons extends Module {
   private async _getFlatpakAppId(pid: number): Promise<string | null> {
     const text = await this._readProcText(`/proc/${pid}/root/.flatpak-info`);
     if (!text) return null;
+
     const match = /^name=(.+)$/m.exec(text);
-    return match?.[1]?.trim() || null;
+    if (!match) return null;
+
+    const appId = match[1]?.trim();
+    if (!appId) return null;
+
+    return appId;
   }
 
   private async _readProcText(path: string): Promise<string | null> {

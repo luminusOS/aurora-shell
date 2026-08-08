@@ -29,7 +29,6 @@ const LOG_PREFIX = 'DockIntellihide';
  */
 const STATUS_SETTLE_DELAY = 150;
 
-/** Window types considered when checking whether a window overlaps the dock. */
 const OVERLAP_WINDOW_TYPES: Meta.WindowType[] = [
   Meta.WindowType.NORMAL,
   Meta.WindowType.DOCK,
@@ -130,7 +129,9 @@ export class DockIntellihide extends GObject.Object {
   }
 
   get status(): OverlapStatus {
-    return this._status ?? OverlapStatus.CLEAR;
+    if (this._status === null) return OverlapStatus.CLEAR;
+
+    return this._status;
   }
 
   updateTargetBox(box: DashBounds | null): void {

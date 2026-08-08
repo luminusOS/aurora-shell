@@ -111,26 +111,38 @@ export class ClipboardList extends St.BoxLayout {
   }
 
   activateSelected(): void {
-    const item = this._items[this._selectedIndex] ?? null;
-    if (item) this._callbacks.onActivate(item.entry);
+    const item = this.selectedItem;
+    if (!item) return;
+
+    this._callbacks.onActivate(item.entry);
   }
 
   removeSelected(): void {
-    const item = this._items[this._selectedIndex] ?? null;
-    if (item) this._callbacks.onRemove(item.entry.id);
+    const item = this.selectedItem;
+    if (!item) return;
+
+    this._callbacks.onRemove(item.entry.id);
   }
 
   togglePinSelected(): void {
-    const item = this._items[this._selectedIndex] ?? null;
-    if (item) this._callbacks.onTogglePin(item.entry.id);
+    const item = this.selectedItem;
+    if (!item) return;
+
+    this._callbacks.onTogglePin(item.entry.id);
   }
 
   get selectedItem(): ClipboardItem | null {
-    return this._items[this._selectedIndex] ?? null;
+    const item = this._items[this._selectedIndex];
+    if (!item) return null;
+
+    return item;
   }
 
   getSelectedEntry(): ClipboardEntry | null {
-    return this._items[this._selectedIndex]?.entry ?? null;
+    const item = this.selectedItem;
+    if (!item) return null;
+
+    return item.entry;
   }
 
   private _addItem(entry: ClipboardEntry): void {

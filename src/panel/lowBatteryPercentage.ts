@@ -89,7 +89,10 @@ export class LowBatteryPercentage extends Module {
       if (!result) return null;
 
       const devices = result.get_child_value(0).deep_unpack() as string[];
-      return devices.find((path) => /battery/i.test(path)) ?? null;
+      const batteryPath = devices.find((path) => /battery/i.test(path));
+      if (!batteryPath) return null;
+
+      return batteryPath;
     } catch (e) {
       logger.debug(`Could not enumerate UPower devices: ${e}`, { prefix: LOG_PREFIX });
       return null;

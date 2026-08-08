@@ -2,7 +2,12 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../../../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraModule,
+  getAuroraSettings,
+  waitForExtension,
+} from '../../../support/testUtils.js';
 
 const MEETING_MODULE_KEY = 'module-meeting-clock';
 const WEATHER_MODULE_KEY = 'module-weather-clock';
@@ -38,9 +43,7 @@ export async function run() {
   if (!enabledParent?.has_style_class_name('aurora-clock-pill-box'))
     throw new Error('Meeting Clock did not wrap the clock display after enabling module');
 
-  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
-  const meetingClock = extension?.stateObj?._modules?.get('meeting-clock');
-  if (!meetingClock) throw new Error('Meeting Clock module instance not found');
+  const meetingClock = getAuroraModule('meeting-clock');
 
   const now = Math.floor(Date.now() / 1000);
   meetingClock.setSourceEvents('aurora-test', [

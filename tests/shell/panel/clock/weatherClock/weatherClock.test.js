@@ -2,7 +2,12 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../../../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraModule,
+  getAuroraSettings,
+  waitForExtension,
+} from '../../../support/testUtils.js';
 
 const WEATHER_MODULE_KEY = 'module-weather-clock';
 const MEETING_MODULE_KEY = 'module-meeting-clock';
@@ -32,9 +37,7 @@ export async function run() {
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
 
-  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
-  const weatherClock = extension?.stateObj?._modules?.get('weather-clock');
-  if (!weatherClock) throw new Error('Weather Clock module instance not found');
+  const weatherClock = getAuroraModule('weather-clock');
 
   weatherClock.setWeatherSnapshot('aurora-test', {
     iconName: 'weather-clear-symbolic',
@@ -65,8 +68,7 @@ export async function run() {
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
 
-  const meetingClock = extension?.stateObj?._modules?.get('meeting-clock');
-  if (!meetingClock) throw new Error('Meeting Clock module instance not found');
+  const meetingClock = getAuroraModule('meeting-clock');
 
   const now = Math.floor(Date.now() / 1000);
   meetingClock.setSourceEvents('aurora-test', [

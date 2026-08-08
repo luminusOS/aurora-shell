@@ -1,8 +1,9 @@
+import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID } from '../../support/testUtils.js';
+import { EXTENSION_UUID, getAuroraModule } from '../../support/testUtils.js';
 
 const PANEL_CSS = 'aurora-clipboard-panel';
 
@@ -13,10 +14,7 @@ export function findClipboardPanel() {
 }
 
 export function getClipboardModule() {
-  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
-  const module = extension?.stateObj?._modules?.get?.('clipboard-history');
-  if (!module) throw new Error('ClipboardHistory module instance not found');
-  return module;
+  return getAuroraModule('clipboard-history');
 }
 
 function deleteFileIfExists(file) {
@@ -123,6 +121,9 @@ export async function exercisePostUnlockPanel() {
   const monitorIndex = Main.layoutManager.monitors.findIndex(
     (_monitor, index) => index !== Main.layoutManager.primaryIndex,
   );
+  const monitor = Main.layoutManager.monitors[monitorIndex];
+  const seat = Clutter.get_default_backend().get_default_seat();
+  const [originalPointerX, originalPointerY] = global.get_pointer();
   const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
 
   try {
@@ -143,33 +144,24 @@ export async function exercisePostUnlockPanel() {
     await lockAndUnlockSession();
     await waitForWindowState(window, monitorIndex);
 
-    const module = getClipboardModule();
-    const panel = module._panel;
-    const getPointerPosition = panel._getPointerPosition;
-    const getCurrentMonitorIndex = panel._getCurrentMonitorIndex;
-    const primary = Main.layoutManager.monitors[Main.layoutManager.primaryIndex];
-    panel._getPointerPosition = () => [
-      primary.x + Math.floor(primary.width / 2),
-      primary.y + Math.floor(primary.height / 2),
-    ];
-    panel._getCurrentMonitorIndex = () => monitorIndex;
+    seat.warp_pointer(
+      monitor.x + Math.floor(monitor.width / 2),
+      monitor.y + Math.floor(monitor.height / 2),
+    );
+    await Scripting.sleep(100);
 
-    try {
-      module.openPanel();
-      await Scripting.waitLeisure();
-      await Scripting.sleep(300);
-      const openedPanel = findClipboardPanel();
-      if (!openedPanel?.visible || !openedPanel.mapped || !openedPanel.get_paint_visibility())
-        throw new Error('Clipboard panel is not painted after unlock');
-      assertPanelInsideWorkArea(openedPanel, monitorIndex);
-      assertPanelAboveWindows(openedPanel);
-    } finally {
-      panel._getPointerPosition = getPointerPosition;
-      panel._getCurrentMonitorIndex = getCurrentMonitorIndex;
-      module.closePanel();
-    }
+    const module = getClipboardModule();
+    module.openPanel();
+    await Scripting.waitLeisure();
+    await Scripting.sleep(300);
+    const openedPanel = findClipboardPanel();
+    if (!openedPanel?.visible || !openedPanel.mapped || !openedPanel.get_paint_visibility())
+      throw new Error('Clipboard panel is not painted after unlock');
+    assertPanelInsideWorkArea(openedPanel, monitorIndex);
+    assertPanelAboveWindows(openedPanel);
   } finally {
     getClipboardModule().closePanel();
+    seat.warp_pointer(originalPointerX, originalPointerY);
     await Scripting.destroyTestWindows();
     await Scripting.waitLeisure();
     await Scripting.sleep(300);

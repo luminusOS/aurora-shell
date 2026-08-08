@@ -119,6 +119,38 @@ test('ModuleManager — discards and cleans a module whose enable fails', () => 
   state.manager.stop();
 });
 
+test('ModuleManager — surfaces cleanup failures after a module fails to enable', () => {
+  const item: Module = {
+    enable: () => {
+      throw new Error('enable failed');
+    },
+    disable: () => {
+      throw new Error('cleanup failed');
+    },
+  } as Module;
+  const state = setup({ manifest: manifest(), factory: () => item });
+  state.settings.values.set('module-sample', true);
+
+  assert.throws(() => state.manager.start(), /cleanup failed/);
+  assert.equal(state.manager.getModule('sample'), null);
+  assert.deepEqual(state.errors, ['Failed to enable module sample: Error: enable failed']);
+});
+
+test('ModuleManager — surfaces module disable failures', () => {
+  const item: Module = {
+    enable: () => undefined,
+    disable: () => {
+      throw new Error('disable failed');
+    },
+  } as Module;
+  const state = setup({ manifest: manifest(), factory: () => item });
+  state.settings.values.set('module-sample', true);
+  state.manager.start();
+
+  assert.throws(() => state.settings.set('module-sample', false), /disable failed/);
+  assert.equal(state.manager.getModule('sample'), null);
+});
+
 test('ModuleManager — reconciles capability changes', () => {
   let enables = 0;
   let disables = 0;

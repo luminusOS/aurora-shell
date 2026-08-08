@@ -229,7 +229,7 @@ export class ClipboardPanel extends St.BoxLayout {
   }
 
   private _positionNearPointer(): void {
-    const [pointerX, pointerY] = this._getPointerPosition();
+    const [pointerX, pointerY] = global.get_pointer();
     const monitorIndex = this._findMonitorIndexAt(pointerX, pointerY);
     const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorIndex);
     const bounds = placeClipboardPanelNearPointer(
@@ -246,17 +246,9 @@ export class ClipboardPanel extends St.BoxLayout {
     this.set_position(bounds.x, bounds.y);
   }
 
-  private _getPointerPosition(): [number, number, Clutter.ModifierType] {
-    return global.get_pointer();
-  }
-
-  private _getCurrentMonitorIndex(): number {
-    return global.display.get_current_monitor();
-  }
-
   private _findMonitorIndexAt(x: number, y: number): number {
     return resolveClipboardPanelMonitor(
-      this._getCurrentMonitorIndex(),
+      global.display.get_current_monitor(),
       x,
       y,
       Main.layoutManager.monitors,

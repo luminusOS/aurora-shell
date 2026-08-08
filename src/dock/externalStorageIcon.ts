@@ -69,7 +69,7 @@ export const ExternalStorageIcon = GObject.registerClass(
 
       this.toggleButton.connectObject(
         'clicked',
-        () => this._open(),
+        () => this._operations.open(),
         'button-press-event',
         (_actor: St.Button, event: Clutter.Event) => {
           if (event.get_button() === Clutter.BUTTON_SECONDARY) {
@@ -126,12 +126,12 @@ export const ExternalStorageIcon = GObject.registerClass(
       this._openItem = new PopupMenu.PopupMenuItem(
         this._item.mount ? _('Open') : _('Mount and Open'),
       );
-      this._openItem.connectObject('activate', () => this._open(), this);
+      this._openItem.connectObject('activate', () => this._operations.open(), this);
       this._menu.addMenuItem(this._openItem);
 
-      const ejectLabel = this._canEject() ? _('Eject') : _('Unmount');
+      const ejectLabel = this._operations.canEject ? _('Eject') : _('Unmount');
       this._ejectItem = new PopupMenu.PopupMenuItem(ejectLabel);
-      this._ejectItem.connectObject('activate', () => this._eject(), this);
+      this._ejectItem.connectObject('activate', () => this._operations.eject(), this);
       this._menu.addMenuItem(this._ejectItem);
 
       this._syncMenuSensitivity();
@@ -140,18 +140,6 @@ export const ExternalStorageIcon = GObject.registerClass(
     private _syncMenuSensitivity(): void {
       this._openItem?.setSensitive(!this._operations.busy);
       this._ejectItem?.setSensitive(!this._operations.busy && this._operations.canUnmountOrEject);
-    }
-
-    private _open(): void {
-      this._operations.open();
-    }
-
-    private _eject(): void {
-      this._operations.eject();
-    }
-
-    private _canEject(): boolean {
-      return this._operations.canEject;
     }
   },
 );

@@ -189,6 +189,8 @@ export class WeatherClock extends Module {
   }
 
   private _connectWeatherBackend(): void {
+    if (!this._lifecycle) return;
+
     this._weatherClient = this._readWeatherClient();
     if (!this._weatherClient) {
       this.setWeatherSnapshot(GNOME_WEATHER_SOURCE_KEY, {
@@ -198,10 +200,14 @@ export class WeatherClock extends Module {
       return;
     }
 
-    this._pushSignal(this._weatherClient, 'changed', () => this._onWeatherChanged());
-    this._pushSignal(this._weatherClient, 'notify::available', () => this._onWeatherChanged());
+    this._lifecycle.connect(this._weatherClient, 'changed', () => this._onWeatherChanged());
+    this._lifecycle.connect(this._weatherClient, 'notify::available', () =>
+      this._onWeatherChanged(),
+    );
     if (this._monitor) {
-      this._pushSignal(this._monitor, 'notify::connectivity', () => this._onConnectivityChanged());
+      this._lifecycle.connect(this._monitor, 'notify::connectivity', () =>
+        this._onConnectivityChanged(),
+      );
     }
 
     this.refreshWeather();
@@ -222,17 +228,6 @@ export class WeatherClock extends Module {
     return new Gio.Settings({ settings_schema: schema });
   }
 
-  private _pushSignal(
-    obj: {
-      connect(signal: string, callback: (...args: unknown[]) => void): number;
-      disconnect(id: number): void;
-    },
-    signalName: string,
-    callback: (...args: unknown[]) => void,
-  ): void {
-    this._lifecycle?.connect(obj, signalName, callback);
-  }
-
   private _onConnectivityChanged(): void {
     if (!this._lifecycle) return;
 
@@ -251,10 +246,9 @@ export class WeatherClock extends Module {
   }
 
   private _onWeatherChanged(): void {
-    const weather = this._weatherClient;
-    if (!this._lifecycle || !weather) return;
+    if (!this._lifecycle || !this._weatherClient || !this._retryTimer) return;
 
-    if (!weather.available) {
+    if (!this._weatherClient.available) {
       this.setWeatherSnapshot(GNOME_WEATHER_SOURCE_KEY, {
         available: false,
         hasConnectivity: this._hasConnectivity(),
@@ -262,14 +256,14 @@ export class WeatherClock extends Module {
       return;
     }
 
-    if (weather.loading) {
+    if (this._weatherClient.loading) {
       return;
     }
 
-    const snapshot = this._readSnapshotFromWeather(weather);
+    const snapshot = this._readSnapshotFromWeather(this._weatherClient);
     if (snapshot) {
       this._retryCount = 0;
-      this._clearRetryTimer();
+      this._retryTimer.clear();
       this.setWeatherSnapshot(GNOME_WEATHER_SOURCE_KEY, snapshot);
       return;
     }
@@ -401,10 +395,6 @@ export class WeatherClock extends Module {
     }
 
     return this._monitor.connectivity !== Gio.NetworkConnectivity.LOCAL;
-  }
-
-  private _clearRetryTimer(): void {
-    this._retryTimer?.clear();
   }
 
   private _now(): number {

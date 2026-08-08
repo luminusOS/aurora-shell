@@ -8,13 +8,14 @@ export function selectSniPixmap<T extends Pick<SniPixmap, 'width' | 'height'>>(
   const usable = pixmaps.filter((p) => p.width >= minimumSize && p.height >= minimumSize);
   if (usable.length === 0) return null;
 
-  return (
-    [...usable].sort((a, b) => {
-      const aDistance = Math.abs(Math.min(a.width, a.height) - targetSize);
-      const bDistance = Math.abs(Math.min(b.width, b.height) - targetSize);
-      return aDistance - bDistance || b.width * b.height - a.width * a.height;
-    })[0] ?? null
-  );
+  const selected = [...usable].sort((a, b) => {
+    const aDistance = Math.abs(Math.min(a.width, a.height) - targetSize);
+    const bDistance = Math.abs(Math.min(b.width, b.height) - targetSize);
+    return aDistance - bDistance || b.width * b.height - a.width * a.height;
+  })[0];
+  if (!selected) return null;
+
+  return selected;
 }
 
 export function isSymbolicSniPixels(

@@ -15,7 +15,6 @@ export function canLaunchTrash(strategy: TrashAvailabilityStrategy): boolean {
   return strategy.getNautilusExecutable() !== null;
 }
 
-/** Opens the trash explicitly through Nautilus. */
 export function launchTrash(strategy: TrashLaunchStrategy): TrashLaunchResult {
   if (strategy.launchNautilus()) return 'nautilus';
   throw new Error('Nautilus refused the trash URI');

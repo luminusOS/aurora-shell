@@ -20,11 +20,12 @@ export class ModuleManager {
   ) {}
 
   getModule(key: string): Module | null {
-    return this._modules.get(key) ?? null;
-  }
+    const module = this._modules.get(key);
+    if (!module) {
+      return null;
+    }
 
-  get modules(): ReadonlyMap<string, Module> {
-    return this._modules;
+    return module;
   }
 
   start(): void {
@@ -79,24 +80,17 @@ export class ModuleManager {
       module.enable();
       this._modules.set(manifest.key, module);
     } catch (error) {
-      if (module) {
-        try {
-          module.disable();
-        } catch {
-          // The original enable failure is the useful error to report.
-        }
-      }
       this._logger.error(`Failed to enable module ${manifest.key}: ${String(error)}`);
+
+      if (module) {
+        module.disable();
+      }
     }
   }
 
   private _disable(key: string, module: Module): void {
     this._logger.debug(`Disabling module ${key}`);
     this._modules.delete(key);
-    try {
-      module.disable();
-    } catch (error) {
-      this._logger.error(`Failed to disable module ${key}: ${String(error)}`);
-    }
+    module.disable();
   }
 }

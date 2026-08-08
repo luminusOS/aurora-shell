@@ -22,16 +22,10 @@ export class GeneralDevTool {
 
     const row = createDevToolActionRow();
     row.add_child(
-      createDevToolActionButton('emblem-system-symbolic', 'Open Settings', () =>
-        this.openPreferences(),
-      ),
+      createDevToolActionButton('emblem-system-symbolic', 'Open Settings', this._openPreferences),
     );
     panel.add_child(row);
 
     return panel;
-  }
-
-  openPreferences(): void {
-    this._openPreferences();
   }
 }

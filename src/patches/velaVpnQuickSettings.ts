@@ -174,7 +174,10 @@ export class VelaVpnQuickSettings extends Module {
     const statusArea = (Main.panel as any).statusArea;
     if (!statusArea.quickSettings) return null;
 
-    return statusArea.quickSettings._network ?? null;
+    const networkIndicator = statusArea.quickSettings._network;
+    if (!networkIndicator) return null;
+
+    return networkIndicator;
   }
 
   private _getVpnToggle(): any {

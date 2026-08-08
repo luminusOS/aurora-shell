@@ -68,16 +68,15 @@ export class DevTool extends Module {
       }),
     );
 
-    const getModule = (key: string) => this._callbacks.getModule(key);
     const rebuildMenu = () => this._rebuildMenu();
     this._tools = {
-      general: new GeneralDevTool(() => this._callbacks.openPreferences()),
-      captureTools: new CaptureToolsDevTool(getModule, rebuildMenu),
-      dock: new DockDevTool(getModule, rebuildMenu),
-      clipboardHistory: new ClipboardHistoryDevTool(getModule, rebuildMenu),
+      general: new GeneralDevTool(this._callbacks.openPreferences),
+      captureTools: new CaptureToolsDevTool(this._callbacks.getModule, rebuildMenu),
+      dock: new DockDevTool(this._callbacks.getModule, rebuildMenu),
+      clipboardHistory: new ClipboardHistoryDevTool(this._callbacks.getModule, rebuildMenu),
       trayIcons: new TrayIconsDevTool(rebuildMenu),
-      weatherClock: new WeatherClockDevTool(getModule, rebuildMenu),
-      meetingClock: new MeetingClockDevTool(getModule, rebuildMenu),
+      weatherClock: new WeatherClockDevTool(this._callbacks.getModule, rebuildMenu),
+      meetingClock: new MeetingClockDevTool(this._callbacks.getModule, rebuildMenu),
     };
 
     const menu = this._getMenu();
@@ -316,7 +315,12 @@ export class DevTool extends Module {
   }
 
   private _activeSection(): DevToolSection | null {
-    return this._sections().find((section) => section.key === this._activeSectionKey) ?? null;
+    const activeSection = this._sections().find(
+      (section) => section.key === this._activeSectionKey,
+    );
+    if (!activeSection) return null;
+
+    return activeSection;
   }
 
   private _sections(): DevToolSection[] {
