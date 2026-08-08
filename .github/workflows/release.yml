@@ -83,6 +83,17 @@ jobs:
           name: extension-zip
           path: dist/target/
 
+      - name: Resolve latest stable release
+        id: stable_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          STABLE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          echo "tag=${STABLE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Release notes will start at ${STABLE_TAG}." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -93,6 +104,7 @@ jobs:
             dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
             dist/target/aurora-shell@luminusos.github.io.development.shell-extension.zip
           generate_release_notes: true
+          previous_tag: ${{ steps.stable_release.outputs.tag }}
           prerelease: ${{ github.event_name == 'workflow_dispatch' }}
 
       # An RC supersedes the nightly line: once a release candidate is out,
