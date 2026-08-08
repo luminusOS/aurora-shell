@@ -34,22 +34,48 @@ jobs:
         uses: actions/github-script@v8
         with:
           script: |
-            if (context.eventName !== 'pull_request') {
+            let paths;
+            let forceFullCi = false;
+
+            if (context.eventName === 'pull_request') {
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                per_page: 100,
+              });
+              paths = files.map(file => file.filename);
+            } else if (context.eventName === 'merge_group') {
+              const mergeGroup = context.payload.merge_group;
+              if (!mergeGroup?.base_sha || !mergeGroup?.head_sha) {
+                core.warning('Merge group SHAs are unavailable; running full CI.');
+                core.setOutput('full_ci', 'true');
+                core.setOutput('workflow_checks', 'false');
+                return;
+              }
+
+              const comparison = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: mergeGroup.base_sha,
+                head: mergeGroup.head_sha,
+                per_page: 100,
+              });
+              const files = comparison.data.files ?? [];
+              paths = files.map(file => file.filename);
+              forceFullCi = files.length >= 300;
+              if (forceFullCi) {
+                core.warning('Merge group comparison reached the 300-file API limit; running full CI.');
+              }
+            } else {
               core.setOutput('full_ci', 'true');
               core.setOutput('workflow_checks', 'false');
               return;
             }
 
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              per_page: 100,
-            });
-            const paths = files.map(file => file.filename);
             const isWorkflow = path => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(path);
             const workflowChecks = paths.some(isWorkflow);
-            const fullCi = paths.length === 0 ||
+            const fullCi = forceFullCi || paths.length === 0 ||
               paths.some(path => !isWorkflow(path) || path === '.github/workflows/ci.yml');
 
             core.setOutput('full_ci', String(fullCi));
