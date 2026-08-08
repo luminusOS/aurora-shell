@@ -15,14 +15,80 @@ on:
 permissions:
   contents: read
   packages: write
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    outputs:
+      full_ci: ${{ steps.classify.outputs.full_ci }}
+      workflow_checks: ${{ steps.classify.outputs.workflow_checks }}
+    steps:
+      - name: Select validation scope
+        id: classify
+        uses: actions/github-script@v8
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('full_ci', 'true');
+              core.setOutput('workflow_checks', 'false');
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const paths = files.map(file => file.filename);
+            const isWorkflow = path => /^\.github\/workflows\/[^/]+\.ya?ml$/.test(path);
+            const workflowChecks = paths.some(isWorkflow);
+            const fullCi = paths.length === 0 ||
+              paths.some(path => !isWorkflow(path) || path === '.github/workflows/ci.yml');
+
+            core.setOutput('full_ci', String(fullCi));
+            core.setOutput('workflow_checks', String(workflowChecks));
+            core.info(`Changed files: ${paths.join(', ')}`);
+            core.info(`Full CI: ${fullCi}; workflow checks: ${workflowChecks}`);
+
+  workflow-checks:
+    name: Validate workflows
+    needs: [changes]
+    if: needs.changes.outputs.workflow_checks == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl --fail --silent --show-error --location \
+            --output "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
+
+      - name: Validate GitHub Actions workflows
+        run: |
+          "$RUNNER_TEMP/actionlint"
+
   ci-image:
     name: CI image
+    needs: [changes]
+    if: needs.changes.outputs.full_ci == 'true'
     runs-on: ubuntu-latest
     outputs:
       name: ${{ steps.image.outputs.name }}
@@ -73,7 +139,8 @@ jobs:
   lint:
     name: Validate
     runs-on: ubuntu-latest
-    needs: [ci-image]
+    needs: [changes, ci-image]
+    if: needs.changes.outputs.full_ci == 'true'
     container:
       image: ${{ needs.ci-image.outputs.name }}
       credentials:
@@ -93,7 +160,8 @@ jobs:
   unit-tests:
     name: Unit & regression tests
     runs-on: ubuntu-latest
-    needs: [ci-image]
+    needs: [changes, ci-image]
+    if: needs.changes.outputs.full_ci == 'true'
     container:
       image: ${{ needs.ci-image.outputs.name }}
       credentials:
@@ -113,7 +181,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [ci-image, lint]
+    needs: [changes, ci-image, lint]
+    if: needs.changes.outputs.full_ci == 'true'
     container:
       image: ${{ needs.ci-image.outputs.name }}
       credentials:
@@ -142,7 +211,8 @@ jobs:
   integration-tests:
     name: Integration tests
     runs-on: ubuntu-latest
-    needs: [ci-image, build, unit-tests]
+    needs: [changes, ci-image, build, unit-tests]
+    if: needs.changes.outputs.full_ci == 'true'
     container:
       image: ${{ needs.ci-image.outputs.name }}
       credentials:
@@ -170,3 +240,59 @@ jobs:
           XDG_SESSION_ID: aurora_ci
         run: |
           scripts/run-ci-shell-tests.sh
+
+  ci-gate:
+    name: CI gate
+    if: always()
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - workflow-checks
+      - ci-image
+      - lint
+      - unit-tests
+      - build
+      - integration-tests
+    steps:
+      - name: Verify required checks
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          CI_IMAGE_RESULT: ${{ needs.ci-image.result }}
+          FULL_CI: ${{ needs.changes.outputs.full_ci }}
+          INTEGRATION_RESULT: ${{ needs.integration-tests.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
+          WORKFLOW_CHECKS: ${{ needs.changes.outputs.workflow_checks }}
+          WORKFLOW_CHECKS_RESULT: ${{ needs.workflow-checks.result }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$CHANGES_RESULT" != "success" ]]; then
+            echo "Change classification failed."
+            exit 1
+          fi
+
+          if [[ "$WORKFLOW_CHECKS" == "true" && "$WORKFLOW_CHECKS_RESULT" != "success" ]]; then
+            echo "Workflow validation did not pass: ${WORKFLOW_CHECKS_RESULT}."
+            exit 1
+          fi
+
+          if [[ "$FULL_CI" == "true" ]]; then
+            for result in \
+              "$CI_IMAGE_RESULT" \
+              "$LINT_RESULT" \
+              "$UNIT_TESTS_RESULT" \
+              "$BUILD_RESULT" \
+              "$INTEGRATION_RESULT"; do
+              if [[ "$result" != "success" ]]; then
+                echo "A required full-CI job did not pass: ${result}."
+                exit 1
+              fi
+            done
+          elif [[ "$WORKFLOW_CHECKS" != "true" ]]; then
+            echo "No validation scope was selected."
+            exit 1
+          fi
+
+          echo "All required checks passed."
