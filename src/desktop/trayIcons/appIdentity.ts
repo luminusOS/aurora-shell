@@ -35,7 +35,7 @@ export function sniIdentityMatchesAppId(identity: SniIdentity, appId: string): b
   const appIds = appIdCandidates([appId]);
   const appComponents = new Set(
     [...appIds]
-      .map((candidate) => candidate.split('.').at(-1) ?? candidate)
+      .map((candidate) => candidate.split('.').at(-1) || candidate)
       .filter(isSpecificAppComponent),
   );
   const desktopEntry = identity.desktopEntry.toLowerCase();
@@ -49,7 +49,7 @@ export function sniIdentityMatchesAppId(identity: SniIdentity, appId: string): b
   const sniId = identity.sniId.toLowerCase();
   if (!sniId) return false;
   if (appIds.has(sniId)) return true;
-  const component = sniId.split('.').at(-1) ?? sniId;
+  const component = sniId.split('.').at(-1) || sniId;
   return isSpecificAppComponent(component) && appComponents.has(component);
 }
 

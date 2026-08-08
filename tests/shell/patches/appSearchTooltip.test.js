@@ -11,7 +11,8 @@ function tooltipExistsInUiGroup() {
   const n = uiGroup.get_n_children();
   for (let i = 0; i < n; i++) {
     const child = uiGroup.get_child_at_index(i);
-    if (child?.has_style_class_name?.(TOOLTIP_CSS_CLASS)) return true;
+    if (child && child.has_style_class_name && child.has_style_class_name(TOOLTIP_CSS_CLASS))
+      return true;
   }
   return false;
 }

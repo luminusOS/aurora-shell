@@ -54,11 +54,11 @@ export function parseClipboardLog(source: string): ClipboardLogState {
     if (op.op === 'add') {
       const entry: ClipboardEntrySnapshot = {
         id: op.id,
-        kind: op.kind ?? 'text',
+        kind: op.kind || 'text',
         text: op.text,
         pinned: false,
         timestamp: op.timestamp,
-        contentKey: op.contentKey ?? op.text,
+        contentKey: op.contentKey || op.text,
       };
       if (op.mimeType) entry.mimeType = op.mimeType;
       if (op.filePath) entry.filePath = op.filePath;
@@ -72,8 +72,8 @@ export function parseClipboardLog(source: string): ClipboardLogState {
     if (!entry) continue;
 
     if (op.op === 'delete') {
-      removeEntry(pinned, entry);
-      removeEntry(history, entry);
+      removeClipboardEntry(pinned, entry);
+      removeClipboardEntry(history, entry);
       byId.delete(op.id);
       wastedOps += 2;
     } else if (op.op === 'move') {
@@ -81,11 +81,11 @@ export function parseClipboardLog(source: string): ClipboardLogState {
       moveToFront(list, entry);
       wastedOps += 1;
     } else if (op.op === 'pin') {
-      removeEntry(history, entry);
+      removeClipboardEntry(history, entry);
       entry.pinned = true;
       moveToFront(pinned, entry);
     } else if (op.op === 'unpin') {
-      removeEntry(pinned, entry);
+      removeClipboardEntry(pinned, entry);
       entry.pinned = false;
       moveToFront(history, entry);
       wastedOps += 2;
@@ -137,12 +137,15 @@ function encodeOp(op: ClipboardLogOp): string {
   return JSON.stringify(op) + '\n';
 }
 
-function removeEntry(list: ClipboardEntrySnapshot[], entry: ClipboardEntrySnapshot): void {
+export function removeClipboardEntry(
+  list: ClipboardEntrySnapshot[],
+  entry: ClipboardEntrySnapshot,
+): void {
   const index = list.indexOf(entry);
   if (index !== -1) list.splice(index, 1);
 }
 
 function moveToFront(list: ClipboardEntrySnapshot[], entry: ClipboardEntrySnapshot): void {
-  removeEntry(list, entry);
+  removeClipboardEntry(list, entry);
   list.unshift(entry);
 }

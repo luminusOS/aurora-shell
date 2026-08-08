@@ -222,9 +222,9 @@ export class CaptureOcrSession {
   }
 
   destroy(): void {
+    this._scope.dispose();
     this._controller?.destroy();
     this._controller = null;
-    this._scope.dispose();
 
     for (const tooltip of this._actionTooltips) {
       tooltip.destroy();

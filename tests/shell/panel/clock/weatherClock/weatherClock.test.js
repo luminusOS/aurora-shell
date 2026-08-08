@@ -53,13 +53,19 @@ export async function run() {
 
   const weatherWidget = wrapper
     .get_children()
-    .find((child) => child.has_style_class_name?.('aurora-weather-clock-widget'));
+    .find(
+      (child) =>
+        child.has_style_class_name && child.has_style_class_name('aurora-weather-clock-widget'),
+    );
   if (!weatherWidget?.visible)
     throw new Error('Weather Clock widget did not render the fake weather snapshot');
 
   const weatherLabel = weatherWidget
     .get_children()
-    .find((child) => child.has_style_class_name?.('aurora-weather-clock-label'));
+    .find(
+      (child) =>
+        child.has_style_class_name && child.has_style_class_name('aurora-weather-clock-label'),
+    );
   await Scripting.sleep(2000);
   if (weatherLabel?.text !== '24°')
     throw new Error(`Weather Clock label changed from temperature to "${weatherLabel?.text}"`);
@@ -90,12 +96,14 @@ export async function run() {
   await Scripting.sleep(300);
 
   const children = wrapper.get_children();
-  const weatherIndex = children.findIndex((child) =>
-    child.has_style_class_name?.('aurora-weather-clock-widget'),
+  const weatherIndex = children.findIndex(
+    (child) =>
+      child.has_style_class_name && child.has_style_class_name('aurora-weather-clock-widget'),
   );
   const clockIndex = children.indexOf(originalClockDisplay);
-  const meetingIndex = children.findIndex((child) =>
-    child.has_style_class_name?.('aurora-meeting-clock-widget'),
+  const meetingIndex = children.findIndex(
+    (child) =>
+      child.has_style_class_name && child.has_style_class_name('aurora-meeting-clock-widget'),
   );
 
   if (!(weatherIndex >= 0 && clockIndex >= 0 && meetingIndex >= 0))

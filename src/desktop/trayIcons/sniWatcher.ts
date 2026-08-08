@@ -102,18 +102,17 @@ export class SniWatcher {
     this._ownNameId = Gio.DBus.session.own_name(
       SNI_WATCHER_BUS_NAME,
       Gio.BusNameOwnerFlags.NONE,
-      // GJS accepts plain functions here; types expect GObject.Closure
-      (() => {
+      () => {
         logger.debug('Acquired org.kde.StatusNotifierWatcher', { prefix: LOG_PREFIX });
         this._emitSignal('StatusNotifierHostRegistered', null);
-      }) as unknown as never,
-      (() => {
+      },
+      () => {
         logger.warn(
           'org.kde.StatusNotifierWatcher already owned by another process. SNI icons disabled.',
           { prefix: LOG_PREFIX },
         );
         this._failed = true;
-      }) as unknown as never,
+      },
     );
   }
 

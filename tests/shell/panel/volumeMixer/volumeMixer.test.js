@@ -9,27 +9,26 @@ const MIXER_CSS_CLASS = 'aurora-volume-mixer';
 function findOutputSlider() {
   const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
   if (!grid) return null;
-  return grid.get_children().find((c) => c.constructor.name === 'OutputStreamSlider') ?? null;
+  return grid.get_children().find((c) => c.constructor.name === 'OutputStreamSlider');
 }
 
 function findMixerPanelInSlider(slider) {
   if (!slider?.menu?._getMenuItems) return null;
   for (const item of slider.menu._getMenuItems()) {
-    const box = item.actor ?? item;
-    const n = box.get_n_children?.() ?? 0;
+    const box = item.actor || item;
+    const n = box.get_n_children ? box.get_n_children() : 0;
     for (let i = 0; i < n; i++) {
       const child = box.get_child_at_index(i);
-      if (child?.has_style_class_name?.(MIXER_CSS_CLASS)) return child;
+      if (child && child.has_style_class_name && child.has_style_class_name(MIXER_CSS_CLASS))
+        return child;
     }
   }
   return null;
 }
 
 function findMixerToggle(slider) {
-  return (
-    slider?.child?.get_children?.().find((child) => child.accessible_name === 'Volume Mixer') ??
-    null
-  );
+  if (!slider?.child?.get_children) return undefined;
+  return slider.child.get_children().find((child) => child.accessible_name === 'Volume Mixer');
 }
 
 export var METRICS = {};

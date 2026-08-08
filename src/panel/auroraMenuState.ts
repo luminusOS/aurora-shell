@@ -46,10 +46,10 @@ export function parseRecentXbel(text: string, limit: number): RecentMenuItem[] {
     /<bookmark\b[^>]*href="([^"]+)"[^>]*modified="([^"]+)"[^>]*>([\s\S]*?)<\/bookmark>/g;
   let match: RegExpExecArray | null;
   while ((match = bookmarks.exec(text)) !== null) {
-    const uri = decodeXml(match[1] ?? '');
+    const uri = decodeXml(match[1] || '');
     if (!uri || seen.has(uri)) continue;
     seen.add(uri);
-    const rawTitle = /<title>([\s\S]*?)<\/title>/.exec(match[3] ?? '')?.[1]?.trim();
+    const rawTitle = /<title>([\s\S]*?)<\/title>/.exec(match[3] || '')?.[1]?.trim();
     let fallback = uri;
     try {
       fallback = decodeURIComponent(uri);
@@ -61,7 +61,7 @@ export function parseRecentXbel(text: string, limit: number): RecentMenuItem[] {
       : fallback.startsWith('file://')
         ? fallback.slice(7).split('/').pop() || fallback
         : fallback;
-    const modified = Math.floor(Date.parse(match[2] ?? '') / 1000);
+    const modified = Math.floor(Date.parse(match[2] || '') / 1000);
     items.push({
       title,
       uri,

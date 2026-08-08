@@ -43,7 +43,7 @@ export class VolumeMixer extends Module {
   private _menuSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null = null;
   private _settingsSection: InstanceType<typeof PopupMenu.PopupMenuSection> | null = null;
   private _lifecycle: LifecycleScope | null = null;
-  private _quickSettings: QuickSettings | null = null;
+  private _quickSettings: QuickSettings | undefined;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -77,6 +77,7 @@ export class VolumeMixer extends Module {
     this._menuSection = null;
     this._settingsSection?.destroy();
     this._settingsSection = null;
+    this._quickSettings = undefined;
   }
 
   private _findOutputSlider(): QuickSlider | null {
@@ -95,9 +96,7 @@ export class VolumeMixer extends Module {
   private _attachToSlider(slider: QuickSlider): void {
     if (!this._lifecycle) return;
 
-    this._panel = new (VolumeMixerPanel as unknown as new (
-      ctx: ExtensionContext,
-    ) => VolumeMixerPanel)(this.context);
+    this._panel = new VolumeMixerPanel(this.context);
     this._menuSection = new PopupMenu.PopupMenuSection();
 
     this._menuSection.box.add_child(this._panel);

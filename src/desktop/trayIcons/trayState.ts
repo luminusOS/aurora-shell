@@ -16,7 +16,7 @@ export interface TrayItem {
   activate(x: number, y: number): void;
   secondaryActivate?(x: number, y: number): void;
   showMenu?(x: number, y: number): void;
-  destroy(): void;
+  destroy?(): void;
 }
 
 export interface TrayState {

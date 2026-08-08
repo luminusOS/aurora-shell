@@ -55,8 +55,8 @@ test('keeps leading whitespace before a # comment outside the span', () => {
 test('produces balanced spans for a multi-line snippet', () => {
   const code = 'function clamp(value, min, max) {\n  if (value < min) return min;\n}';
   const markup = highlightCodeMarkup(code);
-  const open = (markup.match(/<span/g) ?? []).length;
-  const close = (markup.match(/<\/span>/g) ?? []).length;
+  const open = (markup.match(/<span/g) || []).length;
+  const close = (markup.match(/<\/span>/g) || []).length;
   assert.equal(open, close);
   assert.doesNotMatch(markup, /<(?!\/?span)/);
 });

@@ -5,12 +5,16 @@ import type { DeviceService } from '~/device/device.ts';
 /**
  * Global signal bus for Aurora Shell modules
  */
-@GObject.registerClass({
-  Signals: {
-    'icons-woven': {},
+export const AuroraSignals = GObject.registerClass(
+  {
+    Signals: {
+      'icons-woven': {},
+    },
   },
-})
-export class AuroraSignals extends GObject.Object {}
+  class AuroraSignals extends GObject.Object {},
+);
+
+export type AuroraSignals = InstanceType<typeof AuroraSignals>;
 
 export interface ExtensionContext {
   readonly uuid: string;

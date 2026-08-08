@@ -23,10 +23,11 @@ type SystemItem = {
   menu: PowerMenu;
 };
 
-type UserWidgetConstructor = new (user: AccountsService.User) => UserWidget;
+const UserWidgetWithUser = UserWidget as typeof UserWidget & {
+  new (user: AccountsService.User): UserWidget;
+};
 
 function createUserWidget(user: AccountsService.User): UserWidget {
-  const UserWidgetWithUser = UserWidget as unknown as UserWidgetConstructor;
   return new UserWidgetWithUser(user);
 }
 

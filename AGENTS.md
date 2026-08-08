@@ -186,7 +186,7 @@ Per the GNOME review guidelines, clipboard-related keyboard shortcuts must not s
 - Do not hide lifecycle invariants behind optional chaining with fallback values, such as
   `owner?.value ?? default` or `owner?.operation() ?? false`. At public boundaries, guard the inactive
   state explicitly and access stable fields directly during synchronous work. Reserve optional
-  chaining and nullish fallbacks for genuinely optional external data and idempotent cleanup.
+  property access for genuinely optional external data; make cleanup decisions explicit.
 - Do not create a local alias for an instance field merely to shorten `this._field`, repeat the same
   name, or satisfy nullable type narrowing during synchronous work. Guard the field explicitly and
   use it directly when it cannot change inside the block. A snapshot of an instance field is justified
@@ -222,9 +222,9 @@ Apply these rules during implementation and review:
   `disconnectObject()`, `abort()`, `GLib.Source.remove()`, or `Gio.DBusConnection.unregister_object()`
   in defensive `try`/`catch`. Catch failures only at operations whose contract can genuinely fail,
   such as I/O, parsing, D-Bus calls, subprocesses, and asynchronous result propagation.
-- Do not add optional calls such as `object?.method(...)` or `object?.method?.(...)` when the object and
-  method are guaranteed by the active lifecycle or the targeted API. Use an explicit boundary guard
-  when the owning object itself is legitimately inactive or absent.
+- Never invoke a callable value with direct optional-call syntax. It hides why the callback may be
+  absent. Call guaranteed functions directly and use an explicit boundary guard when a callable
+  value is legitimately optional.
 - Do not add `_enabled`, `_destroyed`, or similar lifecycle flags when owned references, cancellables,
   or the underlying GObject lifecycle already express the state. After destruction, the owner must
   clear its reference and must not call the instance again.
@@ -256,11 +256,20 @@ Apply these rules during implementation and review:
 - Review every Shexli finding. Fix real ownership/lifecycle defects and record accepted manual-review
   findings or analyzer false positives in `docs/extension-review.md`.
 
-- Never use patterns like `this.disconnectObject?.(this)` on objects that do not own that signal
-  connection contract.
+- Never invoke `disconnectObject` defensively on objects that do not own that signal connection
+  contract.
 - Do not ship fake behavior. If a UI label, schema description, README entry, or module subtitle says a feature is wired to NetworkManager, ModemManager, UPower, sensors, widgets, or GNOME internals, the code must actually call the relevant API or clearly describe itself as a fallback.
 - Keep runtime capability checks honest. Hardware-specific modules must detect missing services/devices at runtime and stay inactive or degrade explicitly.
-- Do not scatter `as unknown as ...` casts through feature modules. If GObject construction or Shell internals require a cast, isolate it in a small shared helper/factory with a clear name.
+- Capture the return of `GObject.registerClass` and derive its instance type with
+  `InstanceType<typeof RegisteredClass>` when a registered class accepts custom constructor arguments.
+  Do not add decorators or generic construction/casting helpers around GObject classes.
+- Do not scatter `as unknown as ...` casts through feature modules. Represent real GIR or GNOME Shell
+  declaration gaps with narrow module augmentations under `src/types/`; when TypeScript cannot augment a
+  static constructor, isolate that constructor signature at its single call site.
+- Avoid the nullish coalescing operators `??` and `??=`. Prefer explicit guards, default parameters,
+  destructuring defaults, or clearly named state preparation so reviewers can see why a value may be
+  absent and when a fallback applies. Preserve the absence value returned by the source API unless a
+  boundary contract explicitly requires normalization.
 - Do not leave placeholder helpers, legacy duplicates, or unused compatibility functions after a refactor. Remove dead code instead of keeping it “just in case”.
 - Keep strings and metadata truthful and synchronized across `*.manifest.ts`, `moduleCatalog.ts`, schema XML, README/architecture docs, and `.po` files when strings change.
 - Search for obvious generated-code artifacts before finishing: broken joined words in docs, stale project names, obsolete env vars, and UI descriptions that exceed what is implemented.

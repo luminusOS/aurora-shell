@@ -108,7 +108,7 @@ export class VelaVpnQuickSettings extends Module {
     toggle.activateConnection = installedActivateConnection;
     toggle.deactivateConnection = installedDeactivateConnection;
 
-    logger.info('Routing VPN Quick Settings activation through Vela', { prefix: LOG_PREFIX });
+    logger.log('Routing VPN Quick Settings activation through Vela', { prefix: LOG_PREFIX });
   }
 
   private _setConnectionActive(connection: any, active: boolean, fallback: () => void): void {
@@ -124,13 +124,13 @@ export class VelaVpnQuickSettings extends Module {
     this._callVelaSetConnectionActive(path, active).catch((error) => {
       const remoteErrorName = this._getRemoteDbusErrorName(error);
       logger.warn(
-        `Vela VPN control API failed (${remoteErrorName ?? 'local error'}): ${String(error)}`,
+        `Vela VPN control API failed (${remoteErrorName || 'local error'}): ${String(error)}`,
         { prefix: LOG_PREFIX },
       );
       if (!this.context.settings.getBoolean(SHELL_FALLBACK_KEY)) return;
       if (!this._shouldFallbackToShell(remoteErrorName)) return;
 
-      logger.info(`Using GNOME Shell fallback after ${remoteErrorName}`, { prefix: LOG_PREFIX });
+      logger.log(`Using GNOME Shell fallback after ${remoteErrorName}`, { prefix: LOG_PREFIX });
       fallback();
     });
   }

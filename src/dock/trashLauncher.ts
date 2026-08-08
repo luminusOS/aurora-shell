@@ -8,11 +8,11 @@ export interface TrashLaunchStrategy {
 }
 
 export interface TrashAvailabilityStrategy {
-  getNautilusExecutable(): string | null;
+  getNautilusExecutable(): string | null | undefined;
 }
 
 export function canLaunchTrash(strategy: TrashAvailabilityStrategy): boolean {
-  return strategy.getNautilusExecutable() !== null;
+  return Boolean(strategy.getNautilusExecutable());
 }
 
 export function launchTrash(strategy: TrashLaunchStrategy): TrashLaunchResult {

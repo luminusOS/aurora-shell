@@ -1,4 +1,5 @@
 import Shell from '@girs/shell-18';
+import type { Dash } from '@girs/gnome-shell/ui/dash';
 import { logger } from '~/core/logger.ts';
 import { TrashIcon, type TrashIconInstance } from '~/dock/trashIcon.ts';
 import { canLaunchTrash, NAUTILUS_APP_ID } from '~/dock/trashLauncher.ts';
@@ -8,13 +9,6 @@ import {
   type ExternalStorageIconInstance,
   type ExternalStorageItem,
 } from '~/dock/externalStorageIcon.ts';
-
-type FixedItemDash = {
-  iconSize: number;
-  _dashContainer: any;
-  _showAppsIcon: any;
-  _hookUpLabel(item: unknown): void;
-};
 
 type FixedItemOwner = {
   connectObject(...args: any[]): void;
@@ -27,7 +21,7 @@ export class DashFixedItems {
 
   constructor(
     private _owner: FixedItemOwner,
-    private _dash: FixedItemDash,
+    private _dash: Dash,
     showTrash: boolean,
     showExternalStorage: boolean,
     private _onLayoutChanged: () => void,
@@ -65,9 +59,7 @@ export class DashFixedItems {
     const container = this._dash._dashContainer;
 
     const app = Shell.AppSystem.get_default().lookup_app(NAUTILUS_APP_ID);
-    if (
-      !canLaunchTrash({ getNautilusExecutable: () => app?.get_app_info().get_executable() ?? null })
-    ) {
+    if (!canLaunchTrash({ getNautilusExecutable: () => app?.get_app_info().get_executable() })) {
       logger.debug('Trash icon disabled: Nautilus is unavailable', { prefix: 'DockDash' });
       return;
     }
@@ -121,7 +113,7 @@ export class DashFixedItems {
       this._dash._hookUpLabel(icon);
       this._storage.push(icon);
     }
-    const anchor = this._trash ?? this._dash._showAppsIcon;
+    const anchor = this._trash || this._dash._showAppsIcon;
     const anchorIndex = anchor ? container.get_children().indexOf(anchor) : -1;
 
     for (const [offset, icon] of this._storage.entries()) {

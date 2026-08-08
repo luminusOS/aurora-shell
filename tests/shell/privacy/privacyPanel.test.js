@@ -8,6 +8,11 @@ const CONTENT_BOXES = ['_leftBox', '_centerBox'];
 const ALL_BOXES = ['_leftBox', '_centerBox', '_rightBox'];
 const ANIMATION_SETTLE_MS = 400;
 
+function actorOpacity(actor, fallback) {
+  if (!actor) return fallback;
+  return actor.opacity;
+}
+
 export var METRICS = {};
 
 export function init() {
@@ -28,7 +33,7 @@ export async function run() {
   await Scripting.sleep(500);
 
   const statusArea = Main.panel.statusArea;
-  const indicator = statusArea.screenSharing ?? statusArea.quickSettings?._remoteAccess ?? null;
+  const indicator = statusArea.screenSharing || statusArea.quickSettings?._remoteAccess;
 
   if (!indicator) {
     console.debug('[aurora-test] No screen sharing indicator — skipping live PrivacyPanel test');
@@ -36,7 +41,7 @@ export async function run() {
 
     // Verify module left panel untouched
     for (const box of ALL_BOXES) {
-      const opacity = Main.panel[box]?.opacity ?? 255;
+      const opacity = actorOpacity(Main.panel[box], 255);
       if (opacity !== 255)
         throw new Error(`PrivacyPanel left ${box} at opacity ${opacity} without sharing active`);
     }
@@ -54,9 +59,9 @@ export async function run() {
   await Scripting.sleep(ANIMATION_SETTLE_MS);
 
   // _leftBox and _centerBox must be hidden; the sharing indicator must stay visible
-  const contentHidden = CONTENT_BOXES.every((b) => (Main.panel[b]?.opacity ?? 255) === 0);
+  const contentHidden = CONTENT_BOXES.every((box) => actorOpacity(Main.panel[box], 255) === 0);
   const indicatorVisible =
-    (indicator?.opacity ?? 255) === 255 && (indicator?.container?.opacity ?? 255) === 255;
+    actorOpacity(indicator, 255) === 255 && actorOpacity(indicator?.container, 255) === 255;
   if (contentHidden && indicatorVisible) Scripting.scriptEvent('hiddenOnShare');
 
   console.debug('[aurora-test] Simulating screen sharing stop');
@@ -64,7 +69,7 @@ export async function run() {
   await Scripting.waitLeisure();
   await Scripting.sleep(ANIMATION_SETTLE_MS);
 
-  const allRestored = ALL_BOXES.every((b) => (Main.panel[b]?.opacity ?? 0) === 255);
+  const allRestored = ALL_BOXES.every((box) => actorOpacity(Main.panel[box], 0) === 255);
   if (allRestored) Scripting.scriptEvent('restoredOnShareEnd');
 }
 

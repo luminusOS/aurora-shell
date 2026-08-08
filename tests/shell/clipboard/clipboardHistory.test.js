@@ -17,8 +17,9 @@ import {
 const PANEL_CSS = 'aurora-clipboard-panel';
 
 function findActorByStyle(root, styleClass) {
-  if (root.has_style_class_name?.(styleClass)) return root;
-  for (const child of root.get_children?.() ?? []) {
+  if (root.has_style_class_name && root.has_style_class_name(styleClass)) return root;
+  const children = root.get_children ? root.get_children() : [];
+  for (const child of children) {
     const match = findActorByStyle(child, styleClass);
     if (match) return match;
   }
@@ -380,7 +381,7 @@ export async function run() {
   }
   Scripting.scriptEvent('autoPasteOk');
 
-  panel.close?.();
+  if (panel.close) panel.close();
   if (panel._unredirectInhibitor?.inhibited) {
     throw new Error('Closed Clipboard panel retained its unredirect inhibitor');
   }

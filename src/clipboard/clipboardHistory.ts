@@ -56,17 +56,10 @@ export class ClipboardHistory extends Module {
     const store = new ClipboardStore(filePath, mediaDir);
     this._store = store;
 
-    const panel = new (ClipboardPanel as unknown as new (
-      store: ClipboardStore,
-      callbacks: {
-        onActivate: (entry: ClipboardEntry) => void;
-        onRemove: (id: string) => void;
-        onTogglePin: (id: string) => void;
-      },
-    ) => ClipboardPanel)(store, {
-      onActivate: (entry) => this._onActivate(entry),
-      onRemove: (id) => this._onRemove(id),
-      onTogglePin: (id) => this._onTogglePin(id),
+    const panel = new ClipboardPanel(store, {
+      onActivate: (entry: ClipboardEntry) => this._onActivate(entry),
+      onRemove: (id: string) => this._onRemove(id),
+      onTogglePin: (id: string) => this._onTogglePin(id),
     });
     this._panel = panel;
 

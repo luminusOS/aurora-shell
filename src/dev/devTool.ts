@@ -3,7 +3,6 @@ import '@girs/gjs';
 import St from '@girs/st-18';
 import Clutter from '@girs/clutter-18';
 import * as Main from '@girs/gnome-shell/ui/main';
-import type { Button as PanelMenuButton } from '@girs/gnome-shell/ui/panelMenu';
 import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 
@@ -89,7 +88,7 @@ export class DevTool extends Module {
     });
 
     this._rebuildMenu();
-    Main.panel.addToStatusArea(DEVTOOL_ID, this._button as unknown as PanelMenuButton, 2, 'left');
+    Main.panel.addToStatusArea(DEVTOOL_ID, this._button, 2, 'left');
   }
 
   override disable(): void {

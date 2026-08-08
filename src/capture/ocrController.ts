@@ -57,7 +57,7 @@ export class OcrController {
       if (!pixbuf.savev(path, 'png', [], []))
         throw new Error('Failed to save the temporary OCR image');
 
-      const installed = this._installedLanguages ?? [];
+      const installed = this._installedLanguages || [];
       const languages = chooseOcrLanguages(
         this._settings.getString(LANGUAGES_KEY),
         GLib.get_language_names(),
@@ -77,7 +77,7 @@ export class OcrController {
         const message = stderr?.trim() || `Tesseract exited with ${subprocess.get_exit_status()}`;
         throw new Error(message);
       }
-      return parseTesseractTsv(stdout ?? '', scale, origin);
+      return parseTesseractTsv(stdout || '', scale, origin);
     } finally {
       if (this._subprocess && runId === this._runId) this._subprocess = null;
       GLib.unlink(path);
@@ -126,7 +126,7 @@ export class OcrController {
       }
 
       this._installedLanguages = subprocess.get_successful()
-        ? parseTesseractLanguages(stdout ?? '')
+        ? parseTesseractLanguages(stdout || '')
         : [];
       return this._installedLanguages.length > 0;
     } finally {

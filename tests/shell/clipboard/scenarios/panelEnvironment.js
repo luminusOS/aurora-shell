@@ -8,9 +8,9 @@ import { EXTENSION_UUID, getAuroraModule } from '../../support/testUtils.js';
 const PANEL_CSS = 'aurora-clipboard-panel';
 
 export function findClipboardPanel() {
-  return (
-    Main.uiGroup.get_children().find((child) => child.has_style_class_name?.(PANEL_CSS)) ?? null
-  );
+  return Main.uiGroup
+    .get_children()
+    .find((child) => child.has_style_class_name && child.has_style_class_name(PANEL_CSS));
 }
 
 export function getClipboardModule() {
@@ -114,6 +114,36 @@ async function waitForWindowState(window, monitorIndex, timeoutMs = 5000) {
   }
 }
 
+async function focusWindow(window, timeoutMs = 5000) {
+  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
+  while (global.display.focus_window !== window) {
+    window.activate(global.get_current_time());
+    if (GLib.get_monotonic_time() >= deadline)
+      throw new Error('External-monitor test window did not regain focus after unlock');
+    await Scripting.sleep(100);
+  }
+}
+
+async function movePointerToMonitor(seat, monitor, timeoutMs = 5000) {
+  const targetX = monitor.x + Math.floor(monitor.width / 2);
+  const targetY = monitor.y + Math.floor(monitor.height / 2);
+  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
+
+  while (true) {
+    seat.warp_pointer(targetX, targetY);
+    await Scripting.sleep(100);
+    const [pointerX, pointerY] = global.get_pointer();
+    const pointerInsideMonitor =
+      pointerX >= monitor.x &&
+      pointerX < monitor.x + monitor.width &&
+      pointerY >= monitor.y &&
+      pointerY < monitor.y + monitor.height;
+    if (pointerInsideMonitor) return;
+    if (GLib.get_monotonic_time() >= deadline)
+      throw new Error(`Pointer did not move to external monitor: ${pointerX},${pointerY}`);
+  }
+}
+
 export async function exercisePostUnlockPanel() {
   if (Main.layoutManager.monitors.length < 2)
     throw new Error(`Clipboard unlock test requires 2 monitors`);
@@ -125,6 +155,7 @@ export async function exercisePostUnlockPanel() {
   const seat = Clutter.get_default_backend().get_default_seat();
   const [originalPointerX, originalPointerY] = global.get_pointer();
   const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
+  let module = null;
 
   try {
     await Scripting.createTestWindow({ width: 900, height: 650, maximized: false });
@@ -143,14 +174,10 @@ export async function exercisePostUnlockPanel() {
     await waitForWindowState(window, monitorIndex);
     await lockAndUnlockSession();
     await waitForWindowState(window, monitorIndex);
+    await focusWindow(window);
+    await movePointerToMonitor(seat, monitor);
 
-    seat.warp_pointer(
-      monitor.x + Math.floor(monitor.width / 2),
-      monitor.y + Math.floor(monitor.height / 2),
-    );
-    await Scripting.sleep(100);
-
-    const module = getClipboardModule();
+    module = getClipboardModule();
     module.openPanel();
     await Scripting.waitLeisure();
     await Scripting.sleep(300);
@@ -160,11 +187,14 @@ export async function exercisePostUnlockPanel() {
     assertPanelInsideWorkArea(openedPanel, monitorIndex);
     assertPanelAboveWindows(openedPanel);
   } finally {
-    getClipboardModule().closePanel();
-    seat.warp_pointer(originalPointerX, originalPointerY);
-    await Scripting.destroyTestWindows();
-    await Scripting.waitLeisure();
-    await Scripting.sleep(300);
+    try {
+      module?.closePanel();
+    } finally {
+      seat.warp_pointer(originalPointerX, originalPointerY);
+      await Scripting.destroyTestWindows();
+      await Scripting.waitLeisure();
+      await Scripting.sleep(300);
+    }
   }
 }
 

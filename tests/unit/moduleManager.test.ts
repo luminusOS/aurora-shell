@@ -13,7 +13,7 @@ class FakeSettings {
   nextId = 1;
 
   getBoolean(key: string): boolean {
-    return this.values.get(key) ?? false;
+    return this.values.get(key) || false;
   }
 
   connect(_signal: string, callback: () => void): number {

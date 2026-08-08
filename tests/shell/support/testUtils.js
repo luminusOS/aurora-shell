@@ -67,7 +67,7 @@ export async function waitForExtension(uuid, timeoutMs = 8000) {
   }
   const ext = Main.extensionManager.lookup(uuid);
   throw new Error(
-    `Extension ${uuid} not active after ${timeoutMs}ms (state=${ext?.state ?? 'not found'})`,
+    `Extension ${uuid} not active after ${timeoutMs}ms (state=${ext?.state || 'not found'})`,
   );
 }
 

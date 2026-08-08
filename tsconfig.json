@@ -1,9 +1,7 @@
 {
   "extends": "@tsconfig/strictest/tsconfig.json",
   "compilerOptions": {
-    "lib": [
-      "ESNext"
-    ],
+    "lib": ["ESNext"],
     "types": [],
     "target": "ESNext",
     "module": "NodeNext",
@@ -11,19 +9,15 @@
     "skipLibCheck": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "~/*": [
-        "./src/*"
-      ]
+      "~/*": ["./src/*"]
     }
   },
-  "include": [
-    "src"
-  ],
+  "include": ["src"],
   "files": [
     "src/extension.ts",
+    "src/types/gio.d.ts",
     "src/types/gnome-shell.d.ts",
     "src/types/shellMountOperation.d.ts",
     "src/types/gweather.d.ts",

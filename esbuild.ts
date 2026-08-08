@@ -6,7 +6,6 @@ import { format, resolveConfig } from 'prettier';
 
 import { localExternals } from './build/plugins/local-externals.ts';
 import { createGirsResolver } from './build/plugins/girs-resolver.ts';
-import { gobjectDecorator } from './build/plugins/gobject-decorator.ts';
 import { addBlankLinesBetweenMembers } from './build/formatting.ts';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -24,7 +23,7 @@ try {
     outdir: 'dist',
     outbase: 'src',
     bundle: true,
-    plugins: [gobjectDecorator, localExternals, createGirsResolver(currentDir)],
+    plugins: [localExternals, createGirsResolver(currentDir)],
     treeShaking: false,
     target: 'firefox102',
     format: 'esm',
@@ -32,8 +31,9 @@ try {
   });
 
   const distDir = resolve(currentDir, 'dist');
-  const jsFiles = (readdirSync(distDir, { recursive: true }) as string[])
-    .filter((file) => file.endsWith('.js'));
+  const jsFiles = (readdirSync(distDir, { recursive: true }) as string[]).filter((file) =>
+    file.endsWith('.js'),
+  );
 
   console.log('Formatting output files...');
 
@@ -41,12 +41,12 @@ try {
     const filePath = resolve(distDir, file);
     const content = readFileSync(filePath, 'utf8');
 
-    const prettierConfig = await resolveConfig(filePath) || {};
+    const prettierConfig = (await resolveConfig(filePath)) || {};
 
     const formatted = await format(content, {
       ...prettierConfig,
       parser: 'babel',
-      filepath: filePath
+      filepath: filePath,
     });
 
     writeFileSync(filePath, addBlankLinesBetweenMembers(formatted));

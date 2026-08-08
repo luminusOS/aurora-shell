@@ -73,8 +73,8 @@ export class SniHost {
   constructor(watcher: SniWatcher, callbacks: HostCallbacks, options: SniHostOptions = {}) {
     this._watcher = watcher;
     this._callbacks = callbacks;
-    this._getColorScheme = options.getColorScheme ?? (() => 'prefer-dark');
-    this._shouldRecolorSymbolicPixmaps = options.shouldRecolorSymbolicPixmaps ?? (() => true);
+    this._getColorScheme = options.getColorScheme || (() => 'prefer-dark');
+    this._shouldRecolorSymbolicPixmaps = options.shouldRecolorSymbolicPixmaps || (() => true);
   }
 
   async registerItem(busName: string, objectPath: string): Promise<void> {
@@ -109,9 +109,9 @@ export class SniHost {
     this._pendingRegistrations.delete(id);
 
     const item = this._makeItem(id, proxy);
-    const sniId = (proxy.get_cached_property('Id')?.unpack() as string | undefined) ?? '';
+    const sniId = (proxy.get_cached_property('Id')?.unpack() as string | undefined) || '';
     const desktopEntry =
-      (proxy.get_cached_property('DesktopEntry')?.unpack() as string | undefined) ?? '';
+      (proxy.get_cached_property('DesktopEntry')?.unpack() as string | undefined) || '';
 
     const menuPath = proxy.get_cached_property('Menu')?.unpack() as string | undefined;
     logger.debug(
@@ -144,13 +144,12 @@ export class SniHost {
     const nameWatchId = Gio.DBus.session.watch_name(
       busName,
       Gio.BusNameWatcherFlags.NONE,
-      // GJS accepts plain functions here; types expect GObject.Closure
-      null as unknown as never,
-      (() => {
+      null,
+      () => {
         const wasTracked = this._entries.has(id);
         this._removeEntry(id);
         if (wasTracked) this._watcher.unregisterItem(busName, objectPath);
-      }) as unknown as never,
+      },
     );
 
     this._entries.set(
@@ -190,16 +189,16 @@ export class SniHost {
   }
 
   private _resolveIcon(proxy: Gio.DBusProxy, reason = 'initial'): TrayItem['icon'] {
-    const status = (proxy.get_cached_property('Status')?.unpack() as string) ?? 'Active';
+    const status = (proxy.get_cached_property('Status')?.unpack() as string) || 'Active';
     const useAttention = status === 'NeedsAttention';
     const itemId = `${proxy.g_name}${proxy.g_object_path}`;
 
     const iconName =
       (proxy
         .get_cached_property(useAttention ? 'AttentionIconName' : 'IconName')
-        ?.unpack() as string) ?? '';
+        ?.unpack() as string) || '';
     const iconThemePath =
-      (proxy.get_cached_property('IconThemePath')?.unpack() as string | undefined) ?? '';
+      (proxy.get_cached_property('IconThemePath')?.unpack() as string | undefined) || '';
     if (iconName) {
       const themedIcon = this._resolveThemedIcon(iconName, iconThemePath, itemId, reason);
       if (themedIcon) {
@@ -434,7 +433,7 @@ export class SniHost {
         }
       },
       get status(): TrayItemStatus {
-        return (proxy.get_cached_property('Status')?.unpack() as TrayItemStatus) ?? 'Active';
+        return (proxy.get_cached_property('Status')?.unpack() as TrayItemStatus) || 'Active';
       },
       set status(v: TrayItemStatus) {
         proxy.set_cached_property('Status', new GLib.Variant('s', v));

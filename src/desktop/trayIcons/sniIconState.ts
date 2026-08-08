@@ -27,12 +27,12 @@ export function isSymbolicSniPixels(
   let neutral = 0;
 
   for (let index = 0; index + 3 < rgba.length; index += 4) {
-    if ((rgba[index + 3] ?? 0) === 0) continue;
+    if ((rgba[index + 3] || 0) === 0) continue;
 
     opaque++;
-    const red = rgba[index] ?? 0;
-    const green = rgba[index + 1] ?? 0;
-    const blue = rgba[index + 2] ?? 0;
+    const red = rgba[index] || 0;
+    const green = rgba[index + 1] || 0;
+    const blue = rgba[index + 2] || 0;
     if (Math.max(red, green, blue) - Math.min(red, green, blue) <= tolerance) {
       neutral++;
     }
@@ -49,7 +49,7 @@ export function isSymbolicSniArgb(
   const rgba: number[] = [];
 
   for (let index = 0; index + 3 < argb.length; index += 4) {
-    rgba.push(argb[index + 1] ?? 0, argb[index + 2] ?? 0, argb[index + 3] ?? 0, argb[index] ?? 0);
+    rgba.push(argb[index + 1] || 0, argb[index + 2] || 0, argb[index + 3] || 0, argb[index] || 0);
   }
 
   return isSymbolicSniPixels(rgba, tolerance, requiredRatio);

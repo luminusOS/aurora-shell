@@ -323,7 +323,7 @@ export class Dock extends Module {
     this._pendingRebuild = false;
     this._clearBindings();
 
-    const monitors: DashBounds[] = Main.layoutManager.monitors ?? [];
+    const monitors: DashBounds[] = Main.layoutManager.monitors || [];
     const primaryIndex = Main.layoutManager.primaryIndex;
     const monitorIndexes = getDockMonitorIndexes(monitors, primaryIndex, this._showOnAllMonitors);
     const monitorSummary = monitors
@@ -374,12 +374,7 @@ export class Dock extends Module {
       affectsStruts: false,
     });
 
-    const dash = new (AuroraDash as unknown as new (p: {
-      monitorIndex: number;
-      isolateMonitor: boolean;
-      showTrash: boolean;
-      showExternalStorage: boolean;
-    }) => AuroraDash)({
+    const dash = new AuroraDash({
       monitorIndex,
       isolateMonitor: this._showOnAllMonitors,
       showTrash: this._showTrash,
@@ -687,7 +682,7 @@ export class Dock extends Module {
 
   private _getFullscreenMonitors(): Set<number> {
     const fullscreenMonitors = new Set<number>();
-    const monitors = Main.layoutManager.monitors ?? [];
+    const monitors = Main.layoutManager.monitors || [];
     monitors.forEach((_monitor, index) => {
       if (global.display.get_monitor_in_fullscreen(index)) fullscreenMonitors.add(index);
     });

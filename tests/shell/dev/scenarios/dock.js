@@ -4,7 +4,8 @@ import { getAuroraModule } from '../../support/testUtils.js';
 
 function collectText(actor) {
   const text = typeof actor?.text === 'string' ? [actor.text] : [];
-  for (const child of actor?.get_children?.() ?? []) text.push(...collectText(child));
+  const children = actor && actor.get_children ? actor.get_children() : [];
+  for (const child of children) text.push(...collectText(child));
   return text;
 }
 

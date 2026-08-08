@@ -98,7 +98,7 @@ export class DefaultDeviceService implements DeviceService {
 
   private _detectMonitors(): MonitorInput[] {
     const builtinMonitorIndices = this._detectBuiltinMonitorIndices();
-    return (Main.layoutManager.monitors ?? []).map((monitor) => ({
+    return (Main.layoutManager.monitors || []).map((monitor) => ({
       index: monitor.index,
       x: monitor.x,
       y: monitor.y,

@@ -6,6 +6,7 @@ import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import GWeather from 'gi://GWeather';
+import type { ShellWeatherClient } from '@girs/gnome-shell/ui/dateMenu';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
@@ -30,41 +31,17 @@ const TEMPERATURE_UNIT_KEY = 'temperature-unit';
 const REFRESH_INTERVAL_SECONDS = 600;
 const MAX_RETRIES = 5;
 
-type WeatherClient = {
-  available: boolean;
-  loading: boolean;
-  info: {
-    is_valid(): boolean;
-    get_symbolic_icon_name(): string;
-    get_value_temp(unit: GWeather.TemperatureUnit): [boolean, number];
-    get_temp_summary(): string;
-    get_value_sky(): [boolean, GWeather.Sky];
-    get_sky(): string;
-    get_value_conditions(): [boolean, GWeather.ConditionPhenomenon, unknown?];
-    get_conditions(): string;
-  };
-  update(): void;
-  connect(signal: string, callback: (...args: unknown[]) => void): number;
-  disconnect(id: number): void;
-};
-
-type DateMenuWithWeather = {
-  _weatherItem?: {
-    _weatherClient?: WeatherClient;
-  };
-};
-
 export class WeatherClock extends Module {
   private _clockPillRegistration: ClockPillRegistration | null = null;
   private _panelWidget: St.BoxLayout | null = null;
   private _icon: St.Icon | null = null;
   private _label: St.Label | null = null;
-  private _weatherClient: WeatherClient | null = null;
+  private _weatherClient: ShellWeatherClient | null = null;
   private _gweatherSettings: Gio.Settings | null = null;
   private _lifecycle: LifecycleScope | null = null;
   private _monitor: Gio.NetworkMonitor | null = null;
   private _snapshotsBySource = new Map<string, WeatherSnapshot>();
-  private _snapshot: WeatherSnapshot | null = null;
+  private _snapshot: WeatherSnapshot | undefined;
   private _refreshTimer: ManagedSource | null = null;
   private _retryTimer: ManagedSource | null = null;
   private _retryCount = 0;
@@ -111,7 +88,7 @@ export class WeatherClock extends Module {
     this._gweatherSettings = null;
     this._monitor = null;
     this._snapshotsBySource.clear();
-    this._snapshot = null;
+    this._snapshot = undefined;
     this._retryCount = 0;
   }
 
@@ -139,7 +116,7 @@ export class WeatherClock extends Module {
     }
   }
 
-  get currentSnapshot(): WeatherSnapshot | null {
+  get currentSnapshot(): WeatherSnapshot | undefined {
     return this._snapshot;
   }
 
@@ -213,8 +190,10 @@ export class WeatherClock extends Module {
     this.refreshWeather();
   }
 
-  private _readWeatherClient(): WeatherClient | null {
-    const dateMenu = Main.panel.statusArea.dateMenu as unknown as DateMenuWithWeather;
+  private _readWeatherClient(): ShellWeatherClient | null {
+    const dateMenu = Main.panel.statusArea.dateMenu;
+    if (!dateMenu) return null;
+
     const weatherItem = dateMenu._weatherItem;
     if (!weatherItem || !weatherItem._weatherClient) return null;
 
@@ -278,7 +257,7 @@ export class WeatherClock extends Module {
     }
   }
 
-  private _readSnapshotFromWeather(weather: WeatherClient): Partial<WeatherSnapshot> | null {
+  private _readSnapshotFromWeather(weather: ShellWeatherClient): Partial<WeatherSnapshot> | null {
     if (!weather.info?.is_valid()) return null;
 
     const iconName = weather.info.get_symbolic_icon_name();
@@ -360,7 +339,7 @@ export class WeatherClock extends Module {
   }
 
   private _syncSnapshot(): void {
-    this._snapshot = [...this._snapshotsBySource.values()].at(-1) ?? null;
+    this._snapshot = [...this._snapshotsBySource.values()].at(-1);
     this._render();
   }
 

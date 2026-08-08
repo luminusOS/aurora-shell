@@ -7,7 +7,7 @@
 import GLib from '@girs/glib-2.0';
 import Meta from '@girs/meta-18';
 import type Clutter from '@girs/clutter-18';
-import type St from '@girs/st-18';
+import St from '@girs/st-18';
 
 import type { MotionRecipe } from '~/dock/motion/catalog.ts';
 import { NeighborRadius } from '~/dock/motion/catalog.ts';
@@ -19,6 +19,10 @@ import {
 
 interface DashItemContainerLike extends St.Widget {
   child?: MotionTarget;
+}
+
+function isMotionTarget(widget: St.Widget): widget is MotionTarget {
+  return widget instanceof St.Button;
 }
 
 interface SourceConnections {
@@ -89,10 +93,19 @@ export class MotionSurface {
   }
 
   private _registerContainer(container: DashItemContainerLike): void {
-    const icon = container.child ?? (container as unknown as MotionTarget);
-    const baseIcon = icon?.icon ?? icon?._delegate?.icon;
-    const bin = baseIcon?._iconBin;
-    if (!icon || !bin || this._icons.has(icon)) return;
+    let icon = container.child;
+    if (!icon) {
+      if (!isMotionTarget(container)) return;
+      icon = container;
+    }
+
+    let baseIcon = icon.icon;
+    if (!baseIcon && icon._delegate) {
+      baseIcon = icon._delegate.icon;
+    }
+    if (!baseIcon || !baseIcon._iconBin || this._icons.has(icon)) return;
+
+    const bin = baseIcon._iconBin;
 
     const controller = new IconMotionController({
       icon,

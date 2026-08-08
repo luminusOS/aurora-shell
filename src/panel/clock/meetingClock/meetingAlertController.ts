@@ -70,11 +70,12 @@ export class MeetingAlertController {
 
   show(eventId: string | null = null): boolean {
     const preferences = this._options.getPreferences();
-    const event =
-      (eventId ? this._events.find((candidate) => candidate.id === eventId) : null) ??
-      this._events.find(
+    let event = eventId ? this._events.find((candidate) => candidate.id === eventId) : undefined;
+    if (!event) {
+      event = this._events.find(
         (candidate) => Boolean(candidate.meetingUrl) || preferences.alertEventsWithoutLink,
       );
+    }
 
     if (!event) return false;
     if (!event.meetingUrl && !preferences.alertEventsWithoutLink) return false;

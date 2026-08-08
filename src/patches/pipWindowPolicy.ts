@@ -28,10 +28,13 @@ export function enforcePipWindow(
   window: PipWindowState,
   ownership: PipWindowOwnership | null,
 ): PipWindowOwnership {
-  const nextOwnership = ownership ?? {
-    madeAbove: !window.isAbove(),
-    madeSticky: !window.isOnAllWorkspaces(),
-  };
+  let nextOwnership = ownership;
+  if (!nextOwnership) {
+    nextOwnership = {
+      madeAbove: !window.isAbove(),
+      madeSticky: !window.isOnAllWorkspaces(),
+    };
+  }
 
   if (!window.isAbove()) window.makeAbove();
   if (!window.isOnAllWorkspaces()) window.makeSticky();

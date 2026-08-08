@@ -9,11 +9,6 @@ import type { MotionRecipe } from '~/dock/motion/catalog.ts';
 import { MotionSurface } from '~/dock/motion/motionSurface.ts';
 import type { AuroraDash } from '~/shared/ui/dash.ts';
 
-interface DashBoxInternals {
-  _box?: St.Widget;
-  _dashContainer?: St.Widget;
-}
-
 export class DashMotionIntegration {
   private _dash: AuroraDash | null = null;
   private _box: St.Widget | null = null;
@@ -47,9 +42,8 @@ export class DashMotionIntegration {
 
   private _start(): void {
     if (this._surface || !this._dash) return;
-    const internals = this._dash as unknown as DashBoxInternals;
-    const box = internals._box;
-    const dashContainer = internals._dashContainer;
+    const box = this._dash._box;
+    const dashContainer = this._dash._dashContainer;
     if (!box) return;
 
     this._box = box;

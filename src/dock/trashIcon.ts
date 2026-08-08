@@ -307,9 +307,9 @@ export const TrashIcon = GObject.registerClass(
         _file?: { get_uri?: () => string };
       } | null;
       if (!s) return [];
-      if (typeof s.getUris === 'function') return s.getUris() ?? [];
+      if (typeof s.getUris === 'function') return s.getUris() || [];
       if (typeof s.uri === 'string') return [s.uri];
-      const file = s.file ?? s._file;
+      const file = s.file || s._file;
       if (file?.get_uri) return [file.get_uri()];
       return [];
     }

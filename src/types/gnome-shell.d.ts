@@ -1,29 +1,41 @@
-import type { ParamSpec, GType, TypeFlags } from '@girs/gobject-2.0';
+import type St from '@girs/st-18';
+import type GWeather from 'gi://GWeather';
+import type { Button } from '@girs/gnome-shell/ui/panelMenu';
 
-// Augment the subpath module where registerClass is actually declared.
-// Adds the decorator-factory overload: @GObject.registerClass({ Signals: {...} })
-declare module '@girs/gobject-2.0/gobject-2.0' {
-  export namespace GObject {
-    export function registerClass<
-      T extends new (...args: any[]) => any,
-      Props extends { [key: string]: ParamSpec },
-      Interfaces extends { $gtype: GType }[],
-      Sigs extends {
-        [key: string]: {
-          param_types?: readonly GType[];
-          [key: string]: any;
-        };
-      },
-    >(options: {
-      GTypeName?: string;
-      GTypeFlags?: TypeFlags;
-      Properties?: Props;
-      Signals?: Sigs;
-      Implements?: Interfaces;
-      CssName?: string;
-      Template?: string;
-      Children?: string[];
-      InternalChildren?: string[];
-    }): (target: T) => T;
+declare module '@girs/gnome-shell/ui/dateMenu' {
+  interface ShellWeatherClient {
+    available: boolean;
+    loading: boolean;
+    info: {
+      is_valid(): boolean;
+      get_symbolic_icon_name(): string;
+      get_value_temp(unit: GWeather.TemperatureUnit): [boolean, number];
+      get_temp_summary(): string;
+      get_value_sky(): [boolean, GWeather.Sky];
+      get_sky(): string;
+      get_value_conditions(): [boolean, GWeather.ConditionPhenomenon, unknown?];
+      get_conditions(): string;
+    };
+    update(): void;
+    connect(signal: string, callback: (...args: unknown[]) => void): number;
+    disconnect(id: number): void;
+  }
+
+  interface DateMenuButton {
+    _clockDisplay: St.Label;
+    _weatherItem?: {
+      _weatherClient?: ShellWeatherClient;
+    };
+  }
+}
+
+declare module '@girs/gnome-shell/ui/panel' {
+  interface Panel {
+    addToStatusArea<T extends Omit<Button, '_init'>>(
+      role: string,
+      indicator: T,
+      position?: number,
+      box?: 'left' | 'center' | 'right',
+    ): T;
   }
 }

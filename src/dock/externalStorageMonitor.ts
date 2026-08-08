@@ -93,13 +93,12 @@ export class ExternalStorageMonitor {
   ): void {
     const mount = volume.get_mount();
     const root = mount ? mount.get_root() : volume.get_activation_root();
-    const identifier =
-      volume.get_uuid() ??
-      volume.get_identifier(Gio.VOLUME_IDENTIFIER_KIND_UUID) ??
-      volume.get_identifier(Gio.VOLUME_IDENTIFIER_KIND_UNIX_DEVICE) ??
-      volume.get_identifier(Gio.VOLUME_IDENTIFIER_KIND_LABEL) ??
-      volume.get_sort_key() ??
-      volume.get_name();
+    let identifier = volume.get_uuid();
+    if (!identifier) identifier = volume.get_identifier(Gio.VOLUME_IDENTIFIER_KIND_UUID);
+    if (!identifier) identifier = volume.get_identifier(Gio.VOLUME_IDENTIFIER_KIND_UNIX_DEVICE);
+    if (!identifier) identifier = volume.get_identifier(Gio.VOLUME_IDENTIFIER_KIND_LABEL);
+    if (!identifier) identifier = volume.get_sort_key();
+    if (!identifier) identifier = volume.get_name();
     const id = `volume:${identifier}`;
 
     candidates.push({
@@ -130,8 +129,9 @@ export class ExternalStorageMonitor {
     candidates: ExternalStorageCandidate[],
     itemsById: Map<string, ExternalStorageItem>,
   ): void {
-    const identifier =
-      mount.get_uuid() ?? mount.get_sort_key() ?? mount.get_default_location().get_uri();
+    let identifier = mount.get_uuid();
+    if (!identifier) identifier = mount.get_sort_key();
+    if (!identifier) identifier = mount.get_default_location().get_uri();
     const id = `mount:${identifier}`;
 
     candidates.push({

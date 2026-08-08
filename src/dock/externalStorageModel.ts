@@ -51,7 +51,7 @@ export function selectExternalStorageEntries(
         id: candidate.id,
         name: candidate.name,
         kind: candidate.kind,
-        sortKey: candidate.sortKey ?? candidate.name.toLocaleLowerCase(),
+        sortKey: candidate.sortKey || candidate.name.toLocaleLowerCase(),
       });
     }
   }

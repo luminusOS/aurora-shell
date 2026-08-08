@@ -194,10 +194,10 @@ export class AnnotationModel {
 
   private _recalculateCounter(): void {
     this._nextCounter =
-      this._annotations.reduce(
-        (highest, annotation) => Math.max(highest, annotation.counter ?? 0),
-        0,
-      ) + 1;
+      this._annotations.reduce((highest, annotation) => {
+        const counter = annotation.counter === undefined ? 0 : annotation.counter;
+        return Math.max(highest, counter);
+      }, 0) + 1;
   }
 }
 
@@ -272,7 +272,7 @@ function annotationContainsPoint(annotation: Annotation, point: Point): boolean 
 
 function pointInText(annotation: Annotation, point: Point, padding: number): boolean {
   const origin = annotation.points[0]!;
-  const lines = (annotation.text ?? '').split('\n');
+  const lines = (annotation.text || '').split('\n');
   const fontSize = Math.max(16, annotation.width * 4);
   const width = Math.max(...lines.map((line) => line.length), 1) * fontSize * 0.65;
   const height = Math.max(lines.length, 1) * fontSize;

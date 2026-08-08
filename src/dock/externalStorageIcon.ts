@@ -147,7 +147,5 @@ export const ExternalStorageIcon = GObject.registerClass(
 export type ExternalStorageIconInstance = InstanceType<typeof ExternalStorageIcon>;
 
 export function createExternalStorageIcon(item: ExternalStorageItem): ExternalStorageIconInstance {
-  return new (ExternalStorageIcon as unknown as new (
-    storageItem: ExternalStorageItem,
-  ) => ExternalStorageIconInstance)(item);
+  return new ExternalStorageIcon(item);
 }

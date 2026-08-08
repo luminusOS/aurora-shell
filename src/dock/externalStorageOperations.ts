@@ -116,7 +116,7 @@ export class ExternalStorageOperations {
   }
 
   private _currentMount(): Gio.Mount | null {
-    return this._item.volume?.get_mount() ?? this._item.mount;
+    return this._item.volume?.get_mount() || this._item.mount;
   }
 
   private _launchUri(uri: string, context: Gio.AppLaunchContext): Promise<void> {

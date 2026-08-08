@@ -1,6 +1,19 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 
+async function waitForInteractionState(tool, interaction, opacity) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const state = tool.state;
+    if (state?.interaction === interaction && state.controlsOpacity === opacity) return;
+    await Scripting.sleep(100);
+  }
+
+  const state = tool.state;
+  throw new Error(
+    `Capture Tool interaction did not settle: expected=${interaction}/${opacity} actual=${state?.interaction}/${state?.controlsOpacity}`,
+  );
+}
+
 export async function exerciseCaptureTools(settings, devTool) {
   settings.set_boolean('module-capture-tools', true);
   await Scripting.waitLeisure();
@@ -19,14 +32,10 @@ export async function exerciseCaptureTools(settings, devTool) {
   if (!tool.toggleInteraction('selection'))
     throw new Error('Capture Tool did not simulate selection movement');
 
-  await Scripting.sleep(250);
-  if (tool.state?.interaction !== 'selection' || tool.state.controlsOpacity !== 100)
-    throw new Error('Capture Tool selection did not make controls translucent');
+  await waitForInteractionState(tool, 'selection', 100);
   if (!tool.toggleInteraction('drawing')) throw new Error('Capture Tool did not simulate drawing');
 
-  await Scripting.sleep(250);
-  if (tool.state?.interaction !== 'drawing' || tool.state.controlsOpacity !== 100)
-    throw new Error('Capture Tool drawing did not keep controls translucent');
+  await waitForInteractionState(tool, 'drawing', 100);
   if (!tool.setTesseractAvailable(false) || tool.state?.ocrAvailable !== false)
     throw new Error('Capture Tool did not simulate unavailable Tesseract');
   if (!tool.setTesseractAvailable(true) || tool.state?.ocrAvailable !== true)
@@ -62,10 +71,12 @@ export async function exerciseClipboardHistory(settings, devTool) {
   await Scripting.sleep(100);
   if (!tool.isPanelOpen) throw new Error('Clipboard History panel state was not updated');
 
-  Main.uiGroup
+  const panel = Main.uiGroup
     .get_children()
-    .find((actor) => actor.has_style_class_name?.('aurora-clipboard-panel'))
-    ?.close?.();
+    .find(
+      (actor) => actor.has_style_class_name && actor.has_style_class_name('aurora-clipboard-panel'),
+    );
+  if (panel && panel.close) panel.close();
 
   if (!tool.clearHistory()) throw new Error('Clipboard History did not clear the history');
   if (tool.entryCount !== 0) throw new Error('Clipboard History still has entries after clear');

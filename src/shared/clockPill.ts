@@ -4,13 +4,7 @@ import Clutter from '@girs/clutter-18';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
-
-type DateMenuButton = {
-  _clockDisplay: St.Label;
-  menu: {
-    open(animation?: PopupAnimation): void;
-  };
-};
+import type { DateMenuButton } from '@girs/gnome-shell/ui/dateMenu';
 
 type ClockPillSide = 'left' | 'right';
 
@@ -25,7 +19,7 @@ export type ClockPillRegistration = {
   unregister(): void;
 };
 
-let _dateMenu: DateMenuButton | null = null;
+let _dateMenu: DateMenuButton | undefined;
 let _originalClockDisplay: St.Label | null = null;
 let _topBox: St.BoxLayout | null = null;
 const _entries = new Map<string, ClockPillEntry>();
@@ -33,7 +27,9 @@ const _entries = new Map<string, ClockPillEntry>();
 function _ensureWrapper(): boolean {
   if (_topBox && _originalClockDisplay) return true;
 
-  _dateMenu = Main.panel.statusArea.dateMenu as unknown as DateMenuButton;
+  _dateMenu = Main.panel.statusArea.dateMenu;
+  if (!_dateMenu) return false;
+
   _originalClockDisplay = _dateMenu._clockDisplay;
   const clockParent = _originalClockDisplay.get_parent();
   if (!clockParent) return false;
@@ -80,7 +76,7 @@ function _restoreIfEmpty(): void {
   _topBox.destroy();
   _topBox = null;
   _originalClockDisplay = null;
-  _dateMenu = null;
+  _dateMenu = undefined;
 }
 
 export function registerClockPillWidget(
@@ -111,7 +107,7 @@ export function unregisterClockPillWidget(id: string): void {
 }
 
 export function openClockMenu(animation: PopupAnimation = PopupAnimation.FULL): boolean {
-  const dateMenu = _dateMenu ?? (Main.panel.statusArea.dateMenu as unknown as DateMenuButton);
+  const dateMenu = _dateMenu || Main.panel.statusArea.dateMenu;
   if (!dateMenu) return false;
 
   dateMenu.menu.open(animation);

@@ -106,7 +106,7 @@ export class CaptureToolbarPositioner {
     const selectionRectangle = { x, y, width, height };
     const monitor = findMonitorForSelection(
       selectionRectangle,
-      Main.layoutManager.monitors ?? [],
+      Main.layoutManager.monitors || [],
       Main.layoutManager.primaryIndex,
     );
     if (!monitor) {

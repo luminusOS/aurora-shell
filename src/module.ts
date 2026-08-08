@@ -63,10 +63,11 @@ export function moduleSupportsRuntime(
   roles: ReadonlySet<DisplayRole>,
   capabilities: ReadonlySet<RuntimeCapability>,
 ): boolean {
-  const supportedRoles = manifest.runtime?.roles ?? ['desktop'];
+  const supportedRoles = manifest.runtime?.roles || ['desktop'];
   if (!supportedRoles.some((role) => roles.has(role))) return false;
 
-  for (const capability of manifest.runtime?.requires ?? []) {
+  const requiredCapabilities = manifest.runtime?.requires || [];
+  for (const capability of requiredCapabilities) {
     if (!capabilities.has(capability)) return false;
   }
 

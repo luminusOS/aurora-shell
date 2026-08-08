@@ -128,11 +128,13 @@ function _cleanUrl(url: string): string {
 }
 
 function _extractPreferredUrl(text: string): string {
-  const matches = text.match(URL_REGEX) ?? [];
+  const matches = text.match(URL_REGEX) || [];
   if (matches.length === 0) return '';
 
   const urls = matches.map(_cleanUrl);
-  return urls.find((url) => VIDEO_HOST_REGEX.test(url.toLowerCase())) ?? urls[0] ?? '';
+  const preferred = urls.find((url) => VIDEO_HOST_REGEX.test(url.toLowerCase()));
+  if (preferred) return preferred;
+  return urls[0] || '';
 }
 
 function _truncateTitle(title: string): string {
@@ -199,7 +201,7 @@ export function extractMeetingUrl(event: Partial<MeetingEvent>): string {
   const candidates = [event.meetingUrl, event.url, event.location, event.description];
 
   for (const candidate of candidates) {
-    const text = String(candidate ?? '');
+    const text = String(candidate || '');
     const directUrl = _extractPreferredUrl(text);
     if (directUrl) return directUrl;
 
@@ -242,7 +244,7 @@ export function derivePanelPresentation(
     };
   }
 
-  const maxFutureSeconds = options.maxFutureSeconds ?? Number.POSITIVE_INFINITY;
+  const { maxFutureSeconds = Number.POSITIVE_INFINITY } = options;
   const next = visibleEvents.find(
     (event) =>
       event.startEpochSeconds > nowEpochSeconds &&
@@ -264,16 +266,16 @@ export function getDueAlertEvents(
 ): MeetingEvent[] {
   if (!options.alertsEnabled) return [];
 
-  const ignored = options.ignoredEventIds ?? new Set<string>();
-  const alerted = options.alertedEventIds ?? new Set<string>();
-  const snoozed = options.snoozedUntilByEventId ?? new Map<string, number>();
+  const ignored = options.ignoredEventIds || new Set<string>();
+  const alerted = options.alertedEventIds || new Set<string>();
+  const snoozed = options.snoozedUntilByEventId || new Map<string, number>();
   const leadSeconds = Math.max(0, options.alertMinutesBefore) * 60;
 
   return filterDisplayEvents(events, nowEpochSeconds, options)
     .filter((event) => Boolean(event.meetingUrl) || options.alertEventsWithoutLink)
     .filter((event) => !ignored.has(event.id))
     .filter((event) => !alerted.has(event.id))
-    .filter((event) => (snoozed.get(event.id) ?? 0) <= nowEpochSeconds)
+    .filter((event) => (snoozed.get(event.id) || 0) <= nowEpochSeconds)
     .filter((event) => nowEpochSeconds >= event.startEpochSeconds - leadSeconds)
     .sort((a, b) => a.startEpochSeconds - b.startEpochSeconds);
 }
@@ -284,16 +286,16 @@ export function getNextAlertEpoch(
   options: MeetingClockOptions,
 ): number | null {
   if (!options.alertsEnabled) return null;
-  const ignored = options.ignoredEventIds ?? new Set<string>();
-  const alerted = options.alertedEventIds ?? new Set<string>();
-  const snoozed = options.snoozedUntilByEventId ?? new Map<string, number>();
+  const ignored = options.ignoredEventIds || new Set<string>();
+  const alerted = options.alertedEventIds || new Set<string>();
+  const snoozed = options.snoozedUntilByEventId || new Map<string, number>();
   const leadSeconds = Math.max(0, options.alertMinutesBefore) * 60;
   const candidates: number[] = [];
 
   for (const event of filterDisplayEvents(events, nowEpochSeconds, options)) {
     if ((!event.meetingUrl && !options.alertEventsWithoutLink) || ignored.has(event.id)) continue;
     if (alerted.has(event.id)) continue;
-    const snoozedUntil = snoozed.get(event.id) ?? 0;
+    const snoozedUntil = snoozed.get(event.id) || 0;
     const alertAt = Math.max(event.startEpochSeconds - leadSeconds, snoozedUntil);
     if (alertAt > nowEpochSeconds) candidates.push(alertAt);
   }
