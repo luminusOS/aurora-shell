@@ -12,6 +12,7 @@ on:
 permissions:
   contents: write
   packages: write
+  pull-requests: read
 
 concurrency:
   group: nightly-pre-release
