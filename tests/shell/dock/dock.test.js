@@ -4,7 +4,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import {
@@ -29,14 +28,8 @@ function findDockActor() {
 }
 
 function clearIntellihideQueuedRefreshes(intellihide) {
-  for (const id of intellihide._queuedRefreshIds || []) {
-    GLib.source_remove(id);
-  }
-  if (intellihide._queuedRefreshIds) intellihide._queuedRefreshIds.clear();
-  if (intellihide._settleId) {
-    GLib.source_remove(intellihide._settleId);
-    intellihide._settleId = 0;
-  }
+  intellihide._queuedRefreshes?.clear();
+  intellihide._settle?.clear();
 }
 
 export var METRICS = {};
