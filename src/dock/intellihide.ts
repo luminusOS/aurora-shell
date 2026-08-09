@@ -8,7 +8,11 @@ import * as Main from '@girs/gnome-shell/ui/main';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
-import { createManagedSource } from '~/core/mainLoop.ts';
+import {
+  createManagedSource,
+  createManagedTimeoutBatch,
+  type ManagedTimeoutBatch,
+} from '~/core/mainLoop.ts';
 import {
   getBlockingOverlapState,
   isOnActiveWorkspace,
@@ -74,7 +78,7 @@ export const DockIntellihide = GObject.registerClass(
     private _excludePipFromSmartReveal = false;
     declare private _trackedWindowActors: Set<any>;
     declare private _trackedWindows: Set<Meta.Window>;
-    declare private _queuedRefreshIds: Set<number>;
+    declare private _queuedRefreshes: ManagedTimeoutBatch;
 
     override _init(monitorIndex: number, excludePipFromSmartReveal = false) {
       super._init();
@@ -84,7 +88,7 @@ export const DockIntellihide = GObject.registerClass(
       this._excludePipFromSmartReveal = excludePipFromSmartReveal;
       this._trackedWindowActors = new Set<any>();
       this._trackedWindows = new Set<Meta.Window>();
-      this._queuedRefreshIds = new Set<number>();
+      this._queuedRefreshes = createManagedTimeoutBatch(this._lifecycle);
 
       global.display.connectObject(
         'window-entered-monitor',
@@ -157,10 +161,6 @@ export const DockIntellihide = GObject.registerClass(
     destroy(): void {
       this._cancelPendingStatus();
       this._lifecycle.dispose();
-      for (const id of this._queuedRefreshIds) {
-        GLib.source_remove(id);
-      }
-      this._queuedRefreshIds.clear();
       this._clearTrackedWindows();
       global.display.disconnectObject(this);
       Main.layoutManager.disconnectObject(this);
@@ -224,14 +224,7 @@ export const DockIntellihide = GObject.registerClass(
     }
 
     private _queueRefresh(reason: string, delays: number[] = [0]): void {
-      for (const delay of delays) {
-        const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
-          this._queuedRefreshIds.delete(id);
-          this._checkOverlap(reason);
-          return GLib.SOURCE_REMOVE;
-        });
-        this._queuedRefreshIds.add(id);
-      }
+      this._queuedRefreshes.replace(delays, () => this._checkOverlap(reason));
     }
 
     private _isMonitorValid(): boolean {

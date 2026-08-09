@@ -141,3 +141,46 @@ test('lifecycle methods are not empty placeholders', () => {
 
   assert.deepEqual(violations, []);
 });
+
+test('main-loop sources are created through replaceable lifecycle owners', () => {
+  const violations: string[] = [];
+  const sourceCreators = new Set(['idle_add', 'timeout_add', 'timeout_add_seconds']);
+
+  for (const file of sourceFiles(sourceRoot).filter((path) => path.endsWith('.ts'))) {
+    if (file.endsWith(join('core', 'mainLoop.ts'))) continue;
+
+    const source = readFileSync(file, 'utf8');
+    const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    const visit = (node: ts.Node): void => {
+      if (
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.expression.getText(tree) === 'GLib' &&
+        sourceCreators.has(node.expression.name.text)
+      ) {
+        let owner: ts.Node | undefined = node.parent;
+        let managed = false;
+        while (owner && !ts.isMethodDeclaration(owner) && !ts.isFunctionDeclaration(owner)) {
+          if (
+            ts.isCallExpression(owner) &&
+            ts.isPropertyAccessExpression(owner.expression) &&
+            owner.expression.name.text === 'replace'
+          ) {
+            managed = true;
+            break;
+          }
+          owner = owner.parent;
+        }
+
+        if (!managed) {
+          const line = tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1;
+          violations.push(`${file.slice(sourceRoot.length + 1)}:${line}`);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(tree);
+  }
+
+  assert.deepEqual(violations, []);
+});
