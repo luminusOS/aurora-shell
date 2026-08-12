@@ -1,3 +1,5 @@
+import { extractHttpUrls } from '../../../shared/httpUrlExtractor.internal.js';
+
 export type MeetingEvent = {
   id: string;
   title: string;
@@ -29,11 +31,16 @@ export type MeetingPanelPresentation = {
   isInProgress: boolean;
 } | null;
 
-const URL_REGEX = /\bhttps?:\/\/[^\s<>"')\]]+/gi;
-const VIDEO_HOST_REGEX =
-  /(?:zoom\.us|meet\.google\.com|teams\.microsoft\.com|webex\.com|whereby\.com|jitsi|chime\.aws|around\.co)/i;
-const GOOGLE_DELIMITER =
-  '-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-';
+const VIDEO_HOSTS = [
+  'zoom.us',
+  'meet.google.com',
+  'teams.microsoft.com',
+  'webex.com',
+  'whereby.com',
+  'meet.jit.si',
+  'chime.aws',
+  'around.co',
+];
 const MAX_PANEL_TITLE_LENGTH = 24;
 
 function _deepUnpack(value: unknown): unknown {
@@ -110,29 +117,23 @@ function _inferAllDayEvent(
   );
 }
 
-function _extractGoogleSection(description: string): string {
-  if (!description) return '';
-
-  const firstDelimiter = description.indexOf(GOOGLE_DELIMITER);
-  if (firstDelimiter < 0) return '';
-
-  const start = firstDelimiter + GOOGLE_DELIMITER.length;
-  const lastDelimiter = description.indexOf(GOOGLE_DELIMITER, start);
-  if (lastDelimiter < 0) return '';
-
-  return description.slice(start, lastDelimiter);
+function _hostname(url: string): string {
+  const authorityStart = url.indexOf('://') + 3;
+  const authority = (url.slice(authorityStart).split(/[/?#]/, 1)[0] || '').toLowerCase();
+  if (authority.startsWith('[')) return authority.slice(0, authority.indexOf(']') + 1);
+  return authority.split(':', 1)[0] || '';
 }
 
-function _cleanUrl(url: string): string {
-  return url.replace(/[),.;!?]+$/, '');
+function _isVideoMeetingUrl(url: string): boolean {
+  const hostname = _hostname(url);
+  return VIDEO_HOSTS.some(
+    (videoHost) => hostname === videoHost || hostname.endsWith(`.${videoHost}`),
+  );
 }
 
 function _extractPreferredUrl(text: string): string {
-  const matches = text.match(URL_REGEX) || [];
-  if (matches.length === 0) return '';
-
-  const urls = matches.map(_cleanUrl);
-  const preferred = urls.find((url) => VIDEO_HOST_REGEX.test(url.toLowerCase()));
+  const urls = extractHttpUrls(text);
+  const preferred = urls.find(_isVideoMeetingUrl);
   if (preferred) return preferred;
   return urls[0] || '';
 }
@@ -199,20 +200,18 @@ export function normalizeCalendarServerEvent(rawEvent: unknown): MeetingEvent | 
 
 export function extractMeetingUrl(event: Partial<MeetingEvent>): string {
   const candidates = [event.meetingUrl, event.url, event.location, event.description];
+  let fallbackUrl = '';
 
   for (const candidate of candidates) {
     const text = String(candidate || '');
     const directUrl = _extractPreferredUrl(text);
-    if (directUrl) return directUrl;
-
-    const googleSection = _extractGoogleSection(text);
-    if (!googleSection) continue;
-
-    const googleUrl = _extractPreferredUrl(googleSection);
-    if (googleUrl) return googleUrl;
+    if (directUrl) {
+      if (_isVideoMeetingUrl(directUrl)) return directUrl;
+      fallbackUrl ||= directUrl;
+    }
   }
 
-  return '';
+  return fallbackUrl;
 }
 
 export function filterDisplayEvents(
