@@ -12,7 +12,9 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 
 const srcDir = resolve(currentDir, 'src');
 const entryPoints = (readdirSync(srcDir, { recursive: true }) as string[])
-  .filter((file) => file.endsWith('.ts') && !file.endsWith('.d.ts'))
+  .filter(
+    (file) => file.endsWith('.ts') && !file.endsWith('.d.ts') && !file.endsWith('.internal.ts'),
+  )
   .map((file) => join('src', file));
 
 console.log('Building extension...');

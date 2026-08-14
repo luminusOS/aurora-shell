@@ -81,6 +81,106 @@ test('meetingClock — prefers video meeting URLs over generic links', () => {
   assert.strictEqual(url, 'https://zoom.us/j/12345');
 });
 
+test('meetingClock — prefers a meeting URL from the description over an earlier generic URL', () => {
+  const url = extractMeetingUrl({
+    url: 'https://calendar.example.com/event/12345',
+    description: 'Join: https://teams.microsoft.com/meet/247507021276381?p=ExamplePasscode',
+  });
+
+  assert.strictEqual(url, 'https://teams.microsoft.com/meet/247507021276381?p=ExamplePasscode');
+});
+
+test('meetingClock — restores wrapped Microsoft Teams meeting URLs', () => {
+  const url = extractMeetingUrl({
+    description: [
+      'Microsoft Teams meeting',
+      'Join: https://teams.microsoft.com/meet/247507021276381?',
+      'p=ExamplePasscode',
+      'Meeting ID: 247 507 021 276 381',
+    ].join('\n'),
+  });
+
+  assert.strictEqual(url, 'https://teams.microsoft.com/meet/247507021276381?p=ExamplePasscode');
+});
+
+test('meetingClock — restores wrapped angle-bracket meeting URLs', () => {
+  const url = extractMeetingUrl({
+    description: [
+      'System reference <https://teams.microsoft.com/l/meetup-join/',
+      '19%3ameeting_example%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d>',
+    ].join('\n'),
+  });
+
+  assert.strictEqual(
+    url,
+    'https://teams.microsoft.com/l/meetup-join/19%3ameeting_example%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d',
+  );
+});
+
+test('meetingClock — restores wrapped Zoom meeting IDs and query parameters', () => {
+  const url = extractMeetingUrl({
+    description: [
+      'Join: https://us06web.zoom.us/j/12345678',
+      '901?',
+      'pwd=',
+      'ExampleSecret&',
+      'omn=12345678901',
+      'Meeting ID: 123 4567 890',
+    ].join('\n'),
+  });
+
+  assert.strictEqual(
+    url,
+    'https://us06web.zoom.us/j/12345678901?pwd=ExampleSecret&omn=12345678901',
+  );
+
+  const urlWithoutQuery = extractMeetingUrl({
+    description: ['Join: https://zoom.us/j/12345', '67890', 'Meeting ID: 123 4567 890'].join('\n'),
+  });
+
+  assert.strictEqual(urlWithoutQuery, 'https://zoom.us/j/1234567890');
+});
+
+test('meetingClock — restores wrapped Google Meet codes and query parameters', () => {
+  const url = extractMeetingUrl({
+    description: [
+      'Join: https://meet.google.com/abc-',
+      'defg-hij?',
+      'authuser=0',
+      'Meeting code: abc-defg-hij',
+    ].join('\n'),
+  });
+
+  assert.strictEqual(url, 'https://meet.google.com/abc-defg-hij?authuser=0');
+});
+
+test('meetingClock — restores wrapped meeting URLs without provider-specific rules', () => {
+  const url = extractMeetingUrl({
+    description: [
+      'Join: https://calls.example.org/rooms/session-',
+      'alpha?',
+      'token=ExampleSecret&',
+      'mode=guest',
+    ].join('\n'),
+  });
+
+  assert.strictEqual(
+    url,
+    'https://calls.example.org/rooms/session-alpha?token=ExampleSecret&mode=guest',
+  );
+});
+
+test('meetingClock — matches video providers by hostname rather than hostname-like text', () => {
+  const url = extractMeetingUrl({
+    description: [
+      'Misleading: https://zoom.us.example.org/j/12345',
+      'Join: https://meet.google.com/abc-defg-hij',
+    ].join('\n'),
+  });
+
+  assert.strictEqual(url, 'https://meet.google.com/abc-defg-hij');
+});
+
 test('meetingClock — excludes all-day events from panel presentation when configured', () => {
   const presentation = derivePanelPresentation(
     [
