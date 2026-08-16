@@ -29,6 +29,15 @@ export const manifest: ModuleManifest = {
       type: 'switch',
     },
     {
+      key: 'dock-icon-size',
+      title: _('Maximum Icon Size'),
+      subtitle: _('Maximum dock icon size in pixels (16–64); shrinks automatically when needed'),
+      type: 'spin',
+      min: 16,
+      max: 64,
+      resettable: true,
+    },
+    {
       key: 'dock-show-trash',
       title: _('Show Trash Icon'),
       subtitle: _('Show a trash can in the dock; click to open it, right-click to empty it'),

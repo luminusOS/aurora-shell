@@ -33,6 +33,7 @@ export type ModuleOption = {
     | 'command-list';
   min?: number;
   max?: number;
+  resettable?: boolean;
   choices?: ModuleOptionChoice[];
 };
 
