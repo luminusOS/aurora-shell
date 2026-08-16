@@ -2,6 +2,7 @@ export type DockConfiguration = {
   alwaysShow: boolean;
   intellihide: boolean;
   showOnAllMonitors: boolean;
+  maxIconSize: number;
   showTrash: boolean;
   showExternalStorage: boolean;
   motionEnabled: boolean;
@@ -9,7 +10,7 @@ export type DockConfiguration = {
   excludePip: boolean;
 };
 
-export type DockConfigurationChange = 'none' | 'motion' | 'pip' | 'rebuild';
+export type DockConfigurationChange = 'none' | 'icon-size' | 'motion' | 'pip' | 'rebuild';
 
 export class DockConfigurationController {
   private _snapshot: DockConfiguration;
@@ -60,6 +61,10 @@ export function classifyDockConfigurationChange(
 
   if (rebuildKeys.some((key) => previous[key] !== next[key])) {
     return 'rebuild';
+  }
+
+  if (previous.maxIconSize !== next.maxIconSize) {
+    return 'icon-size';
   }
 
   if (

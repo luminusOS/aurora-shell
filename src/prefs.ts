@@ -165,6 +165,22 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
             page_increment: 10,
           }),
         });
+        if (option.resettable) {
+          const resetButton = new Gtk.Button({
+            icon_name: 'edit-undo-symbolic',
+            tooltip_text: _('Reset to Default'),
+            valign: Gtk.Align.CENTER,
+          });
+          resetButton.add_css_class('flat');
+
+          const syncResetButton = () => {
+            resetButton.sensitive = settings.get_user_value(option.key!) !== null;
+          };
+          resetButton.connect('clicked', () => settings.reset(option.key!));
+          settings.connect(`changed::${option.key!}`, syncResetButton);
+          syncResetButton();
+          row.add_suffix(resetButton);
+        }
         settings.bind(option.key!, row, 'value', Gio.SettingsBindFlags.DEFAULT);
         expander.add_row(row);
       } else if (option.type === 'time') {

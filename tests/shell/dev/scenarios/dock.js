@@ -98,4 +98,50 @@ export async function exerciseDock(settings, devTool) {
   await Scripting.sleep(500);
   if (settings.get_boolean('dock-always-show') !== alwaysShowBefore)
     throw new Error('Dock toggleAlwaysShow did not restore the setting');
+
+  const originalIconSize = settings.get_user_value('dock-icon-size');
+  settings.set_int('dock-icon-size', 32);
+  await Scripting.waitLeisure();
+
+  const iconSizePanel = tool.buildPanel();
+  const iconSizeTexts = collectText(iconSizePanel);
+  iconSizePanel.destroy();
+  if (!iconSizeTexts.some((text) => text.includes('Icon size: 32px')))
+    throw new Error('Dock DevTool summary did not display the configured icon size');
+  if (!iconSizeTexts.includes('Smaller Icons') || !iconSizeTexts.includes('Larger Icons'))
+    throw new Error('Dock DevTool did not render both icon size controls');
+
+  if (!tool.decreaseIconSize()) throw new Error('Dock decreaseIconSize returned false');
+  await Scripting.waitLeisure();
+  if (settings.get_int('dock-icon-size') !== 31)
+    throw new Error('Dock decreaseIconSize did not decrease the persisted size');
+
+  if (!tool.increaseIconSize()) throw new Error('Dock increaseIconSize returned false');
+  await Scripting.waitLeisure();
+  if (settings.get_int('dock-icon-size') !== 32)
+    throw new Error('Dock increaseIconSize did not increase the persisted size');
+
+  settings.set_int('dock-icon-size', 63);
+  if (!tool.increaseIconSize()) throw new Error('Dock increaseIconSize rejected 63px');
+  if (!tool.decreaseIconSize()) throw new Error('Dock decreaseIconSize rejected 64px');
+  if (settings.get_int('dock-icon-size') !== 63)
+    throw new Error(
+      'Dock icon size controls did not preserve an unaligned value after a round trip',
+    );
+
+  settings.set_int('dock-icon-size', 16);
+  if (!tool.decreaseIconSize()) throw new Error('Dock decreaseIconSize rejected the lower bound');
+  if (settings.get_int('dock-icon-size') !== 16)
+    throw new Error('Dock decreaseIconSize crossed the 16px lower bound');
+
+  settings.set_int('dock-icon-size', 64);
+  if (!tool.increaseIconSize()) throw new Error('Dock increaseIconSize rejected the upper bound');
+  if (settings.get_int('dock-icon-size') !== 64)
+    throw new Error('Dock increaseIconSize crossed the 64px upper bound');
+
+  if (originalIconSize === null) {
+    settings.reset('dock-icon-size');
+  } else {
+    settings.set_value('dock-icon-size', originalIconSize);
+  }
 }

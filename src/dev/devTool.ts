@@ -71,7 +71,7 @@ export class DevTool extends Module {
     this._tools = {
       general: new GeneralDevTool(this._callbacks.openPreferences),
       captureTools: new CaptureToolsDevTool(this._callbacks.getModule, rebuildMenu),
-      dock: new DockDevTool(this._callbacks.getModule, rebuildMenu),
+      dock: new DockDevTool(this.context.settings, this._callbacks.getModule, rebuildMenu),
       clipboardHistory: new ClipboardHistoryDevTool(this._callbacks.getModule, rebuildMenu),
       trayIcons: new TrayIconsDevTool(rebuildMenu),
       weatherClock: new WeatherClockDevTool(this._callbacks.getModule, rebuildMenu),

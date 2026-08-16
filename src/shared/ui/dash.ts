@@ -3,7 +3,7 @@ import GLib from '@girs/glib-2.0';
 import Clutter from '@girs/clutter-18';
 import GObject from '@girs/gobject-2.0';
 import Shell from '@girs/shell-18';
-import type St from '@girs/st-18';
+import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as DND from '@girs/gnome-shell/ui/dnd';
 import { Dash } from '@girs/gnome-shell/ui/dash';
@@ -19,6 +19,7 @@ import {
   boundsContainPoint,
   boundsEqual,
   calculateDashPlacement,
+  selectDashIconSize,
   type DashBounds,
 } from '~/shared/ui/dashLayout.ts';
 
@@ -31,6 +32,7 @@ const ANIMATION_TIME = 200;
 interface AuroraDashParams {
   monitorIndex?: number;
   isolateMonitor?: boolean;
+  maxIconSize?: number;
   showTrash?: boolean;
   showExternalStorage?: boolean;
 }
@@ -39,6 +41,7 @@ export const AuroraDash = GObject.registerClass(
   class AuroraDash extends Dash {
     declare private _monitorIndex: number;
     declare private _isolateMonitor: boolean;
+    declare private _maxIconSize: number;
     private _workArea: DashBounds | null = null;
     private _container: St.Bin | null = null;
     declare private _dashBox: St.Widget | null;
@@ -60,6 +63,7 @@ export const AuroraDash = GObject.registerClass(
       const {
         monitorIndex = Main.layoutManager.primaryIndex,
         isolateMonitor = true,
+        maxIconSize = 64,
         showTrash = false,
         showExternalStorage = false,
       } = params;
@@ -70,6 +74,7 @@ export const AuroraDash = GObject.registerClass(
 
       this._monitorIndex = monitorIndex;
       this._isolateMonitor = isolateMonitor;
+      this._maxIconSize = maxIconSize;
       this._unredirectInhibitor = new UnredirectInhibitor(global.compositor);
       this._visibility = new DashVisibilityController(this, {
         getContentActor: () => this._dashBox,
@@ -186,6 +191,13 @@ export const AuroraDash = GObject.registerClass(
       if (this._monitorIndex === index) return;
       this._monitorIndex = index;
       this._workArea = null;
+    }
+
+    setMaxIconSize(maxIconSize: number): void {
+      if (this._maxIconSize === maxIconSize) return;
+
+      this._maxIconSize = maxIconSize;
+      this._queueRedisplay();
     }
 
     get targetBox(): DashBounds | null {
@@ -462,31 +474,81 @@ export const AuroraDash = GObject.registerClass(
       if (!this._dashBox) return;
 
       const box = this._box;
-      const extraIcons = this._fixedItems.icons;
+      if (!box) return;
 
-      if (!box || extraIcons.length === 0) {
-        (Dash.prototype as any)._adjustIconSize.call(this);
-        return;
+      const dashAny = this as any;
+      const iconChildren = [...box.get_children(), ...this._fixedItems.icons].filter(
+        (actor) => actor.child?._delegate?.icon && !actor.animatingOut,
+      );
+      iconChildren.push(dashAny._showAppsIcon);
+
+      if (dashAny._maxWidth === -1 || dashAny._maxHeight === -1) return;
+
+      const themeNode = this.get_theme_node();
+      const maxAllocation = new Clutter.ActorBox({
+        x1: 0,
+        y1: 0,
+        x2: dashAny._maxWidth,
+        y2: 42,
+      });
+      const maxContent = themeNode.get_content_box(maxAllocation);
+      let availableWidth = maxContent.x2 - maxContent.x1;
+      const spacing = themeNode.get_length('spacing');
+
+      const firstButton = iconChildren[0].child;
+      const firstIcon = firstButton._delegate.icon;
+      firstIcon.icon.ensure_style();
+      const [, , iconWidth, iconHeight] = firstIcon.icon.get_preferred_size();
+      const [, , buttonWidth, buttonHeight] = firstButton.get_preferred_size();
+
+      availableWidth -=
+        iconChildren.length * (buttonWidth - iconWidth) + (iconChildren.length - 1) * spacing;
+
+      let availableHeight = dashAny._maxHeight;
+      availableHeight -= this.margin_top + this.margin_bottom;
+      availableHeight -= dashAny._background.get_theme_node().get_vertical_padding();
+      availableHeight -= themeNode.get_vertical_padding();
+      availableHeight -= buttonHeight - iconHeight;
+
+      const availableIconSize = Math.min(availableWidth / iconChildren.length, availableHeight);
+      const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+      const newIconSize = selectDashIconSize(this._maxIconSize, availableIconSize, scaleFactor);
+
+      if (newIconSize === dashAny.iconSize) return;
+
+      const oldIconSize = dashAny.iconSize;
+      dashAny.iconSize = newIconSize;
+      this.emit('icon-size-changed');
+
+      const scale = oldIconSize / newIconSize;
+      for (const child of iconChildren) {
+        const icon = child.child._delegate.icon;
+        icon.setIconSize(newIconSize);
+
+        if (
+          !Main.overview.visible ||
+          Main.overview.animationInProgress ||
+          !dashAny._shownInitially
+        ) {
+          continue;
+        }
+
+        const [targetWidth, targetHeight] = icon.icon.get_size();
+        icon.icon.set_size(icon.icon.width * scale, icon.icon.height * scale);
+        icon.icon.ease({
+          width: targetWidth,
+          height: targetHeight,
+          duration: ANIMATION_TIME,
+          mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
       }
 
-      // Stock _adjustIconSize splits the available width among _box children
-      // plus the show-apps button only. The trash and external-storage icons
-      // live in _dashContainer, so their width is never counted and the dash
-      // keeps an oversized iconSize that overflows the work area. They share
-      // the DashItemContainer anatomy (child._delegate.icon) the stock filter
-      // expects, so appending them to the measured child list makes the stock
-      // math — width budget and per-icon resize — cover them too.
-      const hadOwnProp = Object.prototype.hasOwnProperty.call(box, 'get_children');
-      const origGetChildren = box.get_children;
-      box.get_children = () => [...origGetChildren.call(box), ...extraIcons];
-      try {
-        (Dash.prototype as any)._adjustIconSize.call(this);
-      } finally {
-        if (hadOwnProp) {
-          box.get_children = origGetChildren;
-        } else {
-          Reflect.deleteProperty(box, 'get_children');
-        }
+      if (dashAny._separator) {
+        dashAny._separator.ease({
+          height: newIconSize,
+          duration: ANIMATION_TIME,
+          mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
       }
     }
 

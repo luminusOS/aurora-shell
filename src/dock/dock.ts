@@ -35,6 +35,7 @@ export class Dock extends Module {
   private _alwaysShow = false;
   private _intellihideEnabled = false;
   private _showOnAllMonitors = false;
+  private _maxIconSize = 64;
   private _showTrash = true;
   private _showExternalStorage = true;
   private _motionEnabled = true;
@@ -68,6 +69,7 @@ export class Dock extends Module {
         `enable alwaysShow=${this._alwaysShow}`,
         `intellihide=${this._intellihideEnabled}`,
         `showOnAllMonitors=${this._showOnAllMonitors}`,
+        `maxIconSize=${this._maxIconSize}`,
         `showTrash=${this._showTrash}`,
         `showExternalStorage=${this._showExternalStorage}`,
         `monitors=${Main.layoutManager.monitors.length}`,
@@ -139,6 +141,8 @@ export class Dock extends Module {
       () => this._handleConfigurationChange('intellihide'),
       'changed::dock-show-on-all-monitors',
       () => this._handleConfigurationChange('showOnAllMonitors'),
+      'changed::dock-icon-size',
+      () => this._handleConfigurationChange('maxIconSize'),
       'changed::dock-show-trash',
       () => this._handleConfigurationChange('showTrash'),
       'changed::dock-show-external-storage',
@@ -175,6 +179,7 @@ export class Dock extends Module {
       alwaysShow: dockSettings.get_boolean('dock-always-show'),
       intellihide: dockSettings.get_boolean('dock-intellihide'),
       showOnAllMonitors: dockSettings.get_boolean('dock-show-on-all-monitors'),
+      maxIconSize: dockSettings.get_int('dock-icon-size'),
       showTrash: dockSettings.get_boolean('dock-show-trash'),
       showExternalStorage: dockSettings.get_boolean('dock-show-external-storage'),
       motionEnabled: dockSettings.get_boolean('dock-motion-enabled'),
@@ -211,6 +216,13 @@ export class Dock extends Module {
       return;
     }
 
+    if (transition.change === 'icon-size') {
+      for (const binding of this._bindings.values()) {
+        binding.dash.setMaxIconSize(this._maxIconSize);
+      }
+      return;
+    }
+
     if (transition.change === 'motion') {
       const recipe = getBuiltInRecipe(this._motionProfile);
       for (const binding of this._bindings.values()) {
@@ -231,6 +243,7 @@ export class Dock extends Module {
     this._alwaysShow = configuration.alwaysShow;
     this._intellihideEnabled = configuration.intellihide;
     this._showOnAllMonitors = configuration.showOnAllMonitors;
+    this._maxIconSize = configuration.maxIconSize;
     this._showTrash = configuration.showTrash;
     this._showExternalStorage = configuration.showExternalStorage;
     this._motionEnabled = configuration.motionEnabled;
@@ -377,6 +390,7 @@ export class Dock extends Module {
     const dash = new AuroraDash({
       monitorIndex,
       isolateMonitor: this._showOnAllMonitors,
+      maxIconSize: this._maxIconSize,
       showTrash: this._showTrash,
       showExternalStorage: this._showExternalStorage,
     });

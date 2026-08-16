@@ -7,6 +7,24 @@ export interface DashBounds {
 
 export type DashPlacement = DashBounds;
 
+const DASH_ICON_SIZE_STEPS = [16, 22, 24, 32, 48, 64];
+
+export function selectDashIconSize(
+  maxIconSize: number,
+  availablePhysicalSize: number,
+  scaleFactor: number,
+): number {
+  const candidates = DASH_ICON_SIZE_STEPS.filter((size) => size < maxIconSize);
+  candidates.push(maxIconSize);
+
+  let selected = candidates[0]!;
+  for (const candidate of candidates) {
+    if (candidate * scaleFactor <= availablePhysicalSize) selected = candidate;
+  }
+
+  return selected;
+}
+
 export function boundsContainPoint(bounds: DashBounds | null, x: number, y: number): boolean {
   if (!bounds) return false;
   return (

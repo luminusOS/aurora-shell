@@ -3,6 +3,7 @@ import '@girs/gjs';
 import St from '@girs/st-18';
 import Clutter from '@girs/clutter-18';
 
+import type { SettingsManager } from '~/core/settings.ts';
 import type { Module } from '~/module.ts';
 import { Dock, type ManagedDockBinding } from '~/dock/dock.ts';
 import { OverlapStatus } from '~/dock/intellihide.ts';
@@ -13,12 +14,16 @@ import {
   createDevToolSummary,
 } from '~/dev/devToolUi.ts';
 
+const MIN_ICON_SIZE = 16;
+const MAX_ICON_SIZE = 64;
+
 export class DockDevTool {
   readonly key = 'dock';
   readonly title = 'Dock';
   readonly iconName = 'view-app-grid-symbolic';
 
   constructor(
+    private readonly _settings: SettingsManager,
     private readonly _getModule: (key: string) => Module | null,
     private readonly _requestMenuRebuild: () => void,
   ) {}
@@ -26,14 +31,16 @@ export class DockDevTool {
   buildPanel(): St.Widget {
     const dock = this._getDock();
     const panel = createDevToolModulePanel();
-    panel.add_child(
-      createDevToolSummary(
-        this.iconName,
-        dock
-          ? `Bindings: ${dock.bindings.length} · Always-show: ${dock.alwaysShow ? 'on' : 'off'} · Intellihide: ${dock.intellihideEnabled ? 'on' : 'off'}`
-          : 'Dock disabled',
-      ),
-    );
+    const iconSize = this._settings.getInt('dock-icon-size');
+    const summary = dock
+      ? [
+          `Bindings: ${dock.bindings.length}`,
+          `Icon size: ${iconSize}px`,
+          `Always-show: ${dock.alwaysShow ? 'on' : 'off'}`,
+          `Intellihide: ${dock.intellihideEnabled ? 'on' : 'off'}`,
+        ].join(' · ')
+      : 'Dock disabled';
+    panel.add_child(createDevToolSummary(this.iconName, summary));
 
     if (dock) {
       for (const binding of dock.bindings) panel.add_child(this._buildMonitorPanel(binding));
@@ -67,6 +74,25 @@ export class DockDevTool {
     );
     panel.add_child(secondRow);
 
+    const iconSizeRow = createDevToolActionRow();
+    iconSizeRow.add_child(
+      createDevToolActionButton(
+        'zoom-out-symbolic',
+        'Smaller Icons',
+        () => this.decreaseIconSize(),
+        !dock || iconSize <= MIN_ICON_SIZE,
+      ),
+    );
+    iconSizeRow.add_child(
+      createDevToolActionButton(
+        'zoom-in-symbolic',
+        'Larger Icons',
+        () => this.increaseIconSize(),
+        !dock || iconSize >= MAX_ICON_SIZE,
+      ),
+    );
+    panel.add_child(iconSizeRow);
+
     return panel;
   }
 
@@ -98,6 +124,24 @@ export class DockDevTool {
     const dock = this._getDock();
     if (!dock) return false;
     dock.toggleAlwaysShow();
+    this._requestMenuRebuild();
+    return true;
+  }
+
+  decreaseIconSize(): boolean {
+    if (!this._getDock()) return false;
+
+    const currentSize = this._settings.getInt('dock-icon-size');
+    this._settings.setInt('dock-icon-size', Math.max(MIN_ICON_SIZE, currentSize - 1));
+    this._requestMenuRebuild();
+    return true;
+  }
+
+  increaseIconSize(): boolean {
+    if (!this._getDock()) return false;
+
+    const currentSize = this._settings.getInt('dock-icon-size');
+    this._settings.setInt('dock-icon-size', Math.min(MAX_ICON_SIZE, currentSize + 1));
     this._requestMenuRebuild();
     return true;
   }

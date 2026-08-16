@@ -132,6 +132,12 @@
       <summary>Show dock on all monitors</summary>
       <description>Show the dock on every eligible monitor instead of only on the primary monitor</description>
     </key>
+    <key name="dock-icon-size" type="i">
+      <range min="16" max="64"/>
+      <default>64</default>
+      <summary>Maximum dock icon size</summary>
+      <description>Maximum dock icon size in logical pixels; icons shrink automatically when space is limited</description>
+    </key>
     <key name="dock-show-trash" type="b">
       <default>true</default>
       <summary>Show trash icon</summary>

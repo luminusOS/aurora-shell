@@ -234,6 +234,10 @@ test('schema — Dock defaults to the primary monitor only', () => {
   assert.equal(schemaDefault('dock-show-on-all-monitors'), 'false');
 });
 
+test('schema — Dock preserves the GNOME default maximum icon size', () => {
+  assert.equal(schemaDefault('dock-icon-size'), '64');
+});
+
 test('schema — Dock uses always auto-hide by default', () => {
   assert.equal(schemaDefault('dock-intellihide'), 'false');
 });

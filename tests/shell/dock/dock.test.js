@@ -117,6 +117,10 @@ export function init() {
     'Automatic icon resize accounts for trash/storage icons outside _box',
   );
   Scripting.defineScriptEvent(
+    'configuredIconSizeApplied',
+    'Configured icon size updates every dock icon without rebuilding its binding',
+  );
+  Scripting.defineScriptEvent(
     'motionTextureSupersampled',
     'Dock motion keeps high-resolution icon textures in a normal-sized layout box',
   );
@@ -137,6 +141,7 @@ export async function run() {
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
   const originalIntellihide = settings.get_boolean('dock-intellihide');
   const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
+  const originalIconSize = settings.get_user_value('dock-icon-size');
   const originalMotionEnabled = settings.get_boolean('dock-motion-enabled');
   const originalMotionProfile = settings.get_string('dock-motion-profile');
   const originalPipOnTop = settings.get_boolean('module-pip-on-top');
@@ -145,6 +150,7 @@ export async function run() {
   settings.set_boolean('dock-always-show', false);
   settings.set_boolean('dock-intellihide', true);
   settings.set_boolean('dock-show-on-all-monitors', false);
+  settings.set_int('dock-icon-size', 64);
   settings.set_boolean('dock-motion-enabled', true);
   settings.set_string('dock-motion-profile', 'balanced');
 
@@ -221,6 +227,39 @@ export async function run() {
     );
 
   Scripting.scriptEvent('externalStorageDisabled');
+
+  const bindingBeforeIconSizeChange = dock.bindings[0];
+  const iconSizeMaxWidth = dash._maxWidth;
+  const iconSizeMaxHeight = dash._maxHeight;
+  dash.setMaxSize(10000, 1000);
+  settings.set_int('dock-icon-size', 32);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(300);
+
+  if (dock.bindings[0] !== bindingBeforeIconSizeChange)
+    throw new Error('Changing dock-icon-size rebuilt the dock binding');
+  if (dash.iconSize !== 32)
+    throw new Error(`Configured dock icon size was not applied: ${dash.iconSize}`);
+
+  const configuredIcons = [
+    ...dash._box.get_children(),
+    dash._showAppsIcon,
+    ...dash._fixedItems.icons,
+  ]
+    .map((actor) => actor.child?._delegate?.icon)
+    .filter(Boolean);
+  if (configuredIcons.some((icon) => icon.iconSize !== 32))
+    throw new Error('Configured dock icon size was not synchronized across every icon');
+
+  settings.reset('dock-icon-size');
+  await Scripting.waitLeisure();
+  await Scripting.sleep(300);
+  if (dash.iconSize !== 64)
+    throw new Error(`Resetting dock-icon-size did not restore the 64px default: ${dash.iconSize}`);
+
+  dash.setMaxSize(iconSizeMaxWidth, iconSizeMaxHeight);
+  dash._adjustIconSize();
+  Scripting.scriptEvent('configuredIconSizeApplied');
 
   // the automatic icon resize must count the fixed dock icons (trash,
   // external storage) that live in _dashContainer outside _box. Constrain the
@@ -765,6 +804,11 @@ export async function run() {
   settings.set_boolean('dock-always-show', originalAlwaysShow);
   settings.set_boolean('dock-intellihide', originalIntellihide);
   settings.set_boolean('dock-show-on-all-monitors', originalShowOnAllMonitors);
+  if (originalIconSize === null) {
+    settings.reset('dock-icon-size');
+  } else {
+    settings.set_value('dock-icon-size', originalIconSize);
+  }
   settings.set_boolean('dock-motion-enabled', originalMotionEnabled);
   settings.set_string('dock-motion-profile', originalMotionProfile);
   settings.set_boolean('module-pip-on-top', originalPipOnTop);
@@ -789,6 +833,7 @@ let _hotAreaActiveClearShowsDock = false;
 let _dockRemoved = false;
 let _externalStorageDisabled = false;
 let _iconResizeCountsFixedIcons = false;
+let _configuredIconSizeApplied = false;
 let _motionTextureSupersampled = false;
 let _fixedIconMotionRegistered = false;
 let _externalWorkspaceActorStable = false;
@@ -861,6 +906,10 @@ export function script_iconResizeCountsFixedIcons() {
   _iconResizeCountsFixedIcons = true;
 }
 
+export function script_configuredIconSizeApplied() {
+  _configuredIconSizeApplied = true;
+}
+
 export function script_motionTextureSupersampled() {
   _motionTextureSupersampled = true;
 }
@@ -914,6 +963,8 @@ export function finish() {
     throw new Error('External storage icons were not verified disabled');
   if (!_iconResizeCountsFixedIcons)
     throw new Error('Automatic icon resize did not account for fixed dock icons');
+  if (!_configuredIconSizeApplied)
+    throw new Error('Configured icon size was not applied without rebuilding the dock');
   if (!_motionTextureSupersampled)
     throw new Error('Dock motion icon textures were not verified at high resolution');
   if (!_fixedIconMotionRegistered)
