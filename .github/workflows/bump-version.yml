@@ -1,0 +1,67 @@
+name: Bump version
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to update (e.g. main or release/v50.x)
+        required: true
+        type: string
+      version:
+        description: New version-name for metadata.json (e.g. 50.12)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump-version-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Update version-name
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Update metadata.json
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "Invalid version \"$VERSION\": expected numeric components like 50.12." >&2
+            exit 1
+          fi
+
+          node -e '
+            const fs = require("fs");
+            const metadata = JSON.parse(fs.readFileSync("metadata.json", "utf8"));
+            metadata["version-name"] = process.env.VERSION;
+            fs.writeFileSync("metadata.json", JSON.stringify(metadata, null, 4) + "\n");
+          '
+
+          echo "metadata.json version-name set to ${VERSION}." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ inputs.version }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- metadata.json; then
+            echo "metadata.json is already at ${VERSION}; nothing to commit." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add metadata.json
+          git commit -m "chore: bump version to ${VERSION}"
+          git push origin "HEAD:${BRANCH}"
