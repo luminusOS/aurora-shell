@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: bump-version-${{ inputs.branch }}
@@ -29,6 +30,7 @@ jobs:
           ref: ${{ inputs.branch }}
 
       - name: Update metadata.json
+        id: bump
         env:
           VERSION: ${{ inputs.version }}
         run: |
@@ -46,22 +48,50 @@ jobs:
             fs.writeFileSync("metadata.json", JSON.stringify(metadata, null, 4) + "\n");
           '
 
-          echo "metadata.json version-name set to ${VERSION}." >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- metadata.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "metadata.json is already at ${VERSION}; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "metadata.json version-name set to ${VERSION}." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      - name: Commit and push
+      - name: Commit and push bump branch
+        if: steps.bump.outputs.changed == 'true'
         env:
           VERSION: ${{ inputs.version }}
           BRANCH: ${{ inputs.branch }}
         run: |
           set -euo pipefail
 
-          if git diff --quiet -- metadata.json; then
-            echo "metadata.json is already at ${VERSION}; nothing to commit." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
+          BUMP_BRANCH="bot/bump-version-${BRANCH//\//-}-${VERSION}"
+          echo "bump_branch=$BUMP_BRANCH" >> "$GITHUB_ENV"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BUMP_BRANCH"
           git add metadata.json
           git commit -m "chore: bump version to ${VERSION}"
-          git push origin "HEAD:${BRANCH}"
+          git push -f origin "$BUMP_BRANCH"
+
+      - name: Open pull request
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+
+          PR_URL="$(gh pr list --head "$BUMP_BRANCH" --state open --json url --jq '.[0].url // empty')"
+          if [[ -n "$PR_URL" ]]; then
+            echo "Pull request already open, branch updated: ${PR_URL}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          PR_URL="$(gh pr create \
+            --base "$BRANCH" \
+            --head "$BUMP_BRANCH" \
+            --title "chore: bump version to ${VERSION}" \
+            --body "Updates \`version-name\` in \`metadata.json\` to \`${VERSION}\`.")"
+          echo "Opened pull request: ${PR_URL}" >> "$GITHUB_STEP_SUMMARY"
