@@ -16,6 +16,7 @@ import { DashFixedItems } from '~/shared/ui/dashFixedItems.ts';
 import { DashApplicationController } from '~/shared/ui/dashApplications.ts';
 import { DashSpringLoadCoordinator } from '~/shared/ui/dashSpringLoad.ts';
 import { DashVisibilityController } from '~/shared/ui/dashVisibility.ts';
+import { DashWindowPreviewController } from '~/shared/ui/dashWindowPreviews.ts';
 import type { DockPosition } from '~/dock/dockConfiguration.ts';
 import {
   boundsContainPoint,
@@ -40,6 +41,7 @@ interface AuroraDashParams {
   maxIconSize?: number;
   showTrash?: boolean;
   showExternalStorage?: boolean;
+  showWindowPreviews?: boolean;
   position?: DockPosition;
 }
 
@@ -71,6 +73,7 @@ export const AuroraDash = GObject.registerClass(
     declare private _springLoad: DashSpringLoadCoordinator;
     declare private _fixedItems: DashFixedItems;
     declare private _applications: DashApplicationController;
+    declare private _windowPreviews: DashWindowPreviewController | null;
     declare private _unredirectInhibitor: UnredirectInhibitor;
     override _init(params: AuroraDashParams = {}): void {
       super._init();
@@ -81,6 +84,7 @@ export const AuroraDash = GObject.registerClass(
         maxIconSize = 64,
         showTrash = false,
         showExternalStorage = false,
+        showWindowPreviews = false,
         position = 'bottom',
       } = params;
 
@@ -182,6 +186,13 @@ export const AuroraDash = GObject.registerClass(
         getIsolateMonitor: () => this._isolateMonitor,
         getPosition: () => this._position,
       });
+      this._windowPreviews = showWindowPreviews
+        ? new DashWindowPreviewController({
+            position: this._position,
+            isWindowRelevant: (window) => this._applications.isWindowRelevant(window),
+            onOpenStateChanged: () => this._visibility.updateAutoHide(),
+          })
+        : null;
 
       this._fixedItems = new DashFixedItems(this, this, showTrash, showExternalStorage, () => {
         this._queueRedisplay();
@@ -249,6 +260,8 @@ export const AuroraDash = GObject.registerClass(
 
     override destroy(): void {
       this._lifecycle.dispose();
+      if (this._windowPreviews) this._windowPreviews.destroy();
+      this._windowPreviews = null;
       this._visibility.destroy();
       this._springLoad.destroy();
 
@@ -395,10 +408,13 @@ export const AuroraDash = GObject.registerClass(
     }
 
     override hide(animate = true): void {
+      if (this._windowPreviews) this._windowPreviews.close();
       this._visibility.hide(animate);
     }
 
     private _isMenuOpen(): boolean {
+      if (this._windowPreviews && this._windowPreviews.isOpen) return true;
+
       const children = this._applications.getChildren();
 
       for (const child of children) {
@@ -462,6 +478,17 @@ export const AuroraDash = GObject.registerClass(
 
     override _syncLabel(item: any, appIcon: any): void {
       if (!this._dashBox) return;
+
+      if (this._windowPreviews && this._windowPreviews.shouldSuppressTooltip(appIcon)) {
+        const dashAny = this as any;
+        if (dashAny._showLabelTimeoutId > 0) {
+          GLib.source_remove(dashAny._showLabelTimeoutId);
+          dashAny._showLabelTimeoutId = 0;
+        }
+        dashAny._labelShowing = false;
+        if (item) item.hideLabel();
+        return;
+      }
 
       if (item && !item._auroraShowLabelPatched) {
         item._auroraShowLabelPatched = true;
@@ -689,6 +716,9 @@ export const AuroraDash = GObject.registerClass(
       this._syncAppSeparatorGeometry();
       this._syncLabelFlushMode();
       this._applications.installActivationOverrides();
+      if (this._windowPreviews) {
+        this._windowPreviews.syncItems(this._applications.getChildren());
+      }
 
       if (dashAny.iconSize !== oldIconSize) {
         this._iconResizeTimeout.replace(() =>

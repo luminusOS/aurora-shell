@@ -1,4 +1,3 @@
-@use 'sass:color';
 @use 'variables' as vars;
 
 #dash .dash-background {
@@ -191,6 +190,60 @@
   -y-offset: 20px !important;
 }
 
-#dash .dash-item-container.aurora-drag-hover .overview-icon {
+#dash .dash-item-container.aurora-drag-hover .overview-icon,
+#dash .dash-item-container.aurora-window-preview-open .overview-icon {
   background-color: vars.$aurora-dash-hover-bg;
+}
+
+.aurora-window-preview-popup {
+  .popup-menu-content {
+    padding: 8px;
+  }
+
+  .aurora-window-preview-host {
+    padding: 0;
+    background-color: transparent;
+  }
+}
+
+.aurora-window-preview-list {
+  spacing: 8px;
+}
+
+.aurora-window-preview-card {
+  padding: 8px;
+  spacing: 6px;
+  color: vars.$aurora-overview-fg;
+  background-color: vars.$aurora-overview-folder-bg;
+  border-radius: 12px;
+
+  &:hover {
+    background-color: vars.$aurora-overview-hover-bg;
+  }
+}
+
+.aurora-window-preview-content {
+  padding: 0;
+}
+
+.aurora-window-preview-activate {
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+
+  &:focus {
+    box-shadow: inset 0 0 0 2px vars.$aurora-accent-focus-ring;
+    border-radius: 8px;
+  }
+}
+
+.aurora-window-preview-thumbnail {
+  padding: 0;
+}
+
+.aurora-window-preview-title {
+  padding: 6px 4px 2px;
+  color: vars.$aurora-overview-fg;
+  text-align: center;
 }

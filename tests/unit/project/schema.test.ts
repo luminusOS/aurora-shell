@@ -242,6 +242,10 @@ test('schema: Dock uses always auto-hide by default', () => {
   assert.equal(schemaDefault('dock-intellihide'), 'false');
 });
 
+test('schema: Dock window previews are opt-in by default', () => {
+  assert.equal(schemaDefault('dock-window-previews'), 'false');
+});
+
 test('schema: Volume Mixer button is contextual by default', () => {
   assert.equal(schemaDefault('volume-mixer-always-show'), 'false');
 });

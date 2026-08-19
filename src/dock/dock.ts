@@ -43,6 +43,7 @@ export class Dock extends Module {
   private _maxIconSize = 64;
   private _showTrash = true;
   private _showExternalStorage = true;
+  private _windowPreviews = false;
   private _motionEnabled = true;
   private _motionProfile: string = DEFAULT_PROFILE;
   private _dragReveal: ContextualDragRevealCoordinator<ManagedDockBinding> | null = null;
@@ -77,6 +78,7 @@ export class Dock extends Module {
         `maxIconSize=${this._maxIconSize}`,
         `showTrash=${this._showTrash}`,
         `showExternalStorage=${this._showExternalStorage}`,
+        `windowPreviews=${this._windowPreviews}`,
         `monitors=${Main.layoutManager.monitors.length}`,
       ].join(' '),
       { prefix: LOG_PREFIX },
@@ -154,6 +156,8 @@ export class Dock extends Module {
       () => this._handleConfigurationChange('showTrash'),
       'changed::dock-show-external-storage',
       () => this._handleConfigurationChange('showExternalStorage'),
+      'changed::dock-window-previews',
+      () => this._handleConfigurationChange('windowPreviews'),
       'changed::dock-motion-enabled',
       () => this._handleConfigurationChange('motionEnabled'),
       'changed::dock-motion-profile',
@@ -188,6 +192,7 @@ export class Dock extends Module {
       maxIconSize: dockSettings.get_int('dock-icon-size'),
       showTrash: dockSettings.get_boolean('dock-show-trash'),
       showExternalStorage: dockSettings.get_boolean('dock-show-external-storage'),
+      windowPreviews: dockSettings.get_boolean('dock-window-previews'),
       motionEnabled: dockSettings.get_boolean('dock-motion-enabled'),
       motionProfile: dockSettings.get_string('dock-motion-profile'),
     };
@@ -246,6 +251,7 @@ export class Dock extends Module {
     this._maxIconSize = configuration.maxIconSize;
     this._showTrash = configuration.showTrash;
     this._showExternalStorage = configuration.showExternalStorage;
+    this._windowPreviews = configuration.windowPreviews;
     this._motionEnabled = configuration.motionEnabled;
     this._motionProfile = configuration.motionProfile;
   }
@@ -398,6 +404,7 @@ export class Dock extends Module {
       maxIconSize: this._maxIconSize,
       showTrash: this._showTrash,
       showExternalStorage: this._showExternalStorage,
+      showWindowPreviews: this._windowPreviews,
       position: this._position,
     });
     container.set_child(dash);
