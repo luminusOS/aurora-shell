@@ -239,6 +239,44 @@ function findDescendant(actor, predicate) {
   return null;
 }
 
+// Window-backed fallback apps (window:N) can be destroyed and recreated with
+// the same id, so icons are matched by app id rather than object identity. An
+// icon still bound to such a dead object reports zero windows and is treated
+// as absent until the Dock redisplays it.
+function findWindowPreviewTarget(dash, app) {
+  const appId = app.get_id();
+  const item = dash._applications
+    .getChildren()
+    .find((candidate) => candidate.child?._delegate?.app?.get_id() === appId);
+  const appIcon = item?.child?._delegate;
+  if (!item || !appIcon) return null;
+  if (appIcon.app.get_windows().length === 0) return null;
+  return { item, appIcon };
+}
+
+// The WindowTracker can re-associate the test window with a different
+// Shell.App once the helper's application id arrives, leaving the previously
+// resolved app without any windows.
+function resolveLivePreviewApp(window, currentApp) {
+  if (currentApp.get_windows().length > 0) return currentApp;
+
+  const reassignedApp = Shell.WindowTracker.get_default().get_window_app(window);
+  return reassignedApp || currentApp;
+}
+
+// A Dock rebuild can leave the icon absent for a few main-loop cycles, so the
+// lookup polls until the item reappears.
+async function waitForWindowPreviewTarget(dash, window, currentApp) {
+  let app = resolveLivePreviewApp(window, currentApp);
+  let target = findWindowPreviewTarget(dash, app);
+  for (let attempt = 0; !target && attempt < 20; attempt++) {
+    await Scripting.sleep(100);
+    app = resolveLivePreviewApp(window, app);
+    target = findWindowPreviewTarget(dash, app);
+  }
+  return { app, target };
+}
+
 async function exerciseWindowPreviews(settings, dock) {
   const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
   await Scripting.createTestWindow({ width: 760, height: 480, maximized: false });
@@ -252,8 +290,8 @@ async function exerciseWindowPreviews(settings, dock) {
   if (!window) throw new Error('Could not create a window-preview test window');
 
   try {
-    const app = Shell.WindowTracker.get_default().get_window_app(window);
-    if (!app) throw new Error('Could not resolve the window-preview test application');
+    let previewApp = Shell.WindowTracker.get_default().get_window_app(window);
+    if (!previewApp) throw new Error('Could not resolve the window-preview test application');
 
     settings.set_boolean('dock-window-previews', true);
     await Scripting.waitLeisure();
@@ -268,11 +306,13 @@ async function exerciseWindowPreviews(settings, dock) {
     await Scripting.waitLeisure();
     await Scripting.sleep(300);
 
-    const item = dash._applications
-      .getChildren()
-      .find((candidate) => candidate.child?._delegate?.app === app);
-    const appIcon = item?.child?._delegate;
-    if (!item || !appIcon) throw new Error('Window-preview test application is absent from Dock');
+    // The Dock rebuilds its items when app states settle after the test window
+    // appears, so every interaction re-resolves the current item and icon.
+    let previewState = await waitForWindowPreviewTarget(dash, window, previewApp);
+    previewApp = previewState.app;
+    if (!previewState.target)
+      throw new Error('Window-preview test application is absent from Dock');
+    let { item, appIcon } = previewState.target;
 
     // Drive the real hover contract: a short hover cancels the pending show,
     // a sustained hover suppresses the tooltip and opens the popup after its delay.
@@ -283,14 +323,78 @@ async function exerciseWindowPreviews(settings, dock) {
     if (dash._windowPreviews._popup)
       throw new Error('Window-preview popup opened after its hover was cancelled');
 
+    previewState = await waitForWindowPreviewTarget(dash, window, previewApp);
+    previewApp = previewState.app;
+    if (!previewState.target)
+      throw new Error('Window-preview test application is absent from Dock');
+    ({ item, appIcon } = previewState.target);
     appIcon.set_hover(true);
     if (!dash._windowPreviews.shouldSuppressTooltip(appIcon))
       throw new Error('Window-preview hover did not suppress the Dock tooltip');
-    await Scripting.sleep(500);
 
-    const popup = dash._windowPreviews._popup;
-    if (!popup?.isOpen || !dash._isMenuOpen())
-      throw new Error('Window-preview popup did not open from the icon hover');
+    // Poll instead of a single fixed sleep: GLib dispatches ready sources of
+    // equal priority newest-first, so under CI load a long sleep can resolve
+    // before the show timer even though the timer expired first. A Dock item
+    // rebuild also drops the pending show, in which case the hover is re-armed
+    // against the freshly resolved icon. When no live icon is available, a
+    // forced redisplay reconciles the Dock with the current running apps.
+    let popup = null;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await Scripting.sleep(100);
+      if (dash._windowPreviews._popup?.isOpen) {
+        popup = dash._windowPreviews._popup;
+        break;
+      }
+      if (dash._windowPreviews._pendingSource) continue;
+
+      previewApp = resolveLivePreviewApp(window, previewApp);
+      const target = findWindowPreviewTarget(dash, previewApp);
+      if (!target) {
+        dash.refresh();
+        continue;
+      }
+
+      ({ item, appIcon } = target);
+      appIcon.set_hover(false);
+      appIcon.set_hover(true);
+    }
+    if (!popup || !dash._isMenuOpen()) {
+      const controller = dash._windowPreviews;
+      const fresh = findWindowPreviewTarget(dash, previewApp);
+      const windows = previewApp.get_windows();
+      const windowAlive = global.get_window_actors().some((actor) => actor.meta_window === window);
+      const currentApp = windowAlive
+        ? Shell.WindowTracker.get_default().get_window_app(window)
+        : null;
+      const iconApp = fresh?.appIcon.app;
+      const diagnostics = [
+        `pending=${Boolean(controller._pendingSource)}`,
+        `showTimerActive=${controller._showTimer?.active}`,
+        `hover=${fresh ? fresh.appIcon.hover : 'n/a'}`,
+        `appWindows=${windows.length}`,
+        `relevantWindows=${windows.filter((w) => controller._options.isWindowRelevant(w)).length}`,
+        `skipTaskbar=${windows.map((w) => w.is_skip_taskbar()).join(',')}`,
+        `menuOpen=${Boolean(fresh?.appIcon._menu?.isOpen)}`,
+        `windowAlive=${windowAlive}`,
+        `compositorPrivate=${windowAlive ? Boolean(window.get_compositor_private()) : 'n/a'}`,
+        `sameApp=${currentApp === previewApp}`,
+        `iconSameAsPreview=${iconApp ? iconApp === previewApp : 'n/a'}`,
+        `iconAppWindows=${iconApp ? iconApp.get_windows().length : 'n/a'}`,
+        `iconApp=${iconApp?.get_id()}`,
+        `windowApp=${currentApp?.get_id()}`,
+        `testApp=${previewApp.get_id()}`,
+        `sameDash=${dock.bindings[0]?.dash === dash}`,
+        `dashBoxMissing=${!dash._dashBox}`,
+        `dockChildren=${dash._applications.getChildren().length}`,
+        `childApps=${dash._applications
+          .getChildren()
+          .map((child) => child.child?._delegate?.app?.get_id())
+          .join('|')}`,
+      ];
+      throw new Error(
+        `Window-preview popup did not open from the icon hover [${diagnostics.join(' ')}]`,
+      );
+    }
     if (global.stage.get_key_focus() !== popup.actor)
       throw new Error('Window-preview popup did not take the keyboard focus');
     popup.actor.set_hover(true);
@@ -925,11 +1029,19 @@ export async function run() {
   dash.show(true);
   dash.show(true);
   dash.show(true);
-  await Scripting.sleep(300);
+
+  // Poll for the settled pose instead of a fixed sleep: the 200ms show
+  // animation only starts on the next frame, so under CI load a single
+  // 300ms wait can sample the dock mid-animation.
+  let settled = false;
+  for (let attempt = 0; attempt < 20 && !settled; attempt++) {
+    await Scripting.sleep(100);
+    settled = dash.visible && dash.opacity === 255 && dash.translation_y === 0;
+  }
   dash._visibility._applyHiddenState = originalApplyHiddenState;
   if (hiddenPoseCalls !== 1)
     throw new Error(`Repeated show requests restarted the animation ${hiddenPoseCalls} times`);
-  if (!dash.visible || dash.opacity !== 255 || dash.translation_y !== 0)
+  if (!settled)
     throw new Error('Dock did not settle in its fully shown state after repeated show requests');
 
   Scripting.scriptEvent('repeatedShowStable');
