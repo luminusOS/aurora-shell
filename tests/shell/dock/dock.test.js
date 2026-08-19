@@ -5,6 +5,7 @@ import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import { Dash as ShellDash } from 'resource:///org/gnome/shell/ui/dash.js';
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
+import Pango from 'gi://Pango';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import {
@@ -226,6 +227,181 @@ function edgeIsReachable(monitors, index, position) {
   });
 }
 
+function findDescendant(actor, predicate) {
+  if (predicate(actor)) return actor;
+  if (!actor?.get_children) return null;
+
+  for (const child of actor.get_children()) {
+    const match = findDescendant(child, predicate);
+    if (match) return match;
+  }
+
+  return null;
+}
+
+async function exerciseWindowPreviews(settings, dock) {
+  const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
+  await Scripting.createTestWindow({ width: 760, height: 480, maximized: false });
+  await Scripting.waitTestWindows();
+  await Scripting.sleep(300);
+
+  const window = global
+    .get_window_actors()
+    .map((actor) => actor.meta_window)
+    .find((candidate) => !previousWindows.has(candidate));
+  if (!window) throw new Error('Could not create a window-preview test window');
+
+  try {
+    const app = Shell.WindowTracker.get_default().get_window_app(window);
+    if (!app) throw new Error('Could not resolve the window-preview test application');
+
+    settings.set_boolean('dock-window-previews', true);
+    await Scripting.waitLeisure();
+    await Scripting.sleep(500);
+
+    const dash = dock?.bindings?.[0]?.dash;
+    if (!dash?._windowPreviews)
+      throw new Error('Window-preview controller was not created when enabled');
+
+    dash.show(false);
+    dash.refresh();
+    await Scripting.waitLeisure();
+    await Scripting.sleep(300);
+
+    const item = dash._applications
+      .getChildren()
+      .find((candidate) => candidate.child?._delegate?.app === app);
+    const appIcon = item?.child?._delegate;
+    if (!item || !appIcon) throw new Error('Window-preview test application is absent from Dock');
+
+    // Drive the real hover contract: a short hover cancels the pending show,
+    // a sustained hover suppresses the tooltip and opens the popup after its delay.
+    appIcon.set_hover(true);
+    await Scripting.sleep(150);
+    appIcon.set_hover(false);
+    await Scripting.sleep(400);
+    if (dash._windowPreviews._popup)
+      throw new Error('Window-preview popup opened after its hover was cancelled');
+
+    appIcon.set_hover(true);
+    if (!dash._windowPreviews.shouldSuppressTooltip(appIcon))
+      throw new Error('Window-preview hover did not suppress the Dock tooltip');
+    await Scripting.sleep(500);
+
+    const popup = dash._windowPreviews._popup;
+    if (!popup?.isOpen || !dash._isMenuOpen())
+      throw new Error('Window-preview popup did not open from the icon hover');
+    if (global.stage.get_key_focus() !== popup.actor)
+      throw new Error('Window-preview popup did not take the keyboard focus');
+    popup.actor.set_hover(true);
+    if (!item.has_style_class_name('aurora-window-preview-open'))
+      throw new Error('Window-preview popup did not keep its Dock item highlighted');
+
+    const preview = findDescendant(
+      popup.actor,
+      (actor) => actor.layout_manager instanceof Shell.WindowPreviewLayout,
+    );
+    if (!preview) throw new Error('Window-preview popup does not contain a live thumbnail');
+
+    const thumbnail = findDescendant(
+      popup.actor,
+      (actor) =>
+        actor.has_style_class_name && actor.has_style_class_name('aurora-window-preview-thumbnail'),
+    );
+    if (!thumbnail) throw new Error('Window-preview popup does not contain its thumbnail frame');
+    const title = findDescendant(
+      popup.actor,
+      (actor) =>
+        actor.has_style_class_name && actor.has_style_class_name('aurora-window-preview-title'),
+    );
+    if (!title || title.clutter_text.line_alignment !== Pango.Alignment.CENTER)
+      throw new Error('Window-preview title is not centered');
+    const [previewWidth, previewHeight] = preview.get_transformed_size();
+    const [thumbnailWidth, thumbnailHeight] = thumbnail.get_transformed_size();
+    if (
+      Math.abs(previewWidth - thumbnailWidth) > 2 ||
+      Math.abs(previewHeight - thumbnailHeight) > 2
+    ) {
+      throw new Error('Window-preview thumbnail does not follow the window aspect ratio');
+    }
+
+    const scroll = findDescendant(popup.actor, (actor) => actor instanceof St.ScrollView);
+    if (!scroll) throw new Error('Window-preview popup does not contain its viewport');
+    if (
+      scroll.hscrollbar_policy !== St.PolicyType.AUTOMATIC ||
+      scroll.vscrollbar_policy !== St.PolicyType.AUTOMATIC
+    ) {
+      throw new Error('Window-preview popup cannot scroll its overflow');
+    }
+    if (scroll.hscrollbar_visible || scroll.vscrollbar_visible)
+      throw new Error('Window-preview popup exposed a scrollbar for content that fits');
+
+    const minimize = findDescendant(
+      popup.actor,
+      (actor) => actor.child?.icon_name === 'window-minimize-symbolic',
+    );
+    if (minimize) throw new Error('Window-preview popup still exposes minimize action');
+
+    const card = findDescendant(
+      popup.actor,
+      (actor) =>
+        actor.has_style_class_name && actor.has_style_class_name('aurora-window-preview-card'),
+    );
+    if (!card || !card.reactive || !card.track_hover)
+      throw new Error('Window-preview card does not track pointer hover');
+    if (card.has_style_class_name('focused'))
+      throw new Error('Window-preview card still exposes a focused-window border');
+    card.set_hover(true);
+    if (!card.has_style_pseudo_class('hover'))
+      throw new Error('Window-preview card did not enter its hover state');
+    card.set_hover(false);
+
+    const close = findDescendant(
+      popup.actor,
+      (actor) =>
+        actor.has_style_class_name && actor.has_style_class_name('aurora-window-preview-close'),
+    );
+    if (!close || !close.has_style_class_name('window-close'))
+      throw new Error('Window-preview popup does not expose the native circular close action');
+
+    const overlay = close.get_parent();
+    const [overlayX, overlayY] = overlay.get_transformed_position();
+    const [overlayWidth] = overlay.get_transformed_size();
+    const [closeX, closeY] = close.get_transformed_position();
+    const [closeWidth] = close.get_transformed_size();
+    const closeRight = closeX + closeWidth;
+    const overlayRight = overlayX + overlayWidth;
+    const horizontalOffset = closeRight - overlayRight;
+    const verticalOffset = overlayY - closeY;
+    if (
+      horizontalOffset < 6 ||
+      verticalOffset < 6 ||
+      Math.abs(horizontalOffset - verticalOffset) > 2
+    ) {
+      throw new Error('Window-preview close action is not consistently offset past the corner');
+    }
+
+    close.emit('clicked', Clutter.BUTTON_PRIMARY);
+    await Scripting.sleep(500);
+    if (item.has_style_class_name('aurora-window-preview-open'))
+      throw new Error('Window-preview Dock highlight survived popup closure');
+    if (global.get_window_actors().some((actor) => actor.meta_window === window))
+      throw new Error('Window-preview close action did not close the window');
+
+    dash._windowPreviews.close();
+    if (dash._windowPreviews._popup)
+      throw new Error('Window-preview actors were retained after popup close');
+
+    appIcon.set_hover(false);
+  } finally {
+    if (global.get_window_actors().some((actor) => actor.meta_window === window))
+      window.delete(global.get_current_time());
+    settings.set_boolean('dock-window-previews', false);
+    await Scripting.waitLeisure();
+    await Scripting.sleep(300);
+  }
+}
+
 async function exerciseDockPositions(settings, dock) {
   settings.set_boolean('dock-show-on-all-monitors', false);
   settings.set_boolean('dock-always-show', false);
@@ -444,6 +620,10 @@ export function init() {
     'Dash content destruction cancels callbacks before actors are disposed',
   );
   Scripting.defineScriptEvent(
+    'windowPreviewsValid',
+    'Window previews create live thumbnails and an overlaid close action only while open',
+  );
+  Scripting.defineScriptEvent(
     'externalStorageDisabled',
     'External storage dock icons are absent when disabled',
   );
@@ -480,6 +660,7 @@ export async function run() {
   const originalIconSize = settings.get_user_value('dock-icon-size');
   const originalMotionEnabled = settings.get_boolean('dock-motion-enabled');
   const originalMotionProfile = settings.get_string('dock-motion-profile');
+  const originalWindowPreviews = settings.get_boolean('dock-window-previews');
   settings.set_boolean('dock-show-trash', true);
   settings.set_boolean('dock-show-external-storage', false);
   settings.set_boolean('dock-always-show', false);
@@ -489,6 +670,7 @@ export async function run() {
   settings.set_int('dock-icon-size', 64);
   settings.set_boolean('dock-motion-enabled', true);
   settings.set_string('dock-motion-profile', 'balanced');
+  settings.set_boolean('dock-window-previews', false);
 
   await Scripting.waitLeisure();
   await Scripting.sleep(500);
@@ -509,6 +691,8 @@ export async function run() {
   const dock = getAuroraModule('dock');
 
   await exerciseMonitorScope(settings, dock);
+  await exerciseWindowPreviews(settings, dock);
+  Scripting.scriptEvent('windowPreviewsValid');
 
   const dash = dock?.bindings?.[0]?.dash;
   const showAppsIcon = dash?._showAppsIcon;
@@ -1146,6 +1330,7 @@ export async function run() {
   }
   settings.set_boolean('dock-motion-enabled', originalMotionEnabled);
   settings.set_string('dock-motion-profile', originalMotionProfile);
+  settings.set_boolean('dock-window-previews', originalWindowPreviews);
   settings.set_boolean('module-dock', originalValue);
   await Scripting.waitLeisure();
   await Scripting.sleep(300);
@@ -1176,6 +1361,7 @@ let _primaryMonitorOnly = false;
 let _allMonitorsEnabled = false;
 let _alwaysAutoHideIndependent = false;
 let _dashContentDisposalSafe = false;
+let _windowPreviewsValid = false;
 
 export function script_dockPresent() {
   _dockPresent = true;
@@ -1277,6 +1463,10 @@ export function script_dashContentDisposalSafe() {
   _dashContentDisposalSafe = true;
 }
 
+export function script_windowPreviewsValid() {
+  _windowPreviewsValid = true;
+}
+
 export function finish() {
   if (!_dockPresent)
     throw new Error('Dock actor was not found in the stage after extension enable');
@@ -1317,5 +1507,7 @@ export function finish() {
     throw new Error('Dock always auto-hide behavior was not verified');
   if (!_dashContentDisposalSafe)
     throw new Error('Dash content disposal did not cancel pending actor access');
+  if (!_windowPreviewsValid)
+    throw new Error('Window-preview thumbnail and close action were not verified');
   if (!_dockRemoved) throw new Error('Dock actor was not removed after module was disabled');
 }

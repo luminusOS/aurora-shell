@@ -158,6 +158,11 @@
       <summary>Show external storage</summary>
       <description>Show removable drives in the dock when they are connected</description>
     </key>
+    <key name="dock-window-previews" type="b">
+      <default>false</default>
+      <summary>Show window previews</summary>
+      <description>Show live previews and window actions when hovering over running applications in the dock</description>
+    </key>
     <key name="dock-motion-enabled" type="b">
       <default>true</default>
       <summary>Enable dock icon hover &amp; press effects</summary>

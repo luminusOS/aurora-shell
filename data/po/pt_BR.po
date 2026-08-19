@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-08-16 17:56-0300\n"
+"POT-Creation-Date: 2026-08-19 00:55-0300\n"
 "PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -422,30 +422,41 @@ msgid "Show removable drives in the dock when they are connected"
 msgstr "Mostra unidades removíveis no dock quando estão conectadas"
 
 #: dist/dock/dock.manifest.js:67
+msgid "Window Previews"
+msgstr "Pré-visualizações de janelas"
+
+#: dist/dock/dock.manifest.js:68
+msgid ""
+"Show live previews and window actions when hovering over running applications"
+msgstr ""
+"Mostra pré-visualizações ao vivo e ações de janela ao passar o mouse sobre "
+"aplicativos em execução"
+
+#: dist/dock/dock.manifest.js:73
 msgid "Icon Hover &amp; Press Effects"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:68
+#: dist/dock/dock.manifest.js:74
 msgid "Animate dock icons on hover and click"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:73
+#: dist/dock/dock.manifest.js:79
 msgid "Effect Intensity"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:74
+#: dist/dock/dock.manifest.js:80
 msgid "How strong the hover and press effects are"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:77
+#: dist/dock/dock.manifest.js:83
 msgid "Subtle"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:78
+#: dist/dock/dock.manifest.js:84
 msgid "Balanced"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:79
+#: dist/dock/dock.manifest.js:85
 msgid "Expressive"
 msgstr ""
 
@@ -1055,6 +1066,10 @@ msgstr ""
 "Oculta o conteúdo do painel durante o compartilhamento de tela; mostra "
 "apenas o indicador de compartilhamento"
 
+#: dist/shared/ui/dashWindowPreviews.js:270
+msgid "Close"
+msgstr "Fechar"
+
 #: dist/theme/autoThemeSwitcher.manifest.js:8
 msgid "Auto Theme Switcher"
 msgstr "Alternador automático de tema"
@@ -1087,6 +1102,12 @@ msgstr "Alternador de Tema"
 #: dist/theme/themeChanger.manifest.js:9
 msgid "Monitors and synchronizes GNOME color scheme"
 msgstr "Monitora e sincroniza o esquema de cores do GNOME"
+
+#~ msgid "Restore"
+#~ msgstr "Restaurar"
+
+#~ msgid "Minimize"
+#~ msgstr "Minimizar"
 
 #~ msgid "Save Changes"
 #~ msgstr "Salvar alterações"

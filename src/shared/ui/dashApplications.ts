@@ -41,7 +41,7 @@ export class DashApplicationController {
         monitor: window.get_monitor(),
         workspace: window.get_workspace() === workspace ? 0 : 1,
         sticky: window.is_on_all_workspaces(),
-        skipTaskbar: false,
+        skipTaskbar: window.is_skip_taskbar(),
       },
       this._options.getMonitorIndex(),
       0,

@@ -9,6 +9,7 @@ export type DockConfiguration = {
   maxIconSize: number;
   showTrash: boolean;
   showExternalStorage: boolean;
+  windowPreviews: boolean;
   motionEnabled: boolean;
   motionProfile: string;
 };
@@ -62,6 +63,7 @@ export function classifyDockConfigurationChange(
     'showOnAllMonitors',
     'showTrash',
     'showExternalStorage',
+    'windowPreviews',
   ];
 
   if (rebuildKeys.some((key) => previous[key] !== next[key])) {

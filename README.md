@@ -19,7 +19,7 @@ Aurora is split into independent modules, so you can enable only what you want.
 
 ### Dock & Panel
 
-- **Dock** - replaces the stock dash with a dock on the bottom, left, or right edge of each monitor. It auto-hides by default and supports intellihide, an always-visible mode, adaptive icon sizes, edge reveal, Trash, and removable drive shortcuts.
+- **Dock** - replaces the stock dash with a dock on the bottom, left, or right edge of each monitor. It auto-hides by default and supports intellihide, an always-visible mode, adaptive icon sizes, optional live window previews and actions, edge reveal, Trash, and removable drive shortcuts.
 - **Aurora Menu** - adds an Aurora panel menu with recent items, useful shortcuts, configurable panel icon, optional Activities button hiding, and a custom command slot.
 - **Volume Mixer** - adds per-application volume sliders to Quick Settings with fast access to Sound Settings.
 - **Low Battery Percentage** - uses GNOME's native battery percentage setting while the battery is discharging below 20%, without overriding users who already enabled it.

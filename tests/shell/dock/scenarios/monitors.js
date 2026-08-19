@@ -18,6 +18,7 @@ export async function exerciseMonitorScope(settings, dock) {
     get_monitor: () => monitorIndex,
     is_on_all_workspaces: () => false,
     get_workspace: () => global.workspace_manager.get_active_workspace(),
+    is_skip_taskbar: () => false,
   };
   if (!dock.bindings[0].dash._applications.isWindowRelevant(externalWindow))
     throw new Error('Primary-only Dock excluded an external-monitor app');

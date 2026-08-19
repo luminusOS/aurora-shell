@@ -61,6 +61,12 @@ export const manifest: ModuleManifest = {
       type: 'switch',
     },
     {
+      key: 'dock-window-previews',
+      title: _('Window Previews'),
+      subtitle: _('Show live previews and window actions when hovering over running applications'),
+      type: 'switch',
+    },
+    {
       key: 'dock-motion-enabled',
       title: _('Icon Hover &amp; Press Effects'),
       subtitle: _('Animate dock icons on hover and click'),

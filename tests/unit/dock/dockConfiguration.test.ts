@@ -15,6 +15,7 @@ const base: DockConfiguration = {
   maxIconSize: 64,
   showTrash: true,
   showExternalStorage: true,
+  windowPreviews: false,
   motionEnabled: true,
   motionProfile: 'subtle',
 };
@@ -36,6 +37,7 @@ test('dock configuration controller publishes typed snapshots and transition sco
 test('dock configuration distinguishes rebuild, icon-size and motion updates', () => {
   assert.equal(classifyDockConfigurationChange(base, { ...base, position: 'left' }), 'rebuild');
   assert.equal(classifyDockConfigurationChange(base, { ...base, showTrash: false }), 'rebuild');
+  assert.equal(classifyDockConfigurationChange(base, { ...base, windowPreviews: true }), 'rebuild');
   assert.equal(classifyDockConfigurationChange(base, { ...base, maxIconSize: 32 }), 'icon-size');
   assert.equal(classifyDockConfigurationChange(base, { ...base, motionEnabled: false }), 'motion');
   assert.equal(classifyDockConfigurationChange(base, { ...base }), 'none');
