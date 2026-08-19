@@ -15,7 +15,7 @@ function typeScriptFiles(directory: string): string[] {
   });
 }
 
-test('i18n — all translated source uses the Aurora gettext domain', () => {
+test('i18n: all translated source uses the Aurora gettext domain', () => {
   for (const path of typeScriptFiles(sourceRoot)) {
     if (path.endsWith('/shared/i18n.ts')) continue;
     const source = readFileSync(path, 'utf8');
@@ -32,7 +32,7 @@ test('i18n — all translated source uses the Aurora gettext domain', () => {
   }
 });
 
-test('i18n — shared gettext domain matches metadata', () => {
+test('i18n: shared gettext domain matches metadata', () => {
   const metadata = JSON.parse(readFileSync(resolve(root, 'metadata.json'), 'utf8')) as Record<
     string,
     unknown

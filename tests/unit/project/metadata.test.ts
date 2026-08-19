@@ -9,7 +9,7 @@ const meta = JSON.parse(readFileSync(resolve(root, 'metadata.json'), 'utf-8'));
 
 const EXPECTED_UUID = 'aurora-shell@luminusos.github.io';
 
-test('metadata.json — required fields are present', () => {
+test('metadata.json: required fields are present', () => {
   for (const field of [
     'uuid',
     'name',
@@ -27,22 +27,22 @@ test('metadata.json — required fields are present', () => {
   }
 });
 
-test('metadata.json — uuid matches expected value', () => {
+test('metadata.json: uuid matches expected value', () => {
   assert.strictEqual(meta.uuid, EXPECTED_UUID);
 });
 
-test('metadata.json — settings-schema matches uuid prefix', () => {
+test('metadata.json: settings-schema matches uuid prefix', () => {
   assert.ok(
     meta['settings-schema'].includes('aurora-shell'),
     `settings-schema "${meta['settings-schema']}" does not contain "aurora-shell"`,
   );
 });
 
-test('metadata.json — gettext-domain matches uuid', () => {
+test('metadata.json: gettext-domain matches uuid', () => {
   assert.strictEqual(meta['gettext-domain'], EXPECTED_UUID);
 });
 
-test('metadata.json — shell-version is a non-empty array of numeric strings', () => {
+test('metadata.json: shell-version is a non-empty array of numeric strings', () => {
   assert.ok(Array.isArray(meta['shell-version']), 'shell-version must be an array');
   assert.ok(meta['shell-version'].length > 0, 'shell-version must not be empty');
 
@@ -51,7 +51,7 @@ test('metadata.json — shell-version is a non-empty array of numeric strings', 
   }
 });
 
-test('metadata.json — version-name is a non-empty string', () => {
+test('metadata.json: version-name is a non-empty string', () => {
   const v = meta['version-name'];
   assert.ok(
     typeof v === 'string' && v.length > 0,

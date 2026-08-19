@@ -6,6 +6,7 @@
 import type St from '@girs/st-18';
 
 import type { MotionRecipe } from '~/dock/motion/catalog.ts';
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
 import { MotionSurface } from '~/dock/motion/motionSurface.ts';
 import type { AuroraDash } from '~/shared/ui/dash.ts';
 
@@ -16,7 +17,10 @@ export class DashMotionIntegration {
   private _surface: MotionSurface | null = null;
   private _recipe: MotionRecipe;
 
-  constructor(recipe: MotionRecipe) {
+  constructor(
+    recipe: MotionRecipe,
+    private _position: DockPosition,
+  ) {
     this._recipe = recipe;
   }
 
@@ -53,6 +57,7 @@ export class DashMotionIntegration {
 
     this._surface = new MotionSurface({
       recipe: this._recipe,
+      position: this._position,
       getOrderedContainers: () => {
         if (!dashContainer) return box.get_children();
         return dashContainer

@@ -77,52 +77,7 @@ test('getBlockingOverlapState lets a topmost small window reveal when focus is o
   assert.deepEqual(state.rectangles, [topmostSmallWindow]);
 });
 
-test('getBlockingOverlapState does not let a focused PiP reveal over fullscreen', () => {
-  const dock = rect(700, 1030, 600, 50);
-  const backgroundFullscreenWindow = rect(0, 0, 1920, 1080);
-  const focusedPipWindow = rect(100, 100, 500, 300);
-
-  const state = getBlockingOverlapState(
-    [
-      { rectangle: backgroundFullscreenWindow, fullscreen: true },
-      {
-        rectangle: focusedPipWindow,
-        focused: true,
-        topmost: true,
-        excludedFromSmartReveal: true,
-      },
-    ],
-    dock,
-    true,
-  );
-
-  assert.equal(state.blocked, true);
-  assert.deepEqual(state.rectangles, [backgroundFullscreenWindow]);
-});
-
-test('getBlockingOverlapState keeps the dock hidden while PiP is focused without fullscreen', () => {
-  const dock = rect(700, 1030, 600, 50);
-  const backgroundWindow = rect(0, 0, 600, 500);
-  const focusedPipWindow = rect(100, 100, 500, 300);
-
-  const state = getBlockingOverlapState(
-    [
-      { rectangle: backgroundWindow },
-      {
-        rectangle: focusedPipWindow,
-        focused: true,
-        topmost: true,
-        excludedFromSmartReveal: true,
-      },
-    ],
-    dock,
-    false,
-  );
-
-  assert.equal(state.blocked, true);
-});
-
-test('getBlockingOverlapState keeps ordinary small-window reveal when PiP exclusion is off', () => {
+test('getBlockingOverlapState reveals for a focused small window over a fullscreen one', () => {
   const dock = rect(700, 1030, 600, 50);
   const backgroundFullscreenWindow = rect(0, 0, 1920, 1080);
   const focusedSmallWindow = rect(100, 100, 500, 300);
@@ -138,47 +93,6 @@ test('getBlockingOverlapState keeps ordinary small-window reveal when PiP exclus
 
   assert.equal(state.blocked, false);
   assert.deepEqual(state.rectangles, [focusedSmallWindow]);
-});
-
-test('getBlockingOverlapState still lets an excluded PiP block by overlapping the dock', () => {
-  const dock = rect(700, 1030, 600, 50);
-  const overlappingPipWindow = rect(800, 1000, 500, 100);
-
-  const state = getBlockingOverlapState(
-    [
-      {
-        rectangle: overlappingPipWindow,
-        focused: true,
-        topmost: true,
-        excludedFromSmartReveal: true,
-      },
-    ],
-    dock,
-    false,
-  );
-
-  assert.equal(state.blocked, true);
-  assert.deepEqual(state.rectangles, [overlappingPipWindow]);
-});
-
-test('getBlockingOverlapState does not reveal for an excluded PiP when focus is on another monitor', () => {
-  const dock = rect(700, 1030, 600, 50);
-  const topmostPipWindow = rect(100, 100, 500, 300);
-
-  const state = getBlockingOverlapState(
-    [
-      {
-        rectangle: topmostPipWindow,
-        topmost: true,
-        excludedFromSmartReveal: true,
-      },
-    ],
-    dock,
-    false,
-  );
-
-  assert.equal(state.blocked, true);
-  assert.deepEqual(state.rectangles, [topmostPipWindow]);
 });
 
 test('getBlockingOverlapState blocks when the focused window overlaps the dock', () => {

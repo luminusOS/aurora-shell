@@ -18,6 +18,7 @@ function candidate(overrides: Partial<ExternalStorageCandidate>): ExternalStorag
     isShadowed: false,
     canMount: false,
     hasMount: true,
+    isRemovable: true,
     ...overrides,
   };
 }
@@ -52,6 +53,30 @@ test('selectExternalStorageEntries excludes network volumes and non-native orpha
 
 test('selectExternalStorageEntries excludes unmountable volumes without mounts', () => {
   assert.deepEqual(selectExternalStorageEntries([candidate({ hasMount: false })]), []);
+});
+
+test('selectExternalStorageEntries excludes non-removable system volumes', () => {
+  const entries = selectExternalStorageEntries([
+    candidate({
+      id: 'volume:fedora_fedora',
+      name: 'fedora_fedora',
+      volumeClass: 'device',
+      hasMount: false,
+      canMount: true,
+      isRemovable: false,
+    }),
+  ]);
+
+  assert.deepEqual(entries, []);
+});
+
+test('selectExternalStorageEntries excludes non-removable orphan mounts', () => {
+  assert.deepEqual(
+    selectExternalStorageEntries([
+      candidate({ id: 'mount:root', kind: 'mount', isRemovable: false }),
+    ]),
+    [],
+  );
 });
 
 test('selectExternalStorageEntries deduplicates stable ids and sorts by sort key', () => {

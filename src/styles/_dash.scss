@@ -89,6 +89,57 @@
   background-color: vars.$aurora-dash-separator-color;
 }
 
+#dash.dock-left .dash-separator,
+#dash.dock-right .dash-separator {
+  height: 1px;
+  margin: 4px 0;
+}
+
+#dash.dock-left,
+#dash.dock-right {
+  padding: 6px 0;
+
+  .dash-background {
+    padding: 10px 12px;
+  }
+
+  .dash-item-container .show-apps,
+  .dash-item-container .overview-tile,
+  .dash-item-container .grid-search-result {
+    margin: 2px 0;
+    padding-bottom: 0;
+  }
+}
+
+#dash.dock-left .dash-item-container .show-apps,
+#dash.dock-left .dash-item-container .overview-tile,
+#dash.dock-left .dash-item-container .grid-search-result {
+  padding-left: 12px;
+}
+
+#dash.dock-right .dash-item-container .show-apps,
+#dash.dock-right .dash-item-container .overview-tile,
+#dash.dock-right .dash-item-container .grid-search-result {
+  padding-right: 12px;
+}
+
+#dash.dock-left .dash-background,
+#dash.dock-left .dash-separator {
+  margin-bottom: 0;
+  margin-left: 12px;
+}
+
+#dash.dock-right .dash-background,
+#dash.dock-right .dash-separator {
+  margin-bottom: 0;
+  margin-right: 12px;
+}
+
+#dash.dock-left .app-grid-running-dot,
+#dash.dock-right .app-grid-running-dot {
+  offset-y: 0;
+}
+
 #dash.flush-mode {
   margin-bottom: 0;
 
@@ -103,6 +154,32 @@
 
   .app-grid-running-dot {
     offset-y: 0;
+  }
+}
+
+#dash.dock-left.flush-mode {
+  margin-left: 0;
+
+  .dash-background,
+  .dash-separator {
+    margin-left: 0;
+  }
+
+  .dash-item-container {
+    margin: 0 12px 0 0;
+  }
+}
+
+#dash.dock-right.flush-mode {
+  margin-right: 0;
+
+  .dash-background,
+  .dash-separator {
+    margin-right: 0;
+  }
+
+  .dash-item-container {
+    margin: 0 0 0 12px;
   }
 }
 

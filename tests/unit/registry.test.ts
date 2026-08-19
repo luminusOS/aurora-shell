@@ -141,16 +141,16 @@ const entries = catalog();
 const keys = entries.map((entry) => entry.key);
 const settingsKeys = entries.map((entry) => entry.settingsKey);
 
-test('catalog — ids and settings keys are unique', () => {
+test('catalog: ids and settings keys are unique', () => {
   assert.equal(new Set(keys).size, keys.length);
   assert.equal(new Set(settingsKeys).size, settingsKeys.length);
 });
 
-test('catalog ↔ registry — every manifest has exactly one factory', () => {
+test('catalog ↔ registry: every manifest has exactly one factory', () => {
   assert.deepEqual([...factoryKeys()].sort(), [...keys].sort());
 });
 
-test('catalog — every section is declared by moduleCatalog', () => {
+test('catalog: every section is declared by moduleCatalog', () => {
   const catalogSource = sourceFile('src/moduleCatalog.ts');
   const sections = new Set<string>();
   function visit(node: ts.Node): void {
@@ -185,7 +185,7 @@ test('prefs uses the manifest-only catalog and extension core uses the runtime r
   assert.equal(importsRegistry, true);
 });
 
-test('moduleCatalog — does not import runtime module implementations', () => {
+test('moduleCatalog: does not import runtime module implementations', () => {
   const catalogSource = sourceFile('src/moduleCatalog.ts');
   for (const statement of catalogSource.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
@@ -199,7 +199,7 @@ test('moduleCatalog — does not import runtime module implementations', () => {
   }
 });
 
-test('catalog — desktop module baseline is preserved', () => {
+test('catalog: desktop module baseline is preserved', () => {
   assert.deepEqual(keys, [
     'no-overview',
     'pip-on-top',
@@ -226,6 +226,6 @@ test('catalog — desktop module baseline is preserved', () => {
   ]);
 });
 
-test('catalog — shared is not a device/display role', () => {
+test('catalog: shared is not a device/display role', () => {
   for (const entry of entries) assert.ok(!entry.runtimeRoles.includes('shared'), entry.key);
 });

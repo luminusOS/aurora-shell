@@ -11,6 +11,7 @@ export interface ExternalStorageCandidate {
   isShadowed: boolean;
   canMount: boolean;
   hasMount: boolean;
+  isRemovable: boolean;
 }
 
 export interface ExternalStorageEntry {
@@ -29,6 +30,7 @@ function isInterestingLocalStorage(candidate: ExternalStorageCandidate): boolean
   if (!candidate.id || !candidate.name) return false;
   if (candidate.isShadowed) return false;
   if (isNetworkClass(candidate.volumeClass)) return false;
+  if (!candidate.isRemovable) return false;
   if (!candidate.isNative && !candidate.hasDrive) return false;
 
   if (candidate.kind === 'volume') {

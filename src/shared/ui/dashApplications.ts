@@ -4,12 +4,23 @@ import type St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import { isDashWindowRelevant } from './dashState.ts';
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
 
 type DashApplicationOptions = {
   getContentActor: () => St.Widget | null;
   getMonitorIndex: () => number;
   getIsolateMonitor: () => boolean;
+  getPosition: () => DockPosition;
 };
+
+const RUNNING_DOT_PLACEMENT = {
+  bottom: { x: Clutter.ActorAlign.CENTER, y: Clutter.ActorAlign.END, resetOffset: false },
+  left: { x: Clutter.ActorAlign.START, y: Clutter.ActorAlign.CENTER, resetOffset: true },
+  right: { x: Clutter.ActorAlign.END, y: Clutter.ActorAlign.CENTER, resetOffset: true },
+} satisfies Record<
+  DockPosition,
+  { x: Clutter.ActorAlign; y: Clutter.ActorAlign; resetOffset: boolean }
+>;
 
 export class DashApplicationController {
   constructor(private _options: DashApplicationOptions) {}
@@ -39,6 +50,8 @@ export class DashApplicationController {
   }
 
   updateRunningDots(): void {
+    const placement = RUNNING_DOT_PLACEMENT[this._options.getPosition()];
+
     for (const child of this.getChildren()) {
       const icon = child.child?._delegate;
       if (!icon?.app) continue;
@@ -48,6 +61,12 @@ export class DashApplicationController {
         .some((window: any) => this.isWindowRelevant(window));
       if (icon._dot) {
         icon._dot.visible = hasWindowHere;
+        icon._dot.x_align = placement.x;
+        icon._dot.y_align = placement.y;
+        if (placement.resetOffset) {
+          icon._dot.translation_x = 0;
+          icon._dot.translation_y = 0;
+        }
       }
     }
   }

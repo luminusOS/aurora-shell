@@ -9,6 +9,19 @@ import {
 const FALLBACK_ICON = 'drive-harddisk';
 const LOG_PREFIX = 'DockStorage';
 
+function isRemovableStorage(
+  drive: Gio.Drive | null,
+  volume: Gio.Volume | null,
+  mount: Gio.Mount | null,
+): boolean {
+  return Boolean(
+    drive?.is_removable() ||
+    drive?.is_media_removable() ||
+    volume?.can_eject() ||
+    mount?.can_eject(),
+  );
+}
+
 export interface ExternalStorageItem {
   id: string;
   name: string;
@@ -92,6 +105,7 @@ export class ExternalStorageMonitor {
     itemsById: Map<string, ExternalStorageItem>,
   ): void {
     const mount = volume.get_mount();
+    const drive = volume.get_drive();
     const root = mount ? mount.get_root() : volume.get_activation_root();
     let identifier = volume.get_uuid();
     if (!identifier) identifier = volume.get_identifier(Gio.VOLUME_IDENTIFIER_KIND_UUID);
@@ -107,11 +121,12 @@ export class ExternalStorageMonitor {
       kind: 'volume',
       sortKey: volume.get_sort_key(),
       volumeClass: volume.get_identifier(Gio.VOLUME_IDENTIFIER_KIND_CLASS),
-      hasDrive: volume.get_drive() !== null,
+      hasDrive: drive !== null,
       isNative: root ? root.is_native() : true,
       isShadowed: mount ? mount.is_shadowed() : false,
       canMount: volume.can_mount(),
       hasMount: mount !== null,
+      isRemovable: isRemovableStorage(drive, volume, mount),
     });
     itemsById.set(id, {
       id,
@@ -145,6 +160,7 @@ export class ExternalStorageMonitor {
       isShadowed: mount.is_shadowed(),
       canMount: false,
       hasMount: true,
+      isRemovable: isRemovableStorage(mount.get_drive(), null, mount),
     });
     itemsById.set(id, {
       id,

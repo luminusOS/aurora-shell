@@ -18,7 +18,7 @@ export function getAuroraSettings() {
   const ext = Main.extensionManager.lookup(EXTENSION_UUID);
   if (!ext) throw new Error(`Extension ${EXTENSION_UUID} not found`);
   if (!ext.stateObj)
-    throw new Error(`Extension ${EXTENSION_UUID} has no state object — not fully loaded`);
+    throw new Error(`Extension ${EXTENSION_UUID} has no state object and may not be fully loaded`);
 
   // Delegate to the extension's own getSettings() so that the same schema
   // source used by the extension itself is used here. This avoids issues

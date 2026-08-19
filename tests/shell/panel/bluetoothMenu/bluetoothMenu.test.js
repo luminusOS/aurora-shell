@@ -55,8 +55,8 @@ export function finish() {
   if (!_extensionEnabled) throw new Error('Aurora Shell extension was not found or not enabled');
 
   if (!_btToggleFound)
-    throw new Error('BluetoothToggle not found — bluetooth module may not be wired up');
+    throw new Error('BluetoothToggle not found; the Bluetooth module may not be wired up');
 
   if (!_cssClassApplied)
-    throw new Error('aurora-bt-menu CSS class missing — BluetoothMenu module did not attach');
+    throw new Error('aurora-bt-menu CSS class missing; the BluetoothMenu module did not attach');
 }

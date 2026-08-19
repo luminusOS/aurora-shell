@@ -2,6 +2,7 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+import { Dash as ShellDash } from 'resource:///org/gnome/shell/ui/dash.js';
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
@@ -16,6 +17,11 @@ import {
 import { exerciseExternalWorkspace, exerciseMonitorScope } from './scenarios/monitors.js';
 
 const DOCK_ACTOR_PREFIX = 'aurora-dock-container-';
+const RUNNING_DOT_ALIGNMENT = {
+  bottom: { x: Clutter.ActorAlign.CENTER, y: Clutter.ActorAlign.END },
+  left: { x: Clutter.ActorAlign.START, y: Clutter.ActorAlign.CENTER },
+  right: { x: Clutter.ActorAlign.END, y: Clutter.ActorAlign.CENTER },
+};
 
 function findDockActor() {
   const uiGroup = Main.layoutManager.uiGroup;
@@ -32,10 +38,343 @@ function clearIntellihideQueuedRefreshes(intellihide) {
   intellihide._settle?.clear();
 }
 
+function assertSeparatorOrientation(dash, position) {
+  const separator = dash._fixedSeparator;
+  if (!separator) return;
+
+  const [, width] = separator.get_preferred_width(-1);
+  const [, height] = separator.get_preferred_height(-1);
+  if (position === 'bottom') {
+    if (width > height) throw new Error('Bottom Dock separator is not vertical');
+    return;
+  }
+
+  if (height > width) throw new Error(`${position} Dock separator is not horizontal`);
+}
+
+function assertBackgroundCoversDash(dash, position) {
+  const background = dash._background;
+  const container = dash._dashContainer;
+  if (!background || !container) throw new Error(`${position} Dock is missing its background`);
+
+  // The background must span the container along the icon axis, otherwise it
+  // only wraps a single icon and the rest of the dock renders unpainted.
+  const [mainSize, containerMain] =
+    position === 'bottom'
+      ? [background.width, container.width]
+      : [background.height, container.height];
+
+  if (mainSize < containerMain - 1)
+    throw new Error(
+      `${position} Dock background does not span the dash ` +
+        `(background=${background.width}x${background.height}, ` +
+        `container=${container.width}x${container.height})`,
+    );
+}
+
+function assertBackgroundClearsScreenEdge(dash, position) {
+  const background = dash._background;
+  if (!background) throw new Error(`${position} Dock is missing its background`);
+
+  // The dash actor reaches the screen edge; the visible pill is inset from it
+  // by a margin on the background itself.
+  const gap =
+    position === 'left'
+      ? background.x
+      : position === 'right'
+        ? dash.width - (background.x + background.width)
+        : dash.height - (background.y + background.height);
+
+  if (gap < 8)
+    throw new Error(`${position} Dock background sits flush against the screen edge (gap=${gap})`);
+}
+
+function assertRunningDotsPointToEdge(dash, position) {
+  const expected = RUNNING_DOT_ALIGNMENT[position];
+  for (const child of dash._box.get_children()) {
+    const dot = child.child?._delegate?._dot;
+    if (!dot) continue;
+    if (dot.x_align !== expected.x || dot.y_align !== expected.y)
+      throw new Error(`${position} Dock running indicator points to the wrong edge`);
+  }
+}
+
+// The session the tests run in has no favorite apps, so no dash item owns a
+// running dot to measure. Probe the stylesheet with a throwaway widget parented
+// to the dash instead, so the `#dash.dock-*` selectors still apply.
+function assertRunningDotIsRound(dash, position) {
+  // Parented to the dash itself, not to `_dashContainer`: the container lays
+  // its children out along the icon axis, and a probe there would perturb the
+  // dock geometry the later assertions depend on.
+  const probe = new St.Widget({ style_class: 'app-grid-running-dot' });
+  dash.add_child(probe);
+  try {
+    probe.ensure_style();
+    const [, width] = probe.get_preferred_width(-1);
+    const [, height] = probe.get_preferred_height(-1);
+    if (width !== height)
+      throw new Error(`${position} Dock running indicator is not round (${width}x${height})`);
+  } finally {
+    probe.destroy();
+  }
+}
+
+// The dot must clear the icon texture, not be painted over it. The icon
+// container leaves ~18px of slack below the texture but only ~6px beside it, so
+// an offset that is right for one axis is wrong for the other.
+async function assertRunningDotClearsIcon(dash, position) {
+  const apps = Shell.AppSystem.get_default()
+    .get_installed()
+    .filter((app) => app.should_show())
+    .slice(0, 1)
+    .map((app) => app.get_id());
+  if (apps.length === 0) throw new Error('No installed app available to probe the running dot');
+
+  const saved = global.settings.get_strv('favorite-apps');
+  global.settings.set_strv('favorite-apps', apps);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(300);
+
+  try {
+    for (const child of dash._box.get_children()) {
+      const icon = child.child?._delegate;
+      const texture = icon?.icon?.icon;
+      if (!icon?._dot || !texture) continue;
+
+      const dot = icon._dot;
+      const container = icon._iconContainer;
+      // The dot is hidden while the app is not running, so it has no allocation
+      // to read; derive the free room from the container and texture boxes and
+      // compare it against the dot's size plus its offset.
+      const [containerX, containerY] = container.get_transformed_position();
+      const [textureX, textureY] = texture.get_transformed_position();
+      const slack =
+        position === 'bottom'
+          ? containerY + container.height - (textureY + texture.height)
+          : position === 'left'
+            ? textureX - containerX
+            : containerX + container.width - (textureX + texture.width);
+      const dotExtent = position === 'bottom' ? dot.height : dot.width;
+      const offset =
+        position === 'bottom'
+          ? -dot.translation_y
+          : position === 'left'
+            ? dot.translation_x
+            : -dot.translation_x;
+
+      if (offset + dotExtent > slack)
+        throw new Error(
+          `${position} Dock running indicator overlaps the icon ` +
+            `(offset=${offset}, dot=${dotExtent}, slack=${slack})`,
+        );
+    }
+  } finally {
+    global.settings.set_strv('favorite-apps', saved);
+    await Scripting.waitLeisure();
+    await Scripting.sleep(200);
+  }
+}
+
+function assertSideLabelIsInside(dash, position) {
+  const item = dash._showAppsIcon;
+  dash._showSideLabel(item);
+  const [itemX] = item.get_transformed_position();
+
+  let labelIsInside;
+  if (position === 'left') {
+    labelIsInside = item.label.x > itemX + item.width;
+  } else if (position === 'right') {
+    labelIsInside = item.label.x + item.label.width < itemX;
+  } else {
+    throw new Error(`Side label assertion does not support ${position}`);
+  }
+
+  if (!item.label.visible || !labelIsInside)
+    throw new Error(`${position} Dock label is not shown on the inner side`);
+  item.hideLabel();
+}
+
+function assertVerticalDragPlaceholder(dash, position) {
+  const originalGetAppFromSource = ShellDash.getAppFromSource;
+  try {
+    ShellDash.getAppFromSource = () => ({ is_window_backed: () => false });
+    dash.handleDragOver({}, null, 0, dash._box.height * 0.75, 0);
+    const placeholder = dash._dragPlaceholder;
+    const hasExpectedSize =
+      placeholder?.child.width === dash.iconSize / 2 && placeholder.child.height === dash.iconSize;
+    if (!hasExpectedSize)
+      throw new Error(`${position} Dock did not create a vertical drag placeholder`);
+  } finally {
+    dash._clearDragPlaceholder();
+    ShellDash.getAppFromSource = originalGetAppFromSource;
+  }
+}
+
+function edgeIsReachable(monitors, index, position) {
+  const monitor = monitors[index];
+  const left = monitor.x;
+  const right = left + monitor.width;
+  const top = monitor.y;
+  const bottom = top + monitor.height;
+  return !monitors.some((other, otherIndex) => {
+    if (index === otherIndex) return false;
+    const overlapsX = other.x < right && other.x + other.width > left;
+    const overlapsY = other.y < bottom && other.y + other.height > top;
+    if (position === 'left') return overlapsY && other.x + other.width === left;
+    if (position === 'right') return overlapsY && other.x === right;
+    return overlapsX && other.y === bottom;
+  });
+}
+
+async function exerciseDockPositions(settings, dock) {
+  settings.set_boolean('dock-show-on-all-monitors', false);
+  settings.set_boolean('dock-always-show', false);
+  settings.set_boolean('dock-intellihide', true);
+
+  // Extent of the icon axis per position, so a side dock cannot silently pick
+  // up the bottom dock's edge offset as extra spacing between icons.
+  const iconAxisExtents = {};
+
+  for (const position of ['bottom', 'left', 'right']) {
+    settings.set_string('dock-position', position);
+    await Scripting.waitLeisure();
+    await Scripting.sleep(350);
+
+    const binding = dock.bindings.find(
+      (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
+    );
+    if (!binding || binding.dash._position !== position)
+      throw new Error(`Dock position ${position} did not apply immediately`);
+
+    const vertical = position !== 'bottom';
+    const orientation = binding.dash._dashContainer.layout_manager.orientation;
+    if ((orientation === Clutter.Orientation.VERTICAL) !== vertical)
+      throw new Error(`Dock ${position} has the wrong container orientation`);
+
+    binding.dash.show(false);
+    const workArea = Main.layoutManager.getWorkAreaForMonitor(binding.monitorIndex);
+    binding.dash.applyWorkArea(workArea);
+    await Scripting.waitLeisure();
+    const monitor = Main.layoutManager.monitors[binding.monitorIndex];
+    const container = binding.container;
+    const centerTolerance = 2;
+    if (position === 'bottom') {
+      const center = container.x + container.width / 2;
+      if (Math.abs(center - (monitor.x + monitor.width / 2)) > centerTolerance)
+        throw new Error('Bottom Dock is not centered horizontally');
+    } else {
+      const center = container.y + container.height / 2;
+      if (Math.abs(center - (workArea.y + workArea.height / 2)) > centerTolerance)
+        throw new Error(`${position} Dock is not centered vertically`);
+    }
+
+    const separator = binding.dash._fixedSeparator;
+    const children = binding.dash._dashContainer.get_children();
+    const showAppsIndex = children.indexOf(binding.dash._showAppsIcon);
+    const separatorIndex = children.indexOf(separator);
+    const firstFixedIndex = Math.min(
+      ...binding.dash._fixedItems.icons.map((icon) => children.indexOf(icon)),
+    );
+    if (separator && !(separatorIndex < firstFixedIndex && firstFixedIndex < showAppsIndex))
+      throw new Error(`${position} Dock did not keep fixed items before Show Apps`);
+
+    assertSeparatorOrientation(binding.dash, position);
+    assertBackgroundCoversDash(binding.dash, position);
+    assertBackgroundClearsScreenEdge(binding.dash, position);
+    assertRunningDotsPointToEdge(binding.dash, position);
+    assertRunningDotIsRound(binding.dash, position);
+    await assertRunningDotClearsIcon(binding.dash, position);
+
+    iconAxisExtents[position] = vertical
+      ? binding.dash._dashContainer.height
+      : binding.dash._dashContainer.width;
+
+    if (vertical) {
+      assertSideLabelIsInside(binding.dash, position);
+      assertVerticalDragPlaceholder(binding.dash, position);
+    }
+
+    if (!binding.intellihide)
+      throw new Error(`${position} Dock did not preserve intellihide after changing sides`);
+
+    binding.dash.hide(false);
+    if (position === 'left' && binding.dash.translation_x >= 0)
+      throw new Error('Left Dock did not hide toward the left edge');
+    if (position === 'right' && binding.dash.translation_x <= 0)
+      throw new Error('Right Dock did not hide toward the right edge');
+    if (position === 'bottom' && binding.dash.translation_y <= 0)
+      throw new Error('Bottom Dock did not hide toward the bottom edge');
+    binding.dash.show(false);
+
+    const hotArea = binding.hotArea;
+    if (!hotArea) throw new Error(`${position} Dock has no reveal hot area`);
+    if (vertical && (hotArea.width !== 1 || hotArea.height <= hotArea.width))
+      throw new Error(`${position} Dock hot area is not vertical`);
+    if (!vertical && (hotArea.height !== 1 || hotArea.width <= hotArea.height))
+      throw new Error('Bottom Dock hot area is not horizontal');
+
+    settings.set_boolean('dock-always-show', true);
+    await Scripting.waitLeisure();
+    await Scripting.sleep(350);
+    const alwaysBinding = dock.bindings.find(
+      (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
+    );
+    const strut = alwaysBinding?.strutActor;
+    if (!alwaysBinding || !strut) throw new Error(`${position} Dock did not create a strut`);
+    if (
+      vertical &&
+      (strut.width !== alwaysBinding.container.width || strut.height !== monitor.height)
+    )
+      throw new Error(`${position} Dock did not reserve a vertical strut`);
+    if (
+      !vertical &&
+      (strut.height !== alwaysBinding.container.height || strut.width !== monitor.width)
+    )
+      throw new Error('Bottom Dock did not reserve a horizontal strut');
+
+    settings.set_boolean('dock-always-show', false);
+    settings.set_boolean('dock-intellihide', true);
+  }
+
+  // The same icons occupy the same run length whatever edge they sit on.
+  for (const position of ['left', 'right']) {
+    const drift = Math.abs(iconAxisExtents[position] - iconAxisExtents.bottom);
+    if (drift > 4)
+      throw new Error(
+        `${position} Dock spaces its icons differently from the bottom Dock ` +
+          `(${position}=${iconAxisExtents[position]}, bottom=${iconAxisExtents.bottom})`,
+      );
+  }
+
+  settings.set_boolean('dock-show-on-all-monitors', true);
+  for (const position of ['left', 'right']) {
+    settings.set_string('dock-position', position);
+    await Scripting.waitLeisure();
+    await Scripting.sleep(350);
+    if (
+      dock.bindings.some(
+        (candidate) =>
+          !edgeIsReachable(Main.layoutManager.monitors, candidate.monitorIndex, position),
+      )
+    )
+      throw new Error(`${position} Dock was placed on an inaccessible monitor edge`);
+  }
+
+  settings.set_boolean('dock-show-on-all-monitors', false);
+  settings.set_string('dock-position', 'bottom');
+  settings.set_boolean('dock-intellihide', true);
+  await Scripting.waitLeisure();
+  await Scripting.sleep(350);
+}
+
 export var METRICS = {};
 
 export function init() {
   Scripting.defineScriptEvent('dockPresent', 'Dock actor found in stage after enable');
+  Scripting.defineScriptEvent(
+    'dockPositionsValid',
+    'Bottom, left, and right positions apply immediately with correct geometry',
+  );
   Scripting.defineScriptEvent('panelIntact', 'Top panel still visible with dock active');
   Scripting.defineScriptEvent('trashIconValid', 'Trash icon availability and position are correct');
   Scripting.defineScriptEvent('trashClickWired', 'Trash launch behavior is valid');
@@ -83,10 +422,6 @@ export function init() {
   Scripting.defineScriptEvent(
     'intellihideFlapDebounced',
     'Transient geometry flaps coalesce into a single settled status',
-  );
-  Scripting.defineScriptEvent(
-    'pipSmartRevealPolicySynced',
-    'Intellihide follows the PiP module setting without rebuilding the Dock',
   );
   Scripting.defineScriptEvent(
     'externalWorkspaceActorStable',
@@ -141,15 +476,16 @@ export async function run() {
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
   const originalIntellihide = settings.get_boolean('dock-intellihide');
   const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
+  const originalPosition = settings.get_string('dock-position');
   const originalIconSize = settings.get_user_value('dock-icon-size');
   const originalMotionEnabled = settings.get_boolean('dock-motion-enabled');
   const originalMotionProfile = settings.get_string('dock-motion-profile');
-  const originalPipOnTop = settings.get_boolean('module-pip-on-top');
   settings.set_boolean('dock-show-trash', true);
   settings.set_boolean('dock-show-external-storage', false);
   settings.set_boolean('dock-always-show', false);
   settings.set_boolean('dock-intellihide', true);
   settings.set_boolean('dock-show-on-all-monitors', false);
+  settings.set_string('dock-position', 'bottom');
   settings.set_int('dock-icon-size', 64);
   settings.set_boolean('dock-motion-enabled', true);
   settings.set_string('dock-motion-profile', 'balanced');
@@ -166,7 +502,7 @@ export async function run() {
   Scripting.scriptEvent('dockPresent');
 
   if (!Main.panel.visible)
-    throw new Error('Top panel is not visible — dock module may have broken it');
+    throw new Error('Top panel is not visible; the dock module may have broken it');
 
   Scripting.scriptEvent('panelIntact');
 
@@ -178,8 +514,9 @@ export async function run() {
   const showAppsIcon = dash?._showAppsIcon;
   const dashChildren = dash?._dashContainer?.get_children ? dash._dashContainer.get_children() : [];
   const showAppsIndex = dashChildren.indexOf(showAppsIcon);
-  const trashIcon = showAppsIndex > 0 ? dashChildren[showAppsIndex - 1] : null;
+  const trashIcon = dash?._fixedItems?._trash;
   const trashIndex = dashChildren.indexOf(trashIcon);
+  const fixedSeparatorIndex = dashChildren.indexOf(dash?._fixedSeparator);
   let trashUri;
   if (trashIcon && trashIcon._trashFile && trashIcon._trashFile.get_uri)
     trashUri = trashIcon._trashFile.get_uri();
@@ -197,9 +534,14 @@ export async function run() {
       throw new Error('Trash icon was not created while dock-show-trash is enabled');
     if (trashIcon._iconActor?.icon_name?.endsWith('-symbolic'))
       throw new Error(`Trash icon is still symbolic: ${trashIcon._iconActor.icon_name}`);
-    if (trashIndex < 0 || showAppsIndex !== trashIndex + 1)
+    if (
+      trashIndex < 0 ||
+      fixedSeparatorIndex < 0 ||
+      !(fixedSeparatorIndex < trashIndex && trashIndex < showAppsIndex)
+    )
       throw new Error(
-        `Trash icon must immediately precede Show Apps (trash=${trashIndex}, showApps=${showAppsIndex})`,
+        `Fixed separator and Trash must precede Show Apps ` +
+          `(separator=${fixedSeparatorIndex}, trash=${trashIndex}, showApps=${showAppsIndex})`,
       );
     if (dash._box?.contains && dash._box.contains(trashIcon))
       throw new Error('Trash icon is inside the app list instead of being a fixed dock item');
@@ -269,8 +611,8 @@ export async function run() {
   //
   // The fixed-icon count here must not depend on how many apps happen to be
   // pinned or running in the test environment: with zero of those, the dash
-  // holds only the Show Apps icon, which — being simultaneously the first
-  // and last child — picks up extra edge margin that a multi-icon dash never
+  // holds only the Show Apps icon. As both the first and last child, it picks
+  // up extra edge margin that a multi-icon dash never
   // sees, so the sizing budget below (derived from a single representative
   // icon) undershoots the real render. Synthesizing a few external-storage
   // icons (no hardware or Nautilus required) keeps the icon count, and this
@@ -338,7 +680,7 @@ export async function run() {
     const content = themeNode.get_content_box(probe);
     const horizontalChrome = 1000 - (content.x2 - content.x1);
 
-    // Budget the width for every icon at size 31 — just below the 32 step of
+    // Budget the width for every icon at size 31, just below the 32 step of
     // baseIconSizes. Counting all icons picks 24 and fits with dozens of px
     // to spare; leaving the fixed icons out of the count picks 32 and
     // overflows the budget by a full icon-step per icon.
@@ -354,7 +696,8 @@ export async function run() {
     if (natWidth > maxWidth)
       throw new Error(
         `dash natural width ${natWidth} exceeds the ${maxWidth}px budget for ` +
-          `${totalIcons} icons (iconSize=${dash.iconSize}) — fixed icons not counted`,
+          `${totalIcons} icons at iconSize=${dash.iconSize}; ` +
+          'the fixed icons may not have been counted',
       );
   } finally {
     if (injectedStorageIcons) dash._fixedItems._syncStorage([]);
@@ -436,18 +779,6 @@ export async function run() {
   Scripting.scriptEvent('itemDragKeepsDockStable');
 
   const binding = dock.bindings[0];
-
-  settings.set_boolean('module-pip-on-top', false);
-  await Scripting.waitLeisure();
-  if (binding.intellihide?._excludePipFromSmartReveal)
-    throw new Error('Intellihide kept excluding PiP after the PiP module was disabled');
-
-  settings.set_boolean('module-pip-on-top', true);
-  await Scripting.waitLeisure();
-  if (!binding.intellihide?._excludePipFromSmartReveal)
-    throw new Error('Intellihide did not exclude PiP after the PiP module was enabled');
-
-  Scripting.scriptEvent('pipSmartRevealPolicySynced');
 
   // a direct intellihide BLOCKED transition from a visible dock must hand
   // off to hover autohide. This covers switching from a small window to a
@@ -531,8 +862,8 @@ export async function run() {
   // (e.g. switching between two fullscreen/maximized windows via the dock
   // icons), the dock must stay visible while the pointer is over it and hide
   // only once the pointer leaves the dock. Retraction is driven by the dash's
-  // native hover autohide, which polls the dock actor's hover state — reliable
-  // even when the pointer moves onto a client window. This is the reported
+  // native hover autohide, which polls the dock actor's hover state and stays
+  // reliable when the pointer moves onto a client window. This is the reported
   // maximized-switch bug, where a stage motion watch never saw the exit.
   const originalBlockedDashContainerHasHover = dash._visibility._hovered;
   try {
@@ -682,7 +1013,7 @@ export async function run() {
   // intellihide flap CLEAR<->BLOCKED many times in well under a second
   // (gnome-shell-logs: rects=[0,0 0x0] then the work-area rect then the real
   // small window, all within one second). Those flaps must coalesce into a
-  // single settled status instead of toggling the dock — this covers both the
+  // single settled status instead of toggling the dock. This covers both the
   // "dock piscando / aparecendo por cima" flicker and the new-small-window
   // hides-the-dock bug.
   clearIntellihideQueuedRefreshes(binding.intellihide);
@@ -725,6 +1056,9 @@ export async function run() {
 
   clearIntellihideQueuedRefreshes(binding.intellihide);
   Scripting.scriptEvent('intellihideFlapDebounced');
+
+  await exerciseDockPositions(settings, dock);
+  Scripting.scriptEvent('dockPositionsValid');
 
   // Always auto-hide must bypass intellihide completely: with no overlap
   // decision involved, it starts hidden and only appears through the hot area.
@@ -804,6 +1138,7 @@ export async function run() {
   settings.set_boolean('dock-always-show', originalAlwaysShow);
   settings.set_boolean('dock-intellihide', originalIntellihide);
   settings.set_boolean('dock-show-on-all-monitors', originalShowOnAllMonitors);
+  settings.set_string('dock-position', originalPosition);
   if (originalIconSize === null) {
     settings.reset('dock-icon-size');
   } else {
@@ -811,13 +1146,13 @@ export async function run() {
   }
   settings.set_boolean('dock-motion-enabled', originalMotionEnabled);
   settings.set_string('dock-motion-profile', originalMotionProfile);
-  settings.set_boolean('module-pip-on-top', originalPipOnTop);
   settings.set_boolean('module-dock', originalValue);
   await Scripting.waitLeisure();
   await Scripting.sleep(300);
 }
 
 let _dockPresent = false;
+let _dockPositionsValid = false;
 let _panelIntact = false;
 let _trashIconValid = false;
 let _trashClickWired = false;
@@ -844,6 +1179,10 @@ let _dashContentDisposalSafe = false;
 
 export function script_dockPresent() {
   _dockPresent = true;
+}
+
+export function script_dockPositionsValid() {
+  _dockPositionsValid = true;
 }
 
 export function script_panelIntact() {
@@ -941,6 +1280,7 @@ export function script_dashContentDisposalSafe() {
 export function finish() {
   if (!_dockPresent)
     throw new Error('Dock actor was not found in the stage after extension enable');
+  if (!_dockPositionsValid) throw new Error('Dock side placement behavior was not verified');
   if (!_panelIntact) throw new Error('Top panel was not visible while dock was active');
   if (!_trashIconValid) throw new Error('Trash icon or its position was invalid');
   if (!_trashClickWired) throw new Error('Trash click was not wired to the open action');

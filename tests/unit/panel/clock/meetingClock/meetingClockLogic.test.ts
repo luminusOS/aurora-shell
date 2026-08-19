@@ -29,7 +29,7 @@ function event(overrides: Partial<MeetingEvent> = {}): MeetingEvent {
   };
 }
 
-test('meetingClock — normalizes CalendarServer events and detects meeting URL', () => {
+test('meetingClock: normalizes CalendarServer events and detects meeting URL', () => {
   const normalized = normalizeCalendarServerEvent([
     'calendar-1 event-1',
     'Daily Sync',
@@ -49,7 +49,7 @@ test('meetingClock — normalizes CalendarServer events and detects meeting URL'
   assert.strictEqual(normalized.meetingUrl, 'https://meet.google.com/abc-defg-hij');
 });
 
-test('meetingClock — calculates the next alert across lead time and snooze state', () => {
+test('meetingClock: calculates the next alert across lead time and snooze state', () => {
   const now = 1_000;
   const first = event({
     id: 'first',
@@ -73,7 +73,7 @@ test('meetingClock — calculates the next alert across lead time and snooze sta
   assert.equal(next, 1_450);
 });
 
-test('meetingClock — prefers video meeting URLs over generic links', () => {
+test('meetingClock: prefers video meeting URLs over generic links', () => {
   const url = extractMeetingUrl({
     description: 'Notes: https://example.com Agenda: https://zoom.us/j/12345',
   });
@@ -81,7 +81,7 @@ test('meetingClock — prefers video meeting URLs over generic links', () => {
   assert.strictEqual(url, 'https://zoom.us/j/12345');
 });
 
-test('meetingClock — prefers a meeting URL from the description over an earlier generic URL', () => {
+test('meetingClock: prefers a meeting URL from the description over an earlier generic URL', () => {
   const url = extractMeetingUrl({
     url: 'https://calendar.example.com/event/12345',
     description: 'Join: https://teams.microsoft.com/meet/247507021276381?p=ExamplePasscode',
@@ -90,7 +90,7 @@ test('meetingClock — prefers a meeting URL from the description over an earlie
   assert.strictEqual(url, 'https://teams.microsoft.com/meet/247507021276381?p=ExamplePasscode');
 });
 
-test('meetingClock — restores wrapped Microsoft Teams meeting URLs', () => {
+test('meetingClock: restores wrapped Microsoft Teams meeting URLs', () => {
   const url = extractMeetingUrl({
     description: [
       'Microsoft Teams meeting',
@@ -103,7 +103,7 @@ test('meetingClock — restores wrapped Microsoft Teams meeting URLs', () => {
   assert.strictEqual(url, 'https://teams.microsoft.com/meet/247507021276381?p=ExamplePasscode');
 });
 
-test('meetingClock — restores wrapped angle-bracket meeting URLs', () => {
+test('meetingClock: restores wrapped angle-bracket meeting URLs', () => {
   const url = extractMeetingUrl({
     description: [
       'System reference <https://teams.microsoft.com/l/meetup-join/',
@@ -117,7 +117,7 @@ test('meetingClock — restores wrapped angle-bracket meeting URLs', () => {
   );
 });
 
-test('meetingClock — restores wrapped Zoom meeting IDs and query parameters', () => {
+test('meetingClock: restores wrapped Zoom meeting IDs and query parameters', () => {
   const url = extractMeetingUrl({
     description: [
       'Join: https://us06web.zoom.us/j/12345678',
@@ -141,7 +141,7 @@ test('meetingClock — restores wrapped Zoom meeting IDs and query parameters', 
   assert.strictEqual(urlWithoutQuery, 'https://zoom.us/j/1234567890');
 });
 
-test('meetingClock — restores wrapped Google Meet codes and query parameters', () => {
+test('meetingClock: restores wrapped Google Meet codes and query parameters', () => {
   const url = extractMeetingUrl({
     description: [
       'Join: https://meet.google.com/abc-',
@@ -154,7 +154,7 @@ test('meetingClock — restores wrapped Google Meet codes and query parameters',
   assert.strictEqual(url, 'https://meet.google.com/abc-defg-hij?authuser=0');
 });
 
-test('meetingClock — restores wrapped meeting URLs without provider-specific rules', () => {
+test('meetingClock: restores wrapped meeting URLs without provider-specific rules', () => {
   const url = extractMeetingUrl({
     description: [
       'Join: https://calls.example.org/rooms/session-',
@@ -170,7 +170,7 @@ test('meetingClock — restores wrapped meeting URLs without provider-specific r
   );
 });
 
-test('meetingClock — matches video providers by hostname rather than hostname-like text', () => {
+test('meetingClock: matches video providers by hostname rather than hostname-like text', () => {
   const url = extractMeetingUrl({
     description: [
       'Misleading: https://zoom.us.example.org/j/12345',
@@ -181,7 +181,7 @@ test('meetingClock — matches video providers by hostname rather than hostname-
   assert.strictEqual(url, 'https://meet.google.com/abc-defg-hij');
 });
 
-test('meetingClock — excludes all-day events from panel presentation when configured', () => {
+test('meetingClock: excludes all-day events from panel presentation when configured', () => {
   const presentation = derivePanelPresentation(
     [
       event({
@@ -198,7 +198,7 @@ test('meetingClock — excludes all-day events from panel presentation when conf
   assert.strictEqual(presentation, null);
 });
 
-test('meetingClock — panel presentation uses in-progress event before future event', () => {
+test('meetingClock: panel presentation uses in-progress event before future event', () => {
   const presentation = derivePanelPresentation(
     [
       event({ id: 'future', title: 'Later', startEpochSeconds: NOW + 3600 }),
@@ -213,7 +213,7 @@ test('meetingClock — panel presentation uses in-progress event before future e
   assert.strictEqual(presentation.label, 'Current · now');
 });
 
-test('meetingClock — panel presentation hides future events beyond configured lookahead', () => {
+test('meetingClock: panel presentation hides future events beyond configured lookahead', () => {
   const presentation = derivePanelPresentation(
     [event({ id: 'later', title: 'Much Later', startEpochSeconds: NOW + 7200 })],
     NOW,
@@ -223,7 +223,7 @@ test('meetingClock — panel presentation hides future events beyond configured 
   assert.strictEqual(presentation, null);
 });
 
-test('meetingClock — panel presentation uses compact time without parentheses', () => {
+test('meetingClock: panel presentation uses compact time without parentheses', () => {
   const presentation = derivePanelPresentation(
     [event({ id: 'soon', title: 'Soon', startEpochSeconds: NOW + 900 })],
     NOW,
@@ -234,7 +234,7 @@ test('meetingClock — panel presentation uses compact time without parentheses'
   assert.strictEqual(presentation.label, 'Soon · 15m');
 });
 
-test('meetingClock — due alerts require meeting URLs and respect ignored/alerted/snoozed state', () => {
+test('meetingClock: due alerts require meeting URLs and respect ignored/alerted/snoozed state', () => {
   const due = event({ id: 'due', meetingUrl: 'https://meet.google.com/abc-defg-hij' });
   const noLink = event({ id: 'no-link' });
   const ignored = event({ id: 'ignored', meetingUrl: 'https://zoom.us/j/1' });
@@ -257,7 +257,7 @@ test('meetingClock — due alerts require meeting URLs and respect ignored/alert
   );
 });
 
-test('meetingClock — due alerts can include events without meeting URLs when enabled', () => {
+test('meetingClock: due alerts can include events without meeting URLs when enabled', () => {
   const noLink = event({ id: 'no-link' });
 
   const dueEvents = getDueAlertEvents([noLink], NOW, {

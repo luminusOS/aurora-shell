@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 
-test('LifecycleScope — runs teardown in reverse order and is idempotent', () => {
+test('LifecycleScope: runs teardown in reverse order and is idempotent', () => {
   const calls: number[] = [];
   const scope = new LifecycleScope();
   scope.onDispose(() => calls.push(1));
@@ -14,7 +14,7 @@ test('LifecycleScope — runs teardown in reverse order and is idempotent', () =
   assert.deepEqual(calls, [3, 2, 1]);
 });
 
-test('LifecycleScope — disconnects signals', () => {
+test('LifecycleScope: disconnects signals', () => {
   const disconnected: number[] = [];
   const target = {
     connect: () => 42,
@@ -27,7 +27,7 @@ test('LifecycleScope — disconnects signals', () => {
   assert.deepEqual(disconnected, [42]);
 });
 
-test('LifecycleScope — replaces and clears a managed source', () => {
+test('LifecycleScope: replaces and clears a managed source', () => {
   const removed: number[] = [];
   const scope = new LifecycleScope();
   const source = scope.manageSource((id) => removed.push(id));
@@ -43,7 +43,7 @@ test('LifecycleScope — replaces and clears a managed source', () => {
   assert.deepEqual(removed, [1, 2]);
 });
 
-test('LifecycleScope — removes the previous source before creating its replacement', () => {
+test('LifecycleScope: removes the previous source before creating its replacement', () => {
   const events: string[] = [];
   const scope = new LifecycleScope();
   const source = scope.manageSource((id) => events.push(`remove:${id}`));
@@ -60,7 +60,7 @@ test('LifecycleScope — removes the previous source before creating its replace
   assert.deepEqual(events, ['create:1', 'remove:1', 'create:2']);
 });
 
-test('LifecycleScope — completes a managed source without removing it', () => {
+test('LifecycleScope: completes a managed source without removing it', () => {
   const removed: number[] = [];
   const scope = new LifecycleScope();
   const source = scope.manageSource((id) => removed.push(id));
@@ -73,7 +73,7 @@ test('LifecycleScope — completes a managed source without removing it', () => 
   assert.deepEqual(removed, []);
 });
 
-test('LifecycleScope — disposes an active managed source', () => {
+test('LifecycleScope: disposes an active managed source', () => {
   const removed: number[] = [];
   const scope = new LifecycleScope();
   const source = scope.manageSource((id) => removed.push(id));
@@ -85,7 +85,7 @@ test('LifecycleScope — disposes an active managed source', () => {
   assert.deepEqual(removed, [9]);
 });
 
-test('LifecycleScope — disposes every active source in reverse registration order', () => {
+test('LifecycleScope: disposes every active source in reverse registration order', () => {
   const removed: number[] = [];
   const scope = new LifecycleScope();
   const first = scope.manageSource((id) => removed.push(id));
@@ -98,7 +98,7 @@ test('LifecycleScope — disposes every active source in reverse registration or
   assert.deepEqual(removed, [2, 1]);
 });
 
-test('LifecycleScope — remains idempotent when a source remover reenters dispose', () => {
+test('LifecycleScope: remains idempotent when a source remover reenters dispose', () => {
   const events: string[] = [];
   const scope = new LifecycleScope();
   const source = scope.manageSource((id) => {
@@ -114,7 +114,7 @@ test('LifecycleScope — remains idempotent when a source remover reenters dispo
   assert.deepEqual(events, ['remove:5', 'teardown']);
 });
 
-test('LifecycleScope — does not create a managed source after disposal', () => {
+test('LifecycleScope: does not create a managed source after disposal', () => {
   const removed: number[] = [];
   let created = false;
   const scope = new LifecycleScope();
@@ -131,7 +131,7 @@ test('LifecycleScope — does not create a managed source after disposal', () =>
   assert.deepEqual(removed, []);
 });
 
-test('LifecycleScope — teardown registered after disposal runs immediately', () => {
+test('LifecycleScope: teardown registered after disposal runs immediately', () => {
   let tornDown = false;
   const scope = new LifecycleScope();
   scope.dispose();

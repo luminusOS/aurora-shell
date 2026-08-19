@@ -6,6 +6,7 @@ import Clutter from '@girs/clutter-18';
 import type { SettingsManager } from '~/core/settings.ts';
 import type { Module } from '~/module.ts';
 import { Dock, type ManagedDockBinding } from '~/dock/dock.ts';
+import { DOCK_POSITIONS, type DockPosition } from '~/dock/dockConfiguration.ts';
 import { OverlapStatus } from '~/dock/intellihide.ts';
 import {
   createDevToolActionButton,
@@ -16,6 +17,16 @@ import {
 
 const MIN_ICON_SIZE = 16;
 const MAX_ICON_SIZE = 64;
+
+const POSITION_ICONS: Record<DockPosition, string> = {
+  bottom: 'go-bottom-symbolic',
+  left: 'go-first-symbolic',
+  right: 'go-last-symbolic',
+};
+
+function formatPosition(position: DockPosition): string {
+  return position.charAt(0).toUpperCase() + position.slice(1);
+}
 
 export class DockDevTool {
   readonly key = 'dock';
@@ -32,9 +43,11 @@ export class DockDevTool {
     const dock = this._getDock();
     const panel = createDevToolModulePanel();
     const iconSize = this._settings.getInt('dock-icon-size');
+    const position = this._currentPosition();
     const summary = dock
       ? [
           `Bindings: ${dock.bindings.length}`,
+          `Position: ${formatPosition(position)}`,
           `Icon size: ${iconSize}px`,
           `Always-show: ${dock.alwaysShow ? 'on' : 'off'}`,
           `Intellihide: ${dock.intellihideEnabled ? 'on' : 'off'}`,
@@ -93,6 +106,21 @@ export class DockDevTool {
     );
     panel.add_child(iconSizeRow);
 
+    const positionRow = createDevToolActionRow();
+    for (const candidate of DOCK_POSITIONS) {
+      positionRow.add_child(
+        createDevToolActionButton(
+          POSITION_ICONS[candidate],
+          candidate === position
+            ? `Position: ${formatPosition(candidate)}`
+            : formatPosition(candidate),
+          () => this.setPosition(candidate),
+          !dock || candidate === position,
+        ),
+      );
+    }
+    panel.add_child(positionRow);
+
     return panel;
   }
 
@@ -144,6 +172,26 @@ export class DockDevTool {
     this._settings.setInt('dock-icon-size', Math.min(MAX_ICON_SIZE, currentSize + 1));
     this._requestMenuRebuild();
     return true;
+  }
+
+  setPosition(position: DockPosition): boolean {
+    if (!this._getDock()) return false;
+    if (!DOCK_POSITIONS.includes(position)) return false;
+    if (position === this._currentPosition()) return false;
+
+    this._settings.setString('dock-position', position);
+    this._requestMenuRebuild();
+    return true;
+  }
+
+  cyclePosition(): boolean {
+    if (!this._getDock()) return false;
+
+    const index = DOCK_POSITIONS.indexOf(this._currentPosition());
+    const next = DOCK_POSITIONS[(index + 1) % DOCK_POSITIONS.length];
+    if (!next) return false;
+
+    return this.setPosition(next);
   }
 
   showMonitor(monitorIndex: number): boolean {
@@ -222,6 +270,11 @@ export class DockDevTool {
     const visible = binding.dash.visible ? 'visible' : 'hidden';
     const hot = binding.hotAreaActive ? ' · hot-area' : '';
     return `Monitor ${binding.monitorIndex + 1}: ${visible} · ${intellihide}${hot}`;
+  }
+
+  private _currentPosition(): DockPosition {
+    const stored = this._settings.getString('dock-position') as DockPosition;
+    return DOCK_POSITIONS.includes(stored) ? stored : 'bottom';
   }
 
   private _getDock(): Dock | null {

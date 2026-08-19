@@ -10,7 +10,6 @@ export interface OverlapCandidate {
   focused?: boolean;
   topmost?: boolean;
   fullscreen?: boolean;
-  excludedFromSmartReveal?: boolean;
 }
 
 export interface BlockingOverlapState {
@@ -48,41 +47,25 @@ export function hasOverlap(rectangles: Rectangle[], target: Rectangle): boolean 
  * on this monitor is considered. This prevents a fullscreen/maximized
  * background window from keeping the dock hidden while a small window is
  * visibly above it.
- *
- * Windows excluded from the smart-reveal exception (such as PiP) are skipped
- * while selecting that foreground window. A focused excluded window blocks
- * smart reveal unconditionally; otherwise the next eligible window underneath
- * remains authoritative. If every candidate is excluded, the dock also remains
- * hidden: an excluded foreground window must never reveal it.
- */
+ * */
 export function getBlockingOverlapState(
   candidates: OverlapCandidate[],
   target: Rectangle | null,
   monitorFullscreen: boolean,
 ): BlockingOverlapState {
-  const smartRevealCandidates = candidates.filter(
-    (candidate) => candidate.excludedFromSmartReveal !== true,
-  );
-  const focusedCandidatePreventsSmartReveal = candidates.some(
-    (candidate) => candidate.focused === true && candidate.excludedFromSmartReveal === true,
-  );
-  const focusedCandidates = smartRevealCandidates.filter((candidate) => candidate.focused === true);
+  const focusedCandidates = candidates.filter((candidate) => candidate.focused === true);
   const hasExplicitTopmostCandidate = candidates.some((candidate) => candidate.topmost === true);
-  const topmostCandidate = hasExplicitTopmostCandidate ? smartRevealCandidates.at(-1) : undefined;
+  const topmostCandidate = hasExplicitTopmostCandidate ? candidates.at(-1) : undefined;
   const blockingCandidates =
     focusedCandidates.length > 0
       ? focusedCandidates
       : topmostCandidate
         ? [topmostCandidate]
-        : smartRevealCandidates.length > 0
-          ? smartRevealCandidates
-          : candidates;
+        : candidates;
   const rectangles = blockingCandidates.map((candidate) => candidate.rectangle);
   const hasExclusiveWindow =
-    focusedCandidatePreventsSmartReveal ||
     blockingCandidates.some((candidate) => candidate.fullscreen === true) ||
-    (blockingCandidates.length === 0 && monitorFullscreen) ||
-    (candidates.length > 0 && smartRevealCandidates.length === 0);
+    (blockingCandidates.length === 0 && monitorFullscreen);
 
   return {
     blocked: hasExclusiveWindow || (target !== null && hasOverlap(rectangles, target)),

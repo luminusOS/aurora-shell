@@ -1,4 +1,8 @@
+export const DOCK_POSITIONS = ['bottom', 'left', 'right'] as const;
+export type DockPosition = (typeof DOCK_POSITIONS)[number];
+
 export type DockConfiguration = {
+  position: DockPosition;
   alwaysShow: boolean;
   intellihide: boolean;
   showOnAllMonitors: boolean;
@@ -7,10 +11,9 @@ export type DockConfiguration = {
   showExternalStorage: boolean;
   motionEnabled: boolean;
   motionProfile: string;
-  excludePip: boolean;
 };
 
-export type DockConfigurationChange = 'none' | 'icon-size' | 'motion' | 'pip' | 'rebuild';
+export type DockConfigurationChange = 'none' | 'icon-size' | 'motion' | 'rebuild';
 
 export class DockConfigurationController {
   private _snapshot: DockConfiguration;
@@ -40,11 +43,12 @@ export function normalizeDockConfiguration(
   value: DockConfiguration,
   changedKey?: keyof DockConfiguration,
 ): DockConfiguration {
-  if (!value.alwaysShow || !value.intellihide) return { ...value };
+  const position = DOCK_POSITIONS.includes(value.position) ? value.position : 'bottom';
+  if (!value.alwaysShow || !value.intellihide) return { ...value, position };
 
   return changedKey === 'intellihide'
-    ? { ...value, alwaysShow: false }
-    : { ...value, intellihide: false };
+    ? { ...value, position, alwaysShow: false }
+    : { ...value, position, intellihide: false };
 }
 
 export function classifyDockConfigurationChange(
@@ -52,6 +56,7 @@ export function classifyDockConfigurationChange(
   next: DockConfiguration,
 ): DockConfigurationChange {
   const rebuildKeys: Array<keyof DockConfiguration> = [
+    'position',
     'alwaysShow',
     'intellihide',
     'showOnAllMonitors',
@@ -72,10 +77,6 @@ export function classifyDockConfigurationChange(
     previous.motionProfile !== next.motionProfile
   ) {
     return 'motion';
-  }
-
-  if (previous.excludePip !== next.excludePip) {
-    return 'pip';
   }
 
   return 'none';

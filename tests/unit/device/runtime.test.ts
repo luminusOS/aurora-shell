@@ -30,14 +30,14 @@ const monitor = (values: Partial<MonitorInput> = {}): MonitorInput => ({
   ...values,
 });
 
-test('device runtime — orientation is based on logical dimensions', () => {
+test('device runtime: orientation is based on logical dimensions', () => {
   assert.equal(classifyOrientation(1080, 1920), 'portrait');
   assert.equal(classifyOrientation(1920, 1080), 'landscape');
   assert.equal(classifyOrientation(800, 800), 'square');
   assert.equal(classifyOrientation(0, 800), 'unknown');
 });
 
-test('device runtime — input mode reports mixed devices honestly', () => {
+test('device runtime: input mode reports mixed devices honestly', () => {
   assert.equal(classifyInputMode(input({ touch: true })), 'touch');
   assert.equal(classifyInputMode(input({ pointer: true })), 'pointer');
   assert.equal(classifyInputMode(input({ keyboard: true })), 'keyboard');
@@ -45,7 +45,7 @@ test('device runtime — input mode reports mixed devices honestly', () => {
   assert.equal(classifyInputMode(input()), 'unknown');
 });
 
-test('device runtime — classifies phone, tablet, laptop, desktop and unknown', () => {
+test('device runtime: classifies phone, tablet, laptop, desktop and unknown', () => {
   assert.equal(
     classifyDevice([monitor({ width: 412, height: 892 })], input({ touch: true })),
     'phone',
@@ -62,7 +62,7 @@ test('device runtime — classifies phone, tablet, laptop, desktop and unknown',
   assert.equal(classifyDevice([], input()), 'unknown');
 });
 
-test('device runtime — mixed phone topology assigns mobile internal and desktop external roles', () => {
+test('device runtime: mixed phone topology assigns mobile internal and desktop external roles', () => {
   const snapshot = createDeviceSnapshot(
     [
       monitor({ width: 412, height: 892 }),
@@ -79,7 +79,7 @@ test('device runtime — mixed phone topology assigns mobile internal and deskto
   assert.deepEqual([...activeDisplayRoles(snapshot)].sort(), ['desktop', 'mobile']);
 });
 
-test('device runtime — mobile-only topology retains desktop fallback for current modules', () => {
+test('device runtime: mobile-only topology retains desktop fallback for current modules', () => {
   const snapshot = createDeviceSnapshot(
     [monitor({ width: 412, height: 892 })],
     input({ touch: true }),
@@ -89,7 +89,7 @@ test('device runtime — mobile-only topology retains desktop fallback for curre
   assert.deepEqual([...activeDisplayRoles(snapshot, false)], ['mobile']);
 });
 
-test('device runtime — equality detects meaningful topology changes only', () => {
+test('device runtime: equality detects meaningful topology changes only', () => {
   const first = createDeviceSnapshot([monitor()], input({ keyboard: true }), new Set());
   const same = createDeviceSnapshot([monitor()], input({ keyboard: true }), new Set());
   const changed = createDeviceSnapshot(

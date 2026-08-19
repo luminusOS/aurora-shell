@@ -29,6 +29,17 @@ export const manifest: ModuleManifest = {
       type: 'switch',
     },
     {
+      key: 'dock-position',
+      title: _('Dock Position'),
+      subtitle: _('Screen edge where the dock appears'),
+      type: 'select',
+      choices: [
+        { value: 'bottom', title: _('Bottom') },
+        { value: 'left', title: _('Left') },
+        { value: 'right', title: _('Right') },
+      ],
+    },
+    {
       key: 'dock-icon-size',
       title: _('Maximum Icon Size'),
       subtitle: _('Maximum dock icon size in pixels (16–64); shrinks automatically when needed'),

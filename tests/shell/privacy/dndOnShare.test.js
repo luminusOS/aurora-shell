@@ -19,7 +19,7 @@ export function init() {
   );
   Scripting.defineScriptEvent(
     'indicatorNotFound',
-    'Screen sharing indicator not available — skipping live test',
+    'Skipping live test because the screen sharing indicator is unavailable',
   );
 }
 
@@ -42,7 +42,7 @@ export async function run() {
 
   if (!indicator) {
     console.debug(
-      '[aurora-test] Screen sharing indicator not found — skipping live DND toggle test',
+      '[aurora-test] Skipping live DND toggle test because no screen sharing indicator was found',
     );
     Scripting.scriptEvent('indicatorNotFound');
 
@@ -96,7 +96,7 @@ export function script_dndRestored() {
 
 export function finish() {
   if (_indicatorNotFound) {
-    // Graceful skip — the test environment doesn't have a screen sharing indicator.
+    // Skip gracefully because the test environment has no screen sharing indicator.
     console.debug('[aurora-test] DND live test skipped (no indicator in this environment)');
     return;
   }

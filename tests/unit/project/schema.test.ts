@@ -200,48 +200,48 @@ function schemaDefault(key: string): string {
   return xml.slice(defaultStart + defaultStartTag.length, defaultEnd).trim();
 }
 
-test('schema — is structurally valid and contains every catalog module key', () => {
+test('schema: is structurally valid and contains every catalog module key', () => {
   const schemaKeys = new Set(compiledSchemaKeys());
   const moduleKeys = catalogSettingsKeys();
   for (const key of moduleKeys) assert.ok(schemaKeys.has(key), key);
   assert.equal(moduleKeys.length, new Set(moduleKeys).size);
 });
 
-test('schema — has no module switches absent from the catalog', () => {
+test('schema: has no module switches absent from the catalog', () => {
   const moduleKeys = new Set(catalogSettingsKeys().filter((key) => key.startsWith('module-')));
   const schemaModuleKeys = compiledSchemaKeys().filter((key) => key.startsWith('module-'));
   assert.deepEqual([...schemaModuleKeys].sort(), [...moduleKeys].sort());
 });
 
-test('schema ↔ catalog — every declared module and option setting is synchronized', () => {
+test('schema ↔ catalog: every declared module and option setting is synchronized', () => {
   assert.deepEqual([...compiledSchemaKeys()].sort(), [...catalogSettingsKeys()].sort());
 });
 
-test('schema — Vela VPN integration and Shell fallback are disabled by default', () => {
+test('schema: Vela VPN integration and Shell fallback are disabled by default', () => {
   assert.equal(schemaDefault('module-vela-vpn-quick-settings'), 'false');
   assert.equal(schemaDefault('vela-vpn-quick-settings-shell-fallback'), 'false');
 });
 
-test('schema — Clipboard History automatic paste is enabled by default', () => {
+test('schema: Clipboard History automatic paste is enabled by default', () => {
   assert.equal(schemaDefault('clipboard-history-auto-paste'), 'true');
 });
 
-test('schema — Capture Tools uses DuckDuckGo by default', () => {
+test('schema: Capture Tools uses DuckDuckGo by default', () => {
   assert.equal(schemaDefault('capture-tools-web-search-engine'), "'duckduckgo'");
 });
 
-test('schema — Dock defaults to the primary monitor only', () => {
+test('schema: Dock defaults to the primary monitor only', () => {
   assert.equal(schemaDefault('dock-show-on-all-monitors'), 'false');
 });
 
-test('schema — Dock preserves the GNOME default maximum icon size', () => {
+test('schema: Dock preserves the GNOME default maximum icon size', () => {
   assert.equal(schemaDefault('dock-icon-size'), '64');
 });
 
-test('schema — Dock uses always auto-hide by default', () => {
+test('schema: Dock uses always auto-hide by default', () => {
   assert.equal(schemaDefault('dock-intellihide'), 'false');
 });
 
-test('schema — Volume Mixer button is contextual by default', () => {
+test('schema: Volume Mixer button is contextual by default', () => {
   assert.equal(schemaDefault('volume-mixer-always-show'), 'false');
 });

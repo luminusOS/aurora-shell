@@ -57,7 +57,7 @@ export async function run() {
   const slider = findOutputSlider();
 
   if (!slider) {
-    // Headless environment has no audio — verify lifecycle only
+    // The headless environment has no audio, so verify only the lifecycle.
     console.debug('[aurora-test] No OutputStreamSlider in environment; testing lifecycle only');
 
     auroraSettings.set_boolean('module-volume-mixer', false);
@@ -135,7 +135,7 @@ export function script_visibilityOk() {
 export function finish() {
   const sliderPresent = _mixerAttached || _mixerRemoved;
   if (!sliderPresent && !_lifecycleOk)
-    throw new Error('VolumeMixer module test did not complete — shell may have crashed');
+    throw new Error('VolumeMixer module test did not complete; the shell may have crashed');
   if (_mixerAttached && !_mixerRemoved)
     throw new Error('aurora-volume-mixer actor was not removed after module was disabled');
   if (_mixerAttached && !_visibilityOk)

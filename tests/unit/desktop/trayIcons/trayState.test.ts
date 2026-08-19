@@ -61,7 +61,7 @@ test('addAttention and clearAttention manage Set membership', () => {
   assert.ok(state.attentionIds.has('item-2'));
 });
 
-test('TrayItem interface — optional fields are optional', () => {
+test('TrayItem interface: optional fields are optional', () => {
   const item: TrayItem = {
     id: 'test-item',
     icon: 'application-symbolic',

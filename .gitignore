@@ -40,4 +40,5 @@ docs/superpowers/
 
 # IA Stuff
 .agents/
+.ua/
 skills-lock.json

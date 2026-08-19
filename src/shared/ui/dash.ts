@@ -6,7 +6,8 @@ import Shell from '@girs/shell-18';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as DND from '@girs/gnome-shell/ui/dnd';
-import { Dash } from '@girs/gnome-shell/ui/dash';
+import * as AppFavorites from '@girs/gnome-shell/ui/appFavorites';
+import { Dash, DashItemContainer } from '@girs/gnome-shell/ui/dash';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
@@ -15,10 +16,14 @@ import { DashFixedItems } from '~/shared/ui/dashFixedItems.ts';
 import { DashApplicationController } from '~/shared/ui/dashApplications.ts';
 import { DashSpringLoadCoordinator } from '~/shared/ui/dashSpringLoad.ts';
 import { DashVisibilityController } from '~/shared/ui/dashVisibility.ts';
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
 import {
   boundsContainPoint,
   boundsEqual,
   calculateDashPlacement,
+  calculateDashReorderPosition,
+  isSelfReorderPosition,
+  isVerticalDock,
   selectDashIconSize,
   type DashBounds,
 } from '~/shared/ui/dashLayout.ts';
@@ -35,13 +40,24 @@ interface AuroraDashParams {
   maxIconSize?: number;
   showTrash?: boolean;
   showExternalStorage?: boolean;
+  position?: DockPosition;
 }
+
+const VerticalDragPlaceholderItem = GObject.registerClass(
+  class VerticalDragPlaceholderItem extends DashItemContainer {
+    override _init(): void {
+      super._init();
+      this.setChild(new St.Bin({ style_class: 'placeholder' }));
+    }
+  },
+);
 
 export const AuroraDash = GObject.registerClass(
   class AuroraDash extends Dash {
     declare private _monitorIndex: number;
     declare private _isolateMonitor: boolean;
     declare private _maxIconSize: number;
+    declare private _position: DockPosition;
     private _workArea: DashBounds | null = null;
     private _container: St.Bin | null = null;
     declare private _dashBox: St.Widget | null;
@@ -56,7 +72,6 @@ export const AuroraDash = GObject.registerClass(
     declare private _fixedItems: DashFixedItems;
     declare private _applications: DashApplicationController;
     declare private _unredirectInhibitor: UnredirectInhibitor;
-
     override _init(params: AuroraDashParams = {}): void {
       super._init();
 
@@ -66,6 +81,7 @@ export const AuroraDash = GObject.registerClass(
         maxIconSize = 64,
         showTrash = false,
         showExternalStorage = false,
+        position = 'bottom',
       } = params;
 
       this._lifecycle = new LifecycleScope();
@@ -75,11 +91,13 @@ export const AuroraDash = GObject.registerClass(
       this._monitorIndex = monitorIndex;
       this._isolateMonitor = isolateMonitor;
       this._maxIconSize = maxIconSize;
+      this._position = position;
       this._unredirectInhibitor = new UnredirectInhibitor(global.compositor);
       this._visibility = new DashVisibilityController(this, {
         getContentActor: () => this._dashBox,
         getContainer: () => this._container,
         getMonitorIndex: () => this._monitorIndex,
+        getPosition: () => this._position,
         getWorkArea: () => this._workArea,
         isMenuOpen: () => this._isMenuOpen(),
         applyWorkArea: (workArea) => this.applyWorkArea(workArea),
@@ -107,9 +125,21 @@ export const AuroraDash = GObject.registerClass(
       );
 
       this.set_x_align(Clutter.ActorAlign.CENTER);
-      this.set_y_align(Clutter.ActorAlign.END);
+      this.set_y_align(Clutter.ActorAlign.CENTER);
       this.set_x_expand(false);
       this.set_y_expand(false);
+      this.add_style_class_name(`dock-${position}`);
+
+      const vertical = isVerticalDock(position);
+      const containerLayout = dashContainer.layout_manager as Clutter.BoxLayout;
+      containerLayout.orientation = vertical
+        ? Clutter.Orientation.VERTICAL
+        : Clutter.Orientation.HORIZONTAL;
+      const iconsLayout = this._box.layout_manager as Clutter.BoxLayout;
+      iconsLayout.orientation = vertical
+        ? Clutter.Orientation.VERTICAL
+        : Clutter.Orientation.HORIZONTAL;
+      if (vertical) this._transposeBackgroundConstraints(dashContainer);
 
       this.connectObject('notify::allocation', () => this._queueTargetBoxUpdate(), this);
 
@@ -150,6 +180,7 @@ export const AuroraDash = GObject.registerClass(
         getContentActor: () => this._dashBox,
         getMonitorIndex: () => this._monitorIndex,
         getIsolateMonitor: () => this._isolateMonitor,
+        getPosition: () => this._position,
       });
 
       this._fixedItems = new DashFixedItems(this, this, showTrash, showExternalStorage, () => {
@@ -334,7 +365,13 @@ export const AuroraDash = GObject.registerClass(
       const width = Math.min(Math.max(prefW, 0), workArea.width);
 
       const [, prefH] = this.get_preferred_height(width || workArea.width);
-      const placement = calculateDashPlacement(workArea, prefW, prefH, this._getMarginBottom());
+      const placement = calculateDashPlacement(
+        workArea,
+        prefW,
+        prefH,
+        this._getEdgeMargin(),
+        this._position,
+      );
 
       this._container.set_size(placement.width, placement.height);
       this._container.set_position(placement.x, placement.y);
@@ -436,6 +473,13 @@ export const AuroraDash = GObject.registerClass(
       }
 
       (Dash.prototype as any)._syncLabel.call(this, item, appIcon);
+      if (appIcon && this._position !== 'bottom') {
+        appIcon._popupMenuSide = this._position === 'left' ? St.Side.RIGHT : St.Side.LEFT;
+      }
+      if (item && this._position !== 'bottom' && !item._auroraVerticalLabelPatched) {
+        item._auroraVerticalLabelPatched = true;
+        item.showLabel = () => this._showSideLabel(item);
+      }
     }
 
     override _createAppItem(app: any): any {
@@ -489,28 +533,39 @@ export const AuroraDash = GObject.registerClass(
         x1: 0,
         y1: 0,
         x2: dashAny._maxWidth,
-        y2: 42,
+        y2: dashAny._maxHeight,
       });
       const maxContent = themeNode.get_content_box(maxAllocation);
-      let availableWidth = maxContent.x2 - maxContent.x1;
       const spacing = themeNode.get_length('spacing');
-
       const firstButton = iconChildren[0].child;
       const firstIcon = firstButton._delegate.icon;
       firstIcon.icon.ensure_style();
       const [, , iconWidth, iconHeight] = firstIcon.icon.get_preferred_size();
       const [, , buttonWidth, buttonHeight] = firstButton.get_preferred_size();
 
-      availableWidth -=
-        iconChildren.length * (buttonWidth - iconWidth) + (iconChildren.length - 1) * spacing;
+      const vertical = isVerticalDock(this._position);
+      const backgroundNode = dashAny._background.get_theme_node();
 
-      let availableHeight = dashAny._maxHeight;
-      availableHeight -= this.margin_top + this.margin_bottom;
-      availableHeight -= dashAny._background.get_theme_node().get_vertical_padding();
-      availableHeight -= themeNode.get_vertical_padding();
-      availableHeight -= buttonHeight - iconHeight;
+      // The content box already excludes this actor's padding from the main axis.
+      let availableMain = vertical ? maxContent.y2 - maxContent.y1 : maxContent.x2 - maxContent.x1;
+      availableMain -=
+        iconChildren.length * (vertical ? buttonHeight - iconHeight : buttonWidth - iconWidth) +
+        (iconChildren.length - 1) * spacing;
 
-      const availableIconSize = Math.min(availableWidth / iconChildren.length, availableHeight);
+      // Start from the raw cross-axis maximum, then subtract each inset once.
+      let availableCross = vertical ? dashAny._maxWidth : dashAny._maxHeight;
+      availableCross -= vertical
+        ? this.margin_left + this.margin_right
+        : this.margin_top + this.margin_bottom;
+      availableCross -= vertical
+        ? backgroundNode.get_horizontal_padding()
+        : backgroundNode.get_vertical_padding();
+      availableCross -= vertical
+        ? themeNode.get_horizontal_padding()
+        : themeNode.get_vertical_padding();
+      availableCross -= vertical ? buttonWidth - iconWidth : buttonHeight - iconHeight;
+
+      const availableIconSize = Math.min(availableMain / iconChildren.length, availableCross);
       const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
       const newIconSize = selectDashIconSize(this._maxIconSize, availableIconSize, scaleFactor);
 
@@ -545,7 +600,8 @@ export const AuroraDash = GObject.registerClass(
 
       if (dashAny._separator) {
         dashAny._separator.ease({
-          height: newIconSize,
+          width: isVerticalDock(this._position) ? newIconSize : 1,
+          height: isVerticalDock(this._position) ? 1 : newIconSize,
           duration: ANIMATION_TIME,
           mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
@@ -630,6 +686,7 @@ export const AuroraDash = GObject.registerClass(
       }
 
       this._applications.updateRunningDots();
+      this._syncAppSeparatorGeometry();
       this._syncLabelFlushMode();
       this._applications.installActivationOverrides();
 
@@ -665,7 +722,7 @@ export const AuroraDash = GObject.registerClass(
       const size = this._getAllocationSize();
       if (!size) return;
 
-      if (!this.visible || this.translation_y !== 0) return;
+      if (!this.visible || this.translation_x !== 0 || this.translation_y !== 0) return;
 
       const [stageX, stageY] = this.get_transformed_position();
 
@@ -684,10 +741,132 @@ export const AuroraDash = GObject.registerClass(
       this._visibility.flushPendingShow();
     }
 
-    private _getMarginBottom(): number {
+    private _getEdgeMargin(): number {
       if (this._flushMode) return 0;
+      const property =
+        this._position === 'left'
+          ? 'margin-left'
+          : this._position === 'right'
+            ? 'margin-right'
+            : 'margin-bottom';
+      return this.get_theme_node().get_length(property);
+    }
 
-      return this.get_theme_node().get_length('margin-bottom');
+    override handleDragOver(source: any, actor: any, x: number, y: number, time: number): any {
+      if (!isVerticalDock(this._position)) {
+        return (Dash.prototype as any).handleDragOver.call(this, source, actor, x, y, time);
+      }
+
+      const app = Dash.getAppFromSource(source);
+      if (!app || app.is_window_backed() || !global.settings.is_writable('favorite-apps')) {
+        return DND.DragMotionResult.NO_DROP;
+      }
+      const dashAny = this as any;
+      const favorites = AppFavorites.getAppFavorites().getFavorites();
+      const favoritePosition = favorites.indexOf(app);
+      const children = this._box.get_children();
+      const items = children.filter(
+        (child) => child !== dashAny._dragPlaceholder && child !== dashAny._separator,
+      );
+      const excludedMainAxisSize =
+        (dashAny._dragPlaceholder?.height || 0) + (dashAny._separator?.height || 0);
+      let position = calculateDashReorderPosition({
+        position: this._position,
+        pointerX: x,
+        pointerY: y,
+        childCount: items.length,
+        mainAxisSize: this._box.height,
+        excludedMainAxisSize,
+      });
+      position = Math.min(position, favorites.length);
+
+      if (isSelfReorderPosition(favoritePosition, position)) {
+        dashAny._clearDragPlaceholder();
+        return DND.DragMotionResult.CONTINUE;
+      }
+      if (position !== dashAny._dragPlaceholderPos && dashAny._animatingPlaceholdersCount === 0) {
+        const fadeIn = !dashAny._dragPlaceholder;
+        dashAny._dragPlaceholder?.destroy();
+        dashAny._dragPlaceholderPos = position;
+        dashAny._dragPlaceholder = new VerticalDragPlaceholderItem();
+        dashAny._dragPlaceholder.child.set_width(this.iconSize / 2);
+        dashAny._dragPlaceholder.child.set_height(this.iconSize);
+        this._box.insert_child_at_index(dashAny._dragPlaceholder, position);
+        dashAny._dragPlaceholder.show(fadeIn);
+      }
+      return dashAny._dragPlaceholder
+        ? DND.DragMotionResult.MOVE_DROP
+        : DND.DragMotionResult.NO_DROP;
+    }
+
+    private _transposeBackgroundConstraints(dashContainer: St.Widget): void {
+      const background = (this as any)._background as St.Widget | undefined;
+      const sizerBox = background?.get_first_child() as Clutter.Actor | null;
+      if (!background || !sizerBox) return;
+
+      // The sizer binds to the container's preferred main-axis size. Disable
+      // `y_expand` so a vertical container keeps that height instead of filling
+      // the dash.
+      dashContainer.y_expand = false;
+      dashContainer.y_align = Clutter.ActorAlign.CENTER;
+      dashContainer.x_expand = true;
+      dashContainer.x_align = Clutter.ActorAlign.FILL;
+      this._box.y_expand = false;
+      this._box.x_expand = true;
+      background.x_align = Clutter.ActorAlign.CENTER;
+
+      sizerBox.clear_constraints();
+      sizerBox.add_constraint(
+        new Clutter.BindConstraint({
+          source: this._showAppsIcon.icon,
+          coordinate: Clutter.BindCoordinate.WIDTH,
+        }),
+      );
+      sizerBox.add_constraint(
+        new Clutter.BindConstraint({
+          source: dashContainer,
+          coordinate: Clutter.BindCoordinate.HEIGHT,
+        }),
+      );
+    }
+
+    private _syncAppSeparatorGeometry(): void {
+      const separator = (this as any)._separator as St.Widget | null;
+      if (!separator) return;
+
+      if (isVerticalDock(this._position)) {
+        separator.set_height(-1); // 1px, from CSS
+        separator.set_width(this.iconSize);
+      } else {
+        separator.set_width(-1); // 1px, from CSS
+        separator.set_height(this.iconSize);
+      }
+      separator.x_align = Clutter.ActorAlign.CENTER;
+      separator.y_align = Clutter.ActorAlign.CENTER;
+      separator.x_expand = false;
+      separator.y_expand = false;
+    }
+
+    private _showSideLabel(item: any): void {
+      if (!item.label || !item._labelText) return;
+      item.label.set_text(item._labelText);
+      item.label.opacity = 0;
+      item.label.show();
+      const [stageX, stageY] = item.get_transformed_position();
+      const labelWidth = item.label.get_width();
+      const labelHeight = item.label.get_height();
+      const gap = 12;
+      const x = this._position === 'left' ? stageX + item.width + gap : stageX - labelWidth - gap;
+      const y = Math.min(
+        global.stage.height - labelHeight,
+        Math.max(0, stageY + Math.round((item.height - labelHeight) / 2)),
+      );
+      item.label.set_position(x, y);
+      item.label.ease({
+        opacity: 255,
+        duration: ANIMATION_TIME,
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+      });
     }
 
     /**

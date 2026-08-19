@@ -19,7 +19,7 @@ export async function run() {
   await Scripting.sleep(500);
 
   if (!Main.panel.visible)
-    throw new Error('Top panel is not visible — extension may have broken it');
+    throw new Error('Top panel is not visible; the extension may have broken it');
 
   // The startup overview may be visible when the extension loads in GS50.
   // Hide it first so overview.show() is not a no-op.
@@ -59,7 +59,7 @@ export function finish() {
   if (!_extensionEnabled) throw new Error('Aurora Shell extension was not found or not enabled');
 
   if (!_overviewShown)
-    throw new Error('Overview failed to show — dock or another module may have broken it');
+    throw new Error('Overview failed to show; the dock or another module may have broken it');
 
   if (!_overviewHidden) throw new Error('Overview failed to hide');
 }

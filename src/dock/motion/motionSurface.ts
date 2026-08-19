@@ -10,6 +10,7 @@ import type Clutter from '@girs/clutter-18';
 import St from '@girs/st-18';
 
 import type { MotionRecipe } from '~/dock/motion/catalog.ts';
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
 import { NeighborRadius } from '~/dock/motion/catalog.ts';
 import {
   IconMotionController,
@@ -32,6 +33,7 @@ interface SourceConnections {
 
 export class MotionSurface {
   private _recipe: MotionRecipe;
+  private _position: DockPosition;
   private _onMeasured: (measurement: IconBudget) => void;
   private _icons = new Map<MotionTarget, IconMotionController>();
   private _group: NeighborGroup | null;
@@ -39,14 +41,17 @@ export class MotionSurface {
 
   constructor({
     recipe,
+    position,
     getOrderedContainers,
     onMeasured = () => {},
   }: {
     recipe: MotionRecipe;
+    position: DockPosition;
     getOrderedContainers: () => Clutter.Actor[];
     onMeasured?: (measurement: IconBudget) => void;
   }) {
     this._recipe = recipe;
+    this._position = position;
     this._onMeasured = onMeasured;
     this._group = new NeighborGroup(getOrderedContainers);
   }
@@ -112,6 +117,7 @@ export class MotionSurface {
       baseIcon,
       bin,
       recipe: this._recipe,
+      position: this._position,
       onHoverChanged: (changed, hovered) => this._group?.setHovered(changed, hovered),
       onDestroyed: (destroyed) => {
         this._icons.delete(icon);

@@ -8,6 +8,7 @@ import {
 } from '~/dock/dockConfiguration.ts';
 
 const base: DockConfiguration = {
+  position: 'bottom',
   alwaysShow: false,
   intellihide: false,
   showOnAllMonitors: false,
@@ -16,7 +17,6 @@ const base: DockConfiguration = {
   showExternalStorage: true,
   motionEnabled: true,
   motionProfile: 'subtle',
-  excludePip: false,
 };
 
 test('dock configuration keeps always-show and intellihide mutually exclusive', () => {
@@ -33,10 +33,15 @@ test('dock configuration controller publishes typed snapshots and transition sco
   assert.notEqual(transition.snapshot, controller.snapshot);
 });
 
-test('dock configuration distinguishes rebuild, motion and PiP updates', () => {
+test('dock configuration distinguishes rebuild, icon-size and motion updates', () => {
+  assert.equal(classifyDockConfigurationChange(base, { ...base, position: 'left' }), 'rebuild');
   assert.equal(classifyDockConfigurationChange(base, { ...base, showTrash: false }), 'rebuild');
   assert.equal(classifyDockConfigurationChange(base, { ...base, maxIconSize: 32 }), 'icon-size');
   assert.equal(classifyDockConfigurationChange(base, { ...base, motionEnabled: false }), 'motion');
-  assert.equal(classifyDockConfigurationChange(base, { ...base, excludePip: true }), 'pip');
   assert.equal(classifyDockConfigurationChange(base, { ...base }), 'none');
+});
+
+test('dock configuration normalizes unsupported positions to bottom', () => {
+  const invalid = { ...base, position: 'top' as DockConfiguration['position'] };
+  assert.equal(normalizeDockConfiguration(invalid).position, 'bottom');
 });
