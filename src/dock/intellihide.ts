@@ -18,7 +18,6 @@ import {
   isOnActiveWorkspace,
   rectanglesOverlap,
 } from '~/dock/intellihideState.ts';
-import { isPipTitle } from '~/patches/pipWindowPolicy.ts';
 import type { DashBounds } from '~/shared/ui/dash.ts';
 
 const LOG_PREFIX = 'DockIntellihide';
@@ -75,17 +74,15 @@ export const DockIntellihide = GObject.registerClass(
     private _pendingStatus: OverlapStatus = OverlapStatus.CLEAR;
     private _pendingReason = '';
     private _pendingRectangles: Array<{ x: number; y: number; width: number; height: number }> = [];
-    private _excludePipFromSmartReveal = false;
     declare private _trackedWindowActors: Set<any>;
     declare private _trackedWindows: Set<Meta.Window>;
     declare private _queuedRefreshes: ManagedTimeoutBatch;
 
-    override _init(monitorIndex: number, excludePipFromSmartReveal = false) {
+    override _init(monitorIndex: number) {
       super._init();
       this._lifecycle = new LifecycleScope();
       this._settle = createManagedSource(this._lifecycle);
       this._monitorIndex = monitorIndex;
-      this._excludePipFromSmartReveal = excludePipFromSmartReveal;
       this._trackedWindowActors = new Set<any>();
       this._trackedWindows = new Set<Meta.Window>();
       this._queuedRefreshes = createManagedTimeoutBatch(this._lifecycle);
@@ -151,13 +148,6 @@ export const DockIntellihide = GObject.registerClass(
       this._checkOverlap(reason, force);
     }
 
-    setExcludePipFromSmartReveal(enabled: boolean): void {
-      if (this._excludePipFromSmartReveal === enabled) return;
-
-      this._excludePipFromSmartReveal = enabled;
-      this._queueRefresh('pip-smart-reveal-policy-changed', [0, 100]);
-    }
-
     destroy(): void {
       this._cancelPendingStatus();
       this._lifecycle.dispose();
@@ -189,15 +179,14 @@ export const DockIntellihide = GObject.registerClass(
 
       this._syncTrackedWindows(candidates);
       const focusedWindow = this._getFocusedCandidateWindow(candidates);
+      const descriptors = candidates.map(({ window }, index) => ({
+        rectangle: window.get_frame_rect(),
+        focused: focusedWindow === window,
+        topmost: index === candidates.length - 1,
+        fullscreen: window.is_fullscreen(),
+      }));
       const overlapState = getBlockingOverlapState(
-        candidates.map(({ window }, index) => ({
-          rectangle: window.get_frame_rect(),
-          focused: focusedWindow === window,
-          topmost: index === candidates.length - 1,
-          fullscreen: window.is_fullscreen(),
-          excludedFromSmartReveal:
-            this._excludePipFromSmartReveal && isPipTitle(window.get_title()),
-        })),
+        descriptors,
         this._targetBox,
         global.display.get_monitor_in_fullscreen(this._monitorIndex),
       );
@@ -228,8 +217,15 @@ export const DockIntellihide = GObject.registerClass(
     }
 
     private _isMonitorValid(): boolean {
+      if (this._monitorIndex < 0) return false;
+
       const monitors = Main.layoutManager.monitors || [];
-      return this._monitorIndex >= 0 && this._monitorIndex < monitors.length;
+      if (this._monitorIndex >= monitors.length) return false;
+
+      // During shutdown, the layout manager may still list a monitor that
+      // Mutter has dropped. `get_monitor_in_fullscreen` asserts against
+      // Mutter's current monitor count.
+      return this._monitorIndex < global.display.get_n_monitors();
     }
 
     private _isCandidateWindow(win: Meta.Window | null): win is Meta.Window {

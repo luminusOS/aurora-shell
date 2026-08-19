@@ -88,7 +88,7 @@ function setup(definition: ModuleDefinition): {
   return { manager, settings, device, errors };
 }
 
-test('ModuleManager — follows settings and tears modules down', () => {
+test('ModuleManager: follows settings and tears modules down', () => {
   let enables = 0;
   let disables = 0;
   const item: Module = { enable: () => enables++, disable: () => disables++ } as Module;
@@ -102,7 +102,7 @@ test('ModuleManager — follows settings and tears modules down', () => {
   assert.equal(state.settings.listeners.size, 0);
 });
 
-test('ModuleManager — discards and cleans a module whose enable fails', () => {
+test('ModuleManager: discards and cleans a module whose enable fails', () => {
   let disables = 0;
   const item: Module = {
     enable: () => {
@@ -119,7 +119,7 @@ test('ModuleManager — discards and cleans a module whose enable fails', () => 
   state.manager.stop();
 });
 
-test('ModuleManager — surfaces cleanup failures after a module fails to enable', () => {
+test('ModuleManager: surfaces cleanup failures after a module fails to enable', () => {
   const item: Module = {
     enable: () => {
       throw new Error('enable failed');
@@ -136,7 +136,7 @@ test('ModuleManager — surfaces cleanup failures after a module fails to enable
   assert.deepEqual(state.errors, ['Failed to enable module sample: Error: enable failed']);
 });
 
-test('ModuleManager — surfaces module disable failures', () => {
+test('ModuleManager: surfaces module disable failures', () => {
   const item: Module = {
     enable: () => undefined,
     disable: () => {
@@ -151,7 +151,7 @@ test('ModuleManager — surfaces module disable failures', () => {
   assert.equal(state.manager.getModule('sample'), null);
 });
 
-test('ModuleManager — reconciles capability changes', () => {
+test('ModuleManager: reconciles capability changes', () => {
   let enables = 0;
   let disables = 0;
   const state = setup({
@@ -168,7 +168,7 @@ test('ModuleManager — reconciles capability changes', () => {
   state.manager.stop();
 });
 
-test('ModuleManager — stop is idempotent and disables in reverse order', () => {
+test('ModuleManager: stop is idempotent and disables in reverse order', () => {
   const order: string[] = [];
   const definitions: ModuleDefinition[] = ['first', 'second'].map((key) => ({
     manifest: { ...manifest(), key, settingsKey: `module-${key}` },

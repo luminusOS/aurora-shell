@@ -1,3 +1,5 @@
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
+
 export interface DashBounds {
   x: number;
   y: number;
@@ -42,14 +44,67 @@ export function calculateDashPlacement(
   workArea: DashBounds,
   preferredWidth: number,
   preferredHeight: number,
-  marginBottom: number,
+  edgeMargin: number,
+  position: DockPosition = 'bottom',
 ): DashPlacement {
   const width = Math.min(Math.max(preferredWidth, 0), workArea.width);
   const height = Math.min(Math.max(preferredHeight, 0), workArea.height);
+  if (position === 'left') {
+    return {
+      x: workArea.x + edgeMargin,
+      y: workArea.y + Math.round((workArea.height - height) / 2),
+      width,
+      height,
+    };
+  }
+  if (position === 'right') {
+    return {
+      x: Math.max(workArea.x, workArea.x + workArea.width - width - edgeMargin),
+      y: workArea.y + Math.round((workArea.height - height) / 2),
+      width,
+      height,
+    };
+  }
   return {
     x: workArea.x + Math.round((workArea.width - width) / 2),
-    y: Math.max(workArea.y, workArea.y + workArea.height - height - marginBottom),
+    y: Math.max(workArea.y, workArea.y + workArea.height - height - edgeMargin),
     width,
     height,
   };
+}
+
+export function isVerticalDock(position: DockPosition): boolean {
+  return position !== 'bottom';
+}
+
+export function calculateDashReorderPosition({
+  position,
+  pointerX,
+  pointerY,
+  childCount,
+  mainAxisSize,
+  excludedMainAxisSize = 0,
+  rtl = false,
+}: {
+  position: DockPosition;
+  pointerX: number;
+  pointerY: number;
+  childCount: number;
+  mainAxisSize: number;
+  excludedMainAxisSize?: number;
+  rtl?: boolean;
+}): number {
+  const availableMainAxisSize = mainAxisSize - Math.max(0, excludedMainAxisSize);
+  if (childCount <= 0 || availableMainAxisSize <= 0) return 0;
+  const coordinate = isVerticalDock(position) ? pointerY : pointerX;
+  const forward = Math.floor((coordinate * childCount) / availableMainAxisSize);
+  const positionAlongAxis = position === 'bottom' && rtl ? childCount - forward : forward;
+  return Math.min(childCount, Math.max(0, positionAlongAxis));
+}
+
+export function isSelfReorderPosition(favoritePosition: number, targetPosition: number): boolean {
+  return (
+    favoritePosition >= 0 &&
+    (targetPosition === favoritePosition || targetPosition === favoritePosition + 1)
+  );
 }

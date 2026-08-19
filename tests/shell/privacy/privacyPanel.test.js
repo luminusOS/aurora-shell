@@ -23,7 +23,7 @@ export function init() {
   );
   Scripting.defineScriptEvent(
     'indicatorNotFound',
-    'Screen sharing indicator not available — skipping live test',
+    'Skipping live test because the screen sharing indicator is unavailable',
   );
 }
 
@@ -36,7 +36,9 @@ export async function run() {
   const indicator = statusArea.screenSharing || statusArea.quickSettings?._remoteAccess;
 
   if (!indicator) {
-    console.debug('[aurora-test] No screen sharing indicator — skipping live PrivacyPanel test');
+    console.debug(
+      '[aurora-test] Skipping live PrivacyPanel test because no screen sharing indicator was found',
+    );
     Scripting.scriptEvent('indicatorNotFound');
 
     // Verify module left panel untouched

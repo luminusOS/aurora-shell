@@ -1,21 +1,33 @@
 import type { DashBounds } from '~/shared/ui/dash.ts';
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
 
-/**
- * Returns true if no other monitor sits directly below this one.
- * Used to avoid placing a dock between vertically stacked monitors.
- */
-export function hasDefinedBottom(monitors: DashBounds[], index: number): boolean {
+export function hasDefinedEdge(
+  monitors: DashBounds[],
+  index: number,
+  position: DockPosition,
+): boolean {
   const monitor = monitors[index];
   if (!monitor) return false;
 
-  const bottom = monitor.y + monitor.height;
   const left = monitor.x;
   const right = left + monitor.width;
+  const top = monitor.y;
+  const bottom = top + monitor.height;
 
   return !monitors.some((other, i) => {
     if (i === index) return false;
-    return other.y >= bottom && other.x < right && other.x + other.width > left;
+    const overlapsX = other.x < right && other.x + other.width > left;
+    const overlapsY = other.y < bottom && other.y + other.height > top;
+
+    if (position === 'left') return overlapsY && other.x + other.width <= left;
+    if (position === 'right') return overlapsY && other.x >= right;
+    return overlapsX && other.y >= bottom;
   });
+}
+
+/** Returns whether the bottom edge is free for a dock. */
+export function hasDefinedBottom(monitors: DashBounds[], index: number): boolean {
+  return hasDefinedEdge(monitors, index, 'bottom');
 }
 
 /**
@@ -30,10 +42,13 @@ export function getDockMonitorIndexes(
   monitors: DashBounds[],
   primaryIndex: number,
   showOnAllMonitors: boolean,
+  position: DockPosition = 'bottom',
 ): number[] {
   if (!showOnAllMonitors) {
     return primaryIndex >= 0 && primaryIndex < monitors.length ? [primaryIndex] : [];
   }
 
-  return monitors.flatMap((_monitor, index) => (hasDefinedBottom(monitors, index) ? [index] : []));
+  return monitors.flatMap((_monitor, index) =>
+    hasDefinedEdge(monitors, index, position) ? [index] : [],
+  );
 }

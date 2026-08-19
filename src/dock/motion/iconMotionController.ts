@@ -9,6 +9,7 @@ import St from '@girs/st-18';
 import Shell from '@girs/shell-18';
 
 import type { MotionRecipe } from '~/dock/motion/catalog.ts';
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
 import { resolveAnimationMode } from '~/dock/motion/easing.ts';
 import { PressInteraction } from '~/dock/motion/pressInteraction.ts';
 import {
@@ -80,6 +81,7 @@ export interface IconMotionControllerParams {
   baseIcon: BaseIconLike;
   bin: St.Bin;
   recipe: MotionRecipe;
+  position: DockPosition;
   onHoverChanged?: (controller: IconMotionController, hovered: boolean) => void;
   onDestroyed?: (controller: IconMotionController) => void;
   onMeasured?: (measurement: IconBudget) => void;
@@ -90,6 +92,7 @@ export class IconMotionController {
   private _baseIcon: BaseIconLike | null;
   private _bin: St.Bin | null;
   private _recipe: MotionRecipe;
+  private _position: DockPosition;
   private _onHoverChanged: (controller: IconMotionController, hovered: boolean) => void;
   private _onDestroyed: (controller: IconMotionController) => void;
   private _onMeasured: (measurement: IconBudget) => void;
@@ -110,6 +113,7 @@ export class IconMotionController {
     baseIcon,
     bin,
     recipe,
+    position,
     onHoverChanged = () => {},
     onDestroyed = () => {},
     onMeasured = () => {},
@@ -118,6 +122,7 @@ export class IconMotionController {
     this._baseIcon = baseIcon;
     this._bin = bin;
     this._recipe = recipe;
+    this._position = position;
     this._onHoverChanged = onHoverChanged;
     this._onDestroyed = onDestroyed;
     this._onMeasured = onMeasured;
@@ -266,6 +271,7 @@ export class IconMotionController {
       animationsEnabled,
       budgetPx: budget ? budget.budgetPx : Infinity,
       iconNormalSize: budget ? budget.iconNormalSize : 0,
+      position: this._position,
     });
     // Leaving settles a little more slowly than entering. This avoids a
     // twitchy snap-back during quick pointer sweeps without delaying hover.
@@ -327,11 +333,21 @@ export class IconMotionController {
     const box = this._bin.get_allocation_box();
     const clip = clipActor.get_clip();
     if (!clip) return null;
-    const [, clipY] = clipActor.get_transformed_position();
-    const [, parentY] = parent.get_transformed_position();
+    const [clipX, clipY] = clipActor.get_transformed_position();
+    const [parentX, parentY] = parent.get_transformed_position();
+    if (this._position === 'left') {
+      const right = parentX + box.x2;
+      const clipRight = clipX + clip[0] + clip[2];
+      return { budgetPx: clipRight - right, iconNormalSize: box.x2 - box.x1 };
+    }
+    if (this._position === 'right') {
+      const left = parentX + box.x1;
+      const clipLeft = clipX + clip[0];
+      return { budgetPx: left - clipLeft, iconNormalSize: box.x2 - box.x1 };
+    }
+
     const top = parentY + box.y1;
     const clipTop = clipY + clip[1];
-
     return { budgetPx: top - clipTop, iconNormalSize: box.y2 - box.y1 };
   }
 

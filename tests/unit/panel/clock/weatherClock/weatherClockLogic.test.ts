@@ -23,7 +23,7 @@ function snapshot(overrides: Partial<WeatherSnapshot> = {}): WeatherSnapshot {
   );
 }
 
-test('weatherClock — normalizes partial snapshots with safe defaults', () => {
+test('weatherClock: normalizes partial snapshots with safe defaults', () => {
   const normalized = normalizeWeatherSnapshot({ temperature: ' 24° ' }, NOW);
 
   assert.strictEqual(normalized.temperature, '24°');
@@ -32,7 +32,7 @@ test('weatherClock — normalizes partial snapshots with safe defaults', () => {
   assert.strictEqual(normalized.updatedAtEpochSeconds, NOW);
 });
 
-test('weatherClock — shows valid weather snapshots', () => {
+test('weatherClock: shows valid weather snapshots', () => {
   const presentation = deriveWeatherPresentation(snapshot(), NOW);
 
   assert.strictEqual(presentation.visible, true);
@@ -41,7 +41,7 @@ test('weatherClock — shows valid weather snapshots', () => {
   assert.strictEqual(presentation.label, '24°');
 });
 
-test('weatherClock — hides unavailable, offline, missing, and stale snapshots', () => {
+test('weatherClock: hides unavailable, offline, missing, and stale snapshots', () => {
   assert.strictEqual(
     deriveWeatherPresentation(snapshot({ available: false }), NOW).state,
     'unavailable',

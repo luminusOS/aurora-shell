@@ -14,19 +14,19 @@ function manifest(runtime?: ModuleManifest['runtime']): ModuleManifest {
   };
 }
 
-test('runtime — modules default to desktop role', () => {
+test('runtime: modules default to desktop role', () => {
   const item = manifest();
   assert.equal(moduleSupportsRuntime(item, new Set(['desktop']), new Set()), true);
   assert.equal(moduleSupportsRuntime(item, new Set(['mobile']), new Set()), false);
 });
 
-test('runtime — a manifest supports both roles explicitly', () => {
+test('runtime: a manifest supports both roles explicitly', () => {
   const item = manifest({ roles: ['desktop', 'mobile'] });
   assert.equal(moduleSupportsRuntime(item, new Set(['desktop']), new Set()), true);
   assert.equal(moduleSupportsRuntime(item, new Set(['mobile']), new Set()), true);
 });
 
-test('runtime — required capabilities must be present', () => {
+test('runtime: required capabilities must be present', () => {
   const item = manifest({ roles: ['desktop'], requires: ['backlight'] });
   assert.equal(moduleSupportsRuntime(item, new Set(['desktop']), new Set()), false);
   assert.equal(moduleSupportsRuntime(item, new Set(['desktop']), new Set(['backlight'])), true);

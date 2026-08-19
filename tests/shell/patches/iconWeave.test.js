@@ -25,7 +25,7 @@ export async function run() {
   await Scripting.waitLeisure();
   await Scripting.sleep(300);
 
-  // I19/I20 — capture patched function while module is enabled
+  // I19/I20: capture patched function while module is enabled
   const patchedFn = Shell.WindowTracker.prototype.get_window_app;
 
   auroraSettings.set_boolean('module-icon-weave', false);
@@ -37,7 +37,7 @@ export async function run() {
   if (patchedFn === restoredFn) {
     auroraSettings.set_boolean('module-icon-weave', true);
     throw new Error(
-      'Shell.WindowTracker.prototype.get_window_app was NOT restored after icon-weave disable — ' +
+      'Shell.WindowTracker.prototype.get_window_app was NOT restored after icon-weave was disabled; ' +
         'the patched function is still in place',
     );
   }
@@ -45,7 +45,7 @@ export async function run() {
   Scripting.scriptEvent('prototypePatched');
   Scripting.scriptEvent('prototypeRestored');
 
-  // Re-enable and verify it patches again (I19 — no crash on re-enable)
+  // Re-enable and verify I19: re-enabling must not crash.
   auroraSettings.set_boolean('module-icon-weave', true);
   await Scripting.waitLeisure();
   await Scripting.sleep(200);

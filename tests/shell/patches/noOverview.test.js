@@ -67,11 +67,11 @@ export function script_overviewHiddenManually() {
 }
 
 export function finish() {
-  // overviewHiddenAtStartup is informational in GS50 — not required.
+  // overviewHiddenAtStartup is informational and not required in GS50.
 
   if (!_hasOverviewRestored)
     throw new Error(
-      'sessionMode.hasOverview was not restored after startup — overview may be permanently disabled',
+      'sessionMode.hasOverview was not restored after startup; overview may be permanently disabled',
     );
 
   if (!_overviewShownManually) throw new Error('Overview cannot be shown manually after startup');

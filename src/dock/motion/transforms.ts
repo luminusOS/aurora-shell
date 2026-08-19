@@ -1,8 +1,5 @@
-// Pure transform math for dock icon hover/press motion, ported from
-// d2d-companion's lib/motion/transforms.js. aurora-shell's dock only ever
-// renders at the bottom of the screen (no DockPosition concept exists
-// elsewhere in the dock code), so the orientation is hardcoded here instead
-// of being parameterized like the source project.
+// Pure dock icon hover/press transforms, ported from
+// d2d-companion's lib/motion/transforms.js and adapted for each screen edge.
 
 import {
   Easing,
@@ -12,9 +9,18 @@ import {
   type PressEffectId,
 } from '~/dock/motion/catalog.ts';
 
-// Bottom-dock orientation: icons grow upward, away from the screen edge.
-const PIVOT: readonly [number, number] = [0.5, 1];
-const OUTWARD: readonly [number, number] = [0, -1];
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
+
+const PIVOTS: Record<DockPosition, readonly [number, number]> = {
+  bottom: [0.5, 1],
+  left: [0, 0.5],
+  right: [1, 0.5],
+};
+const OUTWARD: Record<DockPosition, readonly [number, number]> = {
+  bottom: [0, -1],
+  left: [1, 0],
+  right: [-1, 0],
+};
 
 export interface IconTransform {
   scaleX: number;
@@ -37,12 +43,17 @@ interface PressTransform {
 const PRESS_SQUASH_FACTOR = 0.22;
 const PRESS_DIM_FACTOR = 0.3;
 
-export function resolvePressTransform(effect: PressEffectId, intensity: number): PressTransform {
+export function resolvePressTransform(
+  effect: PressEffectId,
+  intensity: number,
+  position: DockPosition = 'bottom',
+): PressTransform {
   const clamped = clamp(intensity, 0, 1);
   if (effect === PressEffect.DIM) return pressTransform({ dim: PRESS_DIM_FACTOR * clamped });
-  // Squash on the dock-facing (vertical) axis; the bottom dock is horizontal.
   const normalScale = 1 - PRESS_SQUASH_FACTOR * clamped;
-  return pressTransform({ scaleY: normalScale });
+  return position === 'bottom'
+    ? pressTransform({ scaleY: normalScale })
+    : pressTransform({ scaleX: normalScale });
 }
 
 export function dimOpacity(opacity: number, dim: number): number {
@@ -64,20 +75,23 @@ export function composeIconTransform({
   lift = 0,
   pressIntensity = 0,
   pressEffect = PressEffect.SQUASH,
+  position = 'bottom',
 }: {
   hoverScale?: number;
   lift?: number;
   pressIntensity?: number;
   pressEffect?: PressEffectId;
+  position?: DockPosition;
 }): IconTransform {
-  const press = resolvePressTransform(pressEffect, pressIntensity);
+  const press = resolvePressTransform(pressEffect, pressIntensity, position);
+  const outward = OUTWARD[position];
   return {
     scaleX: hoverScale * press.scaleX,
     scaleY: hoverScale * press.scaleY,
-    translationX: press.translationX,
-    translationY: OUTWARD[1] * lift + press.translationY,
+    translationX: outward[0] * lift + press.translationX,
+    translationY: outward[1] * lift + press.translationY,
     dim: press.dim,
-    pivot: PIVOT,
+    pivot: PIVOTS[position],
   };
 }
 
@@ -153,6 +167,7 @@ export function resolveIconTransform({
   animationsEnabled = true,
   budgetPx = Infinity,
   iconNormalSize = 0,
+  position = 'bottom',
 }: {
   recipe: MotionRecipe;
   hovered?: boolean;
@@ -161,9 +176,17 @@ export function resolveIconTransform({
   animationsEnabled?: boolean;
   budgetPx?: number;
   iconNormalSize?: number;
+  position?: DockPosition;
 }): IconTransform {
   if (!animationsEnabled) {
-    return { scaleX: 1, scaleY: 1, translationX: 0, translationY: 0, dim: 0, pivot: PIVOT };
+    return {
+      scaleX: 1,
+      scaleY: 1,
+      translationX: 0,
+      translationY: 0,
+      dim: 0,
+      pivot: PIVOTS[position],
+    };
   }
 
   const hoverEnabled = recipe.hover.enabled;
@@ -184,6 +207,7 @@ export function resolveIconTransform({
     lift: fitted.lift,
     pressIntensity,
     pressEffect: recipe.press.effect,
+    position,
   });
 }
 

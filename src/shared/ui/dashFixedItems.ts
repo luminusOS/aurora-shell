@@ -68,12 +68,8 @@ export class DashFixedItems {
     this._trash.show(false);
     this._trash.setIconSize(this._dash.iconSize);
     this._dash._hookUpLabel(this._trash);
-    const anchorIndex = container.get_children().indexOf(this._dash._showAppsIcon);
-    if (anchorIndex >= 0) {
-      container.insert_child_at_index(this._trash, anchorIndex);
-    } else {
-      container.add_child(this._trash);
-    }
+    container.add_child(this._trash);
+    this._reorder();
 
     const trash = this._trash;
     this._owner.connectObject(
@@ -112,18 +108,25 @@ export class DashFixedItems {
       icon.setIconSize(this._dash.iconSize);
       this._dash._hookUpLabel(icon);
       this._storage.push(icon);
-    }
-    const anchor = this._trash || this._dash._showAppsIcon;
-    const anchorIndex = anchor ? container.get_children().indexOf(anchor) : -1;
-
-    for (const [offset, icon] of this._storage.entries()) {
-      if (anchorIndex >= 0) {
-        container.insert_child_at_index(icon, anchorIndex + offset);
-      } else {
-        container.add_child(icon);
-      }
+      container.add_child(icon);
     }
 
+    this._reorder();
     this._onLayoutChanged();
+  }
+
+  /**
+   * Keeps `[apps] … storage, trash, showApps` in that order. Sibling-relative
+   * moves avoid the index shifts caused by moving an existing actor by index.
+   */
+  private _reorder(): void {
+    const container = this._dash._dashContainer;
+    const showAppsIcon = this._dash._showAppsIcon;
+    if (!container || !showAppsIcon) return;
+    if (container.get_children().indexOf(showAppsIcon) < 0) return;
+
+    for (const icon of this.icons) {
+      container.set_child_below_sibling(icon, showAppsIcon);
+    }
   }
 }

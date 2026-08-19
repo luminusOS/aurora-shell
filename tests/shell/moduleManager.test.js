@@ -70,6 +70,6 @@ export function script_togglesComplete() {
 export function finish() {
   if (!_togglesComplete)
     throw new Error(
-      'Module toggle test did not complete — shell may have crashed during enable/disable cycle',
+      'Module toggle test did not complete; the shell may have crashed during the enable/disable cycle',
     );
 }

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-08-15 17:00-0300\n"
+"POT-Creation-Date: 2026-08-16 17:56-0300\n"
 "PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -373,59 +373,79 @@ msgstr ""
 "mostra todos os aplicativos do espaço de trabalho"
 
 #: dist/dock/dock.manifest.js:33
+msgid "Dock Position"
+msgstr "Posição do dock"
+
+#: dist/dock/dock.manifest.js:34
+msgid "Screen edge where the dock appears"
+msgstr "Borda da tela onde o dock aparece"
+
+#: dist/dock/dock.manifest.js:37
+msgid "Bottom"
+msgstr "Inferior"
+
+#: dist/dock/dock.manifest.js:38
+msgid "Left"
+msgstr "Esquerda"
+
+#: dist/dock/dock.manifest.js:39
+msgid "Right"
+msgstr "Direita"
+
+#: dist/dock/dock.manifest.js:44
 msgid "Maximum Icon Size"
 msgstr "Tamanho máximo dos ícones"
 
-#: dist/dock/dock.manifest.js:35
+#: dist/dock/dock.manifest.js:46
 msgid ""
 "Maximum dock icon size in pixels (16–64); shrinks automatically when needed"
 msgstr ""
 "Tamanho máximo dos ícones da dock em pixels (16–64); reduz automaticamente "
 "quando necessário"
 
-#: dist/dock/dock.manifest.js:44
+#: dist/dock/dock.manifest.js:55
 msgid "Show Trash Icon"
 msgstr "Mostrar ícone da lixeira"
 
-#: dist/dock/dock.manifest.js:45
+#: dist/dock/dock.manifest.js:56
 msgid "Show a trash can in the dock; click to open it, right-click to empty it"
 msgstr ""
 "Mostra uma lixeira no dock; clique para abri-la e clique com o botão direito "
 "para esvaziá-la"
 
-#: dist/dock/dock.manifest.js:50
+#: dist/dock/dock.manifest.js:61
 msgid "Show External Storage"
 msgstr "Mostrar armazenamento externo"
 
-#: dist/dock/dock.manifest.js:51
+#: dist/dock/dock.manifest.js:62
 msgid "Show removable drives in the dock when they are connected"
 msgstr "Mostra unidades removíveis no dock quando estão conectadas"
 
-#: dist/dock/dock.manifest.js:56
+#: dist/dock/dock.manifest.js:67
 msgid "Icon Hover &amp; Press Effects"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:57
+#: dist/dock/dock.manifest.js:68
 msgid "Animate dock icons on hover and click"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:62
+#: dist/dock/dock.manifest.js:73
 msgid "Effect Intensity"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:63
+#: dist/dock/dock.manifest.js:74
 msgid "How strong the hover and press effects are"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:66
+#: dist/dock/dock.manifest.js:77
 msgid "Subtle"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:67
+#: dist/dock/dock.manifest.js:78
 msgid "Balanced"
 msgstr ""
 
-#: dist/dock/dock.manifest.js:68
+#: dist/dock/dock.manifest.js:79
 msgid "Expressive"
 msgstr ""
 

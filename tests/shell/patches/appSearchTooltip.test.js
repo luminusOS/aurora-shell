@@ -34,7 +34,7 @@ export async function run() {
 
   if (tooltipExistsInUiGroup())
     throw new Error(
-      `"${TOOLTIP_CSS_CLASS}" label found in Main.uiGroup at startup — should only appear on hover`,
+      `"${TOOLTIP_CSS_CLASS}" label found in Main.uiGroup at startup; it should only appear on hover`,
     );
 
   Scripting.scriptEvent('noStrayTooltip');

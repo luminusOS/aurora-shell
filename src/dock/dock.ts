@@ -17,12 +17,16 @@ import { getDockMonitorIndexes } from '~/dock/monitorTopology.ts';
 import { DEFAULT_PROFILE, getBuiltInRecipe } from '~/dock/motion/catalog.ts';
 import { DashMotionIntegration } from '~/dock/motion/dashMotionIntegration.ts';
 import { ContextualDragRevealCoordinator } from '~/dock/contextualDragReveal.ts';
-import { DockConfigurationController, type DockConfiguration } from '~/dock/dockConfiguration.ts';
+import {
+  DockConfigurationController,
+  type DockConfiguration,
+  type DockPosition,
+} from '~/dock/dockConfiguration.ts';
 import { ManagedDockBinding } from '~/dock/dockBinding.ts';
 export { ManagedDockBinding } from '~/dock/dockBinding.ts';
 
 const HOT_AREA_REVEAL_DURATION = 1500;
-const HOT_AREA_STRIP_HEIGHT = 1;
+const HOT_AREA_STRIP_SIZE = 1;
 const TRANSITION_ACTIVATION_COOLDOWN = 700;
 const LOG_PREFIX = 'Dock';
 
@@ -35,12 +39,12 @@ export class Dock extends Module {
   private _alwaysShow = false;
   private _intellihideEnabled = false;
   private _showOnAllMonitors = false;
+  private _position: DockPosition = 'bottom';
   private _maxIconSize = 64;
   private _showTrash = true;
   private _showExternalStorage = true;
   private _motionEnabled = true;
   private _motionProfile: string = DEFAULT_PROFILE;
-  private _excludePip = false;
   private _dragReveal: ContextualDragRevealCoordinator<ManagedDockBinding> | null = null;
   private _sessionWasLocked = false;
   private _fullscreenMonitors = new Set<number>();
@@ -69,6 +73,7 @@ export class Dock extends Module {
         `enable alwaysShow=${this._alwaysShow}`,
         `intellihide=${this._intellihideEnabled}`,
         `showOnAllMonitors=${this._showOnAllMonitors}`,
+        `position=${this._position}`,
         `maxIconSize=${this._maxIconSize}`,
         `showTrash=${this._showTrash}`,
         `showExternalStorage=${this._showExternalStorage}`,
@@ -141,6 +146,8 @@ export class Dock extends Module {
       () => this._handleConfigurationChange('intellihide'),
       'changed::dock-show-on-all-monitors',
       () => this._handleConfigurationChange('showOnAllMonitors'),
+      'changed::dock-position',
+      () => this._handleConfigurationChange('position'),
       'changed::dock-icon-size',
       () => this._handleConfigurationChange('maxIconSize'),
       'changed::dock-show-trash',
@@ -151,8 +158,6 @@ export class Dock extends Module {
       () => this._handleConfigurationChange('motionEnabled'),
       'changed::dock-motion-profile',
       () => this._handleConfigurationChange('motionProfile'),
-      'changed::module-pip-on-top',
-      () => this._handleConfigurationChange('excludePip'),
       this,
     );
 
@@ -179,12 +184,12 @@ export class Dock extends Module {
       alwaysShow: dockSettings.get_boolean('dock-always-show'),
       intellihide: dockSettings.get_boolean('dock-intellihide'),
       showOnAllMonitors: dockSettings.get_boolean('dock-show-on-all-monitors'),
+      position: dockSettings.get_string('dock-position') as DockPosition,
       maxIconSize: dockSettings.get_int('dock-icon-size'),
       showTrash: dockSettings.get_boolean('dock-show-trash'),
       showExternalStorage: dockSettings.get_boolean('dock-show-external-storage'),
       motionEnabled: dockSettings.get_boolean('dock-motion-enabled'),
       motionProfile: dockSettings.get_string('dock-motion-profile'),
-      excludePip: dockSettings.get_boolean('module-pip-on-top'),
     };
   }
 
@@ -231,24 +236,18 @@ export class Dock extends Module {
       }
       return;
     }
-
-    if (transition.change === 'pip') {
-      for (const binding of this._bindings.values()) {
-        binding.intellihide?.setExcludePipFromSmartReveal(configuration.excludePip);
-      }
-    }
   }
 
   private _applyConfigurationSnapshot(configuration: DockConfiguration): void {
     this._alwaysShow = configuration.alwaysShow;
     this._intellihideEnabled = configuration.intellihide;
     this._showOnAllMonitors = configuration.showOnAllMonitors;
+    this._position = configuration.position;
     this._maxIconSize = configuration.maxIconSize;
     this._showTrash = configuration.showTrash;
     this._showExternalStorage = configuration.showExternalStorage;
     this._motionEnabled = configuration.motionEnabled;
     this._motionProfile = configuration.motionProfile;
-    this._excludePip = configuration.excludePip;
   }
 
   get bindings(): readonly ManagedDockBinding[] {
@@ -338,7 +337,12 @@ export class Dock extends Module {
 
     const monitors: DashBounds[] = Main.layoutManager.monitors || [];
     const primaryIndex = Main.layoutManager.primaryIndex;
-    const monitorIndexes = getDockMonitorIndexes(monitors, primaryIndex, this._showOnAllMonitors);
+    const monitorIndexes = getDockMonitorIndexes(
+      monitors,
+      primaryIndex,
+      this._showOnAllMonitors,
+      this._position,
+    );
     const monitorSummary = monitors
       .map(
         (monitor, index) => `${index}:${monitor.x},${monitor.y} ${monitor.width}x${monitor.height}`,
@@ -348,6 +352,7 @@ export class Dock extends Module {
       [
         `rebuild primary=${primaryIndex}`,
         `showOnAllMonitors=${this._showOnAllMonitors}`,
+        `position=${this._position}`,
         `selected=[${monitorIndexes.join(',')}]`,
         `monitors=[${monitorSummary}]`,
       ].join(' '),
@@ -393,11 +398,12 @@ export class Dock extends Module {
       maxIconSize: this._maxIconSize,
       showTrash: this._showTrash,
       showExternalStorage: this._showExternalStorage,
+      position: this._position,
     });
     container.set_child(dash);
     dash.attachToContainer(container);
 
-    const motion = new DashMotionIntegration(getBuiltInRecipe(this._motionProfile));
+    const motion = new DashMotionIntegration(getBuiltInRecipe(this._motionProfile), this._position);
     motion.attach(dash, this._motionEnabled);
 
     const binding = new ManagedDockBinding(monitorIndex, mode, container, dash, motion);
@@ -424,7 +430,7 @@ export class Dock extends Module {
         return binding;
       }
 
-      const intellihide = new DockIntellihide(monitorIndex, this._excludePip);
+      const intellihide = new DockIntellihide(monitorIndex);
       binding.intellihide = intellihide;
       dash.setTargetBoxListener((box) => intellihide.updateTargetBox(box));
 
@@ -482,12 +488,22 @@ export class Dock extends Module {
 
   private _updateStrutFromContainer(binding: ManagedDockBinding): void {
     if (!binding.strutActor) return;
-    const h = binding.container.height;
-    if (h <= 0) return;
     const monitor = Main.layoutManager.monitors?.[binding.monitorIndex];
     if (!monitor) return;
-    binding.strutActor.set_size(monitor.width, h);
-    binding.strutActor.set_position(monitor.x, monitor.y + monitor.height - h);
+    if (this._position === 'left' || this._position === 'right') {
+      const width = binding.container.width;
+      if (width <= 0) return;
+      binding.strutActor.set_size(width, monitor.height);
+      binding.strutActor.set_position(
+        this._position === 'left' ? monitor.x : monitor.x + monitor.width - width,
+        monitor.y,
+      );
+    } else {
+      const height = binding.container.height;
+      if (height <= 0) return;
+      binding.strutActor.set_size(monitor.width, height);
+      binding.strutActor.set_position(monitor.x, monitor.y + monitor.height - height);
+    }
   }
 
   private _createHotArea(
@@ -496,14 +512,13 @@ export class Dock extends Module {
   ): InstanceType<typeof DockHotArea> | null {
     if (monitor.width <= 0 || monitor.height <= 0) return null;
 
-    const hotArea = new DockHotArea(monitor);
+    const hotArea = new DockHotArea(monitor, this._position);
     Main.layoutManager.addChrome(hotArea, {
       trackFullscreen: true,
       affectsStruts: false,
     });
 
-    hotArea.set_size(monitor.width, HOT_AREA_STRIP_HEIGHT);
-    hotArea.set_position(monitor.x, monitor.y + monitor.height - HOT_AREA_STRIP_HEIGHT);
+    this._placeHotArea(hotArea, monitor);
 
     hotArea.connectObject('triggered', () => this._revealDockFromHotArea(binding), this);
 
@@ -531,16 +546,21 @@ export class Dock extends Module {
     let bounds: DashBounds;
 
     if (this._alwaysShow) {
-      // Use physical monitor height instead of work-area height to avoid a
-      // feedback loop: our own strut shrinks the work area, which would push
-      // the dock upward on each workareas-changed signal.
       const monitor = Main.layoutManager.monitors?.[binding.monitorIndex];
-      bounds = {
-        x: workArea.x,
-        y: monitor ? monitor.y : workArea.y,
-        width: workArea.width,
-        height: monitor ? monitor.height : workArea.height,
-      };
+      bounds =
+        monitor && this._position !== 'bottom'
+          ? {
+              x: monitor.x,
+              y: workArea.y,
+              width: monitor.width,
+              height: workArea.height,
+            }
+          : {
+              x: workArea.x,
+              y: monitor ? monitor.y : workArea.y,
+              width: workArea.width,
+              height: monitor ? monitor.height : workArea.height,
+            };
     } else {
       bounds = {
         x: workArea.x,
@@ -558,9 +578,21 @@ export class Dock extends Module {
     );
 
     if (binding.hotArea) {
-      binding.hotArea.set_size(bounds.width, HOT_AREA_STRIP_HEIGHT);
-      binding.hotArea.set_position(bounds.x, bounds.y + bounds.height - HOT_AREA_STRIP_HEIGHT);
+      this._placeHotArea(binding.hotArea, bounds);
       binding.hotArea.setGeometry(bounds);
+    }
+  }
+
+  private _placeHotArea(hotArea: St.Widget, bounds: DashBounds): void {
+    if (this._position === 'left') {
+      hotArea.set_size(HOT_AREA_STRIP_SIZE, bounds.height);
+      hotArea.set_position(bounds.x, bounds.y);
+    } else if (this._position === 'right') {
+      hotArea.set_size(HOT_AREA_STRIP_SIZE, bounds.height);
+      hotArea.set_position(bounds.x + bounds.width - HOT_AREA_STRIP_SIZE, bounds.y);
+    } else {
+      hotArea.set_size(bounds.width, HOT_AREA_STRIP_SIZE);
+      hotArea.set_position(bounds.x, bounds.y + bounds.height - HOT_AREA_STRIP_SIZE);
     }
   }
 

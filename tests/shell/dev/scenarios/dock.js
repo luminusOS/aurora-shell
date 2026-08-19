@@ -99,6 +99,51 @@ export async function exerciseDock(settings, devTool) {
   if (settings.get_boolean('dock-always-show') !== alwaysShowBefore)
     throw new Error('Dock toggleAlwaysShow did not restore the setting');
 
+  const originalPosition = settings.get_user_value('dock-position');
+  settings.set_string('dock-position', 'bottom');
+  await Scripting.waitLeisure();
+  await Scripting.sleep(400);
+
+  const positionPanel = tool.buildPanel();
+  const positionTexts = collectText(positionPanel);
+  positionPanel.destroy();
+  if (!positionTexts.some((text) => text.includes('Position: Bottom')))
+    throw new Error('Dock DevTool summary did not display the configured position');
+  for (const label of ['Left', 'Right'])
+    if (!positionTexts.includes(label))
+      throw new Error(`Dock DevTool did not render the ${label} position control`);
+
+  if (tool.setPosition('bottom'))
+    throw new Error('Dock setPosition re-applied the active position');
+
+  if (!tool.setPosition('left')) throw new Error('Dock setPosition returned false');
+  await Scripting.waitLeisure();
+  await Scripting.sleep(400);
+  if (settings.get_string('dock-position') !== 'left')
+    throw new Error('Dock setPosition did not persist the position');
+  if (getAuroraModule('dock').bindings.some((candidate) => candidate.dash._position !== 'left'))
+    throw new Error('Dock setPosition did not rebuild the dash on the new edge');
+
+  if (!tool.cyclePosition()) throw new Error('Dock cyclePosition returned false');
+  await Scripting.waitLeisure();
+  await Scripting.sleep(400);
+  if (settings.get_string('dock-position') !== 'right')
+    throw new Error('Dock cyclePosition did not advance to the next edge');
+
+  if (!tool.cyclePosition()) throw new Error('Dock cyclePosition wrap returned false');
+  await Scripting.waitLeisure();
+  await Scripting.sleep(400);
+  if (settings.get_string('dock-position') !== 'bottom')
+    throw new Error('Dock cyclePosition did not wrap back to the bottom edge');
+
+  if (originalPosition === null) {
+    settings.reset('dock-position');
+  } else {
+    settings.set_value('dock-position', originalPosition);
+  }
+  await Scripting.waitLeisure();
+  await Scripting.sleep(400);
+
   const originalIconSize = settings.get_user_value('dock-icon-size');
   settings.set_int('dock-icon-size', 32);
   await Scripting.waitLeisure();

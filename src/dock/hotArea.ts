@@ -14,6 +14,7 @@ import { logger } from '~/core/logger.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
 import { EdgeGestureGuard } from '~/dock/edgeGestureGuard.ts';
 import type { DashBounds } from '~/shared/ui/dash.ts';
+import type { DockPosition } from '~/dock/dockConfiguration.ts';
 
 const LOG_PREFIX = 'DockHotArea';
 const HOT_AREA_PRESSURE_THRESHOLD = 150;
@@ -32,8 +33,9 @@ export const DockHotArea = GObject.registerClass(
   },
   class DockHotArea extends St.Widget {
     declare private _pressureBarrier: Layout.PressureBarrier;
-    private _horizontalBarrier: Meta.Barrier | null = null;
+    private _edgeBarrier: Meta.Barrier | null = null;
     private _monitor!: DashBounds;
+    private _position!: DockPosition;
     private _active = true;
     private _edgeArmed = true;
     private _grabSuppressed = false;
@@ -41,11 +43,12 @@ export const DockHotArea = GObject.registerClass(
     declare private _pointerDwellTimeout: ManagedSource;
     private _gestureGuard = new EdgeGestureGuard();
 
-    override _init(monitor: DashBounds) {
+    override _init(monitor: DashBounds, position: DockPosition = 'bottom') {
       super._init({ reactive: true, visible: true, name: 'aurora-dock-hot-area' });
       this._lifecycle = new LifecycleScope();
       this._pointerDwellTimeout = createManagedSource(this._lifecycle);
       this._monitor = monitor;
+      this._position = position;
 
       this._pressureBarrier = new Layout.PressureBarrier(
         HOT_AREA_PRESSURE_THRESHOLD,
@@ -135,7 +138,7 @@ export const DockHotArea = GObject.registerClass(
 
     setGeometry(monitor: DashBounds): void {
       this._monitor = monitor;
-      if (this._active) this._rebuildBarrier(monitor.width);
+      if (this._active) this._rebuildBarrier();
     }
 
     setEnabled(enabled: boolean): void {
@@ -148,7 +151,7 @@ export const DockHotArea = GObject.registerClass(
         logger.debug(`enabled=true armed=${this._edgeArmed} geometry=${this._formatGeometry()}`, {
           prefix: LOG_PREFIX,
         });
-        this._rebuildBarrier(this._monitor.width);
+        this._rebuildBarrier();
       } else {
         this._edgeArmed = false;
         logger.debug(`enabled=false geometry=${this._formatGeometry()}`, {
@@ -187,33 +190,55 @@ export const DockHotArea = GObject.registerClass(
       super.destroy();
     }
 
-    private _rebuildBarrier(size: number): void {
+    private _rebuildBarrier(): void {
       this._destroyBarrier();
 
-      const width = Number.isFinite(size) ? size : 0;
       const left = this._monitor.x;
+      const right = left + this._monitor.width;
+      const top = this._monitor.y;
       const bottom = this._monitor.y + this._monitor.height;
 
-      if (width <= 0 || !Number.isFinite(left) || !Number.isFinite(bottom)) return;
+      if (
+        this._monitor.width <= 0 ||
+        this._monitor.height <= 0 ||
+        ![left, right, top, bottom].every(Number.isFinite)
+      )
+        return;
 
-      this._horizontalBarrier = new Meta.Barrier({
-        backend: global.backend,
-        x1: left,
-        x2: left + width,
-        y1: bottom,
-        y2: bottom,
-        directions: Meta.BarrierDirection.POSITIVE_Y,
-      });
-
-      this._pressureBarrier.addBarrier(this._horizontalBarrier);
+      const geometry =
+        this._position === 'left'
+          ? {
+              x1: left,
+              x2: left,
+              y1: top,
+              y2: bottom,
+              directions: Meta.BarrierDirection.NEGATIVE_X,
+            }
+          : this._position === 'right'
+            ? {
+                x1: right,
+                x2: right,
+                y1: top,
+                y2: bottom,
+                directions: Meta.BarrierDirection.POSITIVE_X,
+              }
+            : {
+                x1: left,
+                x2: right,
+                y1: bottom,
+                y2: bottom,
+                directions: Meta.BarrierDirection.POSITIVE_Y,
+              };
+      this._edgeBarrier = new Meta.Barrier({ backend: global.backend, ...geometry });
+      this._pressureBarrier.addBarrier(this._edgeBarrier);
     }
 
     private _destroyBarrier(): void {
-      if (!this._horizontalBarrier) return;
+      if (!this._edgeBarrier) return;
 
-      this._pressureBarrier.removeBarrier(this._horizontalBarrier);
-      this._horizontalBarrier.destroy();
-      this._horizontalBarrier = null;
+      this._pressureBarrier.removeBarrier(this._edgeBarrier);
+      this._edgeBarrier.destroy();
+      this._edgeBarrier = null;
     }
 
     private _clearDebounceTimer(): void {
@@ -251,6 +276,25 @@ export const DockHotArea = GObject.registerClass(
     }
 
     private _containsPoint(pointerX: number, pointerY: number): boolean {
+      if (this._position === 'left') {
+        const right = this._monitor.x + Math.max(1, this.width || 1);
+        return (
+          pointerX >= this._monitor.x &&
+          pointerX <= right &&
+          pointerY >= this._monitor.y &&
+          pointerY <= this._monitor.y + this._monitor.height
+        );
+      }
+      if (this._position === 'right') {
+        const right = this._monitor.x + this._monitor.width;
+        const left = right - Math.max(1, this.width || 1);
+        return (
+          pointerX >= left &&
+          pointerX <= right &&
+          pointerY >= this._monitor.y &&
+          pointerY <= this._monitor.y + this._monitor.height
+        );
+      }
       const bottom = this._monitor.y + this._monitor.height;
       const top = bottom - Math.max(1, this.height || 1);
       return (
