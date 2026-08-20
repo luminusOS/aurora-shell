@@ -24,7 +24,7 @@ export const manifest: ModuleManifest = {
       key: 'dock-show-on-all-monitors',
       title: _('Show Dock on All Monitors'),
       subtitle: _(
-        'Create a separate dock for each monitor; otherwise, the primary dock shows all workspace apps',
+        'Create a separate dock on each monitor with a free edge in the dock direction; otherwise, the primary dock shows all workspace apps',
       ),
       type: 'switch',
     },
