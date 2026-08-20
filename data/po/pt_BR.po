@@ -434,31 +434,31 @@ msgstr ""
 
 #: dist/dock/dock.manifest.js:73
 msgid "Icon Hover &amp; Press Effects"
-msgstr ""
+msgstr "Efeitos ao passar o mouse e pressionar o ícone"
 
 #: dist/dock/dock.manifest.js:74
 msgid "Animate dock icons on hover and click"
-msgstr ""
+msgstr "Anima os ícones do dock ao passar o mouse e clicar"
 
 #: dist/dock/dock.manifest.js:79
 msgid "Effect Intensity"
-msgstr ""
+msgstr "Intensidade do efeito"
 
 #: dist/dock/dock.manifest.js:80
 msgid "How strong the hover and press effects are"
-msgstr ""
+msgstr "Define a intensidade dos efeitos ao passar o mouse e pressionar"
 
 #: dist/dock/dock.manifest.js:83
 msgid "Subtle"
-msgstr ""
+msgstr "Sutil"
 
 #: dist/dock/dock.manifest.js:84
 msgid "Balanced"
-msgstr ""
+msgstr "Equilibrado"
 
 #: dist/dock/dock.manifest.js:85
 msgid "Expressive"
-msgstr ""
+msgstr "Expressivo"
 
 #: dist/dock/externalStorageIcon.js:97
 msgid "Mount and Open"
