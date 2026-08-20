@@ -136,7 +136,10 @@ export class MeetingAlertController {
   }
 
   private _showNotification(event: MeetingEvent): void {
-    if (this._activeEventId === event.id) return;
+    if (this._activeEventId === event.id) {
+      if (this._activeNotification) this._activeNotification.acknowledged = false;
+      return;
+    }
 
     this._activeEventId = event.id;
     this._destroyActiveNotification(MessageTray.NotificationDestroyedReason.REPLACED);

@@ -239,15 +239,14 @@ function findDescendant(actor, predicate) {
   return null;
 }
 
-// Window-backed fallback apps (window:N) can be destroyed and recreated with
-// the same id, so icons are matched by app id rather than object identity. An
-// icon still bound to such a dead object reports zero windows and is treated
-// as absent until the Dock redisplays it.
-function findWindowPreviewTarget(dash, app) {
+// Window-backed fallback apps (window:N) can be destroyed and recreated, so
+// prefer the icon that owns the live window and use its app id as a fallback.
+function findWindowPreviewTarget(dash, window, app) {
   const appId = app.get_id();
-  const item = dash._applications
-    .getChildren()
-    .find((candidate) => candidate.child?._delegate?.app?.get_id() === appId);
+  const items = dash._applications.getChildren();
+  const item =
+    items.find((candidate) => candidate.child?._delegate?.app?.get_windows().includes(window)) ||
+    items.find((candidate) => candidate.child?._delegate?.app?.get_id() === appId);
   const appIcon = item?.child?._delegate;
   if (!item || !appIcon) return null;
   if (appIcon.app.get_windows().length === 0) return null;
@@ -258,21 +257,19 @@ function findWindowPreviewTarget(dash, app) {
 // Shell.App once the helper's application id arrives, leaving the previously
 // resolved app without any windows.
 function resolveLivePreviewApp(window, currentApp) {
-  if (currentApp.get_windows().length > 0) return currentApp;
-
   const reassignedApp = Shell.WindowTracker.get_default().get_window_app(window);
-  return reassignedApp || currentApp;
+  return reassignedApp?.get_windows().includes(window) ? reassignedApp : currentApp;
 }
 
 // A Dock rebuild can leave the icon absent for a few main-loop cycles, so the
 // lookup polls until the item reappears.
 async function waitForWindowPreviewTarget(dash, window, currentApp) {
   let app = resolveLivePreviewApp(window, currentApp);
-  let target = findWindowPreviewTarget(dash, app);
+  let target = findWindowPreviewTarget(dash, window, app);
   for (let attempt = 0; !target && attempt < 20; attempt++) {
     await Scripting.sleep(100);
     app = resolveLivePreviewApp(window, app);
-    target = findWindowPreviewTarget(dash, app);
+    target = findWindowPreviewTarget(dash, window, app);
   }
   return { app, target };
 }
@@ -348,7 +345,7 @@ async function exerciseWindowPreviews(settings, dock) {
       if (dash._windowPreviews._pendingSource) continue;
 
       previewApp = resolveLivePreviewApp(window, previewApp);
-      const target = findWindowPreviewTarget(dash, previewApp);
+      const target = findWindowPreviewTarget(dash, window, previewApp);
       if (!target) {
         dash.refresh();
         continue;
@@ -360,7 +357,7 @@ async function exerciseWindowPreviews(settings, dock) {
     }
     if (!popup || !dash._isMenuOpen()) {
       const controller = dash._windowPreviews;
-      const fresh = findWindowPreviewTarget(dash, previewApp);
+      const fresh = findWindowPreviewTarget(dash, window, previewApp);
       const windows = previewApp.get_windows();
       const windowAlive = global.get_window_actors().some((actor) => actor.meta_window === window);
       const currentApp = windowAlive
