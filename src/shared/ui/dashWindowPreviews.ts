@@ -269,11 +269,14 @@ export class DashWindowPreviewController {
           ? `max-width: ${maxWidth}px; max-height: 230px;`
           : `max-width: 280px; max-height: ${maxHeight}px;`,
       child: cards,
+      overlay_scrollbars: true,
     });
     // Both axes stay AUTOMATIC: St compares the child width against the available
     // height when exactly one axis is AUTOMATIC, which would force a spurious
     // horizontal scrollbar on the bottom Dock where cards are wider than the
-    // popup is tall.
+    // popup is tall. Overlay scrollbars keep St from permanently reserving the
+    // vertical scrollbar width in the preferred size, which otherwise shows up
+    // as an empty gutter on the right side of the popup.
     scroll.set_policy(St.PolicyType.AUTOMATIC, St.PolicyType.AUTOMATIC);
     const host = new PopupMenu.PopupBaseMenuItem({
       reactive: false,
