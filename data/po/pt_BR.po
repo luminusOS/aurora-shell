@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-08-19 00:55-0300\n"
+"POT-Creation-Date: 2026-08-19 22:54-0300\n"
 "PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -366,11 +366,12 @@ msgstr "Mostrar dock em todos os monitores"
 
 #: dist/dock/dock.manifest.js:27
 msgid ""
-"Create a separate dock for each monitor; otherwise, the primary dock shows "
-"all workspace apps"
+"Create a separate dock on each monitor with a free edge in the dock "
+"direction; otherwise, the primary dock shows all workspace apps"
 msgstr ""
-"Cria um dock separado para cada monitor; caso contrário, o dock principal "
-"mostra todos os aplicativos do espaço de trabalho"
+"Cria um dock separado em cada monitor com borda livre na direção do dock; "
+"caso contrário, o dock principal mostra todos os aplicativos do espaço de "
+"trabalho"
 
 #: dist/dock/dock.manifest.js:33
 msgid "Dock Position"
@@ -1066,7 +1067,7 @@ msgstr ""
 "Oculta o conteúdo do painel durante o compartilhamento de tela; mostra "
 "apenas o indicador de compartilhamento"
 
-#: dist/shared/ui/dashWindowPreviews.js:270
+#: dist/shared/ui/dashWindowPreviews.js:311
 msgid "Close"
 msgstr "Fechar"
 
