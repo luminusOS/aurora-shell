@@ -75,6 +75,25 @@ export async function run() {
   if (meetingClock.activeAlertEventId !== 'aurora-test-no-link')
     throw new Error('Meeting Clock did not track active no-link alert');
 
+  const alertSource = Main.messageTray
+    .getSources()
+    .find((source) => source.title === 'Meeting Clock');
+  const alertNotification = alertSource?.notifications.find(
+    (notification) => notification.title === 'Meeting starting soon',
+  );
+  if (!alertSource || !alertNotification)
+    throw new Error('Meeting Clock alert notification not found in the message tray');
+
+  let bannerRequests = 0;
+  alertSource.connect('notification-request-banner', () => {
+    bannerRequests++;
+  });
+  alertNotification.acknowledged = true;
+  if (!meetingClock.showAlert('aurora-test-no-link'))
+    throw new Error('Meeting Clock did not re-trigger an already active alert');
+  if (bannerRequests === 0)
+    throw new Error('Meeting Clock re-trigger did not request a new banner');
+
   meetingClock.clearSourceEvents('aurora-test');
   settings.set_boolean(ALERT_EVENTS_WITHOUT_LINK_KEY, false);
   await Scripting.waitLeisure();
