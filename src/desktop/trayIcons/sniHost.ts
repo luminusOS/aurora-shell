@@ -203,8 +203,9 @@ export class SniHost {
     if (iconName) {
       const themedIcon = this._resolveThemedIcon(iconName, iconThemePath, itemId, reason);
       if (themedIcon) {
+        const source = iconName.startsWith('/') ? 'file-path' : 'theme-path';
         logger.debug(
-          `SNI icon ${itemId} reason=${reason} source=theme-path name=${iconName} path=${iconThemePath}`,
+          `SNI icon ${itemId} reason=${reason} source=${source} name=${iconName} path=${iconThemePath || 'none'}`,
           { prefix: LOG_PREFIX },
         );
         return themedIcon;
@@ -248,15 +249,21 @@ export class SniHost {
     itemId: string,
     reason: string,
   ): Gio.Icon | GdkPixbuf.Pixbuf | null {
-    if (!iconThemePath) return null;
+    const absoluteFilename = iconName.startsWith('/')
+      ? this._findIconThemePathFile(iconThemePath, iconName)
+      : null;
+    if (!absoluteFilename && !iconThemePath) return null;
 
     try {
-      const theme = St.IconTheme.new();
-      theme.append_search_path(iconThemePath);
-      const iconInfo = theme.lookup_icon(iconName, 24, St.IconLookupFlags.FORCE_SIZE);
-      const filename = iconInfo
-        ? iconInfo.get_filename()
-        : this._findIconThemePathFile(iconThemePath, iconName);
+      let filename = absoluteFilename;
+      if (!filename) {
+        const theme = St.IconTheme.new();
+        theme.append_search_path(iconThemePath);
+        const iconInfo = theme.lookup_icon(iconName, 24, St.IconLookupFlags.FORCE_SIZE);
+        filename = iconInfo
+          ? iconInfo.get_filename()
+          : this._findIconThemePathFile(iconThemePath, iconName);
+      }
       if (!filename) return null;
 
       // SVGs go through GTK's symbolic pipeline via St.Icon; return as-is.
@@ -277,9 +284,9 @@ export class SniHost {
   }
 
   private _findIconThemePathFile(iconThemePath: string, iconName: string): string | null {
-    if (!iconThemePath) return null;
     if (iconName.startsWith('/'))
       return Gio.File.new_for_path(iconName).query_exists(null) ? iconName : null;
+    if (!iconThemePath) return null;
 
     const extensions = ['', '.svg', '.png', '.xpm'];
     const subdirs = ['', 'icons', 'hicolor/16x16/apps', 'hicolor/24x24/apps', 'hicolor/32x32/apps'];
