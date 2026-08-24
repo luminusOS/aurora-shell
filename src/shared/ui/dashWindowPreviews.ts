@@ -1,7 +1,6 @@
 import '@girs/gjs';
 
 import Clutter from '@girs/clutter-18';
-import GLib from '@girs/glib-2.0';
 import GObject from '@girs/gobject-2.0';
 import Graphene from '@girs/graphene-1.0';
 import type Meta from '@girs/meta-18';
@@ -12,8 +11,8 @@ import * as BoxPointer from '@girs/gnome-shell/ui/boxpointer';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 
-import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
-import { createManagedSource } from '~/core/mainLoop.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
+import { createManagedTimeout } from '~/core/mainLoop.ts';
 import type { DockPosition } from '~/dock/dockConfiguration.ts';
 import { gettext as _ } from '~/shared/i18n.ts';
 
@@ -84,8 +83,8 @@ type DashWindowPreviewOptions = {
 
 export class DashWindowPreviewController {
   private _lifecycle = new LifecycleScope();
-  private _showTimer: ManagedSource = createManagedSource(this._lifecycle);
-  private _hideTimer: ManagedSource = createManagedSource(this._lifecycle);
+  private _showTimeout = createManagedTimeout(this._lifecycle);
+  private _hideTimeout = createManagedTimeout(this._lifecycle);
   private _attachedIcons = new WeakSet<object>();
   private _pendingSource: PreviewSource | null = null;
   private _source: PreviewSource | null = null;
@@ -130,8 +129,8 @@ export class DashWindowPreviewController {
   }
 
   close(): void {
-    this._showTimer.clear();
-    this._hideTimer.clear();
+    this._showTimeout.clear();
+    this._hideTimeout.clear();
     this._pendingSource = null;
     this._destroyPopup();
   }
@@ -144,7 +143,7 @@ export class DashWindowPreviewController {
   private _handleIconHover(source: PreviewSource): void {
     if (!source.appIcon.hover) {
       if (this._pendingSource && this._pendingSource.appIcon === source.appIcon) {
-        this._showTimer.clear();
+        this._showTimeout.clear();
         this._pendingSource = null;
       }
       if (this._source && this._source.appIcon === source.appIcon) this._scheduleClose();
@@ -155,22 +154,18 @@ export class DashWindowPreviewController {
     if (this._getWindows(source.app).length === 0) return;
 
     if (source.item.hideLabel) source.item.hideLabel();
-    this._hideTimer.clear();
+    this._hideTimeout.clear();
     if (this._source && this._source.appIcon === source.appIcon && this.isOpen) return;
 
     const switchImmediately = this.isOpen;
     if (this._source && this._source.appIcon !== source.appIcon) this._destroyPopup();
 
     this._pendingSource = source;
-    this._showTimer.replace(() =>
-      GLib.timeout_add(GLib.PRIORITY_DEFAULT, switchImmediately ? 0 : SHOW_DELAY, () => {
-        this._showTimer.complete();
-        const pending = this._pendingSource;
-        this._pendingSource = null;
-        if (pending && pending.appIcon.hover) this._open(pending);
-        return GLib.SOURCE_REMOVE;
-      }),
-    );
+    this._showTimeout.schedule(switchImmediately ? 0 : SHOW_DELAY, () => {
+      const pending = this._pendingSource;
+      this._pendingSource = null;
+      if (pending && pending.appIcon.hover) this._open(pending);
+    });
   }
 
   private _open(source: PreviewSource): void {
@@ -198,7 +193,7 @@ export class DashWindowPreviewController {
     popup.actor.connectObject(
       'notify::hover',
       () => {
-        if (popup.actor.hover) this._hideTimer.clear();
+        if (popup.actor.hover) this._hideTimeout.clear();
         else this._scheduleClose();
       },
       'key-press-event',
@@ -388,14 +383,10 @@ export class DashWindowPreviewController {
   }
 
   private _scheduleClose(): void {
-    this._hideTimer.replace(() =>
-      GLib.timeout_add(GLib.PRIORITY_DEFAULT, HIDE_DELAY, () => {
-        this._hideTimer.complete();
-        if (!this._source || !this._popup) return GLib.SOURCE_REMOVE;
-        if (!this._source.appIcon.hover && !this._popup.actor.hover) this.close();
-        return GLib.SOURCE_REMOVE;
-      }),
-    );
+    this._hideTimeout.schedule(HIDE_DELAY, () => {
+      if (!this._source || !this._popup) return;
+      if (!this._source.appIcon.hover && !this._popup.actor.hover) this.close();
+    });
   }
 
   private _destroyPopup(notifyOpenState = this.isOpen): void {

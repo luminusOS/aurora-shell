@@ -62,9 +62,11 @@ Capture Tools destroys its session actors directly in `disable()`. Replaceable m
 owned by `LifecycleScope` through `ManagedSource`; replacing a source removes the previous one and
 disposing the scope removes the active source. Aurora Dash, Dock bindings, Clipboard History, Auto
 Theme Switcher, clocks, tray widgets, Bluetooth, and the remaining single-source owners use this
-path. Dynamic inspection sources in Icon Weave use short-lived lifecycle scopes, and Dock Intellihide
-uses a managed timeout batch for staggered refreshes. No production main-loop source bypasses this
-ownership path. Shexli does not currently report `EGO-L-004` for this cleanup form.
+path. Dash window previews use `ManagedTimeout`, which keeps `GLib.timeout_add()` inside the lifecycle
+abstraction, removes the active source before `schedule()`, and relies on scope disposal during
+`destroy()`. Dynamic inspection sources in Icon Weave use short-lived lifecycle scopes, and Dock
+Intellihide uses a managed timeout batch for staggered refreshes. No production main-loop source is
+left without an explicit owner. Shexli does not currently report `EGO-L-004` for these cleanup forms.
 
 Recheck this classification against every new Shexli run. A stable rule ID does not imply that new
 locations are automatically accepted.

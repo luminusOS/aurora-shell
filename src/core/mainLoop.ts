@@ -2,9 +2,41 @@ import GLib from '@girs/glib-2.0';
 
 import type { LifecycleScope, ManagedSource } from '~/core/lifecycleScope.ts';
 
+export interface ManagedTimeout {
+  readonly active: boolean;
+  schedule(delayMs: number, callback: () => void): void;
+  clear(): void;
+}
+
 export interface ManagedTimeoutBatch {
   replace(delays: readonly number[], callback: () => void): void;
   clear(): void;
+}
+
+class ManagedTimeoutImpl implements ManagedTimeout {
+  private readonly _source: ManagedSource;
+
+  constructor(scope: LifecycleScope) {
+    this._source = createManagedSource(scope);
+  }
+
+  get active(): boolean {
+    return this._source.active;
+  }
+
+  schedule(delayMs: number, callback: () => void): void {
+    this._source.replace(() =>
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {
+        this._source.complete();
+        callback();
+        return GLib.SOURCE_REMOVE;
+      }),
+    );
+  }
+
+  clear(): void {
+    this._source.clear();
+  }
 }
 
 class ManagedTimeoutBatchImpl implements ManagedTimeoutBatch {
@@ -56,6 +88,10 @@ export function removeSource(sourceId: number): 0 {
  */
 export function createManagedSource(scope: LifecycleScope): ManagedSource {
   return scope.manageSource(removeSource);
+}
+
+export function createManagedTimeout(scope: LifecycleScope): ManagedTimeout {
+  return new ManagedTimeoutImpl(scope);
 }
 
 export function createManagedTimeoutBatch(scope: LifecycleScope): ManagedTimeoutBatch {
