@@ -315,10 +315,16 @@ async function exerciseWindowPreviews(settings, dock) {
     // a sustained hover suppresses the tooltip and opens the popup after its delay.
     appIcon.set_hover(true);
     await Scripting.sleep(150);
+    dash._windowPreviews._handleIconHover({ item, appIcon, app: previewApp });
+    await Scripting.sleep(200);
+    if (dash._windowPreviews._popup)
+      throw new Error('Window-preview popup opened from a replaced show timeout');
     appIcon.set_hover(false);
     await Scripting.sleep(400);
     if (dash._windowPreviews._popup)
       throw new Error('Window-preview popup opened after its hover was cancelled');
+    if (dash._windowPreviews._showTimeout.active)
+      throw new Error('Window-preview show timeout survived hover cancellation');
 
     previewState = await waitForWindowPreviewTarget(dash, window, previewApp);
     previewApp = previewState.app;
@@ -366,7 +372,7 @@ async function exerciseWindowPreviews(settings, dock) {
       const iconApp = fresh?.appIcon.app;
       const diagnostics = [
         `pending=${Boolean(controller._pendingSource)}`,
-        `showTimerActive=${controller._showTimer?.active}`,
+        `showTimerActive=${controller._showTimeout.active}`,
         `hover=${fresh ? fresh.appIcon.hover : 'n/a'}`,
         `appWindows=${windows.length}`,
         `relevantWindows=${windows.filter((w) => controller._options.isWindowRelevant(w)).length}`,
@@ -492,6 +498,9 @@ async function exerciseWindowPreviews(settings, dock) {
     dash._windowPreviews.close();
     if (dash._windowPreviews._popup)
       throw new Error('Window-preview actors were retained after popup close');
+    if (dash._windowPreviews._showTimeout.active || dash._windowPreviews._hideTimeout.active) {
+      throw new Error('Window-preview timeout survived popup close');
+    }
 
     appIcon.set_hover(false);
   } finally {
