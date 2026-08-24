@@ -1,8 +1,15 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraModule,
+  getAuroraSettings,
+  waitForExtension,
+} from '../../support/testUtils.js';
 
 const INDICATOR_ID = 'aurora-tray-icons';
 const BG_APPS_TOGGLE_CLASS = 'background-apps-quick-toggle';
@@ -50,7 +57,7 @@ function findBackgroundAppsToggle() {
 }
 
 export async function run() {
-  await waitForExtension(EXTENSION_UUID);
+  const extension = await waitForExtension(EXTENSION_UUID);
   Scripting.scriptEvent('extensionEnabled');
   await Scripting.sleep(500);
   const settings = getAuroraSettings();
@@ -73,6 +80,30 @@ export async function run() {
 
     if (!trayIndicator)
       throw new Error(`"${INDICATOR_ID}" indicator not found in panel.statusArea after retries`);
+
+    const trayIconsModule = getAuroraModule('tray-icons');
+    const absoluteIconPath = GLib.build_filenamev([
+      extension.path,
+      'icons',
+      'hicolor',
+      'scalable',
+      'status',
+      'aurora-shell-menu-symbolic.svg',
+    ]);
+    const absoluteIcon = trayIconsModule._sniHost._resolveIcon({
+      g_name: ':test.absolute-icon',
+      g_object_path: '/StatusNotifierItem',
+      get_cached_property(name) {
+        if (name === 'Status') return new GLib.Variant('s', 'Active');
+        if (name === 'IconName') return new GLib.Variant('s', absoluteIconPath);
+        if (name === 'IconThemePath') return new GLib.Variant('s', '');
+        return null;
+      },
+    });
+    if (!(absoluteIcon instanceof Gio.FileIcon))
+      throw new Error('Absolute SNI IconName did not resolve to a file icon');
+    if (absoluteIcon.get_file().get_path() !== absoluteIconPath)
+      throw new Error('Absolute SNI IconName resolved to the wrong file');
 
     Scripting.scriptEvent('trayFound');
     await Scripting.sleep(200);
