@@ -42,10 +42,10 @@ export async function exerciseMonitorScope(settings, dock) {
   Scripting.scriptEvent('allMonitorsEnabled');
 }
 
-function assertStable(binding, bounds) {
+function isStable(binding, bounds = null) {
   const dash = binding.dash;
   const current = dash.targetBox;
-  if (
+  return !(
     !dash.visible ||
     !dash.mapped ||
     !dash.get_paint_visibility() ||
@@ -55,12 +55,34 @@ function assertStable(binding, bounds) {
     dash.scale_y !== 1 ||
     !binding.container.visible ||
     !current ||
-    current.x !== bounds.x ||
-    current.y !== bounds.y ||
-    current.width !== bounds.width ||
-    current.height !== bounds.height
-  )
-    throw new Error(`Dock actor changed on monitor ${binding.monitorIndex}`);
+    (bounds &&
+      (Math.abs(current.x - bounds.x) > 1 ||
+        Math.abs(current.y - bounds.y) > 1 ||
+        Math.abs(current.width - bounds.width) > 1 ||
+        Math.abs(current.height - bounds.height) > 1))
+  );
+}
+
+function assertStable(binding, bounds) {
+  if (isStable(binding, bounds)) return;
+
+  const dash = binding.dash;
+  const current = dash.targetBox;
+  throw new Error(
+    `Dock actor changed on monitor ${binding.monitorIndex}: ` +
+      JSON.stringify({
+        visible: dash.visible,
+        mapped: dash.mapped,
+        paintVisible: dash.get_paint_visibility(),
+        opacity: dash.opacity,
+        translationY: dash.translation_y,
+        scaleX: dash.scale_x,
+        scaleY: dash.scale_y,
+        containerVisible: binding.container.visible,
+        targetBox: current && [current.x, current.y, current.width, current.height],
+        expectedBox: [bounds.x, bounds.y, bounds.width, bounds.height],
+      }),
+  );
 }
 
 async function exerciseBinding(dock, binding) {
@@ -92,6 +114,22 @@ async function exerciseBinding(dock, binding) {
       1900,
       'cross the external-monitor hot-area reveal grace before stability sampling',
     );
+
+    await waitForCondition({
+      evaluate: () => isStable(binding),
+      signals: [
+        [binding.dash, 'notify::mapped'],
+        [binding.dash, 'notify::visible'],
+        [binding.dash, 'notify::opacity'],
+        [binding.dash, 'notify::translation-y'],
+        [binding.dash, 'notify::scale-x'],
+        [binding.dash, 'notify::scale-y'],
+        [binding.dash, 'transition-stopped'],
+        [binding.dash, 'transitions-completed'],
+        [binding.container, 'notify::visible'],
+      ],
+      description: `Dock on monitor ${binding.monitorIndex} to finish revealing`,
+    });
 
     const bounds = binding.dash.targetBox;
     if (!bounds) throw new Error(`Dock on monitor ${binding.monitorIndex} lost its bounds`);

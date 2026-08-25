@@ -552,8 +552,8 @@ async function exerciseDockPositions(settings, dock) {
   settings.set_boolean('dock-always-show', false);
   settings.set_boolean('dock-intellihide', true);
 
-  // Extent of the icon axis per position, so a side dock cannot silently pick
-  // up the bottom dock's edge offset as extra spacing between icons.
+  // Show Apps is present at every position, unlike running and fixed items.
+  // Its preferred size includes the per-item margins that affect icon spacing.
   const iconAxisExtents = {};
 
   for (const position of ['bottom', 'left', 'right']) {
@@ -574,7 +574,6 @@ async function exerciseDockPositions(settings, dock) {
     binding.dash.show(false);
     const workArea = Main.layoutManager.getWorkAreaForMonitor(binding.monitorIndex);
     binding.dash.applyWorkArea(workArea);
-    await Scripting.waitLeisure();
     const monitor = Main.layoutManager.monitors[binding.monitorIndex];
     const container = binding.container;
     const centerTolerance = 2;
@@ -606,8 +605,8 @@ async function exerciseDockPositions(settings, dock) {
     await assertRunningDotClearsIcon(binding.dash, position);
 
     iconAxisExtents[position] = vertical
-      ? binding.dash._dashContainer.height
-      : binding.dash._dashContainer.width;
+      ? binding.dash._showAppsIcon.get_preferred_height(-1)[1]
+      : binding.dash._showAppsIcon.get_preferred_width(-1)[1];
 
     if (vertical) {
       assertSideLabelIsInside(binding.dash, position);
@@ -925,7 +924,15 @@ export async function run() {
     throw new Error('Configured dock icon size was not synchronized across every icon');
 
   settings.reset('dock-icon-size');
-  await Scripting.waitLeisure();
+  await waitForCondition({
+    evaluate: () => dash.iconSize === 64,
+    signals: [
+      [settings, 'changed::dock-icon-size'],
+      [dash, 'icon-size-changed'],
+      [dash, 'notify::allocation'],
+    ],
+    description: 'default Dock icon size to reach the rendered Dash',
+  });
   if (dash.iconSize !== 64)
     throw new Error(`Resetting dock-icon-size did not restore the 64px default: ${dash.iconSize}`);
 

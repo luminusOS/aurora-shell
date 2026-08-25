@@ -1,5 +1,6 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
+import Gio from 'gi://Gio';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import {
   waitForCondition,
@@ -59,16 +60,31 @@ export async function run() {
   if (trayContainer._state.scrollOffset <= 0)
     throw new Error('Expanded tray scroll did not advance through hidden icons');
 
-  for (let i = 0; i < 5; i++) {
-    console.log(`[aurora-tray-stability] Toggling collapse state (iteration ${i + 1})`);
-    const state = trayContainer._state;
-    state.collapsed = !state.collapsed;
-    trayContainer._syncLayout(true);
-    await waitForCondition({
-      evaluate: () => !trayContainer._clipArea._viewportTimeout.active,
-      signals: [[global.stage, 'after-paint']],
-      description: 'TrayClipArea viewport animation to finish before the next collapse toggle',
-    });
+  const clipArea = trayContainer._clipArea;
+  const animationCompleted = new Gio.SimpleAction({ name: 'viewport-animation-completed' });
+  const originalAnimateViewport = clipArea.animateViewport;
+  clipArea.animateViewport = function (...args) {
+    const onComplete = args[6];
+    args[6] = () => {
+      onComplete();
+      animationCompleted.activate(null);
+    };
+    return originalAnimateViewport.apply(this, args);
+  };
+  try {
+    for (let i = 0; i < 5; i++) {
+      console.log(`[aurora-tray-stability] Toggling collapse state (iteration ${i + 1})`);
+      const state = trayContainer._state;
+      state.collapsed = !state.collapsed;
+      trayContainer._syncLayout(true);
+      await waitForCondition({
+        evaluate: () => !clipArea._viewportTimeout.active,
+        signals: [[animationCompleted, 'activate']],
+        description: 'TrayClipArea viewport animation to finish before the next collapse toggle',
+      });
+    }
+  } finally {
+    clipArea.animateViewport = originalAnimateViewport;
   }
 
   console.log('[aurora-tray-stability] Removing items during animation...');
