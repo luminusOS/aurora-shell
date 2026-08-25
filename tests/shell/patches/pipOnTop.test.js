@@ -18,15 +18,12 @@ export async function run() {
   const auroraSettings = getAuroraSettings();
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   auroraSettings.set_boolean('module-pip-on-top', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   auroraSettings.set_boolean('module-pip-on-top', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   Scripting.scriptEvent('lifecycleOk');
 }

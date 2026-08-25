@@ -2,7 +2,13 @@
 
 import Gio from 'gi://Gio';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraSettings,
+  waitForCondition,
+  waitForExtension,
+  waitForModuleState,
+} from '../support/testUtils.js';
 
 export var METRICS = {};
 
@@ -21,23 +27,23 @@ export async function run() {
   const desktopSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   auroraSettings.set_boolean('module-theme-changer', false);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(200);
+  await waitForModuleState(auroraSettings, 'module-theme-changer', 'theme-changer', false);
 
   auroraSettings.set_boolean('module-theme-changer', true);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(200);
+  await waitForModuleState(auroraSettings, 'module-theme-changer', 'theme-changer', true);
 
   Scripting.scriptEvent('lifecycleOk');
 
   const originalScheme = desktopSettings.get_string('color-scheme');
 
   desktopSettings.set_string('color-scheme', 'default');
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => desktopSettings.get_string('color-scheme') === 'prefer-light',
+    signals: [[desktopSettings, 'changed::color-scheme']],
+    description: 'ThemeChanger to intercept the default color scheme',
+  });
 
   const intercepted = desktopSettings.get_string('color-scheme');
   if (intercepted !== 'prefer-light') {

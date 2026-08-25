@@ -1,7 +1,13 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraModule, waitForExtension } from '../../support/testUtils.js';
+import {
+  waitForCondition,
+  waitForTiming,
+  EXTENSION_UUID,
+  getAuroraModule,
+  waitForExtension,
+} from '../../support/testUtils.js';
 
 export var METRICS = {};
 
@@ -15,7 +21,6 @@ export function init() {
 export async function run() {
   await waitForExtension(EXTENSION_UUID);
   Scripting.scriptEvent('extensionEnabled');
-  await Scripting.sleep(500);
 
   const trayIconsModule = getAuroraModule('tray-icons');
 
@@ -34,10 +39,9 @@ export async function run() {
       activate: () => {},
       destroy: () => {},
     });
-    await Scripting.sleep(50);
   }
 
-  await Scripting.sleep(500);
+  await Scripting.waitLeisure();
 
   const availableClipWidth = trayContainer._availableClipWidth(true);
   const reservedWidth = trayContainer._clipArea.reservedWidth;
@@ -52,7 +56,6 @@ export async function run() {
     throw new Error('Expanded tray did not report scrollable overflow');
 
   trayContainer._scrollByItems(-1);
-  await Scripting.sleep(250);
   if (trayContainer._state.scrollOffset <= 0)
     throw new Error('Expanded tray scroll did not advance through hidden icons');
 
@@ -61,7 +64,11 @@ export async function run() {
     const state = trayContainer._state;
     state.collapsed = !state.collapsed;
     trayContainer._syncLayout(true);
-    await Scripting.sleep(1000); // Wait for animation
+    await waitForCondition({
+      evaluate: () => !trayContainer._clipArea._viewportTimeout.active,
+      signals: [[global.stage, 'after-paint']],
+      description: 'TrayClipArea viewport animation to finish before the next collapse toggle',
+    });
   }
 
   console.log('[aurora-tray-stability] Removing items during animation...');
@@ -69,13 +76,14 @@ export async function run() {
   state.collapsed = false;
   trayContainer._syncLayout(true);
 
-  await Scripting.sleep(200);
+  await waitForTiming(
+    200,
+    'remove icons while the TrayClipArea viewport animation is intentionally in progress',
+  );
   for (let i = 0; i < ITEM_COUNT; i++) {
     trayContainer.removeItem(`fake-item-${i}`);
-    await Scripting.sleep(100);
   }
 
-  await Scripting.sleep(1000);
   Scripting.scriptEvent('stressTestPassed');
 }
 

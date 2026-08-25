@@ -3,6 +3,7 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import {
+  waitForTiming,
   EXTENSION_UUID,
   getAuroraModule,
   getAuroraSettings,
@@ -28,14 +29,12 @@ export async function run() {
   settings.set_boolean(WEATHER_MODULE_KEY, false);
   settings.set_boolean(MEETING_MODULE_KEY, false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   if (originalClockDisplay.get_parent()?.has_style_class_name('aurora-clock-pill-box'))
     throw new Error('Clock pill wrapper remained after disabling clock modules');
 
   settings.set_boolean(WEATHER_MODULE_KEY, true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const weatherClock = getAuroraModule('weather-clock');
 
@@ -45,7 +44,6 @@ export async function run() {
     description: 'Clear sky',
   });
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   const wrapper = originalClockDisplay.get_parent();
   if (!wrapper?.has_style_class_name('aurora-clock-pill-box'))
@@ -66,13 +64,15 @@ export async function run() {
       (child) =>
         child.has_style_class_name && child.has_style_class_name('aurora-weather-clock-label'),
     );
-  await Scripting.sleep(2000);
+  await waitForTiming(
+    2000,
+    'dwell window proving the temperature label does not rotate to another weather field',
+  );
   if (weatherLabel?.text !== '24°')
     throw new Error(`Weather Clock label changed from temperature to "${weatherLabel?.text}"`);
 
   settings.set_boolean(MEETING_MODULE_KEY, true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const meetingClock = getAuroraModule('meeting-clock');
 
@@ -93,7 +93,6 @@ export async function run() {
     },
   ]);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   const children = wrapper.get_children();
   const weatherIndex = children.findIndex(
@@ -116,7 +115,6 @@ export async function run() {
   settings.set_boolean(WEATHER_MODULE_KEY, false);
   settings.set_boolean(MEETING_MODULE_KEY, false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   if (originalClockDisplay.get_parent()?.has_style_class_name('aurora-clock-pill-box'))
     throw new Error('Clock pill wrapper was not restored after disabling clock modules');

@@ -2,11 +2,10 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, waitForExtension } from '../support/testUtils.js';
+import { EXTENSION_UUID, waitForExtension, waitForCondition } from '../support/testUtils.js';
 
 const CONTENT_BOXES = ['_leftBox', '_centerBox'];
 const ALL_BOXES = ['_leftBox', '_centerBox', '_rightBox'];
-const ANIMATION_SETTLE_MS = 400;
 
 function actorOpacity(actor, fallback) {
   if (!actor) return fallback;
@@ -30,7 +29,6 @@ export function init() {
 export async function run() {
   await waitForExtension(EXTENSION_UUID);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const statusArea = Main.panel.statusArea;
   const indicator = statusArea.screenSharing || statusArea.quickSettings?._remoteAccess;
@@ -53,12 +51,34 @@ export async function run() {
   for (const box of ALL_BOXES) {
     if (Main.panel[box]) Main.panel[box].opacity = 255;
   }
-  await Scripting.sleep(100);
+  const panelSignals = ALL_BOXES.flatMap((box) => {
+    const actor = Main.panel[box];
+    return actor
+      ? [
+          [actor, 'notify::opacity'],
+          [actor, 'transitions-completed'],
+        ]
+      : [];
+  });
+  for (const actor of [indicator, indicator.container].filter(Boolean)) {
+    panelSignals.push([actor, 'notify::opacity'], [actor, 'transitions-completed']);
+  }
+  await waitForCondition({
+    evaluate: () => ALL_BOXES.every((box) => actorOpacity(Main.panel[box], 0) === 255),
+    signals: panelSignals,
+    description: 'panel opacity normalization to complete',
+  });
 
   console.debug('[aurora-test] Simulating screen sharing start');
   indicator.visible = true;
-  await Scripting.waitLeisure();
-  await Scripting.sleep(ANIMATION_SETTLE_MS);
+  await waitForCondition({
+    evaluate: () =>
+      CONTENT_BOXES.every((box) => actorOpacity(Main.panel[box], 255) === 0) &&
+      actorOpacity(indicator, 255) === 255 &&
+      actorOpacity(indicator?.container, 255) === 255,
+    signals: [[indicator, 'notify::visible'], ...panelSignals],
+    description: 'panel content to hide while preserving the sharing indicator',
+  });
 
   // _leftBox and _centerBox must be hidden; the sharing indicator must stay visible
   const contentHidden = CONTENT_BOXES.every((box) => actorOpacity(Main.panel[box], 255) === 0);
@@ -68,8 +88,11 @@ export async function run() {
 
   console.debug('[aurora-test] Simulating screen sharing stop');
   indicator.visible = false;
-  await Scripting.waitLeisure();
-  await Scripting.sleep(ANIMATION_SETTLE_MS);
+  await waitForCondition({
+    evaluate: () => ALL_BOXES.every((box) => actorOpacity(Main.panel[box], 0) === 255),
+    signals: [[indicator, 'notify::visible'], ...panelSignals],
+    description: 'panel content to restore after sharing stops',
+  });
 
   const allRestored = ALL_BOXES.every((box) => actorOpacity(Main.panel[box], 0) === 255);
   if (allRestored) Scripting.scriptEvent('restoredOnShareEnd');

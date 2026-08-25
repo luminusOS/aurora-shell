@@ -2,7 +2,13 @@
 
 import Gio from 'gi://Gio';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraSettings,
+  waitForCondition,
+  waitForExtension,
+  waitForModuleState,
+} from '../support/testUtils.js';
 
 function computeExpectedScheme(lightH, lightM, darkH, darkM) {
   const now = new Date();
@@ -32,8 +38,12 @@ export async function run() {
   const desktopSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
 
   auroraSettings.set_boolean('module-auto-theme-switcher', true);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForModuleState(
+    auroraSettings,
+    'module-auto-theme-switcher',
+    'auto-theme-switcher',
+    true,
+  );
 
   const lightH = auroraSettings.get_int('auto-theme-switcher-light-hours');
   const lightM = auroraSettings.get_int('auto-theme-switcher-light-minutes');
@@ -41,6 +51,11 @@ export async function run() {
   const darkM = auroraSettings.get_int('auto-theme-switcher-dark-minutes');
 
   const expected = computeExpectedScheme(lightH, lightM, darkH, darkM);
+  await waitForCondition({
+    evaluate: () => desktopSettings.get_string('color-scheme') === expected,
+    signals: [[desktopSettings, 'changed::color-scheme']],
+    description: 'automatic theme scheme to match the configured time boundary',
+  });
   const actual = desktopSettings.get_string('color-scheme');
 
   if (actual !== expected) {
@@ -55,19 +70,26 @@ export async function run() {
   const originalDarkH = auroraSettings.get_int('auto-theme-switcher-dark-hours');
   auroraSettings.set_int('auto-theme-switcher-dark-hours', (originalDarkH + 1) % 24);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
   auroraSettings.set_int('auto-theme-switcher-dark-hours', originalDarkH);
   await Scripting.waitLeisure();
 
   Scripting.scriptEvent('settingsChangeOk');
 
   auroraSettings.set_boolean('module-auto-theme-switcher', false);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForModuleState(
+    auroraSettings,
+    'module-auto-theme-switcher',
+    'auto-theme-switcher',
+    false,
+  );
 
   auroraSettings.set_boolean('module-auto-theme-switcher', true);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(200);
+  await waitForModuleState(
+    auroraSettings,
+    'module-auto-theme-switcher',
+    'auto-theme-switcher',
+    true,
+  );
 
   Scripting.scriptEvent('disableOk');
 }

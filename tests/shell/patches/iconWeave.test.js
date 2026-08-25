@@ -23,14 +23,12 @@ export async function run() {
   const auroraSettings = getAuroraSettings();
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   // I19/I20: capture patched function while module is enabled
   const patchedFn = Shell.WindowTracker.prototype.get_window_app;
 
   auroraSettings.set_boolean('module-icon-weave', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   const restoredFn = Shell.WindowTracker.prototype.get_window_app;
 
@@ -48,7 +46,6 @@ export async function run() {
   // Re-enable and verify I19: re-enabling must not crash.
   auroraSettings.set_boolean('module-icon-weave', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   const repatchedFn = Shell.WindowTracker.prototype.get_window_app;
   if (repatchedFn === restoredFn)
@@ -65,7 +62,6 @@ export async function run() {
 
   auroraSettings.set_boolean('module-icon-weave', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   if (Shell.WindowTracker.prototype.get_window_app !== externalWrapper)
     throw new Error('IconWeave overwrote a prototype patch installed after its own wrapper');

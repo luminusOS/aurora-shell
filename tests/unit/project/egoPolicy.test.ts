@@ -118,6 +118,33 @@ test('project code avoids direct optional calls', () => {
   assert.deepEqual(violations, []);
 });
 
+test('Shell tests centralize deliberate timing waits', () => {
+  const shellTestsRoot = resolve('tests/shell');
+  const timingHelper = join(shellTestsRoot, 'support', 'testUtils.js');
+  const genericTimingReason = /preserve the .* timing contract exercised by/u;
+  const temporalContract =
+    /\b(?:animation|cooldown|deadline|debounce|delay|dwell|grace|in progress|invariance|negative)\b/iu;
+  const violations = codeFiles(shellTestsRoot)
+    .filter((path) => path !== timingHelper)
+    .flatMap((path) => {
+      const source = readFileSync(path, 'utf8');
+      const lines = source.split(/\r?\n/u);
+      const fileViolations = lines.flatMap((line, index) =>
+        /\bScripting\.sleep\s*\(/u.test(line) || genericTimingReason.test(line)
+          ? [`${path.slice(resolve('.').length + 1)}:${index + 1}`]
+          : [],
+      );
+      for (const match of source.matchAll(/\bwaitForTiming\([^,]+,\s*'([^']+)'\s*,?\s*\)/gsu)) {
+        if (temporalContract.test(match[1])) continue;
+        const line = source.slice(0, match.index).split(/\r?\n/u).length;
+        fileViolations.push(`${path.slice(resolve('.').length + 1)}:${line}`);
+      }
+      return fileViolations;
+    });
+
+  assert.deepEqual(violations, []);
+});
+
 test('lifecycle methods are not empty placeholders', () => {
   const violations: string[] = [];
   const lifecycleMethods = new Set(['destroy', 'disable', 'enable', 'start', 'stop']);

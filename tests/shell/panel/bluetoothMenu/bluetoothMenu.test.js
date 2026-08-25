@@ -18,7 +18,6 @@ export async function run() {
   Scripting.scriptEvent('extensionEnabled');
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(600);
 
   const grid = Main.panel.statusArea.quickSettings?.menu?._grid;
   if (!grid) throw new Error('Quick settings grid not found');

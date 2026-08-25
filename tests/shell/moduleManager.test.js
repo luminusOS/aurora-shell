@@ -2,7 +2,12 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from './support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraSettings,
+  waitForExtension,
+  waitForModuleState,
+} from './support/testUtils.js';
 
 // All registered module settings keys (mirrors registry.ts)
 const MODULE_SETTINGS_KEYS = [
@@ -42,23 +47,21 @@ export async function run() {
   for (const key of MODULE_SETTINGS_KEYS) {
     console.debug(`[aurora-test] Disabling module: ${key}`);
     settings.set_boolean(key, false);
-    await Scripting.waitLeisure();
-    await Scripting.sleep(200);
+    await waitForModuleState(settings, key, key.slice('module-'.length), false);
 
     console.debug(`[aurora-test] Re-enabling module: ${key}`);
     settings.set_boolean(key, true);
-    await Scripting.waitLeisure();
-    await Scripting.sleep(200);
+    await waitForModuleState(settings, key, key.slice('module-'.length), true);
   }
 
-  for (const key of MODULE_SETTINGS_KEYS) settings.set_boolean(key, original[key]);
-
-  await Scripting.waitLeisure();
+  for (const key of MODULE_SETTINGS_KEYS) {
+    settings.set_boolean(key, original[key]);
+    await waitForModuleState(settings, key, key.slice('module-'.length), original[key]);
+  }
 
   if (!Main.panel.visible) throw new Error('Top panel is not visible after module toggles');
 
   Scripting.scriptEvent('togglesComplete');
-  await Scripting.sleep(300);
 }
 
 let _togglesComplete = false;

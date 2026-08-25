@@ -1,28 +1,41 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+import { waitForCondition } from '../../support/testUtils.js';
 
-async function waitForInteractionState(tool, interaction, opacity) {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const state = tool.state;
-    if (state?.interaction === interaction && state.controlsOpacity === opacity) return;
-    await Scripting.sleep(100);
-  }
+function actorSignals(root) {
+  if (!root) return [];
+  const children = root.get_children ? root.get_children() : [];
+  return [
+    [root, 'notify::opacity'],
+    [root, 'notify::visible'],
+    [root, 'transitions-completed'],
+    ...children.flatMap(actorSignals),
+  ];
+}
 
-  const state = tool.state;
-  throw new Error(
-    `Capture Tool interaction did not settle: expected=${interaction}/${opacity} actual=${state?.interaction}/${state?.controlsOpacity}`,
-  );
+function waitForInteractionState(tool, interaction, opacity) {
+  return waitForCondition({
+    evaluate: () => {
+      const state = tool.state;
+      return state?.interaction === interaction && state.controlsOpacity === opacity;
+    },
+    signals: actorSignals(Main.screenshotUI),
+    description: `Capture Tool interaction ${interaction} at opacity ${opacity}`,
+  });
 }
 
 export async function exerciseCaptureTools(settings, devTool) {
   settings.set_boolean('module-capture-tools', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const tool = devTool.captureToolsTool;
   if (!tool) throw new Error('Capture Tool DevTool section not found');
   if (!(await tool.openPreview())) throw new Error('Capture Tool did not open the preview');
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => tool.state?.captureVisible && tool.state.toolbarVisible,
+    signals: [[Main.uiGroup, 'child-added'], ...actorSignals(Main.screenshotUI)],
+    description: 'Capture Tool preview and toolbar to become visible',
+  });
 
   if (!tool.state?.captureVisible || !tool.state.toolbarVisible)
     throw new Error('Capture Tool preview is not visible');
@@ -56,7 +69,6 @@ export async function exerciseCaptureTools(settings, devTool) {
 export async function exerciseClipboardHistory(settings, devTool) {
   settings.set_boolean('module-clipboard-history', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const tool = devTool.clipboardHistoryTool;
   if (!tool) throw new Error('Clipboard History DevTool section not found');
@@ -68,7 +80,11 @@ export async function exerciseClipboardHistory(settings, devTool) {
     throw new Error('Clipboard History entry count did not increase');
   if (!tool.openPanel()) throw new Error('Clipboard History did not open the panel');
 
-  await Scripting.sleep(100);
+  await waitForCondition({
+    evaluate: () => tool.isPanelOpen,
+    signals: [[Main.uiGroup, 'child-added']],
+    description: 'Clipboard History panel to open',
+  });
   if (!tool.isPanelOpen) throw new Error('Clipboard History panel state was not updated');
 
   const panel = Main.uiGroup

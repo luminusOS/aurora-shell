@@ -38,7 +38,6 @@ export async function run() {
     ]);
 
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
 
     const labels = await getAuroraMenuLabels();
     assertIncludes(labels, 'Terminal');
@@ -59,7 +58,6 @@ async function getAuroraMenuLabels() {
 
   button.menu.open();
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
   const items = button.menu._getMenuItems();
   const labels = items.map((item) => item.label?.text).filter((label) => label);
   button.menu.close();

@@ -29,7 +29,6 @@ export async function run() {
   settings.set_boolean(WEATHER_MODULE_KEY, false);
   settings.set_boolean(MEETING_MODULE_KEY, false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   if (originalClockDisplay.get_parent()?.has_style_class_name('aurora-clock-pill-box'))
     throw new Error('Meeting Clock wrapper remained after disabling module');
@@ -37,7 +36,6 @@ export async function run() {
   settings.set_boolean(MEETING_MODULE_KEY, true);
   settings.set_boolean(ALERT_EVENTS_WITHOUT_LINK_KEY, false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const enabledParent = originalClockDisplay.get_parent();
   if (!enabledParent?.has_style_class_name('aurora-clock-pill-box'))
@@ -68,7 +66,6 @@ export async function run() {
 
   settings.set_boolean(ALERT_EVENTS_WITHOUT_LINK_KEY, true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(100);
 
   if (!meetingClock.showAlert('aurora-test-no-link'))
     throw new Error('Meeting Clock did not alert for no-link event when setting was enabled');
@@ -100,13 +97,11 @@ export async function run() {
 
   dateMenu.menu.open();
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
   dateMenu.menu.close();
   await Scripting.waitLeisure();
 
   settings.set_boolean(MEETING_MODULE_KEY, false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   if (originalClockDisplay.get_parent()?.has_style_class_name('aurora-clock-pill-box'))
     throw new Error('Meeting Clock wrapper was not restored after second disable');

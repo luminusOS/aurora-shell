@@ -13,6 +13,9 @@ import {
   EXTENSION_UUID,
   getAuroraModule,
   getAuroraSettings,
+  waitForActorState,
+  waitForCondition,
+  waitForTiming,
   waitForExtension,
 } from '../support/testUtils.js';
 import { exerciseExternalWorkspace, exerciseMonitorScope } from './scenarios/monitors.js';
@@ -134,7 +137,6 @@ async function assertRunningDotClearsIcon(dash, position) {
   const saved = global.settings.get_strv('favorite-apps');
   global.settings.set_strv('favorite-apps', apps);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   try {
     for (const child of dash._box.get_children()) {
@@ -172,7 +174,6 @@ async function assertRunningDotClearsIcon(dash, position) {
   } finally {
     global.settings.set_strv('favorite-apps', saved);
     await Scripting.waitLeisure();
-    await Scripting.sleep(200);
   }
 }
 
@@ -239,8 +240,7 @@ function findDescendant(actor, predicate) {
   return null;
 }
 
-// Window-backed fallback apps (window:N) can be destroyed and recreated, so
-// prefer the icon that owns the live window and use its app id as a fallback.
+// A window:N app may be recreated. Prefer the icon that owns the live window.
 function findWindowPreviewTarget(dash, window, app) {
   const appId = app.get_id();
   const items = dash._applications.getChildren();
@@ -253,24 +253,29 @@ function findWindowPreviewTarget(dash, window, app) {
   return { item, appIcon };
 }
 
-// The WindowTracker can re-associate the test window with a different
-// Shell.App once the helper's application id arrives, leaving the previously
-// resolved app without any windows.
+// WindowTracker may replace the fallback Shell.App after the helper app id arrives.
 function resolveLivePreviewApp(window, currentApp) {
   const reassignedApp = Shell.WindowTracker.get_default().get_window_app(window);
   return reassignedApp?.get_windows().includes(window) ? reassignedApp : currentApp;
 }
 
-// A Dock rebuild can leave the icon absent for a few main-loop cycles, so the
-// lookup polls until the item reappears.
+// Re-resolve after app or tree changes because a rebuild may replace the icon.
 async function waitForWindowPreviewTarget(dash, window, currentApp) {
   let app = resolveLivePreviewApp(window, currentApp);
-  let target = findWindowPreviewTarget(dash, window, app);
-  for (let attempt = 0; !target && attempt < 20; attempt++) {
-    await Scripting.sleep(100);
-    app = resolveLivePreviewApp(window, app);
-    target = findWindowPreviewTarget(dash, window, app);
-  }
+  const target = await waitForCondition({
+    evaluate: () => {
+      app = resolveLivePreviewApp(window, app);
+      return findWindowPreviewTarget(dash, window, app);
+    },
+    signals: [
+      [Shell.AppSystem.get_default(), 'app-state-changed'],
+      [Shell.WindowTracker.get_default(), 'tracked-windows-changed'],
+      [dash._dashBox, 'child-added'],
+      [dash._dashBox, 'child-removed'],
+    ],
+    description: 'Dock preview target to be rebuilt for the live Shell.App',
+    timeoutMs: 5000,
+  });
   return { app, target };
 }
 
@@ -278,13 +283,15 @@ async function exerciseWindowPreviews(settings, dock) {
   const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
   await Scripting.createTestWindow({ width: 760, height: 480, maximized: false });
   await Scripting.waitTestWindows();
-  await Scripting.sleep(300);
-
-  const window = global
-    .get_window_actors()
-    .map((actor) => actor.meta_window)
-    .find((candidate) => !previousWindows.has(candidate));
-  if (!window) throw new Error('Could not create a window-preview test window');
+  const window = await waitForCondition({
+    evaluate: () =>
+      global
+        .get_window_actors()
+        .map((actor) => actor.meta_window)
+        .find((candidate) => !previousWindows.has(candidate)),
+    signals: [[global.display, 'window-created']],
+    description: 'window-preview test window to be tracked',
+  });
 
   try {
     let previewApp = Shell.WindowTracker.get_default().get_window_app(window);
@@ -292,7 +299,6 @@ async function exerciseWindowPreviews(settings, dock) {
 
     settings.set_boolean('dock-window-previews', true);
     await Scripting.waitLeisure();
-    await Scripting.sleep(500);
 
     const dash = dock?.bindings?.[0]?.dash;
     if (!dash?._windowPreviews)
@@ -301,26 +307,31 @@ async function exerciseWindowPreviews(settings, dock) {
     dash.show(false);
     dash.refresh();
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
 
-    // The Dock rebuilds its items when app states settle after the test window
-    // appears, so every interaction re-resolves the current item and icon.
+    // App tracking may rebuild this item between interactions.
     let previewState = await waitForWindowPreviewTarget(dash, window, previewApp);
     previewApp = previewState.app;
     if (!previewState.target)
       throw new Error('Window-preview test application is absent from Dock');
     let { item, appIcon } = previewState.target;
 
-    // Drive the real hover contract: a short hover cancels the pending show,
-    // a sustained hover suppresses the tooltip and opens the popup after its delay.
     appIcon.set_hover(true);
-    await Scripting.sleep(150);
+    await waitForTiming(
+      150,
+      'exercise a short hover below the 300 ms window-preview dwell threshold',
+    );
     dash._windowPreviews._handleIconHover({ item, appIcon, app: previewApp });
-    await Scripting.sleep(200);
+    await waitForTiming(
+      200,
+      'prove a replaced window-preview show timeout cannot open during its old deadline',
+    );
     if (dash._windowPreviews._popup)
       throw new Error('Window-preview popup opened from a replaced show timeout');
     appIcon.set_hover(false);
-    await Scripting.sleep(400);
+    await waitForTiming(
+      400,
+      'prove a cancelled window-preview hover stays closed beyond the 300 ms dwell threshold',
+    );
     if (dash._windowPreviews._popup)
       throw new Error('Window-preview popup opened after its hover was cancelled');
     if (dash._windowPreviews._showTimeout.active)
@@ -335,32 +346,47 @@ async function exerciseWindowPreviews(settings, dock) {
     if (!dash._windowPreviews.shouldSuppressTooltip(appIcon))
       throw new Error('Window-preview hover did not suppress the Dock tooltip');
 
-    // Poll instead of a single fixed sleep: GLib dispatches ready sources of
-    // equal priority newest-first, so under CI load a long sleep can resolve
-    // before the show timer even though the timer expired first. A Dock item
-    // rebuild also drops the pending show, in which case the hover is re-armed
-    // against the freshly resolved icon. When no live icon is available, a
-    // forced redisplay reconciles the Dock with the current running apps.
-    let popup = null;
-    for (let attempt = 0; attempt < 40; attempt++) {
-      await Scripting.sleep(100);
-      if (dash._windowPreviews._popup?.isOpen) {
-        popup = dash._windowPreviews._popup;
-        break;
-      }
-      if (dash._windowPreviews._pendingSource) continue;
+    // A rebuild may cancel the hover timeout. Re-arm it against the current icon.
+    await waitForCondition({
+      evaluate: () => {
+        const popupActor = findDescendant(
+          Main.uiGroup,
+          (actor) =>
+            actor.has_style_class_name && actor.has_style_class_name('aurora-window-preview-popup'),
+        );
+        if (popupActor) return popupActor;
 
-      previewApp = resolveLivePreviewApp(window, previewApp);
-      const target = findWindowPreviewTarget(dash, window, previewApp);
-      if (!target) {
-        dash.refresh();
-        continue;
-      }
+        previewApp = resolveLivePreviewApp(window, previewApp);
+        const target = findWindowPreviewTarget(dash, window, previewApp);
+        if (!target) return false;
+        if (dash._windowPreviews._pendingSource?.appIcon === target.appIcon) return false;
 
-      ({ item, appIcon } = target);
-      appIcon.set_hover(false);
-      appIcon.set_hover(true);
-    }
+        ({ item, appIcon } = target);
+        appIcon.set_hover(false);
+        appIcon.set_hover(true);
+        return false;
+      },
+      signals: [
+        [Main.uiGroup, 'child-added'],
+        [dash._dashBox, 'child-added'],
+        [dash._dashBox, 'child-removed'],
+        [item, 'destroy'],
+        [Shell.AppSystem.get_default(), 'app-state-changed'],
+        [Shell.WindowTracker.get_default(), 'tracked-windows-changed'],
+        [global.stage, 'after-paint'],
+      ],
+      description: 'window-preview popup actor to join the Shell UI tree',
+      timeoutMs: 5000,
+    });
+    const popup = dash._windowPreviews._popup;
+    await waitForCondition({
+      evaluate: () => popup?.isOpen && popup.actor.mapped,
+      signals: [
+        [popup, 'open-state-changed'],
+        [popup.actor, 'notify::mapped'],
+      ],
+      description: 'window-preview popup to finish opening',
+    });
     if (!popup || !dash._isMenuOpen()) {
       const controller = dash._windowPreviews;
       const fresh = findWindowPreviewTarget(dash, window, previewApp);
@@ -489,7 +515,17 @@ async function exerciseWindowPreviews(settings, dock) {
     }
 
     close.emit('clicked', Clutter.BUTTON_PRIMARY);
-    await Scripting.sleep(500);
+    await waitForCondition({
+      evaluate: () =>
+        !item.has_style_class_name('aurora-window-preview-open') &&
+        !global.get_window_actors().some((actor) => actor.meta_window === window),
+      signals: [
+        [popup, 'open-state-changed'],
+        [item, 'style-changed'],
+        [window, 'unmanaged'],
+      ],
+      description: 'preview window and Dock highlight to close',
+    });
     if (item.has_style_class_name('aurora-window-preview-open'))
       throw new Error('Window-preview Dock highlight survived popup closure');
     if (global.get_window_actors().some((actor) => actor.meta_window === window))
@@ -508,7 +544,6 @@ async function exerciseWindowPreviews(settings, dock) {
       window.delete(global.get_current_time());
     settings.set_boolean('dock-window-previews', false);
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
   }
 }
 
@@ -524,7 +559,6 @@ async function exerciseDockPositions(settings, dock) {
   for (const position of ['bottom', 'left', 'right']) {
     settings.set_string('dock-position', position);
     await Scripting.waitLeisure();
-    await Scripting.sleep(350);
 
     const binding = dock.bindings.find(
       (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
@@ -601,7 +635,6 @@ async function exerciseDockPositions(settings, dock) {
 
     settings.set_boolean('dock-always-show', true);
     await Scripting.waitLeisure();
-    await Scripting.sleep(350);
     const alwaysBinding = dock.bindings.find(
       (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
     );
@@ -636,7 +669,6 @@ async function exerciseDockPositions(settings, dock) {
   for (const position of ['left', 'right']) {
     settings.set_string('dock-position', position);
     await Scripting.waitLeisure();
-    await Scripting.sleep(350);
     if (
       dock.bindings.some(
         (candidate) =>
@@ -650,7 +682,6 @@ async function exerciseDockPositions(settings, dock) {
   settings.set_string('dock-position', 'bottom');
   settings.set_boolean('dock-intellihide', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(350);
 }
 
 export var METRICS = {};
@@ -783,7 +814,6 @@ export async function run() {
   settings.set_boolean('dock-window-previews', false);
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const dockActor = findDockActor();
   if (!dockActor)
@@ -869,8 +899,15 @@ export async function run() {
   const iconSizeMaxHeight = dash._maxHeight;
   dash.setMaxSize(10000, 1000);
   settings.set_int('dock-icon-size', 32);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => dash.iconSize === 32,
+    signals: [
+      [settings, 'changed::dock-icon-size'],
+      [dash, 'icon-size-changed'],
+      [dash, 'notify::allocation'],
+    ],
+    description: 'configured Dock icon size to reach the rendered Dash',
+  });
 
   if (dock.bindings[0] !== bindingBeforeIconSizeChange)
     throw new Error('Changing dock-icon-size rebuilt the dock binding');
@@ -889,7 +926,6 @@ export async function run() {
 
   settings.reset('dock-icon-size');
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
   if (dash.iconSize !== 64)
     throw new Error(`Resetting dock-icon-size did not restore the 64px default: ${dash.iconSize}`);
 
@@ -897,20 +933,8 @@ export async function run() {
   dash._adjustIconSize();
   Scripting.scriptEvent('configuredIconSizeApplied');
 
-  // the automatic icon resize must count the fixed dock icons (trash,
-  // external storage) that live in _dashContainer outside _box. Constrain the
-  // max width to exactly fit every icon at size 24: if the fixed icons were
-  // not counted, _adjustIconSize would keep a larger size and the dock would
-  // overflow its work area.
-  //
-  // The fixed-icon count here must not depend on how many apps happen to be
-  // pinned or running in the test environment: with zero of those, the dash
-  // holds only the Show Apps icon. As both the first and last child, it picks
-  // up extra edge margin that a multi-icon dash never
-  // sees, so the sizing budget below (derived from a single representative
-  // icon) undershoots the real render. Synthesizing a few external-storage
-  // icons (no hardware or Nautilus required) keeps the icon count, and this
-  // check, consistent across every environment.
+  // Fixed icons live outside _box but still consume the sizing budget. Add fake
+  // storage icons so the test does not depend on favorites, hardware, or Nautilus.
   const priorMaxWidth = dash._maxWidth;
   const priorMaxHeight = dash._maxHeight;
   const injectedStorageIcons = dash._fixedItems._storage.length === 0;
@@ -974,10 +998,8 @@ export async function run() {
     const content = themeNode.get_content_box(probe);
     const horizontalChrome = 1000 - (content.x2 - content.x1);
 
-    // Budget the width for every icon at size 31, just below the 32 step of
-    // baseIconSizes. Counting all icons picks 24 and fits with dozens of px
-    // to spare; leaving the fixed icons out of the count picks 32 and
-    // overflows the budget by a full icon-step per icon.
+    // Size 31 sits below the 32px step. Omitting fixed icons would select 32px
+    // and overflow this budget.
     const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
     const targetIconSize = 31 * scaleFactor;
     const maxWidth = Math.ceil(
@@ -1023,8 +1045,7 @@ export async function run() {
 
   await exerciseExternalWorkspace(dock);
 
-  // repeated topology/intellihide updates must not restart the show
-  // animation from the hidden pose and make the dock flash.
+  // Repeated show requests must not restart the animation from its hidden pose.
   dash.hide(false);
   let hiddenPoseCalls = 0;
   const originalApplyHiddenState = dash._visibility._applyHiddenState;
@@ -1036,20 +1057,17 @@ export async function run() {
   dash.show(true);
   dash.show(true);
 
-  // Poll for the settled pose instead of a fixed sleep: the 200ms show
-  // animation only starts on the next frame, so under CI load a single
-  // 300ms wait can sample the dock mid-animation.
-  let settled = false;
-  for (let attempt = 0; attempt < 20 && !settled; attempt++) {
-    await Scripting.sleep(100);
-    settled = dash.visible && dash.opacity === 255 && dash.translation_y === 0;
-  }
+  await waitForActorState(
+    dash,
+    (actor) => actor.visible && actor.opacity === 255 && actor.translation_y === 0,
+    {
+      properties: ['visible', 'opacity', 'translation-y'],
+      description: 'Dock show animation to reach its final pose',
+    },
+  );
   dash._visibility._applyHiddenState = originalApplyHiddenState;
   if (hiddenPoseCalls !== 1)
     throw new Error(`Repeated show requests restarted the animation ${hiddenPoseCalls} times`);
-  if (!settled)
-    throw new Error('Dock did not settle in its fully shown state after repeated show requests');
-
   Scripting.scriptEvent('repeatedShowStable');
 
   const originalItemDragHover = dash._visibility._hovered;
@@ -1059,18 +1077,27 @@ export async function run() {
     dash.show(false);
     dash._onItemDragBegin();
     dash.hide(false);
-    await Scripting.sleep(300);
+    await waitForActorState(dash, (actor) => actor.visible && actor.opacity === 255, {
+      properties: ['visible', 'opacity'],
+      description: 'Dock to remain fully visible during an icon drag',
+    });
     if (!dash.visible || dash.opacity !== 255 || dash.translation_y !== 0)
       throw new Error('Dock hid while a favorite icon drag was active');
 
     dash._onItemDragEnd();
-    await Scripting.sleep(400);
+    await waitForActorState(dash, (actor) => !actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'Dock to restore autohide after the icon drop',
+    });
     if (dash.visible) throw new Error('Dock did not restore auto-hide after the icon drop');
 
     dash.show(false);
     dash._onItemDragBegin();
     dash._onItemDragCancelled();
-    await Scripting.sleep(400);
+    await waitForActorState(dash, (actor) => !actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'Dock to restore autohide after cancelling the icon drag',
+    });
     if (dash.visible) throw new Error('Dock did not restore auto-hide after cancelling icon drag');
   } finally {
     if (dash._visibility._itemDragHold) dash._onItemDragCancelled();
@@ -1082,10 +1109,7 @@ export async function run() {
 
   const binding = dock.bindings[0];
 
-  // a direct intellihide BLOCKED transition from a visible dock must hand
-  // off to hover autohide. This covers switching from a small window to a
-  // fullscreen window via the dock: the dock must stay up while the pointer is
-  // still over it and hide only after the pointer leaves.
+  // Switching from a small window to fullscreen hands BLOCKED to hover autohide.
   dash.show(false);
   const originalDashContainerHasHover = dash._visibility._hovered;
   try {
@@ -1094,13 +1118,19 @@ export async function run() {
     clearIntellihideQueuedRefreshes(binding.intellihide);
     binding.intellihide._status = 1;
     binding.intellihide.emit('status-changed');
-    await Scripting.sleep(350);
+    await waitForActorState(dash, (actor) => actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'Dock to remain visible for BLOCKED intellihide while hovered',
+    });
     if (!dash.visible)
       throw new Error('Intellihide BLOCKED hid the dock while the pointer stayed over it');
 
     dash._visibility._hovered = false;
     dash._visibility.updateAutoHide();
-    await Scripting.sleep(450);
+    await waitForActorState(dash, (actor) => !actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'BLOCKED Dock to hide after hover ends',
+    });
   } finally {
     dash._visibility._hovered = originalDashContainerHasHover;
   }
@@ -1116,11 +1146,8 @@ export async function run() {
 
   Scripting.scriptEvent('hotAreaYieldedInput');
 
-  // after a hot-area reveal hands off to the dash's native hover autohide,
-  // the dock must stay visible while the pointer is over it (hover), even when
-  // a window is BLOCKING. Hover is tracked via the dock actor's crossing events
-  // (reliable over client windows), so this is what keeps the dock up while the
-  // user switches apps; it only hides once the pointer leaves (see I10).
+  // Native crossing events, not stage motion, keep the revealed Dock visible
+  // while the pointer crosses onto a client window.
   const originalHoldZoneDashContainerHasHover = dash._visibility._hovered;
   clearIntellihideQueuedRefreshes(binding.intellihide);
   binding.intellihide._status = 1; // BLOCKED
@@ -1129,7 +1156,10 @@ export async function run() {
     dock._clearHotAreaReveal(binding);
     binding.hotAreaActive = false;
     dock.revealFromHotArea();
-    await Scripting.sleep(1700); // past the reveal grace → handoff to autohide
+    await waitForTiming(
+      1700,
+      'cross the hot-area reveal grace period before asserting autohide handoff',
+    ); // past the reveal grace → handoff to autohide
   } finally {
     dash._visibility._hovered = originalHoldZoneDashContainerHasHover;
   }
@@ -1143,16 +1173,21 @@ export async function run() {
 
   dock._clearHotAreaReveal(binding);
 
-  // if a small focused window makes intellihide CLEAR while a hot-area
-  // reveal is still active, the dock must switch back to pinned-visible mode.
-  // This matches the journal sequence where CLEAR was previously ignored and
-  // the dock hid even though the active window no longer overlapped it.
+  // CLEAR during a hot-area reveal returns the Dock to pinned-visible mode.
   dash.hide(false);
   binding.hotAreaActive = true;
   binding.hotArea?.setEnabled(true);
   binding.intellihide._status = 0; // CLEAR
   binding.intellihide.emit('status-changed');
-  await Scripting.sleep(350);
+  await waitForCondition({
+    evaluate: () => dash.visible && !binding.hotAreaActive && !binding.hotArea?.reactive,
+    signals: [
+      [dash, 'notify::visible'],
+      [dash, 'transitions-completed'],
+      ...(binding.hotArea ? [[binding.hotArea, 'notify::reactive']] : []),
+    ],
+    description: 'CLEAR intellihide to show Dock and end the hot-area reveal',
+  });
   if (!dash.visible) throw new Error('Hot-area active CLEAR did not show the dock');
   if (binding.hotAreaActive) throw new Error('Hot-area active CLEAR did not end the reveal state');
   if (binding.hotArea?.reactive)
@@ -1160,13 +1195,8 @@ export async function run() {
 
   Scripting.scriptEvent('hotAreaActiveClearShowsDock');
 
-  // when a hot-area reveal is active and intellihide reasserts BLOCKED
-  // (e.g. switching between two fullscreen/maximized windows via the dock
-  // icons), the dock must stay visible while the pointer is over it and hide
-  // only once the pointer leaves the dock. Retraction is driven by the dash's
-  // native hover autohide, which polls the dock actor's hover state and stays
-  // reliable when the pointer moves onto a client window. This is the reported
-  // maximized-switch bug, where a stage motion watch never saw the exit.
+  // Reasserting BLOCKED reproduces the maximized-window switch where stage
+  // motion missed the pointer leaving the Dock.
   const originalBlockedDashContainerHasHover = dash._visibility._hovered;
   try {
     binding.intellihide._status = 1; // BLOCKED
@@ -1175,17 +1205,33 @@ export async function run() {
     binding.dash.blockAutoHide(true);
     dash.show(false);
     dock._handleHotAreaActiveIntellihideChange(binding);
-    await Scripting.sleep(350);
-    // Pointer still over the dock: it must remain visible (hover keeps it).
+    await waitForActorState(dash, (actor) => actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'BLOCKED hot-area Dock to remain visible while hovered',
+    });
+    await waitForTiming(
+      450,
+      'hold hover beyond the Dock autohide handoff deadline before asserting it remains visible',
+    );
     if (!dash.visible)
       throw new Error('Hot-area active BLOCKED hid the dock while pointer stayed over it');
     if (!binding.hotAreaActive)
       throw new Error('Hot-area active BLOCKED ended the reveal while pointer stayed over it');
 
-    // Pointer leaves the dock: native hover autohide must now retract it.
     dash._visibility._hovered = false;
     dash._visibility.updateAutoHide();
-    await Scripting.sleep(450);
+    await waitForActorState(dash, (actor) => !actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'BLOCKED hot-area Dock to retract after hover ends',
+    });
+    await waitForCondition({
+      evaluate: () => !binding.hotAreaActive && binding.hotArea?.reactive,
+      signals: [
+        [dash, 'transitions-completed'],
+        ...(binding.hotArea ? [[binding.hotArea, 'notify::reactive']] : []),
+      ],
+      description: 'hot area to rearm after the BLOCKED Dock retracts',
+    });
   } finally {
     dash._visibility._hovered = originalBlockedDashContainerHasHover;
   }
@@ -1205,7 +1251,15 @@ export async function run() {
   dock._enableHotAreaWhenDockHidden(binding);
   if (binding.hotArea?.reactive)
     throw new Error('Hot area reactivated before the dock hide animation completed');
-  await Scripting.sleep(350);
+  await waitForCondition({
+    evaluate: () => !dash.visible && binding.hotArea?.reactive && !binding.hotAreaActive,
+    signals: [
+      [dash, 'notify::visible'],
+      [dash, 'transitions-completed'],
+      ...(binding.hotArea ? [[binding.hotArea, 'notify::reactive']] : []),
+    ],
+    description: 'hot area to rearm after the Dock hide animation',
+  });
   if (dash.visible) throw new Error('Dock did not finish its hide animation');
   if (!binding.hotArea?.reactive)
     throw new Error('Hot area was not restored after the dock became fully hidden');
@@ -1214,9 +1268,7 @@ export async function run() {
 
   Scripting.scriptEvent('hotAreaRearmedAfterHide');
 
-  // A system transition must temporarily reject both ordinary edge activation
-  // and contextual DND. Once the cooldown expires, a recognized external drag
-  // may reveal the hidden dock, but only after the longer dwell.
+  // System transitions block edge activation and contextual DND until cooldown.
   const hotAreaBounds = binding.hotArea._monitor;
   const edgeX = hotAreaBounds.x + Math.floor(hotAreaBounds.width / 2);
   const edgeY = hotAreaBounds.y + hotAreaBounds.height - 1;
@@ -1224,7 +1276,10 @@ export async function run() {
   if (binding.hotArea.canStartContextualDragReveal(edgeX, edgeY))
     throw new Error('Hot area accepted contextual DND during the transition cooldown');
 
-  await Scripting.sleep(750);
+  await waitForTiming(
+    750,
+    'cross the system-transition cooldown before contextual drag activation is retried',
+  );
   if (!binding.hotArea.canStartContextualDragReveal(edgeX, edgeY))
     throw new Error('Hot area remained in transition cooldown after its deadline');
 
@@ -1233,11 +1288,17 @@ export async function run() {
     x: edgeX,
     y: edgeY,
   });
-  await Scripting.sleep(400);
+  await waitForTiming(
+    400,
+    'remain below the prolonged contextual-drag dwell threshold for a negative assertion',
+  );
   if (binding.hotAreaActive || dash.visible)
     throw new Error('Contextual DND revealed the dock before the prolonged dwell elapsed');
 
-  await Scripting.sleep(500);
+  await waitForTiming(
+    500,
+    'cross the prolonged contextual-drag dwell threshold before expecting reveal',
+  );
   if (!binding.hotAreaActive || !dash.visible)
     throw new Error('Contextual DND did not reveal the dock after the prolonged dwell');
 
@@ -1247,9 +1308,7 @@ export async function run() {
   binding.dash.hide(false);
   binding.hotArea.setEnabled(false);
 
-  // switching focus between two fullscreen windows keeps intellihide at
-  // BLOCKED with no enum transition, so `status-changed` never fires. Intellihide
-  // must instead reassert BLOCKED on the focus change so the dock can react.
+  // Focus can change while the enum stays BLOCKED, so status-changed will not fire.
   const originalReassertMonitorFullscreen = global.display.get_monitor_in_fullscreen;
   const originalReassertIsCandidate = binding.intellihide._isCandidateWindow;
   let reasserted = false;
@@ -1274,10 +1333,7 @@ export async function run() {
 
   Scripting.scriptEvent('focusReassertSignalEmitted');
 
-  // the blocked-reasserted signal path wired in dock.ts must hand the
-  // reveal to native hover autohide too: switching between fullscreen windows
-  // via the dock icons keeps the dock up while the pointer is over it and hides
-  // it once the pointer leaves. Same contract as I10, but driven by the signal.
+  // blocked-reasserted uses the same native autohide handoff as status-changed.
   dock._clearHotAreaReveal(binding);
   const originalReassertHasHover = dash._visibility._hovered;
   try {
@@ -1287,17 +1343,33 @@ export async function run() {
     binding.dash.blockAutoHide(true);
     dash.show(false);
     binding.intellihide.emit('blocked-reasserted');
-    await Scripting.sleep(350);
-    // Pointer still over the dock: reveal stays visible.
+    await waitForActorState(dash, (actor) => actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'focus reasserted Dock to remain visible while hovered',
+    });
+    await waitForTiming(
+      450,
+      'hold hover beyond the focus-reasserted autohide handoff deadline before asserting visibility',
+    );
     if (!dash.visible)
       throw new Error('Focus reassert hid the dock while the pointer stayed over it');
     if (!binding.hotAreaActive)
       throw new Error('Focus reassert ended the reveal while the pointer stayed over it');
 
-    // Pointer leaves the dock: native hover autohide must retract it.
     dash._visibility._hovered = false;
     dash._visibility.updateAutoHide();
-    await Scripting.sleep(450);
+    await waitForActorState(dash, (actor) => !actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'focus reasserted Dock to retract after hover ends',
+    });
+    await waitForCondition({
+      evaluate: () => !binding.hotAreaActive && binding.hotArea?.reactive,
+      signals: [
+        [dash, 'transitions-completed'],
+        ...(binding.hotArea ? [[binding.hotArea, 'notify::reactive']] : []),
+      ],
+      description: 'hot area to rearm after the focus-reasserted Dock retracts',
+    });
   } finally {
     dash._visibility._hovered = originalReassertHasHover;
   }
@@ -1311,13 +1383,8 @@ export async function run() {
   binding.hotAreaActive = false;
   binding.hotArea?.setEnabled(false);
 
-  // transient window geometry during creation/move/restack makes
-  // intellihide flap CLEAR<->BLOCKED many times in well under a second
-  // (gnome-shell-logs: rects=[0,0 0x0] then the work-area rect then the real
-  // small window, all within one second). Those flaps must coalesce into a
-  // single settled status instead of toggling the dock. This covers both the
-  // "dock piscando / aparecendo por cima" flicker and the new-small-window
-  // hides-the-dock bug.
+  // Window creation briefly reports 0x0, work-area, then final geometry. These
+  // CLEAR/BLOCKED flaps must coalesce into one status change.
   clearIntellihideQueuedRefreshes(binding.intellihide);
   binding.intellihide._status = 0; // CLEAR (shown)
   let flapChanges = 0;
@@ -1332,7 +1399,10 @@ export async function run() {
       throw new Error(
         `Intellihide committed ${flapChanges} status changes mid-flap instead of debouncing`,
       );
-    await Scripting.sleep(300);
+    await waitForTiming(
+      300,
+      'cross the intellihide status debounce window before asserting the committed state',
+    );
   } finally {
     binding.intellihide.disconnect(flapId);
   }
@@ -1366,7 +1436,6 @@ export async function run() {
   // decision involved, it starts hidden and only appears through the hot area.
   settings.set_boolean('dock-intellihide', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
   const alwaysAutoHideBinding = dock.bindings.find(
     (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
   );
@@ -1382,13 +1451,19 @@ export async function run() {
   try {
     if (!dock.revealMonitorFromHotArea(alwaysAutoHideBinding.monitorIndex))
       throw new Error('Always auto-hide Dock could not be revealed from its hot area');
-    await Scripting.sleep(100);
+    await waitForActorState(alwaysAutoHideBinding.dash, (actor) => actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'always-autohide Dock to appear after edge reveal',
+    });
     if (!alwaysAutoHideBinding.dash.visible)
       throw new Error('Always auto-hide Dock did not appear after an edge reveal');
 
     dock._clearHotAreaReveal(alwaysAutoHideBinding);
     dock._releaseHotAreaToAutoHide(alwaysAutoHideBinding);
-    await Scripting.sleep(500);
+    await waitForActorState(alwaysAutoHideBinding.dash, (actor) => !actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'always-autohide Dock to retract after edge reveal ends',
+    });
     if (alwaysAutoHideBinding.dash.visible)
       throw new Error('Always auto-hide Dock stayed visible after the reveal ended');
   } finally {
@@ -1414,7 +1489,7 @@ export async function run() {
   if (!disposableBox) throw new Error('Current Dash content was already destroyed before coverage');
 
   disposableBox.destroy();
-  await Scripting.sleep(200);
+  await Scripting.waitLeisure();
 
   if (disposableDash._dashBox) throw new Error('Dash retained its content actor after destruction');
   if (disposableDash._visibility._autohideTimeout.active)
@@ -1425,7 +1500,6 @@ export async function run() {
   const originalValue = settings.get_boolean('module-dock');
   settings.set_boolean('module-dock', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
 
   const actorAfterDisable = findDockActor();
   if (actorAfterDisable)
@@ -1451,7 +1525,6 @@ export async function run() {
   settings.set_boolean('dock-window-previews', originalWindowPreviews);
   settings.set_boolean('module-dock', originalValue);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 }
 
 let _dockPresent = false;

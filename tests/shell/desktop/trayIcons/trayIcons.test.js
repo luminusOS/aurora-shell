@@ -8,7 +8,9 @@ import {
   EXTENSION_UUID,
   getAuroraModule,
   getAuroraSettings,
+  waitForCondition,
   waitForExtension,
+  waitForModuleState,
 } from '../../support/testUtils.js';
 
 const INDICATOR_ID = 'aurora-tray-icons';
@@ -59,27 +61,18 @@ function findBackgroundAppsToggle() {
 export async function run() {
   const extension = await waitForExtension(EXTENSION_UUID);
   Scripting.scriptEvent('extensionEnabled');
-  await Scripting.sleep(500);
   const settings = getAuroraSettings();
   const originalModuleEnabled = settings.get_boolean('module-tray-icons');
   const originalHideBgQuickSettings = settings.get_boolean('tray-icons-hide-bg-quick-settings');
 
   try {
     settings.set_boolean('module-tray-icons', true);
-    await Scripting.waitLeisure();
-    await Scripting.sleep(300);
-
-    // Wait for the indicator to appear (allows time for hot-reload to settle)
-    let trayIndicator = null;
-    for (let i = 0; i < 30; i++) {
-      trayIndicator = Main.panel.statusArea[INDICATOR_ID];
-      if (trayIndicator) break;
-      console.log(`[aurora-tray-test] Waiting for indicator... attempt ${i + 1}`);
-      await Scripting.sleep(200);
-    }
-
-    if (!trayIndicator)
-      throw new Error(`"${INDICATOR_ID}" indicator not found in panel.statusArea after retries`);
+    await waitForModuleState(settings, 'module-tray-icons', 'tray-icons', true);
+    const trayIndicator = await waitForCondition({
+      evaluate: () => Main.panel.statusArea[INDICATOR_ID],
+      signals: [[Main.panel._rightBox, 'child-added']],
+      description: `"${INDICATOR_ID}" indicator to join the panel`,
+    });
 
     const trayIconsModule = getAuroraModule('tray-icons');
     const absoluteIconPath = GLib.build_filenamev([
@@ -106,18 +99,15 @@ export async function run() {
       throw new Error('Absolute SNI IconName resolved to the wrong file');
 
     Scripting.scriptEvent('trayFound');
-    await Scripting.sleep(200);
 
     settings.set_boolean('tray-icons-hide-bg-quick-settings', true);
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
 
     const bgAppsToggle = findBackgroundAppsToggle();
     if (!bgAppsToggle) throw new Error(`"${BG_APPS_TOGGLE_CLASS}" not found in Quick Settings`);
 
     bgAppsToggle.visible = true;
     await Scripting.waitLeisure();
-    await Scripting.sleep(200);
 
     if (bgAppsToggle.visible)
       throw new Error('Background Apps quick settings toggle remained visible');
@@ -126,7 +116,6 @@ export async function run() {
 
     settings.set_boolean('tray-icons-hide-bg-quick-settings', false);
     await Scripting.waitLeisure();
-    await Scripting.sleep(200);
 
     if (trayIndicator._bgAppsToggle)
       throw new Error(
@@ -135,7 +124,6 @@ export async function run() {
 
     settings.set_boolean('module-tray-icons', false);
     await Scripting.waitLeisure();
-    await Scripting.sleep(500);
 
     const afterDisable = Main.panel.statusArea[INDICATOR_ID];
     if (afterDisable)
@@ -146,7 +134,6 @@ export async function run() {
     settings.set_boolean('tray-icons-hide-bg-quick-settings', originalHideBgQuickSettings);
     settings.set_boolean('module-tray-icons', originalModuleEnabled);
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
   }
 }
 

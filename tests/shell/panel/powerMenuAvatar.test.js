@@ -37,7 +37,6 @@ function getAvatars(menu) {
 
 async function waitForModuleReconcile() {
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 }
 
 export async function run() {

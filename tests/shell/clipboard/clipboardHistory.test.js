@@ -1,9 +1,17 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../support/testUtils.js';
+import {
+  waitForCondition,
+  waitForTiming,
+  EXTENSION_UUID,
+  getAuroraSettings,
+  waitForExtension,
+} from '../support/testUtils.js';
 import {
   assertPanelInsideWorkArea,
   assertPanelTrackedAboveFullscreen,
@@ -48,6 +56,41 @@ function assertFloatingActions(item, overlayStyle, expectedInset = 0) {
   }
 }
 
+async function waitForFloatingActions(
+  item,
+  overlayStyle,
+  expectedInset = 0,
+  expectedItemWidth = null,
+) {
+  const overlay = findActorByStyle(item, overlayStyle);
+  const actions = findActorByStyle(item, 'aurora-clipboard-item-actions');
+  if (!overlay || !actions) throw new Error(`Floating action layout not found for ${overlayStyle}`);
+
+  await waitForCondition({
+    evaluate: () => {
+      const content = overlay.first_child;
+      const rightGap = overlay.width - (actions.x + actions.width);
+      return (
+        content &&
+        actions.y === expectedInset &&
+        rightGap === expectedInset &&
+        content.x === 0 &&
+        content.y === 0 &&
+        content.width === overlay.width &&
+        (expectedItemWidth === null || item.width === expectedItemWidth)
+      );
+    },
+    signals: [
+      [item, 'notify::allocation'],
+      [overlay, 'notify::allocation'],
+      [actions, 'notify::allocation'],
+      [item, 'style-changed'],
+      [global.stage, 'after-paint'],
+    ],
+    description: `${overlayStyle} floating actions to finish layout`,
+  });
+}
+
 export var METRICS = {};
 
 export function init() {
@@ -79,13 +122,11 @@ export async function run() {
   const auroraSettings = getAuroraSettings();
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   Scripting.scriptEvent('moduleEnabled');
 
   auroraSettings.set_boolean('module-clipboard-history', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
 
   if (findClipboardPanel()) {
     throw new Error(`"${PANEL_CSS}" still in uiGroup after module was disabled`);
@@ -94,7 +135,6 @@ export async function run() {
 
   auroraSettings.set_boolean('module-clipboard-history', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
 
   Scripting.scriptEvent('lifecycleOk');
 
@@ -104,24 +144,47 @@ export async function run() {
   await exerciseWorkspacePanel();
   Scripting.scriptEvent('workspacePanelOk');
 
-  St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, 'aurora-test-clipboard-entry');
-  await Scripting.waitLeisure();
-  await Scripting.sleep(1500);
+  const beforeTextCount = getClipboardModule().entryCount;
+  const textHistoryFile = Gio.File.new_for_path(
+    `${GLib.get_user_runtime_dir()}/aurora-shell/${EXTENSION_UUID}/clipboard-history.log`,
+  );
+  const textHistoryMonitor = textHistoryFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
+  try {
+    St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, 'aurora-test-clipboard-entry');
+    await waitForCondition({
+      evaluate: () => getClipboardModule().entryCount > beforeTextCount,
+      signals: [[textHistoryMonitor, 'changed']],
+      description: 'clipboard text to be persisted by the monitor',
+    });
+  } finally {
+    textHistoryMonitor.cancel();
+  }
 
   Scripting.scriptEvent('clipboardWritten');
 
   const beforeImageCount = getClipboardModule().entryCount;
-  St.Clipboard.get_default().set_content(
-    St.ClipboardType.CLIPBOARD,
-    'image/png',
-    new Uint8Array([
-      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0,
-      0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 255, 255, 255, 127, 0,
-      9, 251, 3, 253, 42, 134, 227, 138, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
-    ]),
+  const historyFile = Gio.File.new_for_path(
+    `${GLib.get_user_runtime_dir()}/aurora-shell/${EXTENSION_UUID}/clipboard-history.log`,
   );
-  await Scripting.waitLeisure();
-  await Scripting.sleep(1500);
+  const historyMonitor = historyFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
+  try {
+    St.Clipboard.get_default().set_content(
+      St.ClipboardType.CLIPBOARD,
+      'image/png',
+      new Uint8Array([
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6,
+        0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 255, 255, 255,
+        127, 0, 9, 251, 3, 253, 42, 134, 227, 138, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+      ]),
+    );
+    await waitForCondition({
+      evaluate: () => getClipboardModule().entryCount > beforeImageCount,
+      signals: [[historyMonitor, 'changed']],
+      description: 'clipboard image to be persisted by the monitor',
+    });
+  } finally {
+    historyMonitor.cancel();
+  }
 
   if (getClipboardModule().entryCount <= beforeImageCount) {
     throw new Error('Clipboard image was not captured by the monitor');
@@ -147,7 +210,6 @@ export async function run() {
   clipboardModule.addText(sixLineCode);
   clipboardModule.openPanel();
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   const panel = findClipboardPanel();
   if (!panel) {
@@ -195,8 +257,12 @@ export async function run() {
 
   const longItemIndex = list._items.indexOf(longItem);
   list.moveFocus(longItemIndex);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(100);
+  await waitForFloatingActions(
+    longItem,
+    'aurora-clipboard-item-text-overlay',
+    0,
+    widthBeforeSelection,
+  );
   if (longItem.width !== widthBeforeSelection) {
     throw new Error(
       `Text card width changed on keyboard selection: before=${widthBeforeSelection}, after=${longItem.width}`,
@@ -223,13 +289,24 @@ export async function run() {
   const shortItemIndex = list._items.indexOf(shortItem);
   const shortHeightBeforeSelection = shortItem.height;
   list.moveFocus(shortItemIndex - longItemIndex);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(100);
   const shortOverlay = findActorByStyle(shortItem, 'aurora-clipboard-item-text-overlay');
   const shortActions = findActorByStyle(shortItem, 'aurora-clipboard-item-actions');
   if (!shortOverlay || !shortActions) {
     throw new Error('Short text card actions were not found');
   }
+  await waitForCondition({
+    evaluate: () =>
+      shortItem.height === shortHeightBeforeSelection &&
+      shortActions.y + shortActions.height <= shortOverlay.height,
+    signals: [
+      [shortItem, 'notify::allocation'],
+      [shortOverlay, 'notify::allocation'],
+      [shortActions, 'notify::allocation'],
+      [shortItem, 'style-changed'],
+      [global.stage, 'after-paint'],
+    ],
+    description: 'short text card to finish its selected layout',
+  });
   if (shortItem.height !== shortHeightBeforeSelection) {
     throw new Error(
       `Short text card height changed on focus: before=${shortHeightBeforeSelection}, after=${shortItem.height}`,
@@ -243,14 +320,12 @@ export async function run() {
 
   const sixLineCodeIndex = list._items.indexOf(sixLineCodeItem);
   list.moveFocus(sixLineCodeIndex - shortItemIndex);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(100);
+  await waitForFloatingActions(sixLineCodeItem, 'aurora-clipboard-item-code-overlay');
   assertFloatingActions(sixLineCodeItem, 'aurora-clipboard-item-code-overlay');
 
   const imageItemIndex = list._items.indexOf(imageItem);
   list.moveFocus(imageItemIndex - sixLineCodeIndex);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(100);
+  await waitForFloatingActions(imageItem, 'aurora-clipboard-image-overlay', 6);
   assertFloatingActions(imageItem, 'aurora-clipboard-image-overlay', 6);
   Scripting.scriptEvent('textCardLayoutOk');
 
@@ -276,7 +351,6 @@ export async function run() {
 
   clipboardModule._onTogglePin(shortItem.entry.id);
   await Scripting.waitLeisure();
-  await Scripting.sleep(100);
   const refreshedList = panel._list;
   const pinnedItem = refreshedList._items.find(
     (item) => item.entry.text === 'Short clipboard entry',
@@ -287,7 +361,6 @@ export async function run() {
   }
   hoveredHistoryItem.set_hover(true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(100);
   if (
     refreshedList.selectedItem !== hoveredHistoryItem ||
     !hoveredHistoryItem._removeButton.visible ||
@@ -315,7 +388,6 @@ export async function run() {
   const pinnedHeightBeforeFocus = pinnedItem.height;
   pinnedItem.set_hover(true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(100);
   if (pinnedItem.height !== pinnedHeightBeforeFocus) {
     throw new Error(
       `Pinned short card height changed on focus: before=${pinnedHeightBeforeFocus}, after=${pinnedItem.height}`,
@@ -350,7 +422,14 @@ export async function run() {
     clipboardModule._pasteTargetWindow = pasteTarget;
     clipboardModule._pasteTargetInputFocus = pasteTargetInputFocus;
     clipboardModule._onActivate({ kind: 'text', text: 'aurora-auto-paste-enabled' });
-    await Scripting.sleep(200);
+    await waitForCondition({
+      evaluate: () =>
+        targetActivationCount === 1 &&
+        Main.inputMethod.currentFocus === pasteTargetInputFocus &&
+        pasteProbe.get_text() === 'aurora-auto-paste-enabled',
+      signals: [[pasteProbe.clutter_text, 'text-changed']],
+      description: 'automatic paste to restore and fill the Wayland input focus',
+    });
 
     if (
       targetActivationCount !== 1 ||
@@ -367,7 +446,10 @@ export async function run() {
     clipboardModule._pasteTargetWindow = pasteTarget;
     clipboardModule._pasteTargetInputFocus = pasteTargetInputFocus;
     clipboardModule._onActivate({ kind: 'text', text: 'aurora-auto-paste-disabled' });
-    await Scripting.sleep(200);
+    await waitForTiming(
+      200,
+      'negative assertion window proving disabled automatic paste never runs',
+    );
 
     if (targetActivationCount !== 1 || pasteProbe.get_text() !== '') {
       throw new Error('Automatic paste ran while its setting was disabled');
@@ -389,7 +471,6 @@ export async function run() {
 
   auroraSettings.set_boolean('module-clipboard-history', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
 
   if (findClipboardPanel()) {
     throw new Error(`"${PANEL_CSS}" leaked into uiGroup after second disable`);
@@ -399,7 +480,6 @@ export async function run() {
 
   auroraSettings.set_boolean('module-clipboard-history', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 }
 
 let _moduleEnabled = false;

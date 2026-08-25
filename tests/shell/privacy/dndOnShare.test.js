@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, waitForExtension } from '../support/testUtils.js';
+import { EXTENSION_UUID, waitForExtension, waitForCondition } from '../support/testUtils.js';
 
 const NOTIFICATIONS_SCHEMA = 'org.gnome.desktop.notifications';
 const SHOW_BANNERS_KEY = 'show-banners';
@@ -26,16 +26,13 @@ export function init() {
 export async function run() {
   await waitForExtension(EXTENSION_UUID);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const notifSettings = new Gio.Settings({ schema_id: NOTIFICATIONS_SCHEMA });
 
-  // Save original state so we can assert at finish() and never leave dirty state.
+  // finish() verifies that cleanup restored this value.
   const originalShowBanners = notifSettings.get_boolean(SHOW_BANNERS_KEY);
 
-  // Ensure banners are ON before we begin so the module has something to disable.
   notifSettings.set_boolean(SHOW_BANNERS_KEY, true);
-  await Scripting.sleep(200);
 
   const statusArea = Main.panel.statusArea;
   const indicator = statusArea.screenSharing || statusArea.quickSettings?._remoteAccess;
@@ -46,35 +43,45 @@ export async function run() {
     );
     Scripting.scriptEvent('indicatorNotFound');
 
-    // Still verify that DndOnShare did not accidentally flip show-banners on load.
     const current = notifSettings.get_boolean(SHOW_BANNERS_KEY);
     if (!current)
       throw new Error(
         'show-banners was disabled by DndOnShare even though screen sharing was not active',
       );
 
-    // Restore original value.
     notifSettings.set_boolean(SHOW_BANNERS_KEY, originalShowBanners);
     return;
   }
 
   console.debug('[aurora-test] Simulating screen sharing start (indicator.visible = true)');
   indicator.visible = true;
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => !notifSettings.get_boolean(SHOW_BANNERS_KEY),
+    signals: [
+      [indicator, 'notify::visible'],
+      [notifSettings, `changed::${SHOW_BANNERS_KEY}`],
+    ],
+    description: 'notification banners to disable after sharing starts',
+  });
 
   const bannersAfterStart = notifSettings.get_boolean(SHOW_BANNERS_KEY);
   if (!bannersAfterStart) Scripting.scriptEvent('dndActivated');
 
   console.debug('[aurora-test] Simulating screen sharing stop (indicator.visible = false)');
   indicator.visible = false;
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => notifSettings.get_boolean(SHOW_BANNERS_KEY),
+    signals: [
+      [indicator, 'notify::visible'],
+      [notifSettings, `changed::${SHOW_BANNERS_KEY}`],
+    ],
+    description: 'notification banners to restore after sharing stops',
+  });
 
   const bannersAfterStop = notifSettings.get_boolean(SHOW_BANNERS_KEY);
   if (bannersAfterStop) Scripting.scriptEvent('dndRestored');
 
-  // Restore original value in case the module didn't (defensive).
+  // Do not rely on module cleanup to restore test state.
   notifSettings.set_boolean(SHOW_BANNERS_KEY, originalShowBanners);
 }
 
@@ -96,7 +103,7 @@ export function script_dndRestored() {
 
 export function finish() {
   if (_indicatorNotFound) {
-    // Skip gracefully because the test environment has no screen sharing indicator.
+    // Headless sessions may not expose a screen-sharing indicator.
     console.debug('[aurora-test] DND live test skipped (no indicator in this environment)');
     return;
   }
