@@ -1,6 +1,5 @@
-import GLib from 'gi://GLib';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { getAuroraModule } from '../../support/testUtils.js';
+import { getAuroraModule, waitForCondition } from '../../support/testUtils.js';
 
 function collectText(actor) {
   const text = typeof actor?.text === 'string' ? [actor.text] : [];
@@ -9,19 +8,9 @@ function collectText(actor) {
   return text;
 }
 
-async function waitForCondition(condition, timeoutMs = 3000) {
-  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
-  while (GLib.get_monotonic_time() < deadline) {
-    if (condition()) return true;
-    await Scripting.sleep(50);
-  }
-  return condition();
-}
-
 export async function exerciseDock(settings, devTool) {
   settings.set_boolean('module-dock', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const tool = devTool.dockTool;
   if (!tool) throw new Error('Dock DevTool section not found');
@@ -30,18 +19,40 @@ export async function exerciseDock(settings, devTool) {
 
   const dock = getAuroraModule('dock');
   if (dock.bindings.length === 0) throw new Error('Dock test requires at least one binding');
+  const bindingSignals = dock.bindings.flatMap((binding) => [
+    [binding.dash, 'notify::visible'],
+    [binding.dash, 'transitions-completed'],
+    [binding.container, 'notify::reactive'],
+    ...(binding.hotArea ? [[binding.hotArea, 'notify::reactive']] : []),
+  ]);
 
   if (!tool.revealAll()) throw new Error('Dock revealAll returned false');
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () =>
+      dock.bindings.every((binding) => binding.dash.visible) &&
+      dock.bindings.every((binding) => !binding.hotArea?.reactive),
+    signals: bindingSignals,
+    description: 'all Dock bindings to finish revealing',
+  });
   if (!dock.bindings.every((binding) => binding.dash.visible))
     throw new Error('Dock revealAll did not show every dock');
   if (dock.bindings.some((binding) => binding.hotArea?.reactive))
     throw new Error('Dock revealAll left a hot area above a visible dock');
 
   if (!tool.triggerHotArea()) throw new Error('Dock triggerHotArea returned false');
-  await Scripting.sleep(100);
+  await waitForCondition({
+    evaluate: () => dock.bindings.some((binding) => binding.hotAreaActive),
+    signals: bindingSignals,
+    description: 'a Dock hot area to become active',
+  });
   if (!tool.hideAll()) throw new Error('Dock hideAll returned false');
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () =>
+      dock.bindings.every((binding) => !binding.dash.visible) &&
+      dock.bindings.every((binding) => !binding.container.reactive),
+    signals: bindingSignals,
+    description: 'all Dock bindings to finish hiding',
+  });
   if (dock.bindings.some((binding) => binding.dash.visible))
     throw new Error('Dock hideAll did not hide every dock');
   if (dock.bindings.some((binding) => binding.container.reactive))
@@ -50,22 +61,29 @@ export async function exerciseDock(settings, devTool) {
   const binding = dock.bindings[0];
   const monitorIndex = binding.monitorIndex;
   if (!tool.showMonitor(monitorIndex)) throw new Error('Dock showMonitor returned false');
-  if (!(await waitForCondition(() => binding.dash.visible)))
-    throw new Error('Dock showMonitor did not show the selected monitor');
+  await waitForCondition({
+    evaluate: () => binding.dash.visible,
+    signals: bindingSignals,
+    description: 'selected monitor Dock to become visible',
+  });
 
   if (!tool.hideMonitor(monitorIndex)) throw new Error('Dock hideMonitor returned false');
-  if (
-    !(await waitForCondition(
-      () => !binding.dash.visible && !binding.hotAreaActive && binding.hotArea?.reactive === true,
-    ))
-  )
-    throw new Error('Dock did not hide the monitor and rearm its hot area');
+  await waitForCondition({
+    evaluate: () =>
+      !binding.dash.visible && !binding.hotAreaActive && binding.hotArea?.reactive === true,
+    signals: bindingSignals,
+    description: 'selected monitor Dock to hide and rearm its hot area',
+  });
 
   if (binding.hotArea) {
     if (!tool.triggerMonitorHotArea(monitorIndex))
       throw new Error('Dock triggerMonitorHotArea returned false');
-    if (!(await waitForCondition(() => binding.hotAreaActive, 1000)))
-      throw new Error('Dock did not trigger the selected monitor hot area');
+    await waitForCondition({
+      evaluate: () => binding.hotAreaActive,
+      signals: bindingSignals,
+      description: 'selected monitor hot area to become active',
+      timeoutMs: 1000,
+    });
   }
   if (tool.showMonitor(-1)) throw new Error('Dock showMonitor accepted an invalid monitor');
 
@@ -83,7 +101,6 @@ export async function exerciseDock(settings, devTool) {
 
   if (!tool.toggleAlwaysShow()) throw new Error('Dock toggleAlwaysShow returned false');
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
   if (settings.get_boolean('dock-always-show') === alwaysShowBefore)
     throw new Error('Dock toggleAlwaysShow did not change the setting');
 
@@ -95,14 +112,12 @@ export async function exerciseDock(settings, devTool) {
 
   if (!tool.toggleAlwaysShow()) throw new Error('Dock toggleAlwaysShow restore returned false');
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
   if (settings.get_boolean('dock-always-show') !== alwaysShowBefore)
     throw new Error('Dock toggleAlwaysShow did not restore the setting');
 
   const originalPosition = settings.get_user_value('dock-position');
   settings.set_string('dock-position', 'bottom');
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
 
   const positionPanel = tool.buildPanel();
   const positionTexts = collectText(positionPanel);
@@ -118,7 +133,6 @@ export async function exerciseDock(settings, devTool) {
 
   if (!tool.setPosition('left')) throw new Error('Dock setPosition returned false');
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
   if (settings.get_string('dock-position') !== 'left')
     throw new Error('Dock setPosition did not persist the position');
   if (getAuroraModule('dock').bindings.some((candidate) => candidate.dash._position !== 'left'))
@@ -126,13 +140,11 @@ export async function exerciseDock(settings, devTool) {
 
   if (!tool.cyclePosition()) throw new Error('Dock cyclePosition returned false');
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
   if (settings.get_string('dock-position') !== 'right')
     throw new Error('Dock cyclePosition did not advance to the next edge');
 
   if (!tool.cyclePosition()) throw new Error('Dock cyclePosition wrap returned false');
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
   if (settings.get_string('dock-position') !== 'bottom')
     throw new Error('Dock cyclePosition did not wrap back to the bottom edge');
 
@@ -142,7 +154,6 @@ export async function exerciseDock(settings, devTool) {
     settings.set_value('dock-position', originalPosition);
   }
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
 
   const originalIconSize = settings.get_user_value('dock-icon-size');
   settings.set_int('dock-icon-size', 32);

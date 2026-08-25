@@ -11,12 +11,10 @@ export async function exerciseTrayIcons(devTool, tray) {
     throw new Error('Tray Icons did not track fake items after add');
 
   tool.toggleAttentionOnAll();
-  await Scripting.sleep(100);
   if (!tray._state?.attentionIds?.has(firstId) || !tray._state?.attentionIds?.has(secondId))
     throw new Error('Tray Icons did not toggle fake item alerts on');
 
   tool.toggleAttentionOnAll();
-  await Scripting.sleep(100);
   if (tray._state?.attentionIds?.has(firstId) || tray._state?.attentionIds?.has(secondId))
     throw new Error('Tray Icons did not toggle fake item alerts off');
 
@@ -26,37 +24,34 @@ export async function exerciseTrayIcons(devTool, tray) {
   if (!removeMenuItem) throw new Error(`Fake tray item "${firstId}" has no Remove Icon action`);
 
   removeMenuItem.action();
-  await Scripting.sleep(500);
+  await Scripting.waitLeisure();
   if (tool.fakeItemIds.includes(firstId))
     throw new Error(`Tray Icons still tracks "${firstId}" after menu removal`);
 
   tool.removeAllFakeIcons();
-  await Scripting.sleep(500);
+  await Scripting.waitLeisure();
   if (tool.fakeItemIds.length !== 0) throw new Error('Tray Icons still tracks fake items');
 }
 
 export async function exerciseWeatherClock(settings, devTool) {
   settings.set_boolean('module-weather-clock', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const tool = devTool.weatherClockTool;
   if (!tool) throw new Error('Weather Clock DevTool section not found');
   if (!tool.showSunny()) throw new Error('Weather Clock did not set a sunny snapshot');
-  await Scripting.sleep(300);
+  await Scripting.waitLeisure();
   if (!tool.isVisible) throw new Error('Weather Clock did not make the widget visible');
   if (!tool.showOffline()) throw new Error('Weather Clock did not set an offline snapshot');
   tool.clearWeather();
 
   settings.set_boolean('module-weather-clock', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 }
 
 export async function exerciseMeetingClock(settings, devTool) {
   settings.set_boolean('module-meeting-clock', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const tool = devTool.meetingClockTool;
   if (!tool) throw new Error('Meeting Clock DevTool section not found');
@@ -68,10 +63,9 @@ export async function exerciseMeetingClock(settings, devTool) {
   if (!tool.openCalendar()) throw new Error('Meeting Clock did not open the calendar menu');
 
   tool.clearMeetings();
-  await Scripting.sleep(300);
+  await Scripting.waitLeisure();
   if (tool.devMeetingCount !== 0) throw new Error('Meeting Clock still tracks fake meetings');
 
   settings.set_boolean('module-meeting-clock', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 }

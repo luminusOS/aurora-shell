@@ -18,15 +18,12 @@ export async function run() {
   const auroraSettings = getAuroraSettings();
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   auroraSettings.set_boolean('module-xwayland-indicator', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   auroraSettings.set_boolean('module-xwayland-indicator', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   Scripting.scriptEvent('lifecycleOk');
 }

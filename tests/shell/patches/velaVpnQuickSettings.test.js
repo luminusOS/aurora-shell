@@ -1,11 +1,14 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
+import Gio from 'gi://Gio';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import {
+  waitForCondition,
   EXTENSION_UUID,
   getAuroraModule,
   getAuroraSettings,
   waitForExtension,
+  waitForModuleState,
 } from '../support/testUtils.js';
 
 const MODULE_KEY = 'vela-vpn-quick-settings';
@@ -37,8 +40,7 @@ export async function run() {
       throw new Error('Vela VPN Shell fallback must be disabled by default');
 
     settings.set_boolean(MODULE_SETTING, true);
-    await Scripting.waitLeisure();
-    await Scripting.sleep(200);
+    await waitForModuleState(settings, MODULE_SETTING, MODULE_KEY, true);
 
     await waitForExtension(EXTENSION_UUID);
     const module = getAuroraModule(MODULE_KEY);
@@ -47,17 +49,50 @@ export async function run() {
       get_path: () => '/org/freedesktop/NetworkManager/Settings/999999',
     };
     let fallbackCalls = 0;
-    const fallback = () => fallbackCalls++;
+    const fallbackEmitter = new Gio.SimpleAction({ name: 'fallback-called' });
+    const fallback = () => {
+      fallbackCalls++;
+      fallbackEmitter.activate(null);
+    };
 
-    settings.set_boolean(FALLBACK_SETTING, false);
-    module._setConnectionActive(connection, true, fallback);
-    await Scripting.sleep(500);
-    if (fallbackCalls !== 0)
-      throw new Error('GNOME Shell fallback ran while the setting was disabled');
+    const settledEmitter = new Gio.SimpleAction({ name: 'dbus-rejection-handled' });
+    const originalCallVelaSetConnectionActive = module._callVelaSetConnectionActive;
+    const originalGetRemoteDbusErrorName = module._getRemoteDbusErrorName;
+    let handledRejections = 0;
+    try {
+      module._callVelaSetConnectionActive = async () => {
+        throw new Error('controlled ServiceUnknown rejection');
+      };
+      module._getRemoteDbusErrorName = () => {
+        handledRejections++;
+        settledEmitter.activate(null);
+        return 'org.freedesktop.DBus.Error.ServiceUnknown';
+      };
 
-    settings.set_boolean(FALLBACK_SETTING, true);
-    module._setConnectionActive(connection, true, fallback);
-    await Scripting.sleep(500);
+      settings.set_boolean(FALLBACK_SETTING, false);
+      module._setConnectionActive(connection, true, fallback);
+      await waitForCondition({
+        evaluate: () => handledRejections === 1,
+        signals: [[settledEmitter, 'activate']],
+        description: 'disabled-fallback D-Bus rejection handler to finish',
+      });
+      if (fallbackCalls !== 0)
+        throw new Error('GNOME Shell fallback ran while the setting was disabled');
+
+      settings.set_boolean(FALLBACK_SETTING, true);
+      module._setConnectionActive(connection, true, fallback);
+      await waitForCondition({
+        evaluate: () => handledRejections === 2 && fallbackCalls === 1,
+        signals: [
+          [settledEmitter, 'activate'],
+          [fallbackEmitter, 'activate'],
+        ],
+        description: 'ServiceUnknown reply to invoke the enabled Shell fallback',
+      });
+    } finally {
+      module._callVelaSetConnectionActive = originalCallVelaSetConnectionActive;
+      module._getRemoteDbusErrorName = originalGetRemoteDbusErrorName;
+    }
     if (fallbackCalls !== 1)
       throw new Error(`Expected one fallback for ServiceUnknown, got ${fallbackCalls}`);
 

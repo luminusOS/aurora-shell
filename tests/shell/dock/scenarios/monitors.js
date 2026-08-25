@@ -1,6 +1,7 @@
 import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
+import { waitForCondition, waitForTiming } from '../../support/testUtils.js';
 
 export async function exerciseMonitorScope(settings, dock) {
   if (
@@ -26,7 +27,6 @@ export async function exerciseMonitorScope(settings, dock) {
 
   settings.set_boolean('dock-show-on-all-monitors', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
   if (dock.bindings.length !== Main.layoutManager.monitors.length)
     throw new Error(`All-monitors Dock created ${dock.bindings.length} bindings`);
 
@@ -42,10 +42,10 @@ export async function exerciseMonitorScope(settings, dock) {
   Scripting.scriptEvent('allMonitorsEnabled');
 }
 
-function assertStable(binding, bounds) {
+function isStable(binding, bounds = null) {
   const dash = binding.dash;
   const current = dash.targetBox;
-  if (
+  return !(
     !dash.visible ||
     !dash.mapped ||
     !dash.get_paint_visibility() ||
@@ -55,30 +55,53 @@ function assertStable(binding, bounds) {
     dash.scale_y !== 1 ||
     !binding.container.visible ||
     !current ||
-    current.x !== bounds.x ||
-    current.y !== bounds.y ||
-    current.width !== bounds.width ||
-    current.height !== bounds.height
-  )
-    throw new Error(`Dock actor changed on monitor ${binding.monitorIndex}`);
+    (bounds &&
+      (Math.abs(current.x - bounds.x) > 1 ||
+        Math.abs(current.y - bounds.y) > 1 ||
+        Math.abs(current.width - bounds.width) > 1 ||
+        Math.abs(current.height - bounds.height) > 1))
+  );
+}
+
+function assertStable(binding, bounds) {
+  if (isStable(binding, bounds)) return;
+
+  const dash = binding.dash;
+  const current = dash.targetBox;
+  throw new Error(
+    `Dock actor changed on monitor ${binding.monitorIndex}: ` +
+      JSON.stringify({
+        visible: dash.visible,
+        mapped: dash.mapped,
+        paintVisible: dash.get_paint_visibility(),
+        opacity: dash.opacity,
+        translationY: dash.translation_y,
+        scaleX: dash.scale_x,
+        scaleY: dash.scale_y,
+        containerVisible: binding.container.visible,
+        targetBox: current && [current.x, current.y, current.width, current.height],
+        expectedBox: [bounds.x, bounds.y, bounds.width, bounds.height],
+      }),
+  );
 }
 
 async function exerciseBinding(dock, binding) {
   const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
   await Scripting.createTestWindow({ width: 900, height: 650, maximized: false });
   await Scripting.waitTestWindows();
-  await Scripting.sleep(200);
-
-  const window = global
-    .get_window_actors()
-    .map((actor) => actor.meta_window)
-    .find((candidate) => !previousWindows.has(candidate));
-  if (!window) throw new Error('Could not create an external-monitor test window');
+  const window = await waitForCondition({
+    evaluate: () =>
+      global
+        .get_window_actors()
+        .map((actor) => actor.meta_window)
+        .find((candidate) => !previousWindows.has(candidate)),
+    signals: [[global.display, 'window-created']],
+    description: 'external-monitor test window to be tracked',
+  });
 
   window.move_to_monitor(binding.monitorIndex);
   window.maximize();
   await Scripting.waitLeisure();
-  await Scripting.sleep(1000);
 
   const hovered = binding.dash._visibility._hovered;
   binding.dash.hide(false);
@@ -87,22 +110,44 @@ async function exerciseBinding(dock, binding) {
   try {
     if (!dock.revealMonitorFromHotArea(binding.monitorIndex))
       throw new Error(`Could not reveal Dock on monitor ${binding.monitorIndex}`);
-    await Scripting.sleep(1900);
+    await waitForTiming(
+      1900,
+      'cross the external-monitor hot-area reveal grace before stability sampling',
+    );
+
+    await waitForCondition({
+      evaluate: () => isStable(binding),
+      signals: [
+        [binding.dash, 'notify::mapped'],
+        [binding.dash, 'notify::visible'],
+        [binding.dash, 'notify::opacity'],
+        [binding.dash, 'notify::translation-y'],
+        [binding.dash, 'notify::scale-x'],
+        [binding.dash, 'notify::scale-y'],
+        [binding.dash, 'transition-stopped'],
+        [binding.dash, 'transitions-completed'],
+        [binding.container, 'notify::visible'],
+      ],
+      description: `Dock on monitor ${binding.monitorIndex} to finish revealing`,
+    });
 
     const bounds = binding.dash.targetBox;
     if (!bounds) throw new Error(`Dock on monitor ${binding.monitorIndex} lost its bounds`);
     for (let sample = 0; sample < 8; sample++) {
       assertStable(binding, bounds);
-      await Scripting.sleep(120);
+      await waitForTiming(
+        120,
+        'sample external-monitor Dock invariance across the animation clock',
+      );
     }
   } finally {
     binding.dash._visibility._hovered = hovered;
   }
-  await Scripting.sleep(450);
+  await Scripting.waitLeisure();
 }
 
 export async function exerciseExternalWorkspace(dock) {
-  // Three virtual monitors stabilize actor coverage without claiming physical scanout coverage.
+  // Virtual monitors cover actor placement, not physical scanout.
   if (Main.layoutManager.monitors.length < 3)
     throw new Error('External workspace test requires 3 monitors');
 
@@ -115,14 +160,12 @@ export async function exerciseExternalWorkspace(dock) {
   mutterSettings.set_boolean('dynamic-workspaces', false);
   wmSettings.set_int('num-workspaces', Math.max(2, workspaceCount));
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   const workspace = manager.get_workspace_by_index(1);
   if (!workspace) throw new Error('Could not create the second workspace');
   try {
     workspace.activate(global.get_current_time());
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
 
     const bindings = dock.bindings.filter(
       (binding) => binding.monitorIndex !== Main.layoutManager.primaryIndex,
@@ -133,7 +176,7 @@ export async function exerciseExternalWorkspace(dock) {
     originalWorkspace.activate(global.get_current_time());
     await Scripting.waitLeisure();
     await Scripting.destroyTestWindows();
-    await Scripting.sleep(300);
+    await Scripting.waitLeisure();
     wmSettings.set_int('num-workspaces', workspaceCount);
     mutterSettings.set_boolean('dynamic-workspaces', dynamicWorkspaces);
   }

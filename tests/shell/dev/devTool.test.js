@@ -3,7 +3,13 @@
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  getAuroraSettings,
+  waitForCondition,
+  waitForExtension,
+  waitForModuleState,
+} from '../support/testUtils.js';
 import { exerciseCaptureTools, exerciseClipboardHistory } from './scenarios/captureAndClipboard.js';
 import { exerciseDock } from './scenarios/dock.js';
 import {
@@ -32,7 +38,6 @@ export function init() {
 export async function run() {
   await waitForExtension(EXTENSION_UUID);
   Scripting.scriptEvent('extensionEnabled');
-  await Scripting.sleep(500);
 
   const devToolsEnabled = GLib.getenv('AURORA_DEVTOOLS') === '1';
   const panelButton = Main.panel.statusArea[DEVTOOL_ID];
@@ -49,12 +54,13 @@ export async function run() {
 
   const settings = getAuroraSettings();
   settings.set_boolean('module-tray-icons', true);
-  await Scripting.waitLeisure();
-  await Scripting.sleep(500);
+  await waitForModuleState(settings, 'module-tray-icons', 'tray-icons', true);
 
-  const tray = Main.panel.statusArea[TRAY_ID];
-  if (!tray)
-    throw new Error(`"${TRAY_ID}" indicator not found; DevTool API test requires tray icons`);
+  const tray = await waitForCondition({
+    evaluate: () => Main.panel.statusArea[TRAY_ID],
+    signals: [[Main.panel._rightBox, 'child-added']],
+    description: `"${TRAY_ID}" indicator to join the panel for DevTool testing`,
+  });
 
   const extension = Main.extensionManager.lookup(EXTENSION_UUID);
   const devTool = extension?.stateObj?._devTool;

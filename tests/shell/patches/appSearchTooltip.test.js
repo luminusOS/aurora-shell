@@ -30,7 +30,6 @@ export async function run() {
   const auroraSettings = getAuroraSettings();
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(300);
 
   if (tooltipExistsInUiGroup())
     throw new Error(
@@ -41,11 +40,9 @@ export async function run() {
 
   auroraSettings.set_boolean('module-app-search-tooltip', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   auroraSettings.set_boolean('module-app-search-tooltip', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 
   if (tooltipExistsInUiGroup())
     throw new Error(

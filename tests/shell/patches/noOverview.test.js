@@ -2,7 +2,12 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, waitForExtension, ensureOverviewHidden } from '../support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  waitForCondition,
+  waitForExtension,
+  ensureOverviewHidden,
+} from '../support/testUtils.js';
 
 export var METRICS = {};
 
@@ -14,21 +19,21 @@ export function init() {
 }
 
 export async function run() {
-  // Wait for the extension to finish loading (async in GS50).
+  // Extension loading is asynchronous in GNOME Shell 50.
   await waitForExtension(EXTENSION_UUID);
 
-  await Scripting.sleep(500);
+  await waitForCondition({
+    evaluate: () => Main.sessionMode.hasOverview,
+    signals: [[Main.sessionMode, 'updated']],
+    description: 'session mode overview capability to be restored after startup',
+  });
 
-  // In GS50 the extension loads after startup-complete, so the startup
-  // animation may already have run. We record the state but do not fail.
+  // GNOME Shell 50 may finish startup before the extension loads.
   if (!Main.overview.visible) Scripting.scriptEvent('overviewHiddenAtStartup');
 
-  // NoOverview only suppresses the startup animation; the overview must remain
-  // fully accessible afterward. If hasOverview is still false, users cannot
-  // invoke the overview via the Activities button or gestures.
+  // The patch suppresses startup animation, not later overview access.
   if (Main.sessionMode.hasOverview) Scripting.scriptEvent('hasOverviewRestored');
 
-  // Ensure we start from a known hidden state before testing show/hide.
   await ensureOverviewHidden();
 
   Main.overview.connect('shown', () => Scripting.scriptEvent('overviewShownManually'));
@@ -36,13 +41,25 @@ export async function run() {
 
   console.debug('[aurora-test] Showing overview manually');
   Main.overview.show();
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => Main.overview.visible && !Main.overview.animationInProgress,
+    signals: [
+      [Main.overview, 'showing'],
+      [Main.overview, 'shown'],
+    ],
+    description: 'manual overview show animation to complete',
+  });
 
   console.debug('[aurora-test] Hiding overview manually');
   Main.overview.hide();
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => !Main.overview.visible && !Main.overview.animationInProgress,
+    signals: [
+      [Main.overview, 'hiding'],
+      [Main.overview, 'hidden'],
+    ],
+    description: 'manual overview hide animation to complete',
+  });
 }
 
 let _overviewHiddenAtStartup = false;

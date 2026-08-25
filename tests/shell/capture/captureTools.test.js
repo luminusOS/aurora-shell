@@ -3,7 +3,14 @@
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraSettings, waitForExtension } from '../support/testUtils.js';
+import {
+  waitForActorState,
+  waitForCondition,
+  EXTENSION_UUID,
+  getAuroraSettings,
+  waitForExtension,
+  waitForModuleState,
+} from '../support/testUtils.js';
 
 const TOOLBAR_CLASS = 'capture-tools-toolbar';
 const CANVAS_CLASS = 'capture-tools-canvas';
@@ -51,6 +58,17 @@ function actorsOverlap(first, second) {
   );
 }
 
+function waitForControlsOpacity(actors, opacity) {
+  return waitForCondition({
+    evaluate: () => actors.every((actor) => actor.opacity === opacity),
+    signals: actors.flatMap((actor) => [
+      [actor, 'notify::opacity'],
+      [actor, 'transitions-completed'],
+    ]),
+    description: `capture controls to reach opacity ${opacity}`,
+  });
+}
+
 export var METRICS = {};
 
 export function init() {
@@ -79,7 +97,7 @@ export async function run() {
   await waitForExtension(EXTENSION_UUID);
   const settings = getAuroraSettings();
   settings.set_boolean('module-capture-tools', true);
-  await Scripting.sleep(250);
+  await waitForModuleState(settings, 'module-capture-tools', 'capture-tools', true);
 
   const ui = Main.screenshotUI;
   const toolbars = findActors(ui, TOOLBAR_CLASS);
@@ -158,13 +176,15 @@ export async function run() {
   if (findActors(toolbar, OCR_BUTTON_CLASS).length !== 0)
     throw new Error('OCR button remained in the floating annotation toolbar');
   widthSlider.value = 1;
-  await Scripting.sleep(50);
   if (settings.get_int('capture-tools-stroke-width') !== 16)
     throw new Error('Annotation width slider did not update the stroke width');
   Scripting.scriptEvent('attachedOnce');
 
   await ui.open();
-  await Scripting.sleep(350);
+  await waitForActorState(toolbar, (actor) => actor.visible && actor.mapped, {
+    properties: ['visible', 'mapped'],
+    description: 'capture toolbar to become visible and mapped',
+  });
   if (!toolbar.visible) throw new Error('Capture toolbar is hidden after opening ScreenshotUI');
   if (!toolbar.mapped) throw new Error('Capture toolbar is not mapped after opening ScreenshotUI');
   if (![toolbar.translation_x, toolbar.translation_y].every(Number.isFinite))
@@ -174,11 +194,19 @@ export async function run() {
 
   ui._showPointerButton.checked = false;
   ui._castButton.checked = true;
-  await Scripting.sleep(50);
+  await waitForCondition({
+    evaluate: () => ui._showPointerButton.checked,
+    signals: [[ui._showPointerButton, 'notify::checked']],
+    description: 'recording mode to enable pointer capture',
+  });
   if (!ui._showPointerButton.checked)
     throw new Error('Record Screen did not enable pointer capture automatically');
   ui._shotButton.checked = true;
-  await Scripting.sleep(50);
+  await waitForCondition({
+    evaluate: () => ui._shotButton.checked,
+    signals: [[ui._shotButton, 'notify::checked']],
+    description: 'screenshot mode button to become checked',
+  });
   Scripting.scriptEvent('recordingPointerEnabled');
 
   const primaryMonitor = Main.layoutManager.primaryMonitor;
@@ -194,7 +222,6 @@ export async function run() {
   ui._areaSelector._lastY = primaryMonitor.y + primaryMonitor.height - 1;
   ui._areaSelector._updateSelectionRect();
   ui._areaSelector.emit('drag-ended');
-  await Scripting.sleep(250);
   if (actorsOverlap(toolbar, ui._panel))
     throw new Error('Capture toolbar overlaps the native screenshot controls');
   [
@@ -205,7 +232,6 @@ export async function run() {
   ] = originalPrimarySelection;
   ui._areaSelector._updateSelectionRect();
   ui._areaSelector.emit('drag-ended');
-  await Scripting.sleep(250);
   Scripting.scriptEvent('nativeControlsAvoided');
 
   const externalMonitor = Main.layoutManager.monitors.find(
@@ -224,7 +250,6 @@ export async function run() {
     ui._areaSelector._lastY = externalMonitor.y + Math.floor((externalMonitor.height * 3) / 4);
     ui._areaSelector._updateSelectionRect();
     ui._areaSelector.emit('drag-ended');
-    await Scripting.sleep(250);
     const [externalToolbarX, externalToolbarY] = toolbar.get_transformed_position();
     if (
       externalToolbarX < externalMonitor.x ||
@@ -241,7 +266,6 @@ export async function run() {
     ] = originalSelection;
     ui._areaSelector._updateSelectionRect();
     ui._areaSelector.emit('drag-ended');
-    await Scripting.sleep(250);
   }
   Scripting.scriptEvent('externalMonitorPlacement');
 
@@ -260,33 +284,47 @@ export async function run() {
   if (!GLib.find_program_in_path('tesseract') && ocrButton.visible)
     throw new Error('OCR button is visible without Tesseract installed');
   if (ocrButton.visible) {
+    if (!ocrButtonTooltip) throw new Error('OCR button tooltip was not created');
     ocrButton.set_hover(true);
-    await Scripting.sleep(500);
+    await waitForActorState(ocrButtonTooltip, (actor) => actor.visible && actor.opacity === 255, {
+      properties: ['visible', 'opacity'],
+      description: 'OCR tooltip to finish opening',
+    });
     if (!ocrButtonTooltip?.visible || ocrButtonTooltip.opacity !== 255)
       throw new Error('OCR tooltip did not appear on hover');
     ocrButton.set_hover(false);
-    await Scripting.sleep(150);
+    await waitForActorState(ocrButtonTooltip, (actor) => !actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'OCR tooltip to finish closing',
+    });
     if (ocrButtonTooltip.visible) throw new Error('OCR tooltip did not close after hover');
   }
   ocrPanels[0].show();
   for (const button of [ocrCopyButtons[0], ocrSearchButtons[0]]) {
     const tooltip = ocrTooltips.find((candidate) => candidate._anchor === button);
+    if (!tooltip) throw new Error('OCR result action tooltip was not created');
     button.set_hover(true);
-    await Scripting.sleep(500);
+    await waitForActorState(tooltip, (actor) => actor.visible && actor.opacity === 255, {
+      properties: ['visible', 'opacity'],
+      description: 'OCR result action tooltip to finish opening',
+    });
     if (!tooltip?.visible || tooltip.opacity !== 255)
       throw new Error('OCR result action tooltip did not appear on hover');
     button.set_hover(false);
-    await Scripting.sleep(150);
+    await waitForActorState(tooltip, (actor) => !actor.visible, {
+      properties: ['visible', 'opacity'],
+      description: 'OCR result action tooltip to finish closing',
+    });
     if (tooltip.visible) throw new Error('OCR result action tooltip did not close after hover');
   }
   ocrPanels[0].hide();
 
   ui._areaSelector.emit('drag-started');
-  await Scripting.sleep(250);
+  await waitForControlsOpacity([toolbar, ui._panel, ui._closeButton], 100);
   if (toolbar.opacity !== 100 || ui._panel.opacity !== 100 || ui._closeButton.opacity !== 100)
     throw new Error('Capture and native controls do not match native drag opacity');
   ui._areaSelector.emit('drag-ended');
-  await Scripting.sleep(250);
+  await waitForControlsOpacity([toolbar, ui._panel, ui._closeButton], 255);
   if (toolbar.opacity !== 255 || ui._panel.opacity !== 255 || ui._closeButton.opacity !== 255)
     throw new Error('Capture and native control opacity was not restored');
   Scripting.scriptEvent('visibleOnOpen');
@@ -295,11 +333,11 @@ export async function run() {
   freehandButton.emit('clicked', freehandButton);
   if (!canvas.reactive) throw new Error('Drawing tool did not activate the capture canvas');
   canvas._drawingStateChanged(true);
-  await Scripting.sleep(250);
+  await waitForControlsOpacity([toolbar, ui._panel, ui._closeButton], 100);
   if (toolbar.opacity !== 100 || ui._panel.opacity !== 100 || ui._closeButton.opacity !== 100)
     throw new Error('Capture and native controls did not become translucent while drawing');
   canvas._drawingStateChanged(false);
-  await Scripting.sleep(250);
+  await waitForControlsOpacity([toolbar, ui._panel, ui._closeButton], 255);
   if (toolbar.opacity !== 255 || ui._panel.opacity !== 255 || ui._closeButton.opacity !== 255)
     throw new Error('Capture and native control opacity was not restored after drawing');
   pointerButton.emit('clicked', pointerButton);
@@ -322,7 +360,7 @@ export async function run() {
   const hookedOpen = ui.open;
   const hookedSave = ui._saveScreenshot;
   settings.set_boolean('module-capture-tools', false);
-  await Scripting.sleep(250);
+  await waitForModuleState(settings, 'module-capture-tools', 'capture-tools', false);
   if (ui.open === hookedOpen) throw new Error('Screenshot open hook was not restored');
   if (ui._saveScreenshot === hookedSave) throw new Error('Screenshot save hook was not restored');
   if (findActors(ui, TOOLBAR_CLASS).length !== 0)
@@ -337,7 +375,7 @@ export async function run() {
     throw new Error('Toolbar movement handle remained after disable');
 
   settings.set_boolean('module-capture-tools', true);
-  await Scripting.sleep(250);
+  await waitForModuleState(settings, 'module-capture-tools', 'capture-tools', true);
   if (ui.open === hookedOpen) throw new Error('Screenshot open hook was not reinstalled');
   if (ui._saveScreenshot === hookedSave)
     throw new Error('Screenshot save hook was not reinstalled');

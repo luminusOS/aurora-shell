@@ -3,7 +3,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, getAuroraModule } from '../../support/testUtils.js';
+import { waitForCondition, EXTENSION_UUID, getAuroraModule } from '../../support/testUtils.js';
 
 const PANEL_CSS = 'aurora-clipboard-panel';
 
@@ -85,63 +85,79 @@ async function lockAndUnlockSession() {
   if (!Main.screenShield) throw new Error('GNOME Screen Shield is unavailable');
 
   Main.screenShield.activate(false);
-  await Scripting.sleep(400);
+  await waitForCondition({
+    evaluate: () => Main.sessionMode.currentMode === 'unlock-dialog',
+    signals: [
+      [Main.screenShield, 'active-changed'],
+      [Main.sessionMode, 'updated'],
+    ],
+    description: 'session to enter unlock-dialog mode',
+  });
   if (Main.sessionMode.currentMode !== 'unlock-dialog')
     throw new Error(`Session did not enter unlock-dialog mode: ${Main.sessionMode.currentMode}`);
 
   // Authentication is outside this test; use the successful-authentication teardown path.
   Main.screenShield._continueDeactivate(false);
-  for (let attempt = 0; attempt < 20; attempt++) {
-    if (!Main.screenShield.active && Main.sessionMode.currentMode !== 'unlock-dialog') return;
-    await Scripting.sleep(100);
-  }
-  throw new Error(`Session did not unlock: mode=${Main.sessionMode.currentMode}`);
+  await waitForCondition({
+    evaluate: () => !Main.screenShield.active && Main.sessionMode.currentMode !== 'unlock-dialog',
+    signals: [
+      [Main.screenShield, 'active-changed'],
+      [Main.sessionMode, 'updated'],
+    ],
+    description: 'session to leave unlock-dialog mode',
+  });
 }
 
 async function waitForWindowState(window, monitorIndex, timeoutMs = 5000) {
-  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
-  while (
-    window.get_monitor() !== monitorIndex ||
-    !window.maximized_horizontally ||
-    !window.maximized_vertically
-  ) {
-    if (GLib.get_monotonic_time() >= deadline) {
-      throw new Error(
-        `Window did not settle on monitor ${monitorIndex}: monitor=${window.get_monitor()} horizontal=${window.maximized_horizontally} vertical=${window.maximized_vertically}`,
-      );
-    }
-    await Scripting.sleep(100);
-  }
+  await waitForCondition({
+    evaluate: () =>
+      window.get_monitor() === monitorIndex &&
+      window.maximized_horizontally &&
+      window.maximized_vertically,
+    signals: [
+      [window, 'position-changed'],
+      [window, 'size-changed'],
+      [window, 'notify::maximized-horizontally'],
+      [window, 'notify::maximized-vertically'],
+      [global.display, 'window-entered-monitor'],
+    ],
+    description: `test window to maximize on monitor ${monitorIndex}`,
+    timeoutMs,
+  });
 }
 
 async function focusWindow(window, timeoutMs = 5000) {
-  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
-  while (global.display.focus_window !== window) {
-    window.activate(global.get_current_time());
-    if (GLib.get_monotonic_time() >= deadline)
-      throw new Error('External-monitor test window did not regain focus after unlock');
-    await Scripting.sleep(100);
-  }
+  window.activate(global.get_current_time());
+  await waitForCondition({
+    evaluate: () => global.display.focus_window === window,
+    signals: [[global.display, 'notify::focus-window']],
+    description: 'external-monitor test window to regain focus after unlock',
+    timeoutMs,
+  });
 }
 
 async function movePointerToMonitor(seat, monitor, timeoutMs = 5000) {
   const targetX = monitor.x + Math.floor(monitor.width / 2);
   const targetY = monitor.y + Math.floor(monitor.height / 2);
-  const deadline = GLib.get_monotonic_time() + timeoutMs * 1000;
-
-  while (true) {
-    seat.warp_pointer(targetX, targetY);
-    await Scripting.sleep(100);
-    const [pointerX, pointerY] = global.get_pointer();
-    const pointerInsideMonitor =
-      pointerX >= monitor.x &&
-      pointerX < monitor.x + monitor.width &&
-      pointerY >= monitor.y &&
-      pointerY < monitor.y + monitor.height;
-    if (pointerInsideMonitor) return;
-    if (GLib.get_monotonic_time() >= deadline)
-      throw new Error(`Pointer did not move to external monitor: ${pointerX},${pointerY}`);
-  }
+  await waitForCondition({
+    evaluate: () => {
+      const [pointerX, pointerY] = global.get_pointer();
+      const inside =
+        pointerX >= monitor.x &&
+        pointerX < monitor.x + monitor.width &&
+        pointerY >= monitor.y &&
+        pointerY < monitor.y + monitor.height;
+      if (!inside) {
+        seat.warp_pointer(targetX, targetY);
+        global.stage.queue_redraw(); // Guarantee another after-paint retry.
+      }
+      return inside;
+    },
+    // Mutter may ignore a warp while monitor and focus state settle.
+    signals: [[global.stage, 'after-paint']],
+    description: 'pointer to enter the external monitor',
+    timeoutMs,
+  });
 }
 
 export async function exercisePostUnlockPanel() {
@@ -160,13 +176,15 @@ export async function exercisePostUnlockPanel() {
   try {
     await Scripting.createTestWindow({ width: 900, height: 650, maximized: false });
     await Scripting.waitTestWindows();
-    await Scripting.sleep(200);
-
-    const window = global
-      .get_window_actors()
-      .map((actor) => actor.meta_window)
-      .find((candidate) => !previousWindows.has(candidate));
-    if (!window) throw new Error('Could not create the external-monitor test window');
+    const window = await waitForCondition({
+      evaluate: () =>
+        global
+          .get_window_actors()
+          .map((actor) => actor.meta_window)
+          .find((candidate) => !previousWindows.has(candidate)),
+      signals: [[global.display, 'window-created']],
+      description: 'external-monitor test window to be tracked',
+    });
 
     window.move_to_monitor(monitorIndex);
     window.activate(global.get_current_time());
@@ -180,7 +198,6 @@ export async function exercisePostUnlockPanel() {
     module = getClipboardModule();
     module.openPanel();
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
     const openedPanel = findClipboardPanel();
     if (!openedPanel?.visible || !openedPanel.mapped || !openedPanel.get_paint_visibility())
       throw new Error('Clipboard panel is not painted after unlock');
@@ -193,7 +210,6 @@ export async function exercisePostUnlockPanel() {
       seat.warp_pointer(originalPointerX, originalPointerY);
       await Scripting.destroyTestWindows();
       await Scripting.waitLeisure();
-      await Scripting.sleep(300);
     }
   }
 }
@@ -206,14 +222,12 @@ export async function exerciseWorkspacePanel() {
   try {
     workspace.activate(global.get_current_time());
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
     if (manager.get_active_workspace_index() !== workspace.index())
       throw new Error('Could not activate the Clipboard test workspace');
 
     const module = getClipboardModule();
     module.openPanel();
     await Scripting.waitLeisure();
-    await Scripting.sleep(200);
     const panel = findClipboardPanel();
     if (!panel?.visible || !panel.mapped)
       throw new Error('Clipboard panel is not visible on the active workspace');
@@ -221,7 +235,6 @@ export async function exerciseWorkspacePanel() {
   } finally {
     originalWorkspace.activate(global.get_current_time());
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
     manager.remove_workspace(workspace, global.get_current_time());
   }
 }

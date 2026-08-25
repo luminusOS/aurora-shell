@@ -2,7 +2,12 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { EXTENSION_UUID, waitForExtension, ensureOverviewHidden } from './support/testUtils.js';
+import {
+  EXTENSION_UUID,
+  waitForExtension,
+  ensureOverviewHidden,
+  waitForCondition,
+} from './support/testUtils.js';
 
 export var METRICS = {};
 
@@ -16,7 +21,6 @@ export async function run() {
   await waitForExtension(EXTENSION_UUID);
 
   Scripting.scriptEvent('extensionEnabled');
-  await Scripting.sleep(500);
 
   if (!Main.panel.visible)
     throw new Error('Top panel is not visible; the extension may have broken it');
@@ -30,13 +34,25 @@ export async function run() {
 
   console.debug('[aurora-test] Showing overview');
   Main.overview.show();
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => Main.overview.visible && !Main.overview.animationInProgress,
+    signals: [
+      [Main.overview, 'showing'],
+      [Main.overview, 'shown'],
+    ],
+    description: 'overview show animation to complete',
+  });
 
   console.debug('[aurora-test] Hiding overview');
   Main.overview.hide();
-  await Scripting.waitLeisure();
-  await Scripting.sleep(300);
+  await waitForCondition({
+    evaluate: () => !Main.overview.visible && !Main.overview.animationInProgress,
+    signals: [
+      [Main.overview, 'hiding'],
+      [Main.overview, 'hidden'],
+    ],
+    description: 'overview hide animation to complete',
+  });
 }
 
 let _extensionEnabled = false;

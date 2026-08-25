@@ -52,7 +52,6 @@ export async function run() {
   const auroraSettings = getAuroraSettings();
 
   await Scripting.waitLeisure();
-  await Scripting.sleep(500);
 
   const slider = findOutputSlider();
 
@@ -62,11 +61,9 @@ export async function run() {
 
     auroraSettings.set_boolean('module-volume-mixer', false);
     await Scripting.waitLeisure();
-    await Scripting.sleep(300);
 
     auroraSettings.set_boolean('module-volume-mixer', true);
     await Scripting.waitLeisure();
-    await Scripting.sleep(200);
 
     Scripting.scriptEvent('lifecycleOk');
     return;
@@ -98,7 +95,6 @@ export async function run() {
 
   auroraSettings.set_boolean('module-volume-mixer', false);
   await Scripting.waitLeisure();
-  await Scripting.sleep(400);
 
   const panelAfterDisable = findMixerPanelInSlider(slider);
   if (panelAfterDisable)
@@ -108,7 +104,6 @@ export async function run() {
 
   auroraSettings.set_boolean('module-volume-mixer', true);
   await Scripting.waitLeisure();
-  await Scripting.sleep(200);
 }
 
 let _mixerAttached = false;
