@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION_NAME="$(node -e 'const fs = require("fs"); const metadata = JSON.parse(fs.readFileSync("metadata.json", "utf8")); process.stdout.write(metadata["version-name"]);')"
+          VERSION_NAME="$(jq -r '."version-name"' metadata.json)"
           TAG_PREFIX="v${VERSION_NAME}-nightly"
           LAST_NIGHTLY="$(
             git tag --list "${TAG_PREFIX}*" |
@@ -138,7 +138,12 @@ jobs:
           gh release list \
             --limit 1000 \
             --json tagName,isPrerelease \
-            --jq '.[] | select(.isPrerelease and (.tagName | test("-nightly[0-9]+$"))) | .tagName' |
+            --jq '
+              .[]
+              | select(.isPrerelease)
+              | select(.tagName | test("-nightly[0-9]+$"))
+              | .tagName
+            ' |
             while IFS= read -r nightly_tag; do
               if [[ "$nightly_tag" == "$CURRENT_NIGHTLY" ]]; then
                 continue
