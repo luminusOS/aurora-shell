@@ -6,6 +6,15 @@ on:
       - 'v[0-9]*'
       - '!v[0-9]*-rc*'
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: Release type
+        required: true
+        default: release_candidate
+        type: choice
+        options:
+          - release_candidate
+          - stable
 
 permissions:
   contents: write
@@ -19,47 +28,67 @@ jobs:
     outputs:
       tag_name: ${{ steps.state.outputs.tag_name }}
       head_sha: ${{ steps.state.outputs.head_sha }}
+      is_prerelease: ${{ steps.state.outputs.is_prerelease }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: main
 
-      # Stable releases come from a pushed tag. Release candidates are
-      # dispatched manually and numbered automatically (rc1, rc2, ...),
-      # tagging current main, exactly like the nightly flow does.
+      # Pushed tags remain stable releases. Manual runs can publish either a
+      # stable release or the next automatically numbered RC from current main.
       - name: Resolve release target
         id: state
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type || 'stable' }}
         run: |
           set -euo pipefail
 
           event_name="${{ github.event_name }}"
           if [[ "$event_name" == "push" ]]; then
-            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-            echo "head_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            {
+              echo "tag_name=${{ github.ref_name }}"
+              echo "head_sha=${{ github.sha }}"
+              echo "is_prerelease=false"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          VERSION_NAME="$(node -e 'const fs = require("fs"); const metadata = JSON.parse(fs.readFileSync("metadata.json", "utf8")); process.stdout.write(metadata["version-name"]);')"
-          TAG_PREFIX="v${VERSION_NAME}-rc"
-          LAST_RC="$(
-            git tag --list "${TAG_PREFIX}*" |
-              awk -v prefix="$TAG_PREFIX" '
-                index($0, prefix) == 1 {
-                  number = substr($0, length(prefix) + 1)
-                  if (number ~ /^[0-9]+$/) print number
-                }
-              ' |
-              sort -n |
-              tail -n 1
-          )"
-          NEXT_RC=$(( ${LAST_RC:-0} + 1 ))
-          TAG_NAME="${TAG_PREFIX}${NEXT_RC}"
+          VERSION_NAME="$(jq -r '."version-name"' metadata.json)"
+          if [[ "$RELEASE_TYPE" == "release_candidate" ]]; then
+            TAG_PREFIX="v${VERSION_NAME}-rc"
+            LAST_RC="$(
+              git tag --list "${TAG_PREFIX}*" |
+                awk -v prefix="$TAG_PREFIX" '
+                  index($0, prefix) == 1 {
+                    number = substr($0, length(prefix) + 1)
+                    if (number ~ /^[0-9]+$/) print number
+                  }
+                ' |
+                sort -n |
+                tail -n 1
+            )"
+            NEXT_RC=$(( ${LAST_RC:-0} + 1 ))
+            TAG_NAME="${TAG_PREFIX}${NEXT_RC}"
+            IS_PRERELEASE=true
+          else
+            TAG_NAME="v${VERSION_NAME}"
+            IS_PRERELEASE=false
+          fi
+
+          if git rev-parse --verify --quiet "refs/tags/${TAG_NAME}" > /dev/null; then
+            echo "Tag ${TAG_NAME} already exists; refusing to replace an existing release." >&2
+            exit 1
+          fi
+
           HEAD_SHA="$(git rev-parse HEAD)"
 
-          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
-          echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
-          echo "Release candidate ${TAG_NAME} will be built from ${HEAD_SHA}." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "tag_name=${TAG_NAME}"
+            echo "head_sha=${HEAD_SHA}"
+            echo "is_prerelease=${IS_PRERELEASE}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release ${TAG_NAME} will be built from ${HEAD_SHA}." >> "$GITHUB_STEP_SUMMARY"
 
   ci:
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.ref_name, '-') }}
@@ -84,16 +113,52 @@ jobs:
           name: extension-zip
           path: dist/target/
 
-      - name: Resolve latest stable release
-        id: stable_release
+      - name: Resolve previous release
+        id: previous_release
         env:
           GH_TOKEN: ${{ github.token }}
+          IS_PRERELEASE: ${{ needs.state.outputs.is_prerelease }}
+          TAG_NAME: ${{ needs.state.outputs.tag_name }}
         run: |
           set -euo pipefail
 
-          STABLE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
-          echo "tag=${STABLE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "Release notes will start at ${STABLE_TAG}." >> "$GITHUB_STEP_SUMMARY"
+          PREVIOUS_TAG="$(
+            gh release list --limit 1000 --json tagName,isPrerelease,isDraft |
+              jq -r \
+                --arg target "$TAG_NAME" \
+                --argjson is_prerelease "$IS_PRERELEASE" '
+                  def is_release_candidate:
+                    .isPrerelease and (.tagName | test("-rc[0-9]+$"));
+
+                  def is_stable_release:
+                    (.isPrerelease | not)
+                    and (.tagName | test("^v[0-9]+([.][0-9]+)*$"));
+
+                  [
+                    .[]
+                    | select(.isDraft | not)
+                    | select(.tagName != $target)
+                    | select(
+                        if $is_prerelease then
+                          is_release_candidate or is_stable_release
+                        else
+                          is_stable_release
+                        end
+                      )
+                  ]
+                  | first
+                  | .tagName // empty
+                '
+          )"
+
+          echo "tag=${PREVIOUS_TAG}" >> "$GITHUB_OUTPUT"
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            echo "Release notes will compare ${PREVIOUS_TAG} with ${TAG_NAME}." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$IS_PRERELEASE" == "true" ]]; then
+            echo "No previous stable release or release candidate was found." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No previous stable release was found." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -105,13 +170,12 @@ jobs:
             dist/target/aurora-shell@luminusos.github.io.shell-extension.zip
             dist/target/aurora-shell@luminusos.github.io.development.shell-extension.zip
           generate_release_notes: true
-          previous_tag: ${{ steps.stable_release.outputs.tag }}
-          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+          previous_tag: ${{ steps.previous_release.outputs.tag }}
+          prerelease: ${{ needs.state.outputs.is_prerelease }}
 
-      # An RC supersedes the nightly line: once a release candidate is out,
-      # the nightly pre-releases are removed like superseded nightlies are.
+      # RCs replace the nightly line but do not remove earlier RCs.
       - name: Delete superseded nightly pre-releases
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ needs.state.outputs.is_prerelease == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -120,16 +184,30 @@ jobs:
           gh release list \
             --limit 1000 \
             --json tagName,isPrerelease \
-            --jq '.[] | select(.isPrerelease and (.tagName | test("-nightly[0-9]+$"))) | .tagName' |
+            --jq '
+              .[]
+              | select(.isPrerelease)
+              | select(.tagName | test("-nightly[0-9]+$"))
+              | .tagName
+            ' |
             while IFS= read -r nightly_tag; do
               gh release delete "$nightly_tag" --cleanup-tag --yes
               echo "Deleted superseded nightly ${nightly_tag}." >> "$GITHUB_STEP_SUMMARY"
             done
 
       - name: Create maintenance branch
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ needs.state.outputs.is_prerelease == 'false' }}
+        env:
+          TAG_NAME: ${{ needs.state.outputs.tag_name }}
         run: |
-          MAJOR=$(echo "${{ needs.state.outputs.tag_name }}" | sed 's/^v//' | grep -oP '^\d+')
+          set -euo pipefail
+
+          if [[ ! "$TAG_NAME" =~ ^v([0-9]+) ]]; then
+            echo "Could not read the major version from ${TAG_NAME}." >&2
+            exit 1
+          fi
+
+          MAJOR="${BASH_REMATCH[1]}"
           BRANCH="release/v${MAJOR}.x"
           if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
             echo "Branch $BRANCH already exists, skipping."
