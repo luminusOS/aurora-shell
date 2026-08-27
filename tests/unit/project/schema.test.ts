@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -87,97 +88,12 @@ function catalogSettingsKeys(): string[] {
   });
 }
 
-type XmlElement = { name: string; attributes: Map<string, string> };
-
-function parseXmlElements(xml: string): XmlElement[] {
-  const elements: XmlElement[] = [];
-  const stack: string[] = [];
-  let cursor = 0;
-
-  const skipSpace = (): void => {
-    while (cursor < xml.length && ' \t\r\n'.includes(xml[cursor]!)) cursor++;
-  };
-  const readName = (): string => {
-    const start = cursor;
-    while (cursor < xml.length && !' \t\r\n=/>'.includes(xml[cursor]!)) cursor++;
-    return xml.slice(start, cursor);
-  };
-
-  while ((cursor = xml.indexOf('<', cursor)) >= 0) {
-    if (xml.startsWith('<!--', cursor)) {
-      cursor = xml.indexOf('-->', cursor + 4);
-      assert.notEqual(cursor, -1, 'unterminated XML comment');
-      cursor += 3;
-      continue;
-    }
-    if (xml[cursor + 1] === '?' || xml[cursor + 1] === '!') {
-      cursor = xml.indexOf('>', cursor + 2);
-      assert.notEqual(cursor, -1, 'unterminated XML declaration');
-      cursor++;
-      continue;
-    }
-
-    cursor++;
-    if (xml[cursor] === '/') {
-      cursor++;
-      const name = readName();
-      assert.equal(stack.pop(), name, `mismatched closing XML tag ${name}`);
-      cursor = xml.indexOf('>', cursor);
-      assert.notEqual(cursor, -1, `unterminated closing XML tag ${name}`);
-      cursor++;
-      continue;
-    }
-
-    const name = readName();
-    assert.ok(name, 'XML element name is required');
-    const attributes = new Map<string, string>();
-    let selfClosing = false;
-    while (cursor < xml.length) {
-      skipSpace();
-      if (xml[cursor] === '>') {
-        cursor++;
-        break;
-      }
-      if (xml[cursor] === '/' && xml[cursor + 1] === '>') {
-        selfClosing = true;
-        cursor += 2;
-        break;
-      }
-      const attributeName = readName();
-      assert.ok(attributeName, `invalid attribute in ${name}`);
-      skipSpace();
-      assert.equal(xml[cursor], '=', `attribute ${attributeName} must have a value`);
-      cursor++;
-      skipSpace();
-      const quote = xml[cursor];
-      assert.ok(quote === '"' || quote === "'", `attribute ${attributeName} must be quoted`);
-      const valueStart = ++cursor;
-      cursor = xml.indexOf(quote, cursor);
-      assert.notEqual(cursor, -1, `unterminated attribute ${attributeName}`);
-      attributes.set(attributeName, xml.slice(valueStart, cursor));
-      cursor++;
-    }
-    elements.push({ name, attributes });
-    if (!selfClosing) stack.push(name);
-  }
-
-  assert.deepEqual(stack, [], 'unclosed XML elements');
-  return elements;
-}
-
 function compiledSchemaKeys(): string[] {
-  const elements = parseXmlElements(readFileSync(schemaFile, 'utf8'));
-  const schema = elements.find(
-    (element) => element.name === 'schema' && element.attributes.get('id') === schemaId,
+  const schema = readFileSync(schemaFile, 'utf8').match(
+    new RegExp(`<schema\\s+[^>]*id="${schemaId}"[^>]*>([\\s\\S]*?)</schema>`, 'u'),
   );
   assert.ok(schema, `schema ${schemaId} is missing`);
-  return elements
-    .filter((element) => element.name === 'key')
-    .map((element) => {
-      const name = element.attributes.get('name');
-      assert.ok(name, 'schema key must have a name');
-      return name;
-    });
+  return [...schema[1]!.matchAll(/<key\s+[^>]*name="([^"]+)"/gu)].map((match) => match[1]!);
 }
 
 function schemaDefault(key: string): string {
@@ -200,7 +116,11 @@ function schemaDefault(key: string): string {
   return xml.slice(defaultStart + defaultStartTag.length, defaultEnd).trim();
 }
 
-test('schema: is structurally valid and contains every catalog module key', () => {
+test('schema: is structurally valid', () => {
+  execFileSync('glib-compile-schemas', ['--strict', '--dry-run', dirname(schemaFile)]);
+});
+
+test('schema: contains every catalog module key', () => {
   const schemaKeys = new Set(compiledSchemaKeys());
   const moduleKeys = catalogSettingsKeys();
   for (const key of moduleKeys) assert.ok(schemaKeys.has(key), key);

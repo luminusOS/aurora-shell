@@ -8,11 +8,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const sourceRoot = resolve(root, 'src');
 
 function typeScriptFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return typeScriptFiles(path);
-    return entry.isFile() && entry.name.endsWith('.ts') ? [path] : [];
-  });
+  return (readdirSync(directory, { recursive: true }) as string[])
+    .filter((path) => path.endsWith('.ts'))
+    .map((path) => join(directory, path));
 }
 
 test('i18n: all translated source uses the Aurora gettext domain', () => {

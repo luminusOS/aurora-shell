@@ -12,35 +12,31 @@ test('Nautilus app id is the only supported file manager for trash', () => {
 });
 
 test('launchTrash opens the trash through Nautilus', () => {
-  const result = launchTrash({
-    launchNautilus: () => true,
-  });
+  const result = launchTrash(() => true);
 
   assert.equal(result, 'nautilus');
 });
 
 test('canLaunchTrash requires a Nautilus executable', () => {
-  assert.equal(canLaunchTrash({ getNautilusExecutable: () => 'nautilus' }), true);
-  assert.equal(canLaunchTrash({ getNautilusExecutable: () => null }), false);
+  assert.equal(
+    canLaunchTrash(() => 'nautilus'),
+    true,
+  );
+  assert.equal(
+    canLaunchTrash(() => null),
+    false,
+  );
 });
 
 test('launchTrash does not try alternate file managers when Nautilus is unavailable', () => {
-  assert.throws(
-    () =>
-      launchTrash({
-        launchNautilus: () => false,
-      }),
-    /Nautilus refused the trash URI/,
-  );
+  assert.throws(() => launchTrash(() => false), /Nautilus refused the trash URI/);
 });
 
 test('launchTrash reports Nautilus launch errors', () => {
   assert.throws(
     () =>
-      launchTrash({
-        launchNautilus: () => {
-          throw new Error('Nautilus unavailable');
-        },
+      launchTrash(() => {
+        throw new Error('Nautilus unavailable');
       }),
     /Nautilus unavailable/,
   );

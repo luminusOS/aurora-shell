@@ -5,7 +5,7 @@ import prettierConfig from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: ['dist/**'],
+    ignores: ['dist/**', '.ua/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

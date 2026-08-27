@@ -8,7 +8,7 @@ import Gtk from '@girs/gtk-4.0';
 
 import { ExtensionPreferences } from '@girs/gnome-shell/extensions/prefs';
 import {
-  getModuleCatalog,
+  MODULE_CATALOG,
   getSections,
   type ModuleManifest,
   type ModuleOption,
@@ -30,7 +30,7 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
       icon_name: 'dialog-information-symbolic',
     });
 
-    const modules = getModuleCatalog();
+    const modules = MODULE_CATALOG;
     const sections = [...getSections(), { id: OTHER_SECTION_ID, title: _('Other') }];
     const knownIds = new Set(getSections().map((s) => s.id));
 

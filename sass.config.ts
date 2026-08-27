@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { watch } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import chokidar from 'chokidar';
 import * as sass from 'sass';
 
 interface SassEntry {
@@ -12,7 +12,6 @@ interface SassEntry {
 
 interface SassConfig {
   entries: SassEntry[];
-  watchGlobs: string[];
   sassOptions: sass.Options<'async'>;
 }
 
@@ -41,7 +40,6 @@ const config: SassConfig = {
       packageVariant: 'development',
     },
   ],
-  watchGlobs: ['src/styles/**/*.scss'],
   sassOptions: {
     style: 'expanded',
     sourceMap: false,
@@ -60,12 +58,14 @@ async function compileEntry(entry: SassEntry): Promise<void> {
 `;
   const result = await sass.compileStringAsync(source, config.sassOptions);
 
-  await Promise.all(entry.outputs.map(async (output) => {
-    const outputPath = resolve(projectRoot, output);
-    await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, result.css, 'utf8');
-    console.log(`✓ ${entry.input} (${entry.packageVariant}) → ${output}`);
-  }));
+  await Promise.all(
+    entry.outputs.map(async (output) => {
+      const outputPath = resolve(projectRoot, output);
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, result.css, 'utf8');
+      console.log(`✓ ${entry.input} (${entry.packageVariant}) → ${output}`);
+    }),
+  );
 }
 
 export async function buildAll(): Promise<void> {
@@ -98,12 +98,9 @@ export async function watchAll(): Promise<void> {
     isBuilding = false;
   };
 
-  const watcher = chokidar.watch(config.watchGlobs, {
-    ignoreInitial: true,
-  });
-
-  watcher.on('all', (event, changedPath) => {
-    console.log(`[watch] ${event}: ${changedPath}`);
+  watch(resolve(projectRoot, 'src/styles'), { recursive: true }, (event, changedPath) => {
+    if (changedPath && !changedPath.endsWith('.scss')) return;
+    console.log(`[watch] ${event}: ${changedPath || 'src/styles'}`);
     void enqueueBuild();
   });
 

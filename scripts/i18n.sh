@@ -27,7 +27,6 @@ pot() {
     --language=JavaScript \
     --keyword=_ \
     --keyword=ngettext:1,2 \
-    --keyword=pgettext:1c,2 \
     --package-name=aurora-shell \
     --msgid-bugs-address=https://github.com/luminusOS/aurora-shell/issues \
     --output="dist/$DOMAIN.pot" \

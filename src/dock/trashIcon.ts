@@ -207,20 +207,18 @@ export const TrashIcon = GObject.registerClass(
       const launchContext = global.create_app_launch_context(global.get_current_time(), -1);
 
       try {
-        launchTrash({
-          launchNautilus: () => {
-            const fileManager = Shell.AppSystem.get_default().lookup_app(NAUTILUS_APP_ID);
-            const executable = fileManager?.get_app_info().get_executable();
-            if (!executable) return false;
+        launchTrash(() => {
+          const fileManager = Shell.AppSystem.get_default().lookup_app(NAUTILUS_APP_ID);
+          const executable = fileManager?.get_app_info().get_executable();
+          if (!executable) return false;
 
-            const launcher = Gio.AppInfo.create_from_commandline(
-              GLib.shell_quote(executable),
-              NAUTILUS_APP_ID,
-              Gio.AppInfoCreateFlags.SUPPORTS_URIS |
-                Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION,
-            );
-            return launcher.launch_uris([TRASH_URI], launchContext);
-          },
+          const launcher = Gio.AppInfo.create_from_commandline(
+            GLib.shell_quote(executable),
+            NAUTILUS_APP_ID,
+            Gio.AppInfoCreateFlags.SUPPORTS_URIS |
+              Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION,
+          );
+          return launcher.launch_uris([TRASH_URI], launchContext);
         });
       } catch (error) {
         this._warn('Failed to open trash', error);

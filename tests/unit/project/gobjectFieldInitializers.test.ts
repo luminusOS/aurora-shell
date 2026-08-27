@@ -1,17 +1,15 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
 
 const sourceRoot = resolve('src');
 
 function sourceFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return sourceFiles(path);
-    return entry.name.endsWith('.ts') ? [path] : [];
-  });
+  return (readdirSync(directory, { recursive: true }) as string[])
+    .filter((path) => path.endsWith('.ts'))
+    .map((path) => resolve(directory, path));
 }
 
 function memberName(member: ts.ClassElement): string | null {
