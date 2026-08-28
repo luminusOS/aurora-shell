@@ -218,7 +218,11 @@
   border-radius: 12px;
 
   &:hover {
-    background-color: vars.$aurora-overview-hover-bg;
+    @if vars.$variant == 'light' {
+      background-color: vars.$aurora-overview-search-hover-bg;
+    } @else {
+      background-color: vars.$aurora-overview-hover-bg;
+    }
   }
 }
 
@@ -235,6 +239,21 @@
   &:focus {
     box-shadow: inset 0 0 0 2px vars.$aurora-accent-focus-ring;
     border-radius: 8px;
+  }
+}
+
+.aurora-window-preview-close {
+  width: 32px;
+  height: 32px;
+  color: vars.$aurora-overview-fg;
+  background-color: vars.$aurora-workspace-thumbnail-bg;
+
+  &:hover {
+    background-color: st-lighten(vars.$aurora-workspace-thumbnail-bg, 5%);
+  }
+
+  &:active {
+    background-color: st-lighten(vars.$aurora-workspace-thumbnail-bg, 10%);
   }
 }
 
