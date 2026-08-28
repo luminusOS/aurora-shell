@@ -59,7 +59,7 @@ export class DashFixedItems {
     const container = this._dash._dashContainer;
 
     const app = Shell.AppSystem.get_default().lookup_app(NAUTILUS_APP_ID);
-    if (!canLaunchTrash({ getNautilusExecutable: () => app?.get_app_info().get_executable() })) {
+    if (!canLaunchTrash(() => app?.get_app_info().get_executable())) {
       logger.debug('Trash icon disabled: Nautilus is unavailable', { prefix: 'DockDash' });
       return;
     }

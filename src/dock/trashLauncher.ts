@@ -3,19 +3,11 @@ export const NAUTILUS_APP_ID = 'org.gnome.Nautilus.desktop';
 
 export type TrashLaunchResult = 'nautilus';
 
-export interface TrashLaunchStrategy {
-  launchNautilus(): boolean;
+export function canLaunchTrash(getNautilusExecutable: () => string | null | undefined): boolean {
+  return Boolean(getNautilusExecutable());
 }
 
-export interface TrashAvailabilityStrategy {
-  getNautilusExecutable(): string | null | undefined;
-}
-
-export function canLaunchTrash(strategy: TrashAvailabilityStrategy): boolean {
-  return Boolean(strategy.getNautilusExecutable());
-}
-
-export function launchTrash(strategy: TrashLaunchStrategy): TrashLaunchResult {
-  if (strategy.launchNautilus()) return 'nautilus';
+export function launchTrash(launchNautilus: () => boolean): TrashLaunchResult {
+  if (launchNautilus()) return 'nautilus';
   throw new Error('Nautilus refused the trash URI');
 }

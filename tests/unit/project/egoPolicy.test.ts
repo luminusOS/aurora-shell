@@ -8,19 +8,15 @@ const sourceRoot = resolve('src');
 const codeRoots = ['src', 'tests', 'scripts', 'build'].map((directory) => resolve(directory));
 
 function sourceFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return sourceFiles(path);
-    return entry.name.endsWith('.ts') || entry.name.endsWith('.scss') ? [path] : [];
-  });
+  return (readdirSync(directory, { recursive: true }) as string[])
+    .filter((path) => path.endsWith('.ts') || path.endsWith('.scss'))
+    .map((path) => resolve(directory, path));
 }
 
 function codeFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return codeFiles(path);
-    return /\.(?:js|ts)$/u.test(entry.name) ? [path] : [];
-  });
+  return (readdirSync(directory, { recursive: true }) as string[])
+    .filter((path) => /\.(?:js|ts)$/u.test(path))
+    .map((path) => resolve(directory, path));
 }
 
 test('source lines stay within the EGO 200-character limit', () => {

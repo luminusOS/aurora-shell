@@ -36,7 +36,7 @@ export function getSections(): ModuleSection[] {
   ];
 }
 
-const MODULE_CATALOG: readonly ModuleManifest[] = [
+export const MODULE_CATALOG: readonly ModuleManifest[] = [
   noOverview,
   pipOnTop,
   focusLaunchedWindows,
@@ -60,9 +60,5 @@ const MODULE_CATALOG: readonly ModuleManifest[] = [
   trayIcons,
   clipboardHistory,
 ];
-
-export function getModuleCatalog(): readonly ModuleManifest[] {
-  return MODULE_CATALOG;
-}
 
 export type { ModuleManifest, ModuleOption, ModuleOptionChoice } from '~/module.ts';

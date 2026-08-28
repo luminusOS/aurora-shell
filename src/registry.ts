@@ -1,4 +1,4 @@
-import { getModuleCatalog } from '~/moduleCatalog.ts';
+import { MODULE_CATALOG } from '~/moduleCatalog.ts';
 import { NoOverview } from '~/patches/noOverview.ts';
 import { PipOnTop } from '~/patches/pipOnTop.ts';
 import { FocusLaunchedWindows } from '~/patches/focusLaunchedWindows.ts';
@@ -22,7 +22,7 @@ import { MeetingClock } from '~/panel/clock/meetingClock/meetingClock.ts';
 import { TrayIcons } from '~/desktop/trayIcons/trayIcons.ts';
 import { ClipboardHistory } from '~/clipboard/clipboardHistory.ts';
 
-import type { ModuleDefinition, ModuleManifest } from '~/module.ts';
+import type { ModuleDefinition } from '~/module.ts';
 
 const factories = {
   'no-overview': (context) => new NoOverview(context),
@@ -50,20 +50,11 @@ const factories = {
 } satisfies Record<string, ModuleDefinition['factory']>;
 
 export function getModuleRegistry(): ModuleDefinition[] {
-  return getModuleCatalog().map((manifest) => ({
-    manifest,
-    factory: getFactory(manifest),
-  }));
-}
-
-function getFactory(manifest: ModuleManifest): ModuleDefinition['factory'] {
-  const factory = factories[manifest.key as keyof typeof factories];
-  if (!factory) throw new Error(`No runtime factory registered for module ${manifest.key}`);
-  return factory;
-}
-
-export function getRegisteredFactoryKeys(): readonly string[] {
-  return Object.keys(factories);
+  return MODULE_CATALOG.map((manifest) => {
+    const factory = factories[manifest.key as keyof typeof factories];
+    if (!factory) throw new Error(`No runtime factory registered for module ${manifest.key}`);
+    return { manifest, factory };
+  });
 }
 
 export type { ModuleDefinition } from '~/module.ts';

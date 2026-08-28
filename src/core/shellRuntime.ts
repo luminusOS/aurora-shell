@@ -2,7 +2,7 @@ import type { Extension } from '@girs/gnome-shell/extensions/extension';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { DefaultExtensionContext } from '~/core/context.ts';
-import { ConsoleLogger, logger, setGlobalLogger } from '~/core/logger.ts';
+import { logger } from '~/core/logger.ts';
 import { GSettingsManager } from '~/core/settings.ts';
 import { DefaultDeviceService } from '~/device/device.ts';
 import { ModuleManager } from '~/moduleManager.ts';
@@ -36,9 +36,7 @@ export class ShellRuntime {
 
   start(): void {
     const extension = this._extension;
-    const consoleLogger = new ConsoleLogger('Aurora Shell', extension.uuid);
-    setGlobalLogger(consoleLogger);
-    consoleLogger.debug('Enabling extension', { prefix: LOG_PREFIX });
+    logger.debug('Enabling extension', { prefix: LOG_PREFIX });
 
     const device = new DefaultDeviceService();
     this._context = new DefaultExtensionContext(

@@ -14,7 +14,3 @@ export function gettext(message: string): string {
 export function ngettext(singular: string, plural: string, count: number): string {
   return GLib.dngettext(GETTEXT_DOMAIN, singular, plural, count);
 }
-
-export function pgettext(context: string, message: string): string {
-  return GLib.dpgettext2(GETTEXT_DOMAIN, context, message);
-}
