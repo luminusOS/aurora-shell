@@ -498,21 +498,28 @@ async function exerciseWindowPreviews(settings, dock) {
       throw new Error('Window-preview popup does not expose the native circular close action');
 
     const overlay = close.get_parent();
+    const [cardX, cardY] = card.get_transformed_position();
+    const [cardWidth, cardHeight] = card.get_transformed_size();
     const [overlayX, overlayY] = overlay.get_transformed_position();
     const [overlayWidth] = overlay.get_transformed_size();
     const [closeX, closeY] = close.get_transformed_position();
-    const [closeWidth] = close.get_transformed_size();
+    const [closeWidth, closeHeight] = close.get_transformed_size();
     const closeRight = closeX + closeWidth;
+    const closeBottom = closeY + closeHeight;
+    const cardRight = cardX + cardWidth;
+    const cardBottom = cardY + cardHeight;
     const overlayRight = overlayX + overlayWidth;
     const horizontalOffset = closeRight - overlayRight;
     const verticalOffset = overlayY - closeY;
     if (
-      horizontalOffset < 6 ||
-      verticalOffset < 6 ||
+      Math.abs(horizontalOffset - 8) > 1 ||
+      Math.abs(verticalOffset - 8) > 1 ||
       Math.abs(horizontalOffset - verticalOffset) > 2
     ) {
-      throw new Error('Window-preview close action is not consistently offset past the corner');
+      throw new Error('Window-preview close action is not consistently offset over the corner');
     }
+    if (closeX < cardX || closeY < cardY || closeRight > cardRight || closeBottom > cardBottom)
+      throw new Error('Window-preview close action extends beyond the card bounds');
 
     close.emit('clicked', Clutter.BUTTON_PRIMARY);
     await waitForCondition({

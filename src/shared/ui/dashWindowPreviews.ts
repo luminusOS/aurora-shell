@@ -20,7 +20,7 @@ const SHOW_DELAY = 300;
 const HIDE_DELAY = 150;
 const MAX_PREVIEW_WIDTH = 240;
 const MAX_PREVIEW_HEIGHT = 150;
-const CLOSE_BUTTON_OFFSET = 10;
+const CLOSE_BUTTON_OFFSET = 8;
 const OPEN_SOURCE_STYLE_CLASS = 'aurora-window-preview-open';
 
 const WindowPreviewOverlayLayout = GObject.registerClass(
