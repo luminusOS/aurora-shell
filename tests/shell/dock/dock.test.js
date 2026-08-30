@@ -44,6 +44,125 @@ function findDockActor() {
   return null;
 }
 
+async function waitForDockVisibility(dock, visible, description) {
+  if (!dock || dock.bindings.length === 0)
+    throw new Error(`Could not find the primary Dock while waiting for ${description}`);
+  const binding = dock.bindings[0];
+
+  try {
+    await waitForCondition({
+      evaluate: () =>
+        binding.dash.visible === visible &&
+        binding.container.reactive === visible &&
+        (!visible || (binding.container.visible && binding.container.mapped)),
+      signals: [
+        [binding.dash, 'notify::visible'],
+        [binding.container, 'notify::visible'],
+        [binding.container, 'notify::mapped'],
+        [binding.container, 'notify::reactive'],
+      ],
+      description,
+    });
+  } catch (error) {
+    const allocation = binding.dash.get_allocation_box();
+    throw new Error(
+      `${error}; dash.visible=${binding.dash.visible} ` +
+        `container.visible=${binding.container.visible} mapped=${binding.container.mapped} ` +
+        `reactive=${binding.container.reactive} parent=${binding.container.get_parent()?.name} ` +
+        `target=${binding.dash._visibility._target} ` +
+        `pending=${Boolean(binding.dash._visibility._pendingShow)} ` +
+        `allocation=${allocation.x1},${allocation.y1},${allocation.x2},${allocation.y2}`,
+    );
+  }
+}
+
+async function exerciseOverviewVisibility(settings, dock) {
+  const originalIntellihide = settings.get_boolean('dock-intellihide');
+  const controls = Main.overview._overview.controls;
+  const originalControlsMargins = [
+    controls.margin_left,
+    controls.margin_right,
+    controls.margin_bottom,
+  ];
+  const assertNoDockOverlap = (actor, description) => {
+    const actorBox = actor.get_transformed_extents();
+    const dockBox = dock.bindings[0].container.get_transformed_extents();
+    if (
+      actorBox.x1 < dockBox.x2 &&
+      actorBox.x2 > dockBox.x1 &&
+      actorBox.y1 < dockBox.y2 &&
+      actorBox.y2 > dockBox.y1
+    )
+      throw new Error(`${description} overlaps the visible Aurora Dock`);
+  };
+  settings.set_boolean('dock-intellihide', false);
+  settings.set_boolean('dock-show-in-overview', true);
+  await Scripting.waitLeisure();
+
+  Main.overview.show();
+  await waitForDockVisibility(dock, true, 'Dock to appear in the window picker');
+  if (Main.overview.dash.visible) throw new Error('Native GNOME Dash is visible with Aurora Dock');
+  if (dock.bindings[0].container.get_parent() !== Main.uiGroup)
+    throw new Error('Dock was not moved to visible Shell chrome for the overview');
+  if (
+    controls.margin_left !== originalControlsMargins[0] ||
+    controls.margin_right !== originalControlsMargins[1] ||
+    controls.margin_bottom !== originalControlsMargins[2]
+  )
+    throw new Error('Aurora Dock changed the root overview margins');
+  assertNoDockOverlap(controls._workspacesDisplay, 'Overview workspace');
+
+  dock.bindings[0].dash.showAppsButton.emit('clicked', Clutter.BUTTON_PRIMARY);
+  await waitForCondition({
+    evaluate: () =>
+      controls.appDisplay.visible &&
+      controls._stateAdjustment.value === controls._stateAdjustment.upper,
+    signals: [
+      [controls.appDisplay, 'notify::visible'],
+      [controls._stateAdjustment, 'notify::value'],
+    ],
+    description: 'overview to finish entering the app grid',
+  });
+  if (!dock.bindings[0].dash.showAppsButton.checked || !Main.overview.dash.showAppsButton.checked)
+    throw new Error('Aurora Show Apps button does not expose the active app-grid state');
+  await waitForDockVisibility(dock, true, 'Dock to remain visible in the app grid');
+  assertNoDockOverlap(controls.appDisplay, 'Overview app grid');
+
+  dock.bindings[0].dash.showAppsButton.emit('clicked', Clutter.BUTTON_PRIMARY);
+  await waitForCondition({
+    evaluate: () =>
+      !dock.bindings[0].dash.showAppsButton.checked &&
+      !Main.overview.dash.showAppsButton.checked &&
+      controls._stateAdjustment.value === controls._stateAdjustment.upper - 1,
+    signals: [
+      [dock.bindings[0].dash.showAppsButton, 'notify::checked'],
+      [Main.overview.dash.showAppsButton, 'notify::checked'],
+      [controls._stateAdjustment, 'notify::value'],
+    ],
+    description: 'Show Apps buttons to return to the window picker and clear their checked state',
+  });
+  await waitForDockVisibility(dock, true, 'Dock to remain visible after leaving the app grid');
+
+  settings.set_boolean('dock-show-in-overview', false);
+  await waitForDockVisibility(dock, false, 'Dock to hide after disabling overview visibility');
+  if (dock.bindings[0].container.visible)
+    throw new Error('Dock container remains visible after disabling overview visibility');
+
+  settings.set_boolean('dock-show-in-overview', true);
+  await waitForDockVisibility(dock, true, 'Dock to reappear after enabling overview visibility');
+
+  await ensureOverviewHidden();
+  await waitForDockVisibility(dock, false, 'always-auto-hide Dock to restore after overview');
+  Main.overview.show();
+  await waitForDockVisibility(dock, true, 'Dock to appear on the second overview opening');
+  assertNoDockOverlap(controls._workspacesDisplay, 'Second overview workspace');
+  await ensureOverviewHidden();
+  await waitForDockVisibility(dock, false, 'Dock to restore after the second overview opening');
+  global.display.emit('restacked');
+  settings.set_boolean('dock-intellihide', originalIntellihide);
+  await Scripting.waitLeisure();
+}
+
 async function exerciseDockStacking(settings, dock) {
   const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
@@ -65,64 +184,9 @@ async function exerciseDockStacking(settings, dock) {
   )
     throw new Error('Dock containers and struts are not tracked as Shell chrome');
 
-  const normalActor = new St.Widget({ name: 'aurora-test-normal-window' });
-  global.window_group.add_child(normalActor);
-
   try {
-    for (const windowType of [
-      Meta.WindowType.DROPDOWN_MENU,
-      Meta.WindowType.POPUP_MENU,
-      Meta.WindowType.COMBO,
-    ]) {
-      const popupActor = new St.Widget({ name: 'aurora-test-application-popup' });
-      popupActor.meta_window = { get_window_type: () => windowType };
-      global.window_group.add_child(popupActor);
-
-      try {
-        global.display.emit('restacked');
-        const children = global.window_group.get_children();
-        const normalIndex = children.indexOf(normalActor);
-        const popupIndex = children.indexOf(popupActor);
-        for (const binding of bindings) {
-          const strutIndex = children.indexOf(binding.strutActor);
-          const dockIndex = children.indexOf(binding.container);
-          if (
-            binding.strutActor.get_parent() !== global.window_group ||
-            binding.container.get_parent() !== global.window_group ||
-            !(normalIndex < strutIndex && strutIndex < dockIndex && dockIndex < popupIndex)
-          )
-            throw new Error(
-              `Dock stacking is invalid for popup type ${windowType}: ` +
-                `normal=${normalIndex} strut=${strutIndex} dock=${dockIndex} popup=${popupIndex}`,
-            );
-        }
-      } finally {
-        popupActor.destroy();
-      }
-
-      global.display.emit('restacked');
-      const uiChildren = Main.uiGroup.get_children();
-      const windowGroupIndex = uiChildren.indexOf(global.window_group);
-      const topWindowGroupIndex = uiChildren.indexOf(global.top_window_group);
-      for (const binding of bindings) {
-        const strutIndex = uiChildren.indexOf(binding.strutActor);
-        const dockIndex = uiChildren.indexOf(binding.container);
-        if (
-          binding.strutActor.get_parent() !== Main.uiGroup ||
-          binding.container.get_parent() !== Main.uiGroup ||
-          !(
-            windowGroupIndex < strutIndex &&
-            strutIndex < dockIndex &&
-            dockIndex < topWindowGroupIndex
-          )
-        )
-          throw new Error(`Dock did not restore its chrome layer after popup type ${windowType}`);
-      }
-    }
-
     await exerciseRealWaylandPopupStacking(bindings);
   } finally {
-    normalActor.destroy();
     global.display.emit('restacked');
     settings.set_boolean('dock-show-on-all-monitors', originalShowOnAllMonitors);
     settings.set_boolean('dock-always-show', originalAlwaysShow);
@@ -882,6 +946,10 @@ export var METRICS = {};
 export function init() {
   Scripting.defineScriptEvent('dockPresent', 'Dock actor found in stage after enable');
   Scripting.defineScriptEvent(
+    'overviewVisibilityValid',
+    'Dock overview visibility setting applies live in the window picker and app grid',
+  );
+  Scripting.defineScriptEvent(
     'dockStackingValid',
     'Application popup windows remain above the Dock while normal windows stay below it',
   );
@@ -993,6 +1061,7 @@ export async function run() {
   const originalShowExternalStorage = settings.get_boolean('dock-show-external-storage');
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
   const originalIntellihide = settings.get_boolean('dock-intellihide');
+  const originalShowInOverview = settings.get_boolean('dock-show-in-overview');
   const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
   const originalPosition = settings.get_string('dock-position');
   const originalIconSize = settings.get_user_value('dock-icon-size');
@@ -1026,6 +1095,9 @@ export async function run() {
   Scripting.scriptEvent('panelIntact');
 
   const dock = getAuroraModule('dock');
+
+  await exerciseOverviewVisibility(settings, dock);
+  Scripting.scriptEvent('overviewVisibilityValid');
 
   await exerciseDockStacking(settings, dock);
   Scripting.scriptEvent('dockStackingValid');
@@ -1274,8 +1346,8 @@ export async function run() {
     },
   );
   dash._visibility._applyHiddenState = originalApplyHiddenState;
-  if (hiddenPoseCalls !== 1)
-    throw new Error(`Repeated show requests restarted the animation ${hiddenPoseCalls} times`);
+  if (hiddenPoseCalls !== 0)
+    throw new Error(`Repeated show requests reapplied the hidden pose ${hiddenPoseCalls} times`);
   Scripting.scriptEvent('repeatedShowStable');
 
   const originalItemDragHover = dash._visibility._hovered;
@@ -1724,6 +1796,7 @@ export async function run() {
   settings.set_boolean('dock-show-external-storage', originalShowExternalStorage);
   settings.set_boolean('dock-always-show', originalAlwaysShow);
   settings.set_boolean('dock-intellihide', originalIntellihide);
+  settings.set_boolean('dock-show-in-overview', originalShowInOverview);
   settings.set_boolean('dock-show-on-all-monitors', originalShowOnAllMonitors);
   settings.set_string('dock-position', originalPosition);
   if (originalIconSize === null) {
@@ -1739,6 +1812,7 @@ export async function run() {
 }
 
 let _dockPresent = false;
+let _overviewVisibilityValid = false;
 let _dockStackingValid = false;
 let _dockPositionsValid = false;
 let _panelIntact = false;
@@ -1768,6 +1842,10 @@ let _windowPreviewsValid = false;
 
 export function script_dockPresent() {
   _dockPresent = true;
+}
+
+export function script_overviewVisibilityValid() {
+  _overviewVisibilityValid = true;
 }
 
 export function script_dockStackingValid() {
@@ -1877,6 +1955,8 @@ export function script_windowPreviewsValid() {
 export function finish() {
   if (!_dockPresent)
     throw new Error('Dock actor was not found in the stage after extension enable');
+  if (!_overviewVisibilityValid)
+    throw new Error('Dock overview visibility behavior was not verified');
   if (!_dockStackingValid)
     throw new Error('Application popup stacking relative to the Dock was not verified');
   if (!_dockPositionsValid) throw new Error('Dock side placement behavior was not verified');

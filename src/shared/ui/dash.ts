@@ -112,8 +112,25 @@ export const AuroraDash = GObject.registerClass(
       this.connect('notify::mapped', () => this._unredirectInhibitor.setInhibited(this.mapped));
 
       const button = this.showAppsButton;
-      button.set_toggle_mode(false);
-      button.connectObject('clicked', () => Main.overview.showApps(), this);
+      const overviewShowAppsButton = Main.overview.dash.showAppsButton;
+      button.set_toggle_mode(true);
+      button.checked = overviewShowAppsButton.checked;
+      overviewShowAppsButton.connectObject(
+        'notify::checked',
+        () => (button.checked = overviewShowAppsButton.checked),
+        this,
+      );
+      button.connectObject(
+        'clicked',
+        () => {
+          if (Main.overview.visible) {
+            overviewShowAppsButton.checked = !overviewShowAppsButton.checked;
+          } else {
+            Main.overview.showApps();
+          }
+        },
+        this,
+      );
 
       const dashContainer = this._dashContainer;
       dashContainer.set_track_hover(true);
@@ -280,6 +297,7 @@ export const AuroraDash = GObject.registerClass(
       }
 
       this.showAppsButton.disconnectObject(this);
+      Main.overview.dash.showAppsButton.disconnectObject(this);
 
       if (this._dashBox) {
         this._dashBox.disconnectObject(this);
@@ -756,6 +774,7 @@ export const AuroraDash = GObject.registerClass(
       const size = this._getAllocationSize();
       if (!size) return;
 
+      this._visibility.flushPendingShow();
       if (!this.visible || this.translation_x !== 0 || this.translation_y !== 0) return;
 
       const [stageX, stageY] = this.get_transformed_position();
@@ -771,8 +790,6 @@ export const AuroraDash = GObject.registerClass(
         this._targetBox = bounds;
         if (this._targetBoxListener) this._targetBoxListener(this._targetBox);
       }
-
-      this._visibility.flushPendingShow();
     }
 
     private _getEdgeMargin(): number {

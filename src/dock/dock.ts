@@ -6,6 +6,7 @@ import GLib from '@girs/glib-2.0';
 import Meta from '@girs/meta-18';
 
 import * as Main from '@girs/gnome-shell/ui/main';
+import * as OverviewControls from '@girs/gnome-shell/ui/overviewControls';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
@@ -55,6 +56,13 @@ export class Dock extends Module {
   private _dragReveal: ContextualDragRevealCoordinator<ManagedDockBinding> | null = null;
   private _sessionWasLocked = false;
   private _fullscreenMonitors = new Set<number>();
+  private _overviewLayoutPatch: {
+    layout: any;
+    computeOriginal: (...args: any[]) => any;
+    computeWrapper: (...args: any[]) => any;
+    appOriginal: (...args: any[]) => any;
+    appWrapper: (...args: any[]) => any;
+  } | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -91,6 +99,7 @@ export class Dock extends Module {
     );
 
     Main.overview.dash.hide();
+    this._installOverviewLayoutPatch();
 
     this._sessionWasLocked = Boolean(Main.sessionMode.isLocked);
     this._fullscreenMonitors = this._getFullscreenMonitors();
@@ -154,6 +163,10 @@ export class Dock extends Module {
       () => this._handleConfigurationChange('alwaysShow'),
       'changed::dock-intellihide',
       () => this._handleConfigurationChange('intellihide'),
+      'changed::dock-show-in-overview',
+      () => {
+        if (Main.overview.visible) this._setOverviewVisible(true);
+      },
       'changed::dock-show-on-all-monitors',
       () => this._handleConfigurationChange('showOnAllMonitors'),
       'changed::dock-position',
@@ -179,6 +192,7 @@ export class Dock extends Module {
   }
 
   override disable(): void {
+    this._removeOverviewLayoutPatch();
     Main.overview.dash.show();
     this._dragReveal?.destroy();
     this._dragReveal = null;
@@ -406,6 +420,7 @@ export class Dock extends Module {
       trackFullscreen: true,
       affectsStruts: false,
     });
+    container.connectObject('notify::allocation', () => this._queueOverviewRelayout(), this);
 
     const dash = new AuroraDash({
       monitorIndex,
@@ -489,12 +504,22 @@ export class Dock extends Module {
     return binding;
   }
 
-  private _syncStacking(): void {
+  private _syncStacking(forceUiGroup = Main.overview.visible): void {
     const windowGroup = global.window_group;
-    const popup = windowGroup.get_children().find((actor) => {
-      const window = (actor as typeof actor & { meta_window?: Meta.Window }).meta_window;
-      return window && APPLICATION_POPUP_WINDOW_TYPES.includes(window.get_window_type());
-    });
+    let popup: Meta.WindowActor | null = null;
+    if (!forceUiGroup) {
+      for (const actor of global.get_window_actors()) {
+        const window = actor.meta_window;
+        if (
+          actor.get_parent() === windowGroup &&
+          window !== null &&
+          APPLICATION_POPUP_WINDOW_TYPES.includes(window.get_window_type())
+        ) {
+          popup = actor;
+          break;
+        }
+      }
+    }
     const targetGroup = popup ? windowGroup : Main.uiGroup;
 
     for (const binding of this._bindings.values()) {
@@ -795,15 +820,23 @@ export class Dock extends Module {
       return;
     }
 
+    this._syncStacking(overviewShowing);
+    const showInOverview =
+      overviewShowing && this.context.settings.getBoolean('dock-show-in-overview');
     this._bindings.forEach((binding) => {
       if (overviewShowing) {
         this._clearHotAreaReveal(binding);
         this._clearHotAreaEnable(binding);
         binding.hotAreaActive = false;
         binding.hotArea?.setEnabled(false);
-        binding.dash.blockAutoHide(false);
-        binding.dash.hide(false);
-        binding.container.hide();
+        this._updateWorkArea(binding);
+        binding.dash.blockAutoHide(showInOverview);
+        if (showInOverview) {
+          binding.dash.show(false);
+        } else {
+          binding.dash.hide(false);
+          binding.container.hide();
+        }
       } else {
         binding.hotArea?.setEnabled(true);
         this._updateWorkArea(binding);
@@ -817,5 +850,70 @@ export class Dock extends Module {
         }
       }
     });
+    this._queueOverviewRelayout();
+  }
+
+  private _installOverviewLayoutPatch(): void {
+    if (this._overviewLayoutPatch) return;
+
+    const layout = Main.overview._overview.controls.layout_manager as any;
+    const computeOriginal = layout._computeWorkspacesBoxForState;
+    const appOriginal = layout._getAppDisplayBoxForState;
+    const computeWrapper = (...args: any[]) => {
+      const box = computeOriginal.apply(layout, args);
+      return args[0] === OverviewControls.ControlsState.HIDDEN
+        ? box
+        : this._reserveOverviewDockSpace(box);
+    };
+    const appWrapper = (...args: any[]) => {
+      const box = appOriginal.apply(layout, args);
+      return args[0] === OverviewControls.ControlsState.APP_GRID
+        ? this._reserveOverviewDockSpace(box)
+        : box;
+    };
+
+    layout._computeWorkspacesBoxForState = computeWrapper;
+    layout._getAppDisplayBoxForState = appWrapper;
+    this._overviewLayoutPatch = {
+      layout,
+      computeOriginal,
+      computeWrapper,
+      appOriginal,
+      appWrapper,
+    };
+    layout.layout_changed();
+  }
+
+  private _removeOverviewLayoutPatch(): void {
+    const patch = this._overviewLayoutPatch;
+    if (!patch) return;
+    if (patch.layout._computeWorkspacesBoxForState === patch.computeWrapper)
+      patch.layout._computeWorkspacesBoxForState = patch.computeOriginal;
+    if (patch.layout._getAppDisplayBoxForState === patch.appWrapper)
+      patch.layout._getAppDisplayBoxForState = patch.appOriginal;
+    patch.layout.layout_changed();
+    this._overviewLayoutPatch = null;
+  }
+
+  private _reserveOverviewDockSpace(box: any): any {
+    if (!this.context.settings.getBoolean('dock-show-in-overview')) return box;
+
+    const monitorIndex = Main.layoutManager.primaryIndex;
+    const monitor = Main.layoutManager.monitors?.[monitorIndex];
+    const container = this._bindings.get(monitorIndex)?.container;
+    if (!monitor || !container) return box;
+
+    if (this._position === 'left') {
+      box.x1 = Math.min(box.x2, Math.max(box.x1, container.x + container.width - monitor.x));
+    } else if (this._position === 'right') {
+      box.x2 = Math.max(box.x1, Math.min(box.x2, container.x - monitor.x));
+    } else {
+      box.y2 = Math.max(box.y1, Math.min(box.y2, container.y - monitor.y));
+    }
+    return box;
+  }
+
+  private _queueOverviewRelayout(): void {
+    this._overviewLayoutPatch?.layout.layout_changed();
   }
 }
