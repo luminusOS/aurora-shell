@@ -162,6 +162,10 @@ test('schema: Dock uses always auto-hide by default', () => {
   assert.equal(schemaDefault('dock-intellihide'), 'false');
 });
 
+test('schema: Dock is visible in the overview by default', () => {
+  assert.equal(schemaDefault('dock-show-in-overview'), 'true');
+});
+
 test('schema: Dock window previews are opt-in by default', () => {
   assert.equal(schemaDefault('dock-window-previews'), 'false');
 });

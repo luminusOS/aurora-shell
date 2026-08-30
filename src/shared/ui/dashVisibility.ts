@@ -92,6 +92,7 @@ export class DashVisibilityController {
 
   show(animate = true, onComplete?: () => void): void {
     this._options.getContainer()?.show();
+    this._options.showActor();
     this._setContainerInputEnabled(true);
 
     if (onComplete) {

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-08-19 22:54-0300\n"
+"POT-Creation-Date: 2026-08-30 09:40-0300\n"
 "PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -361,10 +361,18 @@ msgid "Keep the dock visible until a window overlaps it"
 msgstr "Mantém o dock visível até que uma janela sobreponha seu espaço"
 
 #: dist/dock/dock.manifest.js:25
+msgid "Show Dock in Overview"
+msgstr "Mostrar dock na visão geral"
+
+#: dist/dock/dock.manifest.js:26
+msgid "Keep the dock visible in the window picker and app grid"
+msgstr "Manter o dock visível no seletor de janelas e na grade de aplicativos"
+
+#: dist/dock/dock.manifest.js:31
 msgid "Show Dock on All Monitors"
 msgstr "Mostrar dock em todos os monitores"
 
-#: dist/dock/dock.manifest.js:27
+#: dist/dock/dock.manifest.js:33
 msgid ""
 "Create a separate dock on each monitor with a free edge in the dock "
 "direction; otherwise, the primary dock shows all workspace apps"
@@ -373,91 +381,91 @@ msgstr ""
 "caso contrário, o dock principal mostra todos os aplicativos do espaço de "
 "trabalho"
 
-#: dist/dock/dock.manifest.js:33
+#: dist/dock/dock.manifest.js:39
 msgid "Dock Position"
 msgstr "Posição do dock"
 
-#: dist/dock/dock.manifest.js:34
+#: dist/dock/dock.manifest.js:40
 msgid "Screen edge where the dock appears"
 msgstr "Borda da tela onde o dock aparece"
 
-#: dist/dock/dock.manifest.js:37
+#: dist/dock/dock.manifest.js:43
 msgid "Bottom"
 msgstr "Inferior"
 
-#: dist/dock/dock.manifest.js:38
+#: dist/dock/dock.manifest.js:44
 msgid "Left"
 msgstr "Esquerda"
 
-#: dist/dock/dock.manifest.js:39
+#: dist/dock/dock.manifest.js:45
 msgid "Right"
 msgstr "Direita"
 
-#: dist/dock/dock.manifest.js:44
+#: dist/dock/dock.manifest.js:50
 msgid "Maximum Icon Size"
 msgstr "Tamanho máximo dos ícones"
 
-#: dist/dock/dock.manifest.js:46
+#: dist/dock/dock.manifest.js:52
 msgid ""
 "Maximum dock icon size in pixels (16–64); shrinks automatically when needed"
 msgstr ""
 "Tamanho máximo dos ícones da dock em pixels (16–64); reduz automaticamente "
 "quando necessário"
 
-#: dist/dock/dock.manifest.js:55
+#: dist/dock/dock.manifest.js:61
 msgid "Show Trash Icon"
 msgstr "Mostrar ícone da lixeira"
 
-#: dist/dock/dock.manifest.js:56
+#: dist/dock/dock.manifest.js:62
 msgid "Show a trash can in the dock; click to open it, right-click to empty it"
 msgstr ""
 "Mostra uma lixeira no dock; clique para abri-la e clique com o botão direito "
 "para esvaziá-la"
 
-#: dist/dock/dock.manifest.js:61
+#: dist/dock/dock.manifest.js:67
 msgid "Show External Storage"
 msgstr "Mostrar armazenamento externo"
 
-#: dist/dock/dock.manifest.js:62
+#: dist/dock/dock.manifest.js:68
 msgid "Show removable drives in the dock when they are connected"
 msgstr "Mostra unidades removíveis no dock quando estão conectadas"
 
-#: dist/dock/dock.manifest.js:67
+#: dist/dock/dock.manifest.js:73
 msgid "Window Previews"
 msgstr "Pré-visualizações de janelas"
 
-#: dist/dock/dock.manifest.js:68
+#: dist/dock/dock.manifest.js:74
 msgid ""
 "Show live previews and window actions when hovering over running applications"
 msgstr ""
 "Mostra pré-visualizações ao vivo e ações de janela ao passar o mouse sobre "
 "aplicativos em execução"
 
-#: dist/dock/dock.manifest.js:73
+#: dist/dock/dock.manifest.js:79
 msgid "Icon Hover &amp; Press Effects"
 msgstr "Efeitos ao passar o mouse e pressionar o ícone"
 
-#: dist/dock/dock.manifest.js:74
+#: dist/dock/dock.manifest.js:80
 msgid "Animate dock icons on hover and click"
 msgstr "Anima os ícones do dock ao passar o mouse e clicar"
 
-#: dist/dock/dock.manifest.js:79
+#: dist/dock/dock.manifest.js:85
 msgid "Effect Intensity"
 msgstr "Intensidade do efeito"
 
-#: dist/dock/dock.manifest.js:80
+#: dist/dock/dock.manifest.js:86
 msgid "How strong the hover and press effects are"
 msgstr "Define a intensidade dos efeitos ao passar o mouse e pressionar"
 
-#: dist/dock/dock.manifest.js:83
+#: dist/dock/dock.manifest.js:89
 msgid "Subtle"
 msgstr "Sutil"
 
-#: dist/dock/dock.manifest.js:84
+#: dist/dock/dock.manifest.js:90
 msgid "Balanced"
 msgstr "Equilibrado"
 
-#: dist/dock/dock.manifest.js:85
+#: dist/dock/dock.manifest.js:91
 msgid "Expressive"
 msgstr "Expressivo"
 
@@ -667,27 +675,27 @@ msgstr ""
 "Mostra o nível da bateria e ícones animados no painel de Configurações "
 "Rápidas do Bluetooth"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:115
+#: dist/panel/clock/meetingClock/meetingAlertController.js:118
 msgid "Meeting starting soon"
 msgstr "Reunião começará em breve"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:124
+#: dist/panel/clock/meetingClock/meetingAlertController.js:127
 msgid "Join"
 msgstr "Participar"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:126
+#: dist/panel/clock/meetingClock/meetingAlertController.js:129
 msgid "Snooze"
 msgstr "Adiar"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:127
+#: dist/panel/clock/meetingClock/meetingAlertController.js:130
 msgid "Dismiss"
 msgstr "Dispensar"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:129
+#: dist/panel/clock/meetingClock/meetingAlertController.js:132
 msgid "Ignore"
 msgstr "Ignorar"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:186
+#: dist/panel/clock/meetingClock/meetingAlertController.js:189
 #: dist/panel/clock/meetingClock/meetingClock.manifest.js:8
 msgid "Meeting Clock"
 msgstr "Relógio de reuniões"
@@ -1067,7 +1075,7 @@ msgstr ""
 "Oculta o conteúdo do painel durante o compartilhamento de tela; mostra "
 "apenas o indicador de compartilhamento"
 
-#: dist/shared/ui/dashWindowPreviews.js:311
+#: dist/shared/ui/dashWindowPreviews.js:307
 msgid "Close"
 msgstr "Fechar"
 

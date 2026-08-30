@@ -21,6 +21,12 @@ export const manifest: ModuleManifest = {
       type: 'switch',
     },
     {
+      key: 'dock-show-in-overview',
+      title: _('Show Dock in Overview'),
+      subtitle: _('Keep the dock visible in the window picker and app grid'),
+      type: 'switch',
+    },
+    {
       key: 'dock-show-on-all-monitors',
       title: _('Show Dock on All Monitors'),
       subtitle: _(

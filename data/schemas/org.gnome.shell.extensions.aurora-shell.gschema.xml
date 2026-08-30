@@ -127,6 +127,11 @@
       <summary>Use intelligent dock auto-hide</summary>
       <description>Keep the dock visible until a window overlaps its screen space</description>
     </key>
+    <key name="dock-show-in-overview" type="b">
+      <default>true</default>
+      <summary>Show dock in overview</summary>
+      <description>Keep the Aurora dock visible in the window picker and app grid</description>
+    </key>
     <key name="dock-show-on-all-monitors" type="b">
       <default>false</default>
       <summary>Show dock on all monitors</summary>
