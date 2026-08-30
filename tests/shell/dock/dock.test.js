@@ -1406,9 +1406,11 @@ export async function run() {
   // Reasserting BLOCKED reproduces the maximized-window switch where stage
   // motion missed the pointer leaving the Dock.
   const originalBlockedDashContainerHasHover = dash._visibility._hovered;
+  const originalSyncHover = dash._dashContainer.sync_hover;
   try {
     binding.intellihide._status = 1; // BLOCKED
-    dash._visibility._hovered = true; // pointer over the dock
+    dash._visibility._hovered = false; // stale after a pointer grab
+    dash._dashContainer.sync_hover = () => dash._visibility.setHovered(true);
     binding.hotAreaActive = true;
     binding.dash.blockAutoHide(true);
     dash.show(false);
@@ -1441,6 +1443,7 @@ export async function run() {
       description: 'hot area to rearm after the BLOCKED Dock retracts',
     });
   } finally {
+    dash._dashContainer.sync_hover = originalSyncHover;
     dash._visibility._hovered = originalBlockedDashContainerHasHover;
   }
   if (dash.visible)

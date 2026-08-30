@@ -250,6 +250,10 @@ export const AuroraDash = GObject.registerClass(
       return this._visibility.hovered;
     }
 
+    syncHover(): void {
+      this._dashContainer.sync_hover();
+    }
+
     containsStagePoint(x: number, y: number): boolean {
       return (
         boundsContainPoint(this._getActorStageBounds(this._container), x, y) ||
