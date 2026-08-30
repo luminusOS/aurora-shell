@@ -5,6 +5,7 @@ import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import { Dash as ShellDash } from 'resource:///org/gnome/shell/ui/dash.js';
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
+import Meta from 'gi://Meta';
 import Pango from 'gi://Pango';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
@@ -21,6 +22,11 @@ import {
 import { exerciseExternalWorkspace, exerciseMonitorScope } from './scenarios/monitors.js';
 
 const DOCK_ACTOR_PREFIX = 'aurora-dock-container-';
+const APPLICATION_POPUP_WINDOW_TYPES = [
+  Meta.WindowType.DROPDOWN_MENU,
+  Meta.WindowType.POPUP_MENU,
+  Meta.WindowType.COMBO,
+];
 const RUNNING_DOT_ALIGNMENT = {
   bottom: { x: Clutter.ActorAlign.CENTER, y: Clutter.ActorAlign.END },
   left: { x: Clutter.ActorAlign.START, y: Clutter.ActorAlign.CENTER },
@@ -28,13 +34,173 @@ const RUNNING_DOT_ALIGNMENT = {
 };
 
 function findDockActor() {
-  const uiGroup = Main.layoutManager.uiGroup;
-  const n = uiGroup.get_n_children();
-  for (let i = 0; i < n; i++) {
-    const child = uiGroup.get_child_at_index(i);
-    if (child?.name?.startsWith(DOCK_ACTOR_PREFIX)) return child;
+  for (const group of [Main.uiGroup, global.window_group]) {
+    const n = group.get_n_children();
+    for (let i = 0; i < n; i++) {
+      const child = group.get_child_at_index(i);
+      if (child?.name?.startsWith(DOCK_ACTOR_PREFIX)) return child;
+    }
   }
   return null;
+}
+
+async function exerciseDockStacking(settings, dock) {
+  const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
+  const originalAlwaysShow = settings.get_boolean('dock-always-show');
+  const originalIntellihide = settings.get_boolean('dock-intellihide');
+  settings.set_boolean('dock-show-on-all-monitors', true);
+  settings.set_boolean('dock-intellihide', false);
+  settings.set_boolean('dock-always-show', true);
+  await Scripting.waitLeisure();
+
+  const bindings = dock?.bindings || [];
+  if (
+    !bindings.length ||
+    bindings.some(
+      (binding) =>
+        !binding.strutActor ||
+        binding.strutActor.get_parent() !== Main.uiGroup ||
+        binding.container.get_parent() !== Main.uiGroup,
+    )
+  )
+    throw new Error('Dock containers and struts are not tracked as Shell chrome');
+
+  const normalActor = new St.Widget({ name: 'aurora-test-normal-window' });
+  global.window_group.add_child(normalActor);
+
+  try {
+    for (const windowType of [
+      Meta.WindowType.DROPDOWN_MENU,
+      Meta.WindowType.POPUP_MENU,
+      Meta.WindowType.COMBO,
+    ]) {
+      const popupActor = new St.Widget({ name: 'aurora-test-application-popup' });
+      popupActor.meta_window = { get_window_type: () => windowType };
+      global.window_group.add_child(popupActor);
+
+      try {
+        global.display.emit('restacked');
+        const children = global.window_group.get_children();
+        const normalIndex = children.indexOf(normalActor);
+        const popupIndex = children.indexOf(popupActor);
+        for (const binding of bindings) {
+          const strutIndex = children.indexOf(binding.strutActor);
+          const dockIndex = children.indexOf(binding.container);
+          if (
+            binding.strutActor.get_parent() !== global.window_group ||
+            binding.container.get_parent() !== global.window_group ||
+            !(normalIndex < strutIndex && strutIndex < dockIndex && dockIndex < popupIndex)
+          )
+            throw new Error(
+              `Dock stacking is invalid for popup type ${windowType}: ` +
+                `normal=${normalIndex} strut=${strutIndex} dock=${dockIndex} popup=${popupIndex}`,
+            );
+        }
+      } finally {
+        popupActor.destroy();
+      }
+
+      global.display.emit('restacked');
+      const uiChildren = Main.uiGroup.get_children();
+      const windowGroupIndex = uiChildren.indexOf(global.window_group);
+      const topWindowGroupIndex = uiChildren.indexOf(global.top_window_group);
+      for (const binding of bindings) {
+        const strutIndex = uiChildren.indexOf(binding.strutActor);
+        const dockIndex = uiChildren.indexOf(binding.container);
+        if (
+          binding.strutActor.get_parent() !== Main.uiGroup ||
+          binding.container.get_parent() !== Main.uiGroup ||
+          !(
+            windowGroupIndex < strutIndex &&
+            strutIndex < dockIndex &&
+            dockIndex < topWindowGroupIndex
+          )
+        )
+          throw new Error(`Dock did not restore its chrome layer after popup type ${windowType}`);
+      }
+    }
+
+    await exerciseRealWaylandPopupStacking(bindings);
+  } finally {
+    normalActor.destroy();
+    global.display.emit('restacked');
+    settings.set_boolean('dock-show-on-all-monitors', originalShowOnAllMonitors);
+    settings.set_boolean('dock-always-show', originalAlwaysShow);
+    settings.set_boolean('dock-intellihide', originalIntellihide);
+    await Scripting.waitLeisure();
+  }
+}
+
+async function exerciseRealWaylandPopupStacking(bindings) {
+  const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
+  const testFile = Gio.File.new_for_uri(import.meta.url);
+  const helperPath = testFile
+    .get_parent()
+    .get_child('fixtures')
+    .get_child('waylandPopup.js')
+    .get_path();
+  const launcher = new Gio.SubprocessLauncher({ flags: Gio.SubprocessFlags.NONE });
+  launcher.setenv('GDK_BACKEND', 'wayland', true);
+  const process = launcher.spawnv(['gjs', '-m', helperPath]);
+
+  try {
+    const popupActor = await waitForCondition({
+      evaluate: () =>
+        global
+          .get_window_actors()
+          .find(
+            (actor) =>
+              !previousWindows.has(actor.meta_window) &&
+              APPLICATION_POPUP_WINDOW_TYPES.includes(actor.meta_window.get_window_type()),
+          ),
+      signals: [
+        [global.display, 'window-created'],
+        [global.display, 'restacked'],
+      ],
+      description: 'real Wayland application popup to be mapped',
+    });
+    if (
+      popupActor.meta_window.get_client_type() !== Meta.WindowClientType.WAYLAND ||
+      popupActor.get_parent() !== global.window_group
+    )
+      throw new Error('GTK popup did not map as a Wayland window inside window_group');
+
+    const normalActor = global
+      .get_window_actors()
+      .find(
+        (actor) =>
+          !previousWindows.has(actor.meta_window) &&
+          actor.meta_window.get_window_type() === Meta.WindowType.NORMAL,
+      );
+    if (!normalActor) throw new Error('Wayland popup helper did not map its normal parent window');
+
+    await waitForCondition({
+      evaluate: () => {
+        const children = global.window_group.get_children();
+        const normalIndex = children.indexOf(normalActor);
+        const popupIndex = children.indexOf(popupActor);
+        return bindings.every((binding) => {
+          const strutIndex = children.indexOf(binding.strutActor);
+          const dockIndex = children.indexOf(binding.container);
+          return normalIndex < strutIndex && strutIndex < dockIndex && dockIndex < popupIndex;
+        });
+      },
+      signals: [
+        [global.display, 'restacked'],
+        [global.stage, 'after-paint'],
+      ],
+      description: 'Dock to settle below the real Wayland popup',
+    });
+  } finally {
+    process.force_exit();
+    await new Promise((resolve) => {
+      process.wait_async(null, (_source, result) => {
+        process.wait_finish(result);
+        resolve();
+      });
+    });
+    await Scripting.waitLeisure();
+  }
 }
 
 function clearIntellihideQueuedRefreshes(intellihide) {
@@ -424,6 +590,12 @@ async function exerciseWindowPreviews(settings, dock) {
         `Window-preview popup did not open from the icon hover [${diagnostics.join(' ')}]`,
       );
     }
+    const uiChildren = Main.uiGroup.get_children();
+    if (
+      popup.actor.get_parent() !== Main.uiGroup ||
+      uiChildren.indexOf(popup.actor) <= uiChildren.indexOf(global.window_group)
+    )
+      throw new Error('Window-preview popup is not stacked above the Dock window group');
     if (global.stage.get_key_focus() !== popup.actor)
       throw new Error('Window-preview popup did not take the keyboard focus');
     popup.actor.set_hover(true);
@@ -646,6 +818,12 @@ async function exerciseDockPositions(settings, dock) {
     );
     const strut = alwaysBinding?.strutActor;
     if (!alwaysBinding || !strut) throw new Error(`${position} Dock did not create a strut`);
+    const stackedActors = Main.uiGroup.get_children();
+    if (
+      strut.get_parent() !== Main.uiGroup ||
+      stackedActors.indexOf(strut) >= stackedActors.indexOf(alwaysBinding.container)
+    )
+      throw new Error(`${position} Dock strut is not stacked below its container`);
     if (
       vertical &&
       (strut.width !== alwaysBinding.container.width || strut.height !== monitor.height)
@@ -694,6 +872,10 @@ export var METRICS = {};
 
 export function init() {
   Scripting.defineScriptEvent('dockPresent', 'Dock actor found in stage after enable');
+  Scripting.defineScriptEvent(
+    'dockStackingValid',
+    'Application popup windows remain above the Dock while normal windows stay below it',
+  );
   Scripting.defineScriptEvent(
     'dockPositionsValid',
     'Bottom, left, and right positions apply immediately with correct geometry',
@@ -835,6 +1017,9 @@ export async function run() {
   Scripting.scriptEvent('panelIntact');
 
   const dock = getAuroraModule('dock');
+
+  await exerciseDockStacking(settings, dock);
+  Scripting.scriptEvent('dockStackingValid');
 
   await exerciseMonitorScope(settings, dock);
   await exerciseWindowPreviews(settings, dock);
@@ -1542,6 +1727,7 @@ export async function run() {
 }
 
 let _dockPresent = false;
+let _dockStackingValid = false;
 let _dockPositionsValid = false;
 let _panelIntact = false;
 let _trashIconValid = false;
@@ -1570,6 +1756,10 @@ let _windowPreviewsValid = false;
 
 export function script_dockPresent() {
   _dockPresent = true;
+}
+
+export function script_dockStackingValid() {
+  _dockStackingValid = true;
 }
 
 export function script_dockPositionsValid() {
@@ -1675,6 +1865,8 @@ export function script_windowPreviewsValid() {
 export function finish() {
   if (!_dockPresent)
     throw new Error('Dock actor was not found in the stage after extension enable');
+  if (!_dockStackingValid)
+    throw new Error('Application popup stacking relative to the Dock was not verified');
   if (!_dockPositionsValid) throw new Error('Dock side placement behavior was not verified');
   if (!_panelIntact) throw new Error('Top panel was not visible while dock was active');
   if (!_trashIconValid) throw new Error('Trash icon or its position was invalid');
