@@ -715,6 +715,7 @@ export class Dock extends Module {
   }
 
   private _handOffBlockedDockToAutoHide(binding: ManagedDockBinding): void {
+    binding.dash.syncHover();
     binding.dash.blockAutoHide(false);
     binding.dash.ensureAutoHide();
     this._enableHotAreaWhenDockHidden(binding);
