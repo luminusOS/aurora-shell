@@ -199,6 +199,15 @@ async function exerciseRealWaylandPopupStacking(bindings) {
         resolve();
       });
     });
+    await waitForCondition({
+      evaluate: () =>
+        global.get_window_actors().every((actor) => previousWindows.has(actor.meta_window)),
+      signals: [
+        [global.display, 'restacked'],
+        [global.stage, 'after-paint'],
+      ],
+      description: 'Wayland popup helper windows to leave the Shell UI tree',
+    });
     await Scripting.waitLeisure();
   }
 }
