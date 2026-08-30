@@ -3,6 +3,7 @@ import { gettext as _ } from '~/shared/i18n.ts';
 
 import St from '@girs/st-18';
 import GLib from '@girs/glib-2.0';
+import Meta from '@girs/meta-18';
 
 import * as Main from '@girs/gnome-shell/ui/main';
 
@@ -29,6 +30,11 @@ const HOT_AREA_REVEAL_DURATION = 1500;
 const HOT_AREA_STRIP_SIZE = 1;
 const TRANSITION_ACTIVATION_COOLDOWN = 700;
 const LOG_PREFIX = 'Dock';
+const APPLICATION_POPUP_WINDOW_TYPES = [
+  Meta.WindowType.DROPDOWN_MENU,
+  Meta.WindowType.POPUP_MENU,
+  Meta.WindowType.COMBO,
+];
 
 export class Dock extends Module {
   private _bindings = new Map<number, ManagedDockBinding>();
@@ -114,6 +120,8 @@ export class Dock extends Module {
       () => this._refreshWorkAreas(),
       'in-fullscreen-changed',
       () => this._handleFullscreenChanged(),
+      'restacked',
+      () => this._syncStacking(),
       this,
     );
     this._lifecycle.onDispose(() => global.display.disconnectObject(this));
@@ -371,6 +379,7 @@ export class Dock extends Module {
       if (binding) this._bindings.set(monitorIndex, binding);
     });
 
+    this._syncStacking();
     this._refreshWorkAreas();
   }
 
@@ -478,6 +487,34 @@ export class Dock extends Module {
     }
 
     return binding;
+  }
+
+  private _syncStacking(): void {
+    const windowGroup = global.window_group;
+    const popup = windowGroup.get_children().find((actor) => {
+      const window = (actor as typeof actor & { meta_window?: Meta.Window }).meta_window;
+      return window && APPLICATION_POPUP_WINDOW_TYPES.includes(window.get_window_type());
+    });
+    const targetGroup = popup ? windowGroup : Main.uiGroup;
+
+    for (const binding of this._bindings.values()) {
+      for (const actor of [binding.strutActor, binding.container]) {
+        if (!actor) continue;
+        const parent = actor.get_parent();
+        if (parent !== targetGroup) {
+          if (parent) parent.remove_child(actor);
+          targetGroup.add_child(actor);
+        }
+
+        if (popup) {
+          windowGroup.set_child_below_sibling(actor, popup);
+        } else if (Main.uiGroup.contains(global.top_window_group)) {
+          Main.uiGroup.set_child_below_sibling(actor, global.top_window_group);
+        } else {
+          Main.uiGroup.set_child_above_sibling(actor, null);
+        }
+      }
+    }
   }
 
   private _createStrutActor(monitorIndex: number): St.Widget {

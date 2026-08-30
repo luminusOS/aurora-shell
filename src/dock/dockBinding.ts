@@ -40,7 +40,7 @@ export class ManagedDockBinding {
     }
 
     if (this.strutActor) {
-      Main.layoutManager.removeChrome(this.strutActor);
+      Main.layoutManager.untrackChrome(this.strutActor);
       this.strutActor.destroy();
       this.strutActor = null;
     }
@@ -51,7 +51,7 @@ export class ManagedDockBinding {
     this.dash.detachFromContainer();
     this.dash.destroy();
 
-    Main.layoutManager.removeChrome(this.container);
+    Main.layoutManager.untrackChrome(this.container);
     this.container.destroy();
   }
 }
