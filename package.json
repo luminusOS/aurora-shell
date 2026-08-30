@@ -16,7 +16,7 @@
     "build": "yarn clear && yarn build:css && yarn build:ts",
     "lint": "NODE_OPTIONS=--import=tsx/esm eslint .",
     "validate": "yarn check && yarn lint && yarn prettier:check && yarn stylelint",
-    "prettier:check": "prettier --check \"{src,tests,scripts}/**/*.{ts,js,scss}\"",
+    "prettier:check": "prettier --check \"{src,tests,scripts}/**/*.{ts,js,scss}\" \"README.md\" \"CONTRIBUTING.md\" \"docs/**/*.md\"",
     "stylelint": "stylelint \"src/styles/**/*.scss\"",
     "watch:css": "tsx sass.config.ts --watch",
     "test:unit": "node --import tsx/esm --test \"tests/unit/**/*.test.ts\"",

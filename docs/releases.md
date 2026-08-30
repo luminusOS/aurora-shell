@@ -1,48 +1,88 @@
-# Releases and Backports
+# Releases and backports
 
-Aurora Shell follows the GNOME Shell release cycle. `main` targets the next GNOME release. Branches
-such as `release/v50.x` and `release/v51.x` receive maintenance fixes for released versions.
+`main` is the source for the next release. Stable GNOME generations are maintained on branches named
+`release/v<major>.x`. Release automation always runs the reusable CI workflow and publishes the two
+ZIPs produced by its package job.
 
-## Features and Fixes
+## Preconditions
 
-New features go to `main`. Maintenance branches accept only bug fixes and compatibility updates.
+Before publishing, confirm that:
 
-Bug fixes land on `main` first. To include one in a maintenance release, create a separate backport
-pull request from the release branch:
+- `metadata.json` has the intended numeric `version-name` and supported `shell-version`;
+- the target commit is on `main` for nightlies, release candidates, and the first stable release;
+- required CI checks pass and package inspection produced both ZIP variants;
+- the production ZIP has a current Shexli review in [GNOME Extensions review notes](extension-review.md);
+- release notes and credited work are ready for the commits being published.
+
+Use the **Bump version** workflow to change `version-name` on `main` or a maintenance branch. It
+validates numeric components, pushes `bot/bump-version-<branch>-<version>`, and opens or updates a
+pull request. It does not publish a release.
+
+## Nightly pre-releases
+
+Run the **Nightly pre-release** workflow. It checks out `main`, reads `version-name`, and chooses
+`v<version>-nightly<N>`. It skips publication when the latest nightly already points at current
+`main`, unless the manual `force` input is set.
+
+The workflow runs CI for the resolved SHA, downloads both package artifacts, and generates notes
+from the latest stable release. It marks the release as a non-latest pre-release and deletes older
+nightly releases and their tags. It does not delete release candidates.
+
+If state resolution or CI fails, fix `main` and rerun. If release creation fails after CI, rerun the
+workflow only after checking whether the chosen tag or release already exists.
+
+## Release candidates
+
+Run the **Release** workflow on `main` with `release_candidate`. It reads `version-name`, increments
+the greatest matching `v<version>-rc<N>` tag, refuses to replace an existing tag, and runs CI on the
+resolved commit.
+
+Release notes begin at the newest published stable release or release candidate; nightlies are
+ignored. A successful RC publishes both ZIPs, keeps older RCs, and deletes superseded nightlies.
+Release candidates do not create maintenance branches.
+
+## Stable releases
+
+Run the **Release** workflow with `stable`. It publishes `v<version-name>` from current `main`, runs
+CI, and generates notes from the previous stable release. The workflow refuses an existing tag.
+
+A pushed stable-looking tag (`v[0-9]*`, excluding `-rc` tags) also invokes the workflow. Manual
+dispatch is safer because it derives the tag from reviewed metadata; direct tags must point at the
+intended commit and match the version policy.
+
+After publication, the workflow creates `release/v<major>.x` at the released commit if the branch
+does not already exist. Existing maintenance branches are left unchanged.
+
+If GitHub Release creation succeeds but maintenance-branch creation fails, do not republish or move
+the release tag. Inspect the release commit, create the missing branch at that exact commit, and push
+the branch. If CI fails, fix the source and publish a new version; never replace a public stable tag.
+
+## Backports
+
+Bug fixes land on `main` first. A maintenance backport is a separate pull request based on the target
+`release/v<major>.x` branch and contains only the commits needed for that released line.
 
 ```bash
-git checkout release/v50.x
+git switch release/v50.x
+git pull --ff-only
+git switch -c backport/fix-name
 git cherry-pick <commit-sha>
 ```
 
-Maintainers decide which fixes to backport. Adding a label such as `GNOME 50` to the original pull
-request requests an automated backport after merge. The automation rebuilds the branch from the
-target release, cherry-picks the original commits, and bumps the patch version.
+Resolve conflicts against the maintenance branch's APIs, then run the tests appropriate to the
+backported change. Do not merge unrelated refactors to make a cherry-pick clean.
 
-## Release Candidates
+The repository has no backport workflow, so labels do not replace the branch and cherry-pick steps
+above. After the backport lands, use **Bump version** against the maintenance branch and publish the
+resulting stable tag from the intended maintenance commit.
 
-Release candidate tags use `v50-rc1`, `v50-rc2`, and so on. To publish one, run the `Release` workflow
-manually and choose `release_candidate`. The workflow increments the candidate number, tags the
-current `main`, runs CI, and publishes the pre-release.
+## Artifact and failure checks
 
-Release notes start at the most recent stable release or release candidate, whichever came last.
-Nightlies are ignored. Publishing a release candidate keeps older candidates and removes superseded
-nightlies.
+Every nightly, RC, and stable release must contain:
 
-Nightly and release candidate publications include both the production ZIP and the separate
-DevTool-enabled development ZIP.
+- `aurora-shell@luminusos.github.io.shell-extension.zip` for users and EGO;
+- `aurora-shell@luminusos.github.io.development.shell-extension.zip` for contributor and QA sessions.
 
-## Stable Releases
-
-Stable tags use the GNOME major version and an Aurora patch number, such as `v50.1`. To publish the
-version in `metadata.json`, run the `Release` workflow manually and choose `stable`. You can also push
-a stable tag directly:
-
-```bash
-git tag -a v50.1 -m "Release v50.1"
-git push origin v50.1
-```
-
-The workflow runs the complete CI pipeline and publishes both extension packages after every check
-passes. Stable release notes start at the previous stable release, never at a release candidate. The
-first stable tag for a GNOME major version also creates its maintenance branch.
+The CI artifact is retained for one day, so a delayed release job may need a clean workflow rerun.
+Never substitute a locally built ZIP into an automated release without recording and validating the
+different build provenance.
