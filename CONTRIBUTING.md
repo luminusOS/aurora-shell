@@ -1,95 +1,103 @@
 # Contributing to Aurora Shell
 
-Thank you for contributing to Aurora Shell. Keep changes focused, test the behavior they affect,
-and make the intent easy to understand in review.
+Understand every change you submit. Keep pull requests focused and include results reviewers can
+reproduce.
 
-## Before You Start
+## Start with an issue and branch
 
-- Branch from the latest `main`.
-- Keep each pull request limited to one feature, fix, or refactor.
-- Add regression coverage for bug fixes and tests for new behavior.
-- Read the [documentation index](docs/README.md) for architecture and development guidance.
+Search existing issues and pull requests before opening a duplicate. For a behavior change, describe
+the current result, expected result, GNOME Shell version, and reproduction steps. Small documentation
+or obvious fixes may go directly to a pull request; discuss broad UI, architecture, settings, or
+compatibility changes before implementation.
 
-## Commit Messages
+Branch from current `main`:
 
-Use [Conventional Commits](https://www.conventionalcommits.org/) for the subject and breaking-change
-notation:
-
-```text
-<type>[optional scope][!]: <description>
+```bash
+git switch main
+git pull --ff-only
+git switch -c fix/short-description
 ```
 
-- Use a standard type such as `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, or `chore`.
-- Add a short scope when it helps identify the affected area.
-- Write the description in imperative present tense: `fix(clipboard): preserve card height`, not
-  `fixed` or `fixes`.
-- Keep the complete subject under 72 characters and omit the trailing period.
-- Mark a breaking change with `!` before the colon and explain it in a `BREAKING CHANGE:` footer.
+Keep one feature, fix, or refactor per pull request. Bug fixes target `main`; released branches
+receive separate backport pull requests through the process in
+[Releases and backports](docs/releases.md#backports).
 
-Follow the Chromium Embedded Framework writing style for the remaining message:
+## Make the change
 
-- Separate the subject, optional body, and optional footers with blank lines.
-- Use the body to explain motivation, behavior, and non-obvious tradeoffs.
-- Keep every commit focused on one concern so it can be reviewed or reverted independently.
+Read [Architecture](docs/architecture.md) before changing lifecycle, metadata, preferences, device
+policy, or package boundaries. Use the [module guide](docs/modules.md) for module work.
 
-For example:
+Add a regression check that fails without a non-trivial fix. Prefer a Node unit test for pure logic
+and a targeted Shell test for GNOME behavior. Do not add speculative abstractions, dependencies, or
+tests unrelated to the changed contract.
 
-```text
-fix(clipboard): preserve card focus behavior
+## Choose validation
 
-Reveal card actions when hover moves away from a pinned item and keep short
-cards at a stable height. Add Shell coverage for both cases.
-```
-
-A breaking change uses both Conventional Commits markers:
-
-```text
-feat(settings)!: replace the legacy module keys
-
-Move module configuration to the manifest-backed key format.
-
-BREAKING CHANGE: Existing custom module keys must be migrated.
-```
-
-## Validate Your Change
-
-For source changes, run the standard checks:
+Use the matrix in [Testing](docs/testing.md#change-to-test-matrix). At minimum, source changes run:
 
 ```bash
 just validate
 just test unit
-just shexli
 ```
 
-Run the relevant Shell integration test for a feature-level change. Use
-`just toolbox test` for architectural or cross-cutting work. See
-[Development and testing](docs/development.md) for the complete command reference and environment
-details.
+Add `just package check` for build/package changes, a targeted `just test shell …` for Shell behavior,
+and `just shexli` for EGO-facing, clipboard, subprocess, or package-content changes. Use Toolbox when
+the host lacks the project GNOME environment or the change crosses Shell infrastructure.
 
-## Pull Requests
+Record commands and results in the pull request. For user-visible behavior, include a focused
+screenshot or screen recording when it proves the result better than logs. For a bug, include the
+before/after reproduction. Do not claim a check you did not run; state environment blockers and the
+exact error.
 
-Describe the problem, the chosen solution, and how you validated it. Include screenshots, screen
-recordings, logs, or reproduction steps when they make user-visible or Shell behavior easier to
-review. All CI jobs must pass before merge.
+## Commits
 
-Bug fixes target `main` first. Maintenance backports use separate pull requests; see
-[Releases and backports](docs/releases.md).
+Use [Conventional Commits](https://www.conventionalcommits.org/) for the subject:
 
-## AI-Assisted Contributions
+```text
+<type>[optional scope][!]: <imperative description>
+```
 
-AI-assisted contributions are welcome, but the contributor remains responsible for every change.
-Do not submit code you do not understand. You must be able to explain why it is correct, what risks
-it introduces, and how it was tested.
+Use a standard type such as `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, or `chore`.
+Keep the whole subject under 72 characters, omit the trailing period, and keep each commit reviewable
+and revertible. Explain motivation and non-obvious tradeoffs in the body, not a summary of the diff.
 
-## Further Reading
+```text
+fix(clipboard): preserve card focus behavior
+
+Reveal card actions when hover leaves a pinned item and keep short cards at a
+stable height. Add Shell coverage for both cases.
+```
+
+Mark an incompatible contract with `!` and a `BREAKING CHANGE:` footer. Do not rewrite public release
+tags or hide a breaking settings change in a normal fix.
+
+## Pull requests
+
+A pull request should answer four questions:
+
+1. What observable problem does this solve?
+2. Why is the change located in this component?
+3. What compatibility, teardown, privacy, or regression risk remains?
+4. Which commands and manual artifacts demonstrate the result?
+
+Keep the branch current, respond to review with code or evidence, and wait for the CI gate. Reviewers
+may ask for a smaller change when unrelated work obscures the behavior under review.
+
+## AI-assisted contributions
+
+AI tools may assist, but the human contributor owns every line and claim. Review generated changes
+against the local GNOME Shell version and the
+[GNOME Extensions review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html).
+Remove imaginary APIs, redundant code, prompt-like comments, and claims without test evidence.
+
+You must be able to explain the control flow, resource ownership, failure behavior, and test choice.
+Disclose material AI assistance when project or employer policy requires it. Never upload secrets,
+private user data, or code you are not authorized to share to an external service.
+
+## Documentation map
 
 - [Documentation index](docs/README.md)
-- [Architecture](docs/architecture.md)
-- [Development and testing](docs/development.md)
-- [Adding and maintaining modules](docs/modules.md)
-- [Releases and backports](docs/releases.md)
+- [Development loop](docs/development.md)
+- [Module reference](docs/module-reference.md)
+- [Troubleshooting](docs/troubleshooting.md)
 - [GNOME Extensions review notes](docs/extension-review.md)
-- [GJS extension debugging](https://gjs.guide/extensions/development/debugging.html)
-- [GJS imports and modules](https://gjs.guide/extensions/overview/imports-and-modules.html)
-- [GNOME Shell Extensions review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)
-- [Automated testing of GNOME Shell](https://blogs.gnome.org/shell-dev/2022/12/02/automated-testing-of-gnome-shell/)
