@@ -220,7 +220,7 @@ test('catalog: desktop module baseline is preserved', () => {
     'auto-theme-switcher',
     'bluetooth-menu',
     'weather-clock',
-    'meeting-clock',
+    'calendar-reminders',
     'tray-icons',
     'clipboard-history',
   ]);

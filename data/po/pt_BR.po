@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-08-30 09:40-0300\n"
+"POT-Creation-Date: 2026-09-06 17:06-0300\n"
 "PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -101,23 +101,23 @@ msgstr "Marcador numerado"
 msgid "Move toolbar"
 msgstr "Mover barra de ferramentas"
 
-#: dist/capture/captureToolbar.js:63
+#: dist/capture/captureToolbar.js:78
 msgid "Annotation color"
 msgstr "Cor da anotação"
 
-#: dist/capture/captureToolbar.js:81
+#: dist/capture/captureToolbar.js:96
 msgid "Annotation width"
 msgstr "Espessura da anotação"
 
-#: dist/capture/captureToolbar.js:90
+#: dist/capture/captureToolbar.js:105
 msgid "Undo"
 msgstr "Desfazer"
 
-#: dist/capture/captureToolbar.js:93
+#: dist/capture/captureToolbar.js:108
 msgid "Clear annotations"
 msgstr "Limpar anotações"
 
-#: dist/capture/captureTools.js:225
+#: dist/capture/captureTools.js:223
 msgid "Type annotation text"
 msgstr "Digite o texto da anotação"
 
@@ -263,7 +263,7 @@ msgid "Search…"
 msgstr "Pesquisar…"
 
 #: dist/desktop/trayIcons/backgroundAppsSource.js:112
-#: dist/dock/externalStorageIcon.js:97 dist/dock/trashIcon.js:108
+#: dist/dock/externalStorageIcon.js:91 dist/dock/trashIcon.js:102
 msgid "Open"
 msgstr "Abrir"
 
@@ -469,15 +469,15 @@ msgstr "Equilibrado"
 msgid "Expressive"
 msgstr "Expressivo"
 
-#: dist/dock/externalStorageIcon.js:97
+#: dist/dock/externalStorageIcon.js:91
 msgid "Mount and Open"
 msgstr "Montar e abrir"
 
-#: dist/dock/externalStorageIcon.js:101
+#: dist/dock/externalStorageIcon.js:95
 msgid "Eject"
 msgstr "Ejetar"
 
-#: dist/dock/externalStorageIcon.js:101
+#: dist/dock/externalStorageIcon.js:95
 msgid "Unmount"
 msgstr "Desmontar"
 
@@ -495,7 +495,7 @@ msgstr "Falha ao ejetar “%s”"
 msgid "Trash"
 msgstr "Lixeira"
 
-#: dist/dock/trashIcon.js:111
+#: dist/dock/trashIcon.js:105
 msgid "Empty Trash"
 msgstr "Esvaziar lixeira"
 
@@ -675,97 +675,83 @@ msgstr ""
 "Mostra o nível da bateria e ícones animados no painel de Configurações "
 "Rápidas do Bluetooth"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:118
-msgid "Meeting starting soon"
-msgstr "Reunião começará em breve"
+#: dist/panel/clock/calendarReminders/calendarReminderController.js:76
+msgid "Calendar reminder"
+msgstr "Lembrete do calendário"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:127
-msgid "Join"
-msgstr "Participar"
+#: dist/panel/clock/calendarReminders/calendarReminderController.js:77
+msgid "Calendar event"
+msgstr "Evento do calendário"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:129
+#: dist/panel/clock/calendarReminders/calendarReminderController.js:86
+msgid "Open Calendar"
+msgstr "Abrir Calendário"
+
+#: dist/panel/clock/calendarReminders/calendarReminderController.js:89
 msgid "Snooze"
 msgstr "Adiar"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:130
-msgid "Dismiss"
-msgstr "Dispensar"
+#: dist/panel/clock/calendarReminders/calendarReminderController.js:171
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:8
+msgid "Calendar Reminders"
+msgstr "Lembretes do calendário"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:132
-msgid "Ignore"
-msgstr "Ignorar"
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:9
+msgid "Shows upcoming events next to the clock and notifies calendar reminders"
+msgstr "Mostra os próximos eventos ao lado do relógio e notifica os lembretes do calendário"
 
-#: dist/panel/clock/meetingClock/meetingAlertController.js:189
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:8
-msgid "Meeting Clock"
-msgstr "Relógio de reuniões"
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:13
+msgid "Notifications"
+msgstr "Notificações"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:9
-msgid "Shows upcoming calendar events next to the clock"
-msgstr "Mostra os próximos eventos do calendário ao lado do relógio"
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:14
+msgid "Show calendar reminders as notifications"
+msgstr "Mostrar lembretes do calendário como notificações"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:13
-msgid "Meeting Alerts"
-msgstr "Alertas de reunião"
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:19
+msgid "Force Reminder at Event Start"
+msgstr "Forçar lembrete no início do evento"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:14
-msgid "Show a notification when a meeting is about to start"
-msgstr "Mostra uma notificação quando uma reunião está prestes a começar"
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:20
+msgid "Always notify when a timed event starts, even after an earlier reminder"
+msgstr "Sempre notificar quando um evento com horário começar, mesmo após um lembrete anterior"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:19
-msgid "Alert Lead Time (minutes)"
-msgstr "Antecedência do alerta (minutos)"
-
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:20
-msgid "Minutes before a meeting starts to show the alert"
-msgstr "Minutos antes do início da reunião para mostrar o alerta"
-
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:27
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:25
 msgid "Snooze Duration (minutes)"
 msgstr "Duração do adiamento (minutos)"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:28
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:26
 msgid "Minutes to wait before showing a snoozed alert again"
 msgstr "Minutos de espera antes de mostrar novamente um alerta adiado"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:35
-msgid "Alert Events Without Links"
-msgstr "Alertar eventos sem links"
-
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:36
-msgid "Show meeting alerts for calendar events that do not include a join link"
-msgstr ""
-"Mostra alertas de reunião para eventos do calendário que não incluem um link "
-"para participar"
-
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:41
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:33
 msgid "Panel Reveal Interval (minutes)"
 msgstr "Intervalo de revelação do painel (minutos)"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:42
-msgid "Minutes between automatic Meeting Clock slide reveals in the panel"
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:34
+msgid "Minutes between automatic Calendar Reminders slide reveals in the panel"
 msgstr ""
-"Minutos entre as revelações automáticas deslizantes do Relógio de reuniões "
-"no painel"
+"Minutos entre as revelações automáticas deslizantes dos Lembretes do "
+"calendário no painel"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:49
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:41
 msgid "Panel Lookahead (minutes)"
 msgstr "Antecedência do painel (minutos)"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:50
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:42
 msgid ""
 "Maximum minutes before an event starts for it to appear in the panel clock"
 msgstr ""
 "Máximo de minutos antes do início de um evento para ele aparecer no relógio "
 "do painel"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:57
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:49
 msgid "Hide All-Day Events"
 msgstr "Ocultar eventos de dia inteiro"
 
-#: dist/panel/clock/meetingClock/meetingClock.manifest.js:58
-msgid "Exclude all-day events from the clock and alerts"
-msgstr "Exclui eventos de dia inteiro do relógio e dos alertas"
+#: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:50
+msgid "Exclude all-day events from the panel clock"
+msgstr "Excluir eventos de dia inteiro do relógio do painel"
 
 #: dist/panel/clock/weatherClock/weatherClock.manifest.js:8
 msgid "Weather Clock"
@@ -824,17 +810,17 @@ msgstr "Nenhum áudio em reprodução"
 msgid "Volume changed"
 msgstr "Volume alterado"
 
-#: dist/panel/volumeMixer/volumeMixer.js:77
+#: dist/panel/volumeMixer/volumeMixer.js:76
 msgid "Sound Settings"
 msgstr "Configurações de som"
 
-#: dist/panel/volumeMixer/volumeMixer.js:95
-#: dist/panel/volumeMixer/volumeMixer.js:117
+#: dist/panel/volumeMixer/volumeMixer.js:94
+#: dist/panel/volumeMixer/volumeMixer.js:116
 #: dist/panel/volumeMixer/volumeMixer.manifest.js:8
 msgid "Volume Mixer"
 msgstr "Mixer de Volume"
 
-#: dist/panel/volumeMixer/volumeMixer.js:127
+#: dist/panel/volumeMixer/volumeMixer.js:126
 msgid "Sound Output"
 msgstr "Saída de som"
 
@@ -1075,7 +1061,7 @@ msgstr ""
 "Oculta o conteúdo do painel durante o compartilhamento de tela; mostra "
 "apenas o indicador de compartilhamento"
 
-#: dist/shared/ui/dashWindowPreviews.js:307
+#: dist/shared/ui/dashWindowPreviews.js:308
 msgid "Close"
 msgstr "Fechar"
 
@@ -1111,6 +1097,12 @@ msgstr "Alternador de Tema"
 #: dist/theme/themeChanger.manifest.js:9
 msgid "Monitors and synchronizes GNOME color scheme"
 msgstr "Monitora e sincroniza o esquema de cores do GNOME"
+
+#~ msgid "Dismiss"
+#~ msgstr "Dispensar"
+
+#~ msgid "Ignore"
+#~ msgstr "Ignorar"
 
 #~ msgid "Restore"
 #~ msgstr "Restaurar"

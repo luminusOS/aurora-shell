@@ -19,7 +19,7 @@ import { manifest as velaVpnQuickSettings } from '~/patches/velaVpnQuickSettings
 import { manifest as autoThemeSwitcher } from '~/theme/autoThemeSwitcher.manifest.ts';
 import { manifest as bluetoothMenu } from '~/panel/bluetoothMenu/bluetoothMenu.manifest.ts';
 import { manifest as weatherClock } from '~/panel/clock/weatherClock/weatherClock.manifest.ts';
-import { manifest as meetingClock } from '~/panel/clock/meetingClock/meetingClock.manifest.ts';
+import { manifest as calendarReminders } from '~/panel/clock/calendarReminders/calendarReminders.manifest.ts';
 import { manifest as trayIcons } from '~/desktop/trayIcons/trayIcons.manifest.ts';
 import { manifest as clipboardHistory } from '~/clipboard/clipboardHistory.manifest.ts';
 
@@ -56,7 +56,7 @@ export const MODULE_CATALOG: readonly ModuleManifest[] = [
   autoThemeSwitcher,
   bluetoothMenu,
   weatherClock,
-  meetingClock,
+  calendarReminders,
   trayIcons,
   clipboardHistory,
 ];

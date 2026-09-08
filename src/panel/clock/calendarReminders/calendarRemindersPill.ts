@@ -6,12 +6,12 @@ import type { LifecycleScope, ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
 import { registerClockPillWidget, type ClockPillRegistration } from '~/shared/clockPill.ts';
 
-const CLOCK_PILL_ID = 'meeting-clock';
+const CLOCK_PILL_ID = 'calendar-reminders';
 const VISIBLE_SECONDS = 8;
 const ANIMATION_MS = 260;
 const OFFSET = 18;
 
-export class MeetingClockPill {
+export class CalendarRemindersPill {
   private _widget: St.BoxLayout;
   private _label: St.Label;
   private _registration: ClockPillRegistration | null;
@@ -21,7 +21,7 @@ export class MeetingClockPill {
   constructor(lifecycle: LifecycleScope) {
     this._hideTimer = createManagedSource(lifecycle);
     this._widget = new St.BoxLayout({
-      style_class: 'aurora-meeting-clock-widget',
+      style_class: 'aurora-calendar-reminders-widget',
       y_align: Clutter.ActorAlign.CENTER,
       y_expand: true,
       visible: false,
@@ -29,14 +29,14 @@ export class MeetingClockPill {
       reactive: false,
     });
     this._label = new St.Label({
-      style_class: 'clock-label aurora-meeting-clock-label',
+      style_class: 'clock-label aurora-calendar-reminders-label',
       y_align: Clutter.ActorAlign.CENTER,
     });
     this._widget.add_child(this._label);
     this._widget.add_child(
       new St.Icon({
         icon_name: 'x-office-calendar-symbolic',
-        style_class: 'aurora-meeting-clock-icon',
+        style_class: 'aurora-calendar-reminders-icon',
         y_align: Clutter.ActorAlign.CENTER,
       }),
     );

@@ -96,10 +96,9 @@ export const ClipboardPanel = GObject.registerClass(
       this._overlay = new St.Bin({ reactive: true });
       this._overlay.set_position(0, 0);
       this._overlay.set_size(global.stage.width, global.stage.height);
-      this._overlay.connect('button-press-event', () => {
-        this.close();
-        return Clutter.EVENT_STOP;
-      });
+      const clickGesture = new Clutter.ClickGesture({ recognize_on_press: true });
+      clickGesture.connect('recognize', () => this.close());
+      this._overlay.add_action(clickGesture);
 
       Main.layoutManager.addTopChrome(this._overlay, { trackFullscreen: false });
       Main.layoutManager.addTopChrome(this, { trackFullscreen: false }); // panel sits above overlay
@@ -109,13 +108,15 @@ export const ClipboardPanel = GObject.registerClass(
       this.show();
       this._isOpen = true;
 
-      // captured-event fires in the CAPTURE phase — before ClutterText (St.Entry
-      // internals) has a chance to consume Escape, Up, Down, Enter, etc.
-      this._openLifecycle.connect(
-        global.stage,
-        'captured-event',
-        (_actor: Clutter.Actor, event: Clutter.Event) => this._onCapturedEvent(event),
+      // The capture phase runs before ClutterText can consume navigation keys.
+      const keyController = new Clutter.KeyController();
+      keyController.connect('key-press', () => this._onKeyPress(keyController));
+      global.stage.add_action_full(
+        'aurora-clipboard-panel-keys',
+        Clutter.EventPhase.CAPTURE,
+        keyController,
       );
+      this._openLifecycle.onDispose(() => global.stage.remove_action(keyController));
 
       this._openLifecycle.connect(this._searchEntry.clutter_text, 'text-changed', () =>
         this._syncList(this._searchEntry.get_text()),
@@ -157,11 +158,10 @@ export const ClipboardPanel = GObject.registerClass(
       if (this._isOpen) this._syncList(this._searchEntry.get_text());
     }
 
-    private _onCapturedEvent(event: Clutter.Event): boolean {
-      if (event.type() !== Clutter.EventType.KEY_PRESS) return Clutter.EVENT_PROPAGATE;
-
-      const sym = event.get_key_symbol();
-      const mods = event.get_state();
+    private _onKeyPress(controller: Clutter.KeyController): boolean {
+      const [, sym] = controller.get_key();
+      const [, pressed, latched, locked] = controller.get_state();
+      const mods = pressed | latched | locked;
       const ctrl = Boolean(mods & Clutter.ModifierType.CONTROL_MASK);
       const searchFocused = this._isSearchFocused();
 

@@ -223,7 +223,7 @@ export class DockDevTool {
 
   private _buildMonitorPanel(binding: ManagedDockBinding): St.Widget {
     const panel = new St.BoxLayout({
-      vertical: true,
+      orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-devtool-module-panel',
     });
 

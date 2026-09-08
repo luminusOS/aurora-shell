@@ -7,7 +7,6 @@ import type Meta from '@girs/meta-18';
 import Pango from '@girs/pango-1.0';
 import Shell from '@girs/shell-18';
 import St from '@girs/st-18';
-import * as BoxPointer from '@girs/gnome-shell/ui/boxpointer';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 
@@ -196,14 +195,16 @@ export class DashWindowPreviewController {
         if (popup.actor.hover) this._hideTimeout.clear();
         else this._scheduleClose();
       },
-      'key-press-event',
-      (_actor: St.Widget, event: Clutter.Event) => {
-        if (event.get_key_symbol() !== Clutter.KEY_Escape) return Clutter.EVENT_PROPAGATE;
-        this.close();
-        return Clutter.EVENT_STOP;
-      },
       popup.actor,
     );
+    const keyController = new Clutter.KeyController();
+    keyController.connect('key-press', () => {
+      const [, symbol] = keyController.get_key();
+      if (symbol !== Clutter.KEY_Escape) return Clutter.EVENT_PROPAGATE;
+      this.close();
+      return Clutter.EVENT_STOP;
+    });
+    popup.actor.add_action(keyController);
     source.app.connectObject('windows-changed', () => this._refresh(), popup.actor);
     global.display.connectObject('notify::focus-window', () => this._refresh(), popup.actor);
 
@@ -213,7 +214,7 @@ export class DashWindowPreviewController {
     }
 
     if (source.item.hideLabel) source.item.hideLabel();
-    popup.open(BoxPointer.PopupAnimation.FULL);
+    popup.open();
     popup.actor.grab_key_focus();
     this._options.onOpenStateChanged();
   }

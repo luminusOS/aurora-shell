@@ -43,37 +43,38 @@ export const AnnotationCanvas = GObject.registerClass(
       this._requestText = requestText;
       this._drawingStateChanged = drawingStateChanged;
 
-      this.connect('button-press-event', (_actor: St.DrawingArea, event: Clutter.Event) => {
-        if (event.get_button() !== Clutter.BUTTON_PRIMARY) return Clutter.EVENT_PROPAGATE;
-        const [x, y] = event.get_coords();
-        if (!this._model) return Clutter.EVENT_PROPAGATE;
+      const gesture = new Clutter.PanGesture({
+        begin_threshold: 0,
+        required_button: Clutter.BUTTON_PRIMARY,
+      });
+      gesture.connect('recognize', () => {
+        const { x, y } = gesture.get_centroid_abs();
+        if (!this._model) return;
         if (this._model.tool === 'text') {
           this._requestText({ x, y });
-          return Clutter.EVENT_STOP;
+          return;
         }
-        if (!this._model.begin({ x, y })) return Clutter.EVENT_PROPAGATE;
+        if (!this._model.begin({ x, y })) return;
         this._setDrawing(this._model.tool !== 'stamp');
         if (this._drawing) this._stageGrab = global.stage.grab(this);
         this.queue_repaint();
-        return Clutter.EVENT_STOP;
       });
 
-      this.connect('motion-event', (_actor: St.DrawingArea, event: Clutter.Event) => {
-        if (!this._drawing || !this._model) return Clutter.EVENT_PROPAGATE;
-        const [x, y] = event.get_coords();
+      gesture.connect('pan-update', () => {
+        if (!this._drawing || !this._model) return;
+        const { x, y } = gesture.get_centroid_abs();
         this._model.update({ x, y });
         this.queue_repaint();
-        return Clutter.EVENT_STOP;
       });
 
-      this.connect('button-release-event', (_actor: St.DrawingArea, event: Clutter.Event) => {
-        if (!this._drawing || !this._model || event.get_button() !== Clutter.BUTTON_PRIMARY)
-          return Clutter.EVENT_PROPAGATE;
-        const [x, y] = event.get_coords();
+      gesture.connect('end', () => {
+        if (!this._drawing || !this._model) return;
+        const { x, y } = gesture.get_centroid_abs();
         this._model.update({ x, y });
         this._finishDrawing();
-        return Clutter.EVENT_STOP;
       });
+      gesture.connect('cancel', () => this.cancelDrawing());
+      this.add_action(gesture);
     }
 
     setDrawingEnabled(enabled: boolean): void {

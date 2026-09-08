@@ -3,7 +3,6 @@ import '@girs/gjs';
 import Clutter from '@girs/clutter-18';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
-import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
 import type { DateMenuButton } from '@girs/gnome-shell/ui/dateMenu';
 
 type ClockPillSide = 'left' | 'right';
@@ -106,10 +105,10 @@ export function unregisterClockPillWidget(id: string): void {
   _restoreIfEmpty();
 }
 
-export function openClockMenu(animation: PopupAnimation = PopupAnimation.FULL): boolean {
+export function openClockMenu(): boolean {
   const dateMenu = _dateMenu || Main.panel.statusArea.dateMenu;
   if (!dateMenu) return false;
 
-  dateMenu.menu.open(animation);
+  dateMenu.menu.open();
   return true;
 }

@@ -8,30 +8,38 @@ import { Module } from '~/module.ts';
 import { openClockMenu } from '~/shared/clockPill.ts';
 
 import { CalendarServerBackend } from './calendarServerBackend.ts';
-import { MeetingAlertController } from './meetingAlertController.ts';
-import { MeetingClockPill } from './meetingClockPill.ts';
-import { derivePanelPresentation, type MeetingEvent } from './meetingClockLogic.ts';
+import { EvolutionReminderBackend } from './evolutionReminderBackend.ts';
+import { CalendarReminderController } from './calendarReminderController.ts';
+import { CalendarRemindersPill } from './calendarRemindersPill.ts';
+import {
+  derivePanelPresentation,
+  getStartReminderEvents,
+  getStartReminderId,
+  type CalendarEvent,
+} from './calendarRemindersLogic.ts';
 
-const ALERTS_ENABLED_KEY = 'meeting-clock-alerts-enabled';
-const ALERT_MINUTES_KEY = 'meeting-clock-alert-minutes-before';
-const SNOOZE_MINUTES_KEY = 'meeting-clock-snooze-minutes';
-const ALERT_EVENTS_WITHOUT_LINK_KEY = 'meeting-clock-alert-events-without-link';
-const PANEL_REVEAL_INTERVAL_MINUTES_KEY = 'meeting-clock-panel-reveal-interval-minutes';
-const PANEL_LOOKAHEAD_MINUTES_KEY = 'meeting-clock-panel-lookahead-minutes';
-const EXCLUDE_ALL_DAY_KEY = 'meeting-clock-exclude-all-day-events';
+const ALERTS_ENABLED_KEY = 'calendar-reminders-alerts-enabled';
+const FORCE_REMINDERS_KEY = 'calendar-reminders-force-reminders';
+const SNOOZE_MINUTES_KEY = 'calendar-reminders-snooze-minutes';
+const PANEL_REVEAL_INTERVAL_MINUTES_KEY = 'calendar-reminders-panel-reveal-interval-minutes';
+const PANEL_LOOKAHEAD_MINUTES_KEY = 'calendar-reminders-panel-lookahead-minutes';
+const EXCLUDE_ALL_DAY_KEY = 'calendar-reminders-exclude-all-day-events';
 const REFRESH_WINDOW_HOURS = 24;
 const REFRESH_INTERVAL_SECONDS = 180;
 const LABEL_REFRESH_SECONDS = 30;
 const CALENDAR_SERVER_SOURCE_KEY = 'calendar-server';
 
-export class MeetingClock extends Module {
+export class CalendarReminders extends Module {
   private _backend: CalendarServerBackend | null = null;
-  private _eventsBySource = new Map<string, MeetingEvent[]>();
-  private _events: MeetingEvent[] = [];
-  private _pill: MeetingClockPill | null = null;
-  private _alerts: MeetingAlertController | null = null;
+  private _reminderBackend: EvolutionReminderBackend | null = null;
+  private _eventsBySource = new Map<string, CalendarEvent[]>();
+  private _events: CalendarEvent[] = [];
+  private _pill: CalendarRemindersPill | null = null;
+  private _alerts: CalendarReminderController | null = null;
   private _lifecycle: LifecycleScope | null = null;
   private _panelRevealTimer: ManagedSource | null = null;
+  private _startReminderTimer: ManagedSource | null = null;
+  private _notifiedStarts = new Map<string, number>();
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -43,16 +51,25 @@ export class MeetingClock extends Module {
     const refreshTimer = createManagedSource(lifecycle);
     const labelTimer = createManagedSource(lifecycle);
     const panelRevealTimer = createManagedSource(lifecycle);
-    const pill = new MeetingClockPill(lifecycle);
-    const alerts = new MeetingAlertController({
-      getPreferences: () => this._getAlertPreferences(),
+    const pill = new CalendarRemindersPill(lifecycle);
+    const alerts = new CalendarReminderController({
+      getSnoozeMinutes: () => this.context.settings.getInt(SNOOZE_MINUTES_KEY),
       onStateChanged: () => this._render(),
-      now: () => this._now(),
     });
     this._lifecycle = lifecycle;
     this._panelRevealTimer = panelRevealTimer;
+    this._startReminderTimer = createManagedSource(lifecycle);
     this._pill = pill;
     this._alerts = alerts;
+
+    const reminderBackend = new EvolutionReminderBackend(
+      (event) => {
+        if (this._reminderBackend === reminderBackend) this.showReminder(event);
+      },
+      () => this._now(),
+    );
+    this._reminderBackend = reminderBackend;
+    this._syncReminderBackend();
 
     const backend = new CalendarServerBackend((events) => {
       if (this._backend !== backend) return;
@@ -71,17 +88,18 @@ export class MeetingClock extends Module {
     labelTimer.replace(() =>
       GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, LABEL_REFRESH_SECONDS, () => {
         this._render();
+        this._syncStartReminders();
         return GLib.SOURCE_CONTINUE;
       }),
     );
     this._schedulePanelRevealTimer();
 
     const settings = this.context.settings;
-    lifecycle.connect(settings, `changed::${ALERTS_ENABLED_KEY}`, () => alerts.schedule());
-    lifecycle.connect(settings, `changed::${ALERT_MINUTES_KEY}`, () => alerts.schedule());
-    lifecycle.connect(settings, `changed::${SNOOZE_MINUTES_KEY}`, () => alerts.schedule());
-    lifecycle.connect(settings, `changed::${ALERT_EVENTS_WITHOUT_LINK_KEY}`, () =>
-      alerts.schedule(),
+    lifecycle.connect(settings, `changed::${ALERTS_ENABLED_KEY}`, () =>
+      this._syncReminderBackend(),
+    );
+    lifecycle.connect(settings, `changed::${FORCE_REMINDERS_KEY}`, () =>
+      this._syncStartReminders(),
     );
     lifecycle.connect(settings, `changed::${PANEL_REVEAL_INTERVAL_MINUTES_KEY}`, () =>
       this._schedulePanelRevealTimer(),
@@ -89,7 +107,6 @@ export class MeetingClock extends Module {
     lifecycle.connect(settings, `changed::${PANEL_LOOKAHEAD_MINUTES_KEY}`, () => this._render());
     lifecycle.connect(settings, `changed::${EXCLUDE_ALL_DAY_KEY}`, () => {
       this._render();
-      alerts.schedule();
     });
   }
 
@@ -97,9 +114,14 @@ export class MeetingClock extends Module {
     this._lifecycle?.dispose();
     this._lifecycle = null;
     this._panelRevealTimer = null;
+    this._startReminderTimer = null;
+    this._notifiedStarts.clear();
 
     this._backend?.stop();
     this._backend = null;
+
+    this._reminderBackend?.stop();
+    this._reminderBackend = null;
 
     this._alerts?.destroy();
     this._alerts = null;
@@ -111,30 +133,29 @@ export class MeetingClock extends Module {
     this._pill = null;
   }
 
-  setSourceEvents(sourceKey: string, events: readonly MeetingEvent[]): void {
+  setSourceEvents(sourceKey: string, events: readonly CalendarEvent[]): void {
     if (!this._lifecycle || !this._alerts) return;
 
-    const previousIds = new Set(this.getSourceEvents(sourceKey).map((event) => event.id));
     const nextEvents = [...events];
-
-    for (const event of nextEvents) {
-      previousIds.delete(event.id);
-    }
+    const nextStarts = new Map(nextEvents.map((event) => [event.id, event.startEpochSeconds]));
+    const removedEvents = this.getSourceEvents(sourceKey).filter(
+      (event) => nextStarts.get(event.id) !== event.startEpochSeconds,
+    );
 
     this._eventsBySource.set(sourceKey, nextEvents);
-    this._alerts.clearEventState(previousIds);
+    this._alerts.clearEventState(removedEvents);
     this._syncEvents();
   }
 
   clearSourceEvents(sourceKey: string): void {
-    const removedIds = new Set(this.getSourceEvents(sourceKey).map((event) => event.id));
+    const removedEvents = this.getSourceEvents(sourceKey);
     this._eventsBySource.delete(sourceKey);
-    if (this._alerts) this._alerts.clearEventState(removedIds);
+    if (this._alerts) this._alerts.clearEventState(removedEvents);
 
     this._syncEvents();
   }
 
-  getSourceEvents(sourceKey: string): MeetingEvent[] {
+  getSourceEvents(sourceKey: string): CalendarEvent[] {
     const events = this._eventsBySource.get(sourceKey);
     if (!events) return [];
 
@@ -142,9 +163,16 @@ export class MeetingClock extends Module {
   }
 
   showAlert(eventId: string | null = null): boolean {
-    if (!this._alerts) return false;
+    if (!this._alerts || !this.context.settings.getBoolean(ALERTS_ENABLED_KEY)) return false;
 
     return this._alerts.show(eventId);
+  }
+
+  showReminder(event: CalendarEvent): boolean {
+    if (!this._alerts || !this.context.settings.getBoolean(ALERTS_ENABLED_KEY)) return false;
+
+    this._alerts.showEvent(event);
+    return true;
   }
 
   openMenu(): boolean {
@@ -204,14 +232,15 @@ export class MeetingClock extends Module {
     return Math.max(0, this.context.settings.getInt(PANEL_LOOKAHEAD_MINUTES_KEY)) * 60;
   }
 
-  private _getAlertPreferences() {
-    return {
-      alertsEnabled: this.context.settings.getBoolean(ALERTS_ENABLED_KEY),
-      alertMinutesBefore: this.context.settings.getInt(ALERT_MINUTES_KEY),
-      alertEventsWithoutLink: this.context.settings.getBoolean(ALERT_EVENTS_WITHOUT_LINK_KEY),
-      excludeAllDayEvents: this.context.settings.getBoolean(EXCLUDE_ALL_DAY_KEY),
-      snoozeMinutes: this.context.settings.getInt(SNOOZE_MINUTES_KEY),
-    };
+  private _syncReminderBackend(): void {
+    this._syncStartReminders();
+    if (this.context.settings.getBoolean(ALERTS_ENABLED_KEY)) {
+      this._reminderBackend?.start();
+      return;
+    }
+
+    this._reminderBackend?.stop();
+    this._alerts?.clear();
   }
 
   private _now(): number {
@@ -224,5 +253,45 @@ export class MeetingClock extends Module {
       .sort((a, b) => a.startEpochSeconds - b.startEpochSeconds);
     this._render();
     if (this._alerts) this._alerts.setEvents(this._events);
+    this._syncStartReminders();
+  }
+
+  private _syncStartReminders(): void {
+    if (!this._startReminderTimer) return;
+
+    this._startReminderTimer.clear();
+    if (
+      !this.context.settings.getBoolean(ALERTS_ENABLED_KEY) ||
+      !this.context.settings.getBoolean(FORCE_REMINDERS_KEY)
+    ) {
+      return;
+    }
+
+    const now = this._now();
+    for (const [id, end] of this._notifiedStarts) {
+      if (end <= now) this._notifiedStarts.delete(id);
+    }
+
+    for (const event of getStartReminderEvents(this._events, now)) {
+      const id = getStartReminderId(event);
+      if (this._notifiedStarts.has(id)) continue;
+
+      if (event.startEpochSeconds <= now) {
+        this._notifiedStarts.set(id, event.endEpochSeconds);
+        this.showReminder({ ...event, id });
+        continue;
+      }
+
+      this._startReminderTimer.replace(() =>
+        GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, event.startEpochSeconds - now, () => {
+          if (!this._startReminderTimer) return GLib.SOURCE_REMOVE;
+
+          this._startReminderTimer.complete();
+          this._syncStartReminders();
+          return GLib.SOURCE_REMOVE;
+        }),
+      );
+      break;
+    }
   }
 }

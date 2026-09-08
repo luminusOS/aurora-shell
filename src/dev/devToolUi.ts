@@ -1,8 +1,9 @@
 import St from '@girs/st-18';
+import Clutter from '@girs/clutter-18';
 
 export function createDevToolModulePanel(): St.BoxLayout {
   return new St.BoxLayout({
-    vertical: true,
+    orientation: Clutter.Orientation.VERTICAL,
     style_class: 'aurora-devtool-module-panel',
   });
 }

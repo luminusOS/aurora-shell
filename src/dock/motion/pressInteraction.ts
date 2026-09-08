@@ -14,7 +14,7 @@ export class PressInteraction {
     return this._pressed;
   }
 
-  // Call on the primary button-press-event. `isLaunchClick` should reflect
+  // Call when the button enters its primary pressed state. `isLaunchClick` should reflect
   // whether this click is expected to start a new app instance.
   beginPrimary(config: PressRecipe, isLaunchClick: boolean): boolean {
     this._active = Boolean(

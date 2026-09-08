@@ -13,7 +13,7 @@ import {
 import { exerciseCaptureTools, exerciseClipboardHistory } from './scenarios/captureAndClipboard.js';
 import { exerciseDock } from './scenarios/dock.js';
 import {
-  exerciseMeetingClock,
+  exerciseCalendarReminders,
   exerciseTrayIcons,
   exerciseWeatherClock,
 } from './scenarios/trayAndClocks.js';
@@ -31,7 +31,10 @@ export function init() {
   Scripting.defineScriptEvent('clipboardToolPassed', 'Clipboard History DevTool actions passed');
   Scripting.defineScriptEvent('trayIconsToolPassed', 'Tray Icons DevTool actions passed');
   Scripting.defineScriptEvent('weatherClockToolPassed', 'Weather Clock DevTool actions passed');
-  Scripting.defineScriptEvent('meetingClockToolPassed', 'Meeting Clock DevTool actions passed');
+  Scripting.defineScriptEvent(
+    'calendarRemindersToolPassed',
+    'Calendar Reminders DevTool actions passed',
+  );
   Scripting.defineScriptEvent('dockToolPassed', 'Dock DevTool actions passed');
 }
 
@@ -80,8 +83,8 @@ export async function run() {
   await exerciseWeatherClock(settings, devTool);
   Scripting.scriptEvent('weatherClockToolPassed');
 
-  await exerciseMeetingClock(settings, devTool);
-  Scripting.scriptEvent('meetingClockToolPassed');
+  await exerciseCalendarReminders(settings, devTool);
+  Scripting.scriptEvent('calendarRemindersToolPassed');
 
   await exerciseDock(settings, devTool);
   Scripting.scriptEvent('dockToolPassed');
@@ -94,7 +97,7 @@ let _captureToolPassed = false;
 let _clipboardToolPassed = false;
 let _trayIconsToolPassed = false;
 let _weatherClockToolPassed = false;
-let _meetingClockToolPassed = false;
+let _calendarRemindersToolPassed = false;
 let _dockToolPassed = false;
 
 export function script_extensionEnabled() {
@@ -125,8 +128,8 @@ export function script_weatherClockToolPassed() {
   _weatherClockToolPassed = true;
 }
 
-export function script_meetingClockToolPassed() {
-  _meetingClockToolPassed = true;
+export function script_calendarRemindersToolPassed() {
+  _calendarRemindersToolPassed = true;
 }
 
 export function script_dockToolPassed() {
@@ -143,7 +146,8 @@ export function finish() {
       throw new Error('Clipboard History DevTool actions did not complete');
     if (!_trayIconsToolPassed) throw new Error('Tray Icons DevTool actions did not complete');
     if (!_weatherClockToolPassed) throw new Error('Weather Clock DevTool actions did not complete');
-    if (!_meetingClockToolPassed) throw new Error('Meeting Clock DevTool actions did not complete');
+    if (!_calendarRemindersToolPassed)
+      throw new Error('Calendar Reminders DevTool actions did not complete');
     if (!_dockToolPassed) throw new Error('Dock DevTool actions did not complete');
   } else if (!_devToolAbsent) {
     throw new Error('DevTool was not confirmed absent without AURORA_DEVTOOLS=1');

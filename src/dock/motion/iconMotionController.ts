@@ -145,23 +145,21 @@ export class IconMotionController {
       translation_x: this._original.translationX,
       translation_y: this._original.translationY,
     };
+    const buttonGesture = icon.get_action('StButton click gesture') as Clutter.PressGesture | null;
 
     this._signalIds.push(icon.connect('notify::hover', () => this._syncHover()));
     this._signalIds.push(
-      icon.connect('button-press-event', (_actor: unknown, event: Clutter.Event) => {
-        if (event.get_button() === Clutter.BUTTON_PRIMARY) {
+      icon.connect('notify::pressed', () => {
+        if (icon.pressed) {
+          if (buttonGesture?.get_button() !== Clutter.BUTTON_PRIMARY) return;
           // Fixed dock actions (Trash/removable storage) have no Shell.App,
           // but their primary click still launches or opens something and
           // should receive the same tactile feedback as a cold app launch.
           const isLaunchClick = !icon.app || icon.app.state === Shell.AppState.STOPPED;
           if (this._press.beginPrimary(this._recipe.press, isLaunchClick))
             this._apply(this._recipe.press.duration);
+          return;
         }
-        return Clutter.EVENT_PROPAGATE;
-      }),
-    );
-    this._signalIds.push(
-      icon.connect('notify::pressed', () => {
         if (this._press.syncButtonPressed(icon.pressed)) this._apply(this._recipe.press.duration);
       }),
     );

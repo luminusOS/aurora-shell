@@ -54,6 +54,7 @@ export const TrayContainer = GObject.registerClass(
     declare private _opacityTargets: WeakMap<TrayIconItem, number>;
     declare private _scrollTarget: number;
     declare private _smoothScrollAccumulator: number;
+    declare private _scrollController: Clutter.ScrollController;
 
     private _animScrollValue = 0;
 
@@ -134,26 +135,15 @@ export const TrayContainer = GObject.registerClass(
       this._outerBox.add_child(this._clipArea);
       this.add_child(this._outerBox);
 
-      this.connect('scroll-event', (_actor: Clutter.Actor, event: Clutter.Event) => {
-        if (!this._canScrollIcons()) return Clutter.EVENT_PROPAGATE;
-        const direction = event.get_scroll_direction();
-        if (direction === Clutter.ScrollDirection.SMOOTH) {
-          const [dx, dy] = event.get_scroll_delta();
-          const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-          this._smoothScrollAccumulator += delta;
-          if (Math.abs(this._smoothScrollAccumulator) < 1) return Clutter.EVENT_STOP;
-          if (!this._scrollByItems(this._smoothScrollAccumulator > 0 ? -1 : 1))
-            return Clutter.EVENT_PROPAGATE;
-          this._smoothScrollAccumulator = 0;
-          return Clutter.EVENT_STOP;
-        }
-
-        const deltaItems =
-          direction === Clutter.ScrollDirection.UP || direction === Clutter.ScrollDirection.LEFT
-            ? 1
-            : -1;
-        return this._scrollByItems(deltaItems) ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
+      this._scrollController = new Clutter.ScrollController({
+        flags:
+          Clutter.ScrollControllerFlags.SCROLL_HORIZONTAL |
+          Clutter.ScrollControllerFlags.SCROLL_VERTICAL,
       });
+      this._scrollController.connect('scroll', (_controller, _sprite, source, dx, dy) =>
+        this._onScroll(source, dx, dy),
+      );
+      this.add_action(this._scrollController);
     }
 
     private _itemWidth(): number {
@@ -220,6 +210,19 @@ export const TrayContainer = GObject.registerClass(
 
     private _canScrollIcons(): boolean {
       return this._state.collapsed ? this._maxScroll() > 0 : this._maxExpandedScroll() > 0;
+    }
+
+    private _onScroll(source: Clutter.ScrollSource, dx: number, dy: number): void {
+      const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+      if (source !== Clutter.ScrollSource.WHEEL) {
+        this._smoothScrollAccumulator += delta;
+        if (Math.abs(this._smoothScrollAccumulator) < 1) return;
+        this._scrollByItems(this._smoothScrollAccumulator > 0 ? -1 : 1);
+        this._smoothScrollAccumulator = 0;
+        return;
+      }
+
+      this._scrollByItems(delta > 0 ? -1 : 1);
     }
 
     private _scrollByItems(deltaItems: number): boolean {
@@ -422,6 +425,7 @@ export const TrayContainer = GObject.registerClass(
       }
 
       if (count === 0) {
+        this._scrollController.enabled = false;
         this._clipArea.remove_all_transitions();
         this._clipArea.cancelViewportAnimation();
         this._clipArea.setViewport(0, 0, 0);
@@ -484,6 +488,7 @@ export const TrayContainer = GObject.registerClass(
       if (animated && !this._state.collapsed) this._applyIconOpacity();
 
       this._syncScrollPosition(0);
+      this._scrollController.enabled = this._canScrollIcons();
     }
 
     private _setChevronAnchor(x: number): void {

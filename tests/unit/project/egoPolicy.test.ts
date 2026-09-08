@@ -207,3 +207,34 @@ test('main-loop sources are created through replaceable lifecycle owners', () =>
 
   assert.deepEqual(violations, []);
 });
+
+test('GNOME Shell 51 removals do not regress into source', () => {
+  const forbidden =
+    /(?:captured|button-(?:press|release)|key-(?:press|release)|motion|scroll|enter|leave)-event|Clutter\.get_default_backend|St\.ButtonMask\.(?:ONE|TWO|THREE)|PopupAnimation|Shell\.GLSLEffect|pointerWatcher/u;
+  const violations: string[] = [];
+
+  for (const file of sourceFiles(sourceRoot).filter((path) => path.endsWith('.ts'))) {
+    const source = readFileSync(file, 'utf8');
+    const match = forbidden.exec(source);
+    if (match) {
+      const line = source.slice(0, match.index).split(/\r?\n/u).length;
+      violations.push(`${file.slice(sourceRoot.length + 1)}:${line}`);
+    }
+
+    const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    const visit = (node: ts.Node): void => {
+      if (
+        ts.isMethodDeclaration(node) &&
+        node.name.getText(tree) === 'disable' &&
+        node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword)
+      ) {
+        const line = tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1;
+        violations.push(`${file.slice(sourceRoot.length + 1)}:${line}`);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(tree);
+  }
+
+  assert.deepEqual(violations, []);
+});

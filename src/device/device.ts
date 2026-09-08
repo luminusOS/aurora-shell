@@ -31,7 +31,7 @@ const DISPLAY_CONFIG_PATH = '/org/gnome/Mutter/DisplayConfig';
 
 export class DefaultDeviceService implements DeviceService {
   private readonly _listeners = new Set<DeviceChangeListener>();
-  private readonly _seat = Clutter.get_default_backend().get_default_seat();
+  private readonly _seat = global.stage.context.get_backend().get_default_seat();
   private _monitorChangedId: number | null;
   private _deviceAddedId: number | null;
   private _deviceRemovedId: number | null;

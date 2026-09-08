@@ -11,7 +11,7 @@ import {
 } from '../../../support/testUtils.js';
 
 const WEATHER_MODULE_KEY = 'module-weather-clock';
-const MEETING_MODULE_KEY = 'module-meeting-clock';
+const CALENDAR_REMINDERS_MODULE_KEY = 'module-calendar-reminders';
 
 export var METRICS = {};
 
@@ -27,7 +27,7 @@ export async function run() {
   const originalClockDisplay = dateMenu._clockDisplay;
 
   settings.set_boolean(WEATHER_MODULE_KEY, false);
-  settings.set_boolean(MEETING_MODULE_KEY, false);
+  settings.set_boolean(CALENDAR_REMINDERS_MODULE_KEY, false);
   await Scripting.waitLeisure();
 
   if (originalClockDisplay.get_parent()?.has_style_class_name('aurora-clock-pill-box'))
@@ -71,24 +71,20 @@ export async function run() {
   if (weatherLabel?.text !== '24°')
     throw new Error(`Weather Clock label changed from temperature to "${weatherLabel?.text}"`);
 
-  settings.set_boolean(MEETING_MODULE_KEY, true);
+  settings.set_boolean(CALENDAR_REMINDERS_MODULE_KEY, true);
   await Scripting.waitLeisure();
 
-  const meetingClock = getAuroraModule('meeting-clock');
+  const calendarReminders = getAuroraModule('calendar-reminders');
 
   const now = Math.floor(Date.now() / 1000);
-  meetingClock.setSourceEvents('aurora-test', [
+  calendarReminders.setSourceEvents('aurora-test', [
     {
-      id: 'aurora-test-meeting',
-      title: 'Test meeting',
+      id: 'aurora-test-calendar-event',
+      title: 'Test calendar event',
       startEpochSeconds: now + 300,
       endEpochSeconds: now + 1800,
       sourceId: 'aurora-test',
       sourceName: 'Aurora Test',
-      description: '',
-      location: '',
-      url: '',
-      meetingUrl: '',
       isAllDay: false,
     },
   ]);
@@ -100,20 +96,20 @@ export async function run() {
       child.has_style_class_name && child.has_style_class_name('aurora-weather-clock-widget'),
   );
   const clockIndex = children.indexOf(originalClockDisplay);
-  const meetingIndex = children.findIndex(
+  const remindersIndex = children.findIndex(
     (child) =>
-      child.has_style_class_name && child.has_style_class_name('aurora-meeting-clock-widget'),
+      child.has_style_class_name && child.has_style_class_name('aurora-calendar-reminders-widget'),
   );
 
-  if (!(weatherIndex >= 0 && clockIndex >= 0 && meetingIndex >= 0))
-    throw new Error('Clock pill did not contain weather, clock, and meeting widgets');
-  if (!(weatherIndex < clockIndex && clockIndex < meetingIndex))
-    throw new Error('Clock pill order was not weather | clock | meeting');
+  if (!(weatherIndex >= 0 && clockIndex >= 0 && remindersIndex >= 0))
+    throw new Error('Clock pill did not contain weather, clock, and calendar reminder widgets');
+  if (!(weatherIndex < clockIndex && clockIndex < remindersIndex))
+    throw new Error('Clock pill order was not weather | clock | reminders');
 
   weatherClock.clearWeatherSnapshot('aurora-test');
-  meetingClock.clearSourceEvents('aurora-test');
+  calendarReminders.clearSourceEvents('aurora-test');
   settings.set_boolean(WEATHER_MODULE_KEY, false);
-  settings.set_boolean(MEETING_MODULE_KEY, false);
+  settings.set_boolean(CALENDAR_REMINDERS_MODULE_KEY, false);
   await Scripting.waitLeisure();
 
   if (originalClockDisplay.get_parent()?.has_style_class_name('aurora-clock-pill-box'))

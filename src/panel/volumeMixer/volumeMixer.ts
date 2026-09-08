@@ -6,7 +6,6 @@ import Gio from '@girs/gio-2.0';
 
 import type { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
 import type { QuickSettings } from '@girs/gnome-shell/ui/panel';
-import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 import type { ExtensionContext } from '~/core/context.ts';
@@ -111,7 +110,7 @@ export class VolumeMixer extends Module {
       } catch (e) {
         logger.error(`Failed to open sound settings: ${e}`, { prefix: LOG_PREFIX });
       }
-      slider.menu.close(PopupAnimation.FULL);
+      slider.menu.close();
     });
     this._settingsSection.addMenuItem(settingsItem);
     slider.menu.addMenuItem(this._settingsSection, 3);
@@ -150,7 +149,7 @@ export class VolumeMixer extends Module {
       (slider as any)._deviceSection?.box.hide();
       slider.menu._setSettingsVisibility(false);
       slider.menu.setHeader('audio-speakers-symbolic', _('Volume Mixer'));
-      slider.menu.open(PopupAnimation.FULL);
+      slider.menu.open();
     });
     this._lifecycle.onDispose(() => toggleButton.disconnect(toggleClickedId));
 

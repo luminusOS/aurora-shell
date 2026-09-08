@@ -31,9 +31,10 @@ const TOOLS: ReadonlyArray<{ tool: AnnotationTool; icon: string; label: string }
 ];
 
 export type CaptureToolbarCallbacks = {
-  beginDrag(handle: St.Button, event: Clutter.Event): boolean;
-  moveDrag(event: Clutter.Event): boolean;
-  releaseDrag(event: Clutter.Event): boolean;
+  beginDrag(handle: St.Button, x: number, y: number): void;
+  moveDrag(x: number, y: number): void;
+  releaseDrag(x: number, y: number): void;
+  cancelDrag(): void;
   selectTool(tool: AnnotationTool): void;
   selectColor(color: string): void;
   setWidth(width: number): void;
@@ -64,9 +65,24 @@ export function createCaptureToolbar(
 
   const drag = iconButton('list-drag-handle-symbolic', _('Move toolbar'));
   drag.add_style_class_name('capture-tools-drag-handle');
-  drag.connect('button-press-event', (_actor, event) => callbacks.beginDrag(drag, event));
-  drag.connect('motion-event', (_actor, event) => callbacks.moveDrag(event));
-  drag.connect('button-release-event', (_actor, event) => callbacks.releaseDrag(event));
+  const dragGesture = new Clutter.PanGesture({
+    begin_threshold: 0,
+    required_button: Clutter.BUTTON_PRIMARY,
+  });
+  dragGesture.connect('recognize', () => {
+    const { x, y } = dragGesture.get_centroid_abs();
+    callbacks.beginDrag(drag, x, y);
+  });
+  dragGesture.connect('pan-update', () => {
+    const { x, y } = dragGesture.get_centroid_abs();
+    callbacks.moveDrag(x, y);
+  });
+  dragGesture.connect('end', () => {
+    const { x, y } = dragGesture.get_centroid_abs();
+    callbacks.releaseDrag(x, y);
+  });
+  dragGesture.connect('cancel', () => callbacks.cancelDrag());
+  drag.add_action(dragGesture);
   actor.add_child(drag);
 
   for (const [index, definition] of TOOLS.entries()) {
