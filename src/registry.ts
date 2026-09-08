@@ -18,7 +18,7 @@ import { VelaVpnQuickSettings } from '~/patches/velaVpnQuickSettings.ts';
 import { AutoThemeSwitcher } from '~/theme/autoThemeSwitcher.ts';
 import { BluetoothMenu } from '~/panel/bluetoothMenu/bluetoothMenu.ts';
 import { WeatherClock } from '~/panel/clock/weatherClock/weatherClock.ts';
-import { MeetingClock } from '~/panel/clock/meetingClock/meetingClock.ts';
+import { CalendarReminders } from '~/panel/clock/calendarReminders/calendarReminders.ts';
 import { TrayIcons } from '~/desktop/trayIcons/trayIcons.ts';
 import { ClipboardHistory } from '~/clipboard/clipboardHistory.ts';
 
@@ -44,7 +44,7 @@ const factories = {
   'auto-theme-switcher': (context) => new AutoThemeSwitcher(context),
   'bluetooth-menu': (context) => new BluetoothMenu(context),
   'weather-clock': (context) => new WeatherClock(context),
-  'meeting-clock': (context) => new MeetingClock(context),
+  'calendar-reminders': (context) => new CalendarReminders(context),
   'tray-icons': (context) => new TrayIcons(context),
   'clipboard-history': (context) => new ClipboardHistory(context),
 } satisfies Record<string, ModuleDefinition['factory']>;

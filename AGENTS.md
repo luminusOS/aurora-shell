@@ -6,9 +6,7 @@
 
 ## Validation After Changes
 
-After a change to code under `src/`, always follow these rules to ensure quality while being efficient.
-For documentation, workflow, metadata, translation, or other non-`src/` changes, do not run `just validate`
-or `just shexli` unless the task specifically requires that validation.
+After a change to code under `src/`, always follow these rules to ensure quality while being efficient. For documentation, workflow, metadata, translation, or other non-`src/` changes, do not run `just validate` or `just shexli` unless the task specifically requires that validation.
 
 1.  **Run `just validate`** — type-checks the source, lints, and checks formatting. Fix any reported errors.
 2.  **Run `just shexli`** — packages the extension and runs the extensions.gnome.org static analyzer on the generated ZIP. Review every finding. Some `warning` or `manual_review` findings can be false positives or accepted GNOME-review tradeoffs, but they must be called out explicitly; fix any real regression before finishing.
@@ -132,16 +130,12 @@ export const manifest: ModuleManifest = {
 };
 ```
 
-2. Export the `Module` implementation class from its behavior file. Keep preference metadata out of
-   that implementation.
-3. Add the manifest to `moduleCatalog.ts` in display order and associate its class factory in
-   `registry.ts`.
+2. Export the `Module` implementation class from its behavior file. Keep preference metadata out of that implementation.
+3. Add the manifest to `moduleCatalog.ts` in display order and associate its class factory in `registry.ts`.
 4. Add every declared module, option, and internal setting key to the GSettings schema.
 5. Add unit and Shell integration coverage as appropriate.
 
-`registry.test.ts` checks the catalog/factory relationship through the TypeScript AST.
-`schema.test.ts` structurally validates that every catalog setting is present in the XML and
-that no stale schema setting remains.
+`registry.test.ts` checks the catalog/factory relationship through the TypeScript AST. `schema.test.ts` structurally validates that every catalog setting is present in the XML and that no stale schema setting remains.
 
 ### Prefs sections
 
@@ -170,34 +164,14 @@ Per the GNOME review guidelines, clipboard-related keyboard shortcuts must not s
 - Constants: `UPPER_CASE`
 - Keep `enable()` and `disable()` symmetric.
 - Read settings through `this.context.settings`. Importing `Main`/`Shell`/`St` directly is fine — keep heavy algorithms in shell-free pure files so they stay unit-testable.
-- Optimize refactors for human readability, not line count. Do not compress control flow, callback bodies,
-  object literals, or several operations onto one line merely to shorten a file.
-- Visually separate guard clauses, state preparation, actor mutation, animation, scheduling, and cleanup
-  with blank lines. Keep local constants next to the logical block that consumes them; avoid unexplained
-  aliases in the middle of a stateful method.
-- Do not add pass-through methods that only forward the same arguments to a stored function or object.
-  Expose a meaningful domain operation, return the required callable directly, or keep the call at its
-  natural owner.
-- Do not add production getters, comments, or other API surface solely to expose private state to tests.
-  Keep repeated integration-test lookup and assertion logic in `tests/shell/support/`, and exercise the
-  runtime through an existing meaningful boundary.
-- Comments must explain a non-obvious reason, constraint, or contract. Remove comments that merely
-  restate a symbol name, type annotation, or the operations visible in the code.
-- Do not hide lifecycle invariants behind optional chaining with fallback values, such as
-  `owner?.value ?? default` or `owner?.operation() ?? false`. At public boundaries, guard the inactive
-  state explicitly and access stable fields directly during synchronous work. Reserve optional
-  property access for genuinely optional external data; make cleanup decisions explicit.
-- Do not create a local alias for an instance field merely to shorten `this._field`, repeat the same
-  name, or satisfy nullable type narrowing during synchronous work. Guard the field explicitly and
-  use it directly when it cannot change inside the block. A snapshot of an instance field is justified
-  only when it transfers ownership before the field is cleared or captures the exact resource across
-  an `await` or asynchronous callback. A local result is also appropriate for a genuinely dynamic
-  lookup or computation that must remain stable; directly reading `this._field` is not such a lookup.
-  Name identity captures explicitly, such as `scheduledRetry` or `activeRequest`, so the reason is
-  visible.
-- Before finishing a refactor, review every newly created or substantially edited file as prose: expand
-  dense one-line branches and loops, remove redundant wrappers, and make lifecycle ownership obvious
-  without requiring the reader to infer it from implementation details.
+- Optimize refactors for human readability, not line count. Do not compress control flow, callback bodies, object literals, or several operations onto one line merely to shorten a file.
+- Visually separate guard clauses, state preparation, actor mutation, animation, scheduling, and cleanup with blank lines. Keep local constants next to the logical block that consumes them; avoid unexplained aliases in the middle of a stateful method.
+- Do not add pass-through methods that only forward the same arguments to a stored function or object. Expose a meaningful domain operation, return the required callable directly, or keep the call at its natural owner.
+- Do not add production getters, comments, or other API surface solely to expose private state to tests. Keep repeated integration-test lookup and assertion logic in `tests/shell/support/`, and exercise the runtime through an existing meaningful boundary.
+- Comments must explain a non-obvious reason, constraint, or contract. Remove comments that merely restate a symbol name, type annotation, or the operations visible in the code.
+- Do not hide lifecycle invariants behind optional chaining with fallback values, such as `owner?.value ?? default` or `owner?.operation() ?? false`. At public boundaries, guard the inactive state explicitly and access stable fields directly during synchronous work. Reserve optional property access for genuinely optional external data; make cleanup decisions explicit.
+- Do not create a local alias for an instance field merely to shorten `this._field`, repeat the same name, or satisfy nullable type narrowing during synchronous work. Guard the field explicitly and use it directly when it cannot change inside the block. A snapshot of an instance field is justified only when it transfers ownership before the field is cleared or captures the exact resource across an `await` or asynchronous callback. A local result is also appropriate for a genuinely dynamic lookup or computation that must remain stable; directly reading `this._field` is not such a lookup. Name identity captures explicitly, such as `scheduledRetry` or `activeRequest`, so the reason is visible.
+- Before finishing a refactor, review every newly created or substantially edited file as prose: expand dense one-line branches and loops, remove redundant wrappers, and make lifecycle ownership obvious without requiring the reader to infer it from implementation details.
 
 ## Human Review Quality Bar
 
@@ -214,62 +188,27 @@ Changes intended for the production extension must follow both:
 
 Apply these rules during implementation and review:
 
-- Target only the Shell versions declared in `metadata.json`. Do not add speculative compatibility
-  branches, `typeof method === 'function'` checks, or optional calls for methods guaranteed by those
-  versions. For real multi-version support, follow the
-  [official port guide](https://gjs.guide/extensions/upgrading/gnome-shell.html).
-- Do not wrap deterministic lifecycle methods such as `destroy()`, `connect()`, `disconnect()`,
-  `disconnectObject()`, `abort()`, `GLib.Source.remove()`, or `Gio.DBusConnection.unregister_object()`
-  in defensive `try`/`catch`. Catch failures only at operations whose contract can genuinely fail,
-  such as I/O, parsing, D-Bus calls, subprocesses, and asynchronous result propagation.
-- Never invoke a callable value with direct optional-call syntax. It hides why the callback may be
-  absent. Call guaranteed functions directly and use an explicit boundary guard when a callable
-  value is legitimately optional.
-- Do not add `_enabled`, `_destroyed`, or similar lifecycle flags when owned references, cancellables,
-  or the underlying GObject lifecycle already express the state. After destruction, the owner must
-  clear its reference and must not call the instance again.
-- In widget `destroy()` overrides, remove GLib sources and timeouts first, disconnect signals next,
-  release owned children and references after that, and call `super.destroy()` last. A widget must
-  override its own `destroy()` method instead of connecting its own `destroy` signal for cleanup;
-  observing the destruction of an external actor is valid when the observer owns that connection.
-- Every signal, GLib source, cancellable, child actor, menu, Soup session, and other resource created
-  by a component must be cleaned up by that same component. Never spread initialization and cleanup
-  ownership across unrelated classes.
-- When a repeatable operation creates a timeout, remove or replace its prior source immediately next
-  to the new source creation. Do not separate replacement and creation into distant methods or blocks.
-- Keep `extension.ts` minimal. Keep `enable()` and `disable()` adjacent, symmetric, and limited to
-  lifecycle orchestration; avoid aliases that merely forward lifecycle calls. Never ship empty,
-  placeholder, or partially implemented lifecycle methods.
-- Split large features into cohesive, single-responsibility modules. Extract repeated logic into
-  helpers instead of copying blocks. Modules imported by both Shell and preferences must remain free
-  of `St`, `Clutter`, `Gtk`, `Gdk`, and `Adw`; keep process-specific UI under clearly named runtime or
-  `preferences/` directories.
-- Keep the extension's schema ID in `metadata.json` as `settings-schema` and call `this.getSettings()`
-  without repeating the schema ID in source code.
-- Use `St.Icon` or `icon_name` for Shell UI and `Gtk.Image` for preferences. Do not use Unicode emoji
-  as icons or ASCII strings as progress indicators; use Shell widgets such as `BarLevel` or `St.Bin`.
-- Keep generated JavaScript lines at 200 characters or fewer. Prefer self-explanatory names and remove
-  comments that restate syntax or translate the following statement into prose.
-- Avoid subprocesses in the Shell process. Prefer D-Bus for system services and move heavy work to a
-  separate application. If a subprocess is unavoidable, document why D-Bus is not practical and keep
-  invocation local, explicit, cancellable, and free of shell interpretation.
-- Review every Shexli finding. Fix real ownership/lifecycle defects and record accepted manual-review
-  findings or analyzer false positives in `docs/extension-review.md`.
+- Target only the Shell versions declared in `metadata.json`. Do not add speculative compatibility branches, `typeof method === 'function'` checks, or optional calls for methods guaranteed by those versions. For real multi-version support, follow the [official port guide](https://gjs.guide/extensions/upgrading/gnome-shell.html).
+- Do not wrap deterministic lifecycle methods such as `destroy()`, `connect()`, `disconnect()`, `disconnectObject()`, `abort()`, `GLib.Source.remove()`, or `Gio.DBusConnection.unregister_object()` in defensive `try`/`catch`. Catch failures only at operations whose contract can genuinely fail, such as I/O, parsing, D-Bus calls, subprocesses, and asynchronous result propagation.
+- Never invoke a callable value with direct optional-call syntax. It hides why the callback may be absent. Call guaranteed functions directly and use an explicit boundary guard when a callable value is legitimately optional.
+- Do not add `_enabled`, `_destroyed`, or similar lifecycle flags when owned references, cancellables, or the underlying GObject lifecycle already express the state. After destruction, the owner must clear its reference and must not call the instance again.
+- In widget `destroy()` overrides, remove GLib sources and timeouts first, disconnect signals next, release owned children and references after that, and call `super.destroy()` last. A widget must override its own `destroy()` method instead of connecting its own `destroy` signal for cleanup; observing the destruction of an external actor is valid when the observer owns that connection.
+- Every signal, GLib source, cancellable, child actor, menu, Soup session, and other resource created by a component must be cleaned up by that same component. Never spread initialization and cleanup ownership across unrelated classes.
+- When a repeatable operation creates a timeout, remove or replace its prior source immediately next to the new source creation. Do not separate replacement and creation into distant methods or blocks.
+- Keep `extension.ts` minimal. Keep `enable()` and `disable()` adjacent, symmetric, and limited to lifecycle orchestration; avoid aliases that merely forward lifecycle calls. Never ship empty, placeholder, or partially implemented lifecycle methods.
+- Split large features into cohesive, single-responsibility modules. Extract repeated logic into helpers instead of copying blocks. Modules imported by both Shell and preferences must remain free of `St`, `Clutter`, `Gtk`, `Gdk`, and `Adw`; keep process-specific UI under clearly named runtime or `preferences/` directories.
+- Keep the extension's schema ID in `metadata.json` as `settings-schema` and call `this.getSettings()` without repeating the schema ID in source code.
+- Use `St.Icon` or `icon_name` for Shell UI and `Gtk.Image` for preferences. Do not use Unicode emoji as icons or ASCII strings as progress indicators; use Shell widgets such as `BarLevel` or `St.Bin`.
+- Keep generated JavaScript lines at 200 characters or fewer. Prefer self-explanatory names and remove comments that restate syntax or translate the following statement into prose.
+- Avoid subprocesses in the Shell process. Prefer D-Bus for system services and move heavy work to a separate application. If a subprocess is unavoidable, document why D-Bus is not practical and keep invocation local, explicit, cancellable, and free of shell interpretation.
+- Review every Shexli finding. Fix real ownership/lifecycle defects and record accepted manual-review findings or analyzer false positives in `docs/extension-review.md`.
 
-- Never invoke `disconnectObject` defensively on objects that do not own that signal connection
-  contract.
+- Never invoke `disconnectObject` defensively on objects that do not own that signal connection contract.
 - Do not ship fake behavior. If a UI label, schema description, README entry, or module subtitle says a feature is wired to NetworkManager, ModemManager, UPower, sensors, widgets, or GNOME internals, the code must actually call the relevant API or clearly describe itself as a fallback.
 - Keep runtime capability checks honest. Hardware-specific modules must detect missing services/devices at runtime and stay inactive or degrade explicitly.
-- Capture the return of `GObject.registerClass` and derive its instance type with
-  `InstanceType<typeof RegisteredClass>` when a registered class accepts custom constructor arguments.
-  Do not add decorators or generic construction/casting helpers around GObject classes.
-- Do not scatter `as unknown as ...` casts through feature modules. Represent real GIR or GNOME Shell
-  declaration gaps with narrow module augmentations under `src/types/`; when TypeScript cannot augment a
-  static constructor, isolate that constructor signature at its single call site.
-- Avoid the nullish coalescing operators `??` and `??=`. Prefer explicit guards, default parameters,
-  destructuring defaults, or clearly named state preparation so reviewers can see why a value may be
-  absent and when a fallback applies. Preserve the absence value returned by the source API unless a
-  boundary contract explicitly requires normalization.
+- Capture the return of `GObject.registerClass` and derive its instance type with `InstanceType<typeof RegisteredClass>` when a registered class accepts custom constructor arguments. Do not add decorators or generic construction/casting helpers around GObject classes.
+- Do not scatter `as unknown as ...` casts through feature modules. Represent real GIR or GNOME Shell declaration gaps with narrow module augmentations under `src/types/`; when TypeScript cannot augment a static constructor, isolate that constructor signature at its single call site.
+- Avoid the nullish coalescing operators `??` and `??=`. Prefer explicit guards, default parameters, destructuring defaults, or clearly named state preparation so reviewers can see why a value may be absent and when a fallback applies. Preserve the absence value returned by the source API unless a boundary contract explicitly requires normalization.
 - Do not leave placeholder helpers, legacy duplicates, or unused compatibility functions after a refactor. Remove dead code instead of keeping it “just in case”.
 - Keep strings and metadata truthful and synchronized across `*.manifest.ts`, `moduleCatalog.ts`, schema XML, README/architecture docs, and `.po` files when strings change.
 - Search for obvious generated-code artifacts before finishing: broken joined words in docs, stale project names, obsolete env vars, and UI descriptions that exceed what is implemented.
@@ -277,11 +216,8 @@ Apply these rules during implementation and review:
 
 ### Clean code and AI slop
 
-- Avoid generic helpers and speculative abstractions. Names must express domain behavior: `handleMonitorsChanged`
-  is fine because it names the event, `handleEvent` or `processData` are not. Preserve established terms such as
-  `ModuleManager` when they describe real ownership.
-- Keep important lifecycle behavior visible at concrete entrypoints. Do not leave an entrypoint empty
-  merely to hide its primary `enable()`/`disable()` orchestration behind inheritance.
+- Avoid generic helpers and speculative abstractions. Names must express domain behavior: `handleMonitorsChanged` is fine because it names the event, `handleEvent` or `processData` are not. Preserve established terms such as `ModuleManager` when they describe real ownership.
+- Keep important lifecycle behavior visible at concrete entrypoints. Do not leave an entrypoint empty merely to hide its primary `enable()`/`disable()` orchestration behind inheritance.
 
 ## Logging Style
 

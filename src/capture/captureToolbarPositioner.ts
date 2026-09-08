@@ -24,12 +24,7 @@ export class CaptureToolbarPositioner {
     private _toolbar: St.BoxLayout,
   ) {}
 
-  beginDrag(handle: St.Button, event: Clutter.Event): boolean {
-    if (event.get_button() !== Clutter.BUTTON_PRIMARY) {
-      return Clutter.EVENT_PROPAGATE;
-    }
-
-    const [pointerX, pointerY] = event.get_coords();
+  beginDrag(handle: St.Button, pointerX: number, pointerY: number): void {
     const [toolbarX, toolbarY] = this._toolbar.get_transformed_position();
     this._drag = {
       pointerX,
@@ -43,17 +38,12 @@ export class CaptureToolbarPositioner {
     this._grab?.dismiss();
     this._grab = global.stage.grab(handle);
     global.stage.get_grab_actor()?.set_cursor_type(Clutter.CursorType.GRABBING);
-
-    return Clutter.EVENT_STOP;
   }
 
-  moveDrag(event: Clutter.Event): boolean {
+  moveDrag(pointerX: number, pointerY: number): void {
     const monitor = Main.layoutManager.primaryMonitor;
-    if (!this._drag || !monitor) {
-      return Clutter.EVENT_PROPAGATE;
-    }
+    if (!this._drag || !monitor) return;
 
-    const [pointerX, pointerY] = event.get_coords();
     const extents = this._toolbar.get_transformed_extents();
     const desiredX = this._drag.toolbarX + pointerX - this._drag.pointerX;
     const desiredY = this._drag.toolbarY + pointerY - this._drag.pointerY;
@@ -68,18 +58,18 @@ export class CaptureToolbarPositioner {
 
     this._toolbar.translation_x = Math.round(x - this._drag.baseX);
     this._toolbar.translation_y = Math.round(y - this._drag.baseY);
-
-    return Clutter.EVENT_STOP;
   }
 
-  releaseDrag(event: Clutter.Event): boolean {
-    if (!this._drag || event.get_button() !== Clutter.BUTTON_PRIMARY) {
-      return Clutter.EVENT_PROPAGATE;
-    }
+  releaseDrag(pointerX: number, pointerY: number): void {
+    if (!this._drag) return;
 
+    this.moveDrag(pointerX, pointerY);
     this._draggedByUser = true;
     this.endDrag();
-    return Clutter.EVENT_STOP;
+  }
+
+  cancelDrag(): void {
+    this.endDrag();
   }
 
   endDrag(): void {

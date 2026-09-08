@@ -69,52 +69,43 @@ export const DockHotArea = GObject.registerClass(
         this,
       );
 
-      this.connectObject(
-        'enter-event',
-        () => {
-          if (this._canTrigger()) {
-            this._clearDebounceTimer();
-
-            this._pointerDwellTimeout.replace(() =>
-              GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_DEBOUNCE_TIMEOUT, () => {
-                logger.debug(`pointer dwell trigger geometry=${this._formatGeometry()}`, {
-                  prefix: LOG_PREFIX,
-                });
-                this.emit('triggered');
-                this._pointerDwellTimeout.complete();
-                return GLib.SOURCE_REMOVE;
-              }),
-            );
-          }
-          return Clutter.EVENT_PROPAGATE;
-        },
-        this,
-      );
-
-      this.connectObject(
-        'leave-event',
-        () => {
+      const motionController = new Clutter.MotionController();
+      motionController.connect('enter', () => {
+        if (this._canTrigger()) {
           this._clearDebounceTimer();
-          this._gestureGuard.resetAfterPointerLeave();
-          if (this._active && !this._grabSuppressed && !this._edgeArmed) {
-            this._edgeArmed = true;
-            logger.debug(`rearmed after pointer leave geometry=${this._formatGeometry()}`, {
-              prefix: LOG_PREFIX,
-            });
-          }
-          return Clutter.EVENT_PROPAGATE;
-        },
-        this,
-      );
 
-      this.connectObject(
-        'scroll-event',
-        () => {
-          this._suppressActivePointerGesture('scroll');
-          return Clutter.EVENT_PROPAGATE;
-        },
-        this,
-      );
+          this._pointerDwellTimeout.replace(() =>
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOT_AREA_DEBOUNCE_TIMEOUT, () => {
+              logger.debug(`pointer dwell trigger geometry=${this._formatGeometry()}`, {
+                prefix: LOG_PREFIX,
+              });
+              this.emit('triggered');
+              this._pointerDwellTimeout.complete();
+              return GLib.SOURCE_REMOVE;
+            }),
+          );
+        }
+      });
+
+      motionController.connect('leave', () => {
+        this._clearDebounceTimer();
+        this._gestureGuard.resetAfterPointerLeave();
+        if (this._active && !this._grabSuppressed && !this._edgeArmed) {
+          this._edgeArmed = true;
+          logger.debug(`rearmed after pointer leave geometry=${this._formatGeometry()}`, {
+            prefix: LOG_PREFIX,
+          });
+        }
+      });
+      this.add_action(motionController);
+
+      const scrollController = new Clutter.ScrollController({
+        flags:
+          Clutter.ScrollControllerFlags.SCROLL_HORIZONTAL |
+          Clutter.ScrollControllerFlags.SCROLL_VERTICAL,
+      });
+      scrollController.connect('scroll', () => this._suppressActivePointerGesture('scroll'));
+      this.add_action(scrollController);
 
       global.display.connectObject(
         'grab-op-begin',

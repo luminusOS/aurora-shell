@@ -1,4 +1,3 @@
-import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -168,7 +167,7 @@ export async function exercisePostUnlockPanel() {
     (_monitor, index) => index !== Main.layoutManager.primaryIndex,
   );
   const monitor = Main.layoutManager.monitors[monitorIndex];
-  const seat = Clutter.get_default_backend().get_default_seat();
+  const seat = global.stage.context.get_backend().get_default_seat();
   const [originalPointerX, originalPointerY] = global.get_pointer();
   const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
   let module = null;

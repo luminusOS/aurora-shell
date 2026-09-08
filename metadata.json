@@ -7,6 +7,6 @@
     "settings-schema": "org.gnome.shell.extensions.aurora-shell",
     "gettext-domain": "aurora-shell@luminusos.github.io",
     "shell-version": [
-        "50"
+        "51"
     ]
 }

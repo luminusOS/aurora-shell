@@ -66,7 +66,7 @@ export class LockKeyIndicators extends Module {
   }
 
   private _getKeymap(): Clutter.Keymap | null {
-    return Clutter.get_default_backend().get_default_seat().get_keymap();
+    return global.stage.context.get_backend().get_default_seat().get_keymap();
   }
 
   private _makeLabel(text: string): St.Label {

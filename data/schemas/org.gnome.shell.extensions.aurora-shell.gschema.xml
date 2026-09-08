@@ -302,9 +302,9 @@
       <summary>Enable Lock Key Indicators module</summary>
       <description>Shows Caps Lock and Num Lock indicators in the top panel</description>
     </key>
-    <key name="module-meeting-clock" type="b">
+    <key name="module-calendar-reminders" type="b">
       <default>true</default>
-      <summary>Enable Meeting Clock module</summary>
+      <summary>Enable Calendar Reminders module</summary>
       <description>Shows upcoming calendar events next to the clock</description>
     </key>
     <key name="module-weather-clock" type="b">
@@ -317,44 +317,38 @@
       <summary>Show Weather Clock after the clock</summary>
       <description>Place the weather indicator after the clock instead of before it</description>
     </key>
-    <key name="meeting-clock-alerts-enabled" type="b">
+    <key name="calendar-reminders-alerts-enabled" type="b">
       <default>true</default>
-      <summary>Enable Meeting Clock alerts</summary>
-      <description>Show a notification when a meeting is about to start</description>
+      <summary>Enable calendar reminders</summary>
+      <description>Show calendar reminders as notifications</description>
     </key>
-    <key name="meeting-clock-alert-minutes-before" type="i">
-      <range min="0" max="60"/>
-      <default>1</default>
-      <summary>Meeting Clock alert lead time</summary>
-      <description>Minutes before a meeting starts to show the alert</description>
+    <key name="calendar-reminders-force-reminders" type="b">
+      <default>false</default>
+      <summary>Force reminder at event start</summary>
+      <description>Always notify when a timed event starts, even without a configured alarm or after an earlier reminder</description>
     </key>
-    <key name="meeting-clock-snooze-minutes" type="i">
+    <key name="calendar-reminders-snooze-minutes" type="i">
       <range min="1" max="60"/>
       <default>5</default>
-      <summary>Meeting Clock snooze duration</summary>
+      <summary>Calendar Reminders snooze duration</summary>
       <description>Minutes to wait before showing a snoozed alert again</description>
     </key>
-    <key name="meeting-clock-alert-events-without-link" type="b">
-      <default>false</default>
-      <summary>Alert events without meeting links</summary>
-      <description>Show Meeting Clock alerts for calendar events that do not include a join link</description>
-    </key>
-    <key name="meeting-clock-panel-reveal-interval-minutes" type="i">
+    <key name="calendar-reminders-panel-reveal-interval-minutes" type="i">
       <range min="1" max="60"/>
       <default>5</default>
-      <summary>Meeting Clock panel reveal interval</summary>
-      <description>Minutes between automatic Meeting Clock slide reveals in the panel</description>
+      <summary>Calendar Reminders panel reveal interval</summary>
+      <description>Minutes between automatic Calendar Reminders slide reveals in the panel</description>
     </key>
-    <key name="meeting-clock-panel-lookahead-minutes" type="i">
+    <key name="calendar-reminders-panel-lookahead-minutes" type="i">
       <range min="0" max="1440"/>
       <default>60</default>
-      <summary>Meeting Clock panel lookahead</summary>
+      <summary>Calendar Reminders panel lookahead</summary>
       <description>Maximum minutes before an event starts for it to appear in the panel clock</description>
     </key>
-    <key name="meeting-clock-exclude-all-day-events" type="b">
+    <key name="calendar-reminders-exclude-all-day-events" type="b">
       <default>true</default>
-      <summary>Hide all-day events in Meeting Clock</summary>
-      <description>Exclude all-day events from the clock and alerts</description>
+      <summary>Hide all-day events in Calendar Reminders</summary>
+      <description>Exclude all-day events from the panel clock</description>
     </key>
     <key name="module-tray-icons" type="b">
       <default>true</default>

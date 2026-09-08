@@ -194,36 +194,28 @@ export class CaptureTools extends Module {
     });
     scope.onDispose(() => Main.layoutManager.disconnect(monitorsChangedId));
 
-    const keyPressId = ui.connect(
-      'key-press-event',
-      (_actor: St.Widget, event: Clutter.Event): boolean => this._onKeyPress(event),
-    );
-    scope.onDispose(() => ui.disconnect(keyPressId));
+    const keyController = new Clutter.KeyController();
+    keyController.connect('key-press', () => {
+      const [, symbol] = keyController.get_key();
+      const [, pressed, latched, locked] = keyController.get_state();
+      return this._onKeyPress(symbol, pressed | latched | locked);
+    });
+    ui.add_action(keyController);
+    scope.onDispose(() => ui.remove_action(keyController));
   }
 
   private _buildToolbar(model: AnnotationModel, settings: SettingsManager): St.BoxLayout {
     const toolbar = createCaptureToolbar(model.width, {
-      beginDrag: (handle, event) => {
-        if (!this._toolbarPositioner) {
-          return Clutter.EVENT_PROPAGATE;
-        }
-
-        return this._toolbarPositioner.beginDrag(handle, event);
+      beginDrag: (handle, x, y) => {
+        this._toolbarPositioner?.beginDrag(handle, x, y);
       },
-      moveDrag: (event) => {
-        if (!this._toolbarPositioner) {
-          return Clutter.EVENT_PROPAGATE;
-        }
-
-        return this._toolbarPositioner.moveDrag(event);
+      moveDrag: (x, y) => {
+        this._toolbarPositioner?.moveDrag(x, y);
       },
-      releaseDrag: (event) => {
-        if (!this._toolbarPositioner) {
-          return Clutter.EVENT_PROPAGATE;
-        }
-
-        return this._toolbarPositioner.releaseDrag(event);
+      releaseDrag: (x, y) => {
+        this._toolbarPositioner?.releaseDrag(x, y);
       },
+      cancelDrag: () => this._toolbarPositioner?.cancelDrag(),
       selectTool: (tool) => this._selectTool(tool),
       selectColor: (color) => this._selectColor(color),
       setWidth: (width) => {
@@ -284,11 +276,14 @@ export class CaptureTools extends Module {
     entry.set_position(Math.round(point.x), Math.round(point.y));
     entry.set_size(240, 38);
     entry.clutter_text.connect('activate', () => this._commitText(true));
-    entry.clutter_text.connect('key-press-event', (_actor: Clutter.Text, event: Clutter.Event) => {
-      if (event.get_key_symbol() !== Clutter.KEY_Escape) return Clutter.EVENT_PROPAGATE;
+    const keyController = new Clutter.KeyController();
+    keyController.connect('key-press', () => {
+      const [, symbol] = keyController.get_key();
+      if (symbol !== Clutter.KEY_Escape) return Clutter.EVENT_PROPAGATE;
       this._commitText(false);
       return Clutter.EVENT_STOP;
     });
+    entry.clutter_text.add_action(keyController);
     entry.clutter_text.connect('key-focus-out', () => this._commitText(true));
     this._ui.insert_child_above(entry, this._canvas);
     this._textEntry = entry;
@@ -329,11 +324,10 @@ export class CaptureTools extends Module {
     this._canvas.refresh();
   }
 
-  private _onKeyPress(event: Clutter.Event): boolean {
+  private _onKeyPress(symbol: number, modifiers: Clutter.ModifierType): boolean {
     if (!this._model || !this._ocr) return Clutter.EVENT_PROPAGATE;
 
-    const symbol = event.get_key_symbol();
-    const control = Boolean(event.get_state() & Clutter.ModifierType.CONTROL_MASK);
+    const control = Boolean(modifiers & Clutter.ModifierType.CONTROL_MASK);
     if (control && (symbol === Clutter.KEY_z || symbol === Clutter.KEY_Z)) {
       this._undo();
       return Clutter.EVENT_STOP;

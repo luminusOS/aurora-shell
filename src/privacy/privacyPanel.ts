@@ -15,6 +15,7 @@ export class PrivacyPanel extends Module {
   private _isSharing = false;
   private _indicator: any | null = null;
   private _startupCompleteId: number | null = null;
+  private _panelMotionController: Clutter.MotionController | null = null;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -34,13 +35,10 @@ export class PrivacyPanel extends Module {
 
     indicator.connectObject('notify::visible', () => this._onSharingChanged(), this);
 
-    Main.panel.connectObject(
-      'enter-event',
-      () => this._onPanelEnter(),
-      'leave-event',
-      () => this._onPanelLeave(),
-      this,
-    );
+    this._panelMotionController = new Clutter.MotionController();
+    this._panelMotionController.connect('enter', () => this._onPanelEnter());
+    this._panelMotionController.connect('leave', () => this._onPanelLeave());
+    Main.panel.add_action(this._panelMotionController);
 
     if (indicator.visible) {
       if (Main.layoutManager._startingUp) {
@@ -65,7 +63,8 @@ export class PrivacyPanel extends Module {
     if (this._indicator) this._indicator.disconnectObject(this);
     this._indicator = null;
 
-    Main.panel.disconnectObject(this);
+    if (this._panelMotionController) Main.panel.remove_action(this._panelMotionController);
+    this._panelMotionController = null;
 
     this._restoreAll();
     this._isSharing = false;

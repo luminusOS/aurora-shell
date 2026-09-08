@@ -1,46 +1,25 @@
-import { extractHttpUrls } from '../../../shared/httpUrlExtractor.internal.js';
-
-export type MeetingEvent = {
+export type CalendarEvent = {
   id: string;
+  calendarUuid?: string;
   title: string;
   startEpochSeconds: number;
   endEpochSeconds: number;
   sourceId: string;
   sourceName: string;
-  description: string;
-  location: string;
-  url: string;
-  meetingUrl: string;
   isAllDay: boolean;
 };
 
-export type MeetingClockOptions = {
-  alertsEnabled: boolean;
-  alertMinutesBefore: number;
-  alertEventsWithoutLink: boolean;
+export type CalendarDisplayOptions = {
   excludeAllDayEvents: boolean;
   maxFutureSeconds?: number;
-  ignoredEventIds?: ReadonlySet<string>;
-  alertedEventIds?: ReadonlySet<string>;
-  snoozedUntilByEventId?: ReadonlyMap<string, number>;
 };
 
-export type MeetingPanelPresentation = {
+export type CalendarPanelPresentation = {
   label: string;
-  event: MeetingEvent;
+  event: CalendarEvent;
   isInProgress: boolean;
 } | null;
 
-const VIDEO_HOSTS = [
-  'zoom.us',
-  'meet.google.com',
-  'teams.microsoft.com',
-  'webex.com',
-  'whereby.com',
-  'meet.jit.si',
-  'chime.aws',
-  'around.co',
-];
 const MAX_PANEL_TITLE_LENGTH = 24;
 
 function _deepUnpack(value: unknown): unknown {
@@ -117,33 +96,12 @@ function _inferAllDayEvent(
   );
 }
 
-function _hostname(url: string): string {
-  const authorityStart = url.indexOf('://') + 3;
-  const authority = (url.slice(authorityStart).split(/[/?#]/, 1)[0] || '').toLowerCase();
-  if (authority.startsWith('[')) return authority.slice(0, authority.indexOf(']') + 1);
-  return authority.split(':', 1)[0] || '';
-}
-
-function _isVideoMeetingUrl(url: string): boolean {
-  const hostname = _hostname(url);
-  return VIDEO_HOSTS.some(
-    (videoHost) => hostname === videoHost || hostname.endsWith(`.${videoHost}`),
-  );
-}
-
-function _extractPreferredUrl(text: string): string {
-  const urls = extractHttpUrls(text);
-  const preferred = urls.find(_isVideoMeetingUrl);
-  if (preferred) return preferred;
-  return urls[0] || '';
-}
-
 function _truncateTitle(title: string): string {
   if (title.length <= MAX_PANEL_TITLE_LENGTH) return title;
   return `${title.slice(0, MAX_PANEL_TITLE_LENGTH - 3)}...`;
 }
 
-export function normalizeCalendarServerEvent(rawEvent: unknown): MeetingEvent | null {
+export function normalizeCalendarServerEvent(rawEvent: unknown): CalendarEvent | null {
   const unpacked = _deepUnpack(rawEvent);
   if (!Array.isArray(unpacked) || unpacked.length < 4) return null;
 
@@ -153,6 +111,7 @@ export function normalizeCalendarServerEvent(rawEvent: unknown): MeetingEvent | 
   if (!Number.isFinite(startEpochSeconds) || !Number.isFinite(endEpochSeconds)) return null;
 
   const id = String(rawId);
+  const idParts = id.split('\n');
   const details =
     rawDetails && typeof rawDetails === 'object' ? (rawDetails as Record<string, unknown>) : {};
   const sourceId =
@@ -166,7 +125,7 @@ export function normalizeCalendarServerEvent(rawEvent: unknown): MeetingEvent | 
       'calendar-id',
       'calendar_id',
     ]) ||
-    id.split(/\s+/)[0] ||
+    idParts[0] ||
     '';
   const sourceName =
     _readString(details, [
@@ -177,48 +136,39 @@ export function normalizeCalendarServerEvent(rawEvent: unknown): MeetingEvent | 
       'display-name',
       'display_name',
     ]) || 'Calendar';
-  const description = _readString(details, ['description', 'comment']);
-  const location = _readString(details, ['location']);
-  const url = _readString(details, ['url', 'uri', 'meeting_url', 'conference_url']);
 
-  const event: MeetingEvent = {
+  const event: CalendarEvent = {
     id,
     title: rawSummary ? String(rawSummary) : 'Untitled event',
     startEpochSeconds,
     endEpochSeconds,
     sourceId,
     sourceName,
-    description,
-    location,
-    url,
-    meetingUrl: '',
     isAllDay: _inferAllDayEvent(startEpochSeconds, endEpochSeconds, details),
   };
-  event.meetingUrl = extractMeetingUrl(event);
+  if (idParts[1]) event.calendarUuid = `${sourceId}:${idParts[1]}`;
   return event;
 }
 
-export function extractMeetingUrl(event: Partial<MeetingEvent>): string {
-  const candidates = [event.meetingUrl, event.url, event.location, event.description];
-  let fallbackUrl = '';
+export function getStartReminderId(event: CalendarEvent): string {
+  return `start:${JSON.stringify([event.id, event.startEpochSeconds])}`;
+}
 
-  for (const candidate of candidates) {
-    const text = String(candidate || '');
-    const directUrl = _extractPreferredUrl(text);
-    if (directUrl) {
-      if (_isVideoMeetingUrl(directUrl)) return directUrl;
-      fallbackUrl ||= directUrl;
-    }
-  }
-
-  return fallbackUrl;
+export function getStartReminderEvents(
+  events: readonly CalendarEvent[],
+  nowEpochSeconds: number,
+): CalendarEvent[] {
+  return events
+    .filter((event) => !event.isAllDay && event.endEpochSeconds > nowEpochSeconds)
+    .filter((event) => event.startEpochSeconds >= nowEpochSeconds - 60)
+    .sort((a, b) => a.startEpochSeconds - b.startEpochSeconds);
 }
 
 export function filterDisplayEvents(
-  events: readonly MeetingEvent[],
+  events: readonly CalendarEvent[],
   nowEpochSeconds: number,
-  options: Pick<MeetingClockOptions, 'excludeAllDayEvents'>,
-): MeetingEvent[] {
+  options: Pick<CalendarDisplayOptions, 'excludeAllDayEvents'>,
+): CalendarEvent[] {
   return events
     .filter((event) => event.endEpochSeconds > nowEpochSeconds)
     .filter((event) => !(options.excludeAllDayEvents && event.isAllDay))
@@ -226,10 +176,10 @@ export function filterDisplayEvents(
 }
 
 export function derivePanelPresentation(
-  events: readonly MeetingEvent[],
+  events: readonly CalendarEvent[],
   nowEpochSeconds: number,
-  options: Pick<MeetingClockOptions, 'excludeAllDayEvents' | 'maxFutureSeconds'>,
-): MeetingPanelPresentation {
+  options: Pick<CalendarDisplayOptions, 'excludeAllDayEvents' | 'maxFutureSeconds'>,
+): CalendarPanelPresentation {
   const visibleEvents = filterDisplayEvents(events, nowEpochSeconds, options);
   const inProgress = visibleEvents.find(
     (event) =>
@@ -258,50 +208,6 @@ export function derivePanelPresentation(
   };
 }
 
-export function getDueAlertEvents(
-  events: readonly MeetingEvent[],
-  nowEpochSeconds: number,
-  options: MeetingClockOptions,
-): MeetingEvent[] {
-  if (!options.alertsEnabled) return [];
-
-  const ignored = options.ignoredEventIds || new Set<string>();
-  const alerted = options.alertedEventIds || new Set<string>();
-  const snoozed = options.snoozedUntilByEventId || new Map<string, number>();
-  const leadSeconds = Math.max(0, options.alertMinutesBefore) * 60;
-
-  return filterDisplayEvents(events, nowEpochSeconds, options)
-    .filter((event) => Boolean(event.meetingUrl) || options.alertEventsWithoutLink)
-    .filter((event) => !ignored.has(event.id))
-    .filter((event) => !alerted.has(event.id))
-    .filter((event) => (snoozed.get(event.id) || 0) <= nowEpochSeconds)
-    .filter((event) => nowEpochSeconds >= event.startEpochSeconds - leadSeconds)
-    .sort((a, b) => a.startEpochSeconds - b.startEpochSeconds);
-}
-
-export function getNextAlertEpoch(
-  events: readonly MeetingEvent[],
-  nowEpochSeconds: number,
-  options: MeetingClockOptions,
-): number | null {
-  if (!options.alertsEnabled) return null;
-  const ignored = options.ignoredEventIds || new Set<string>();
-  const alerted = options.alertedEventIds || new Set<string>();
-  const snoozed = options.snoozedUntilByEventId || new Map<string, number>();
-  const leadSeconds = Math.max(0, options.alertMinutesBefore) * 60;
-  const candidates: number[] = [];
-
-  for (const event of filterDisplayEvents(events, nowEpochSeconds, options)) {
-    if ((!event.meetingUrl && !options.alertEventsWithoutLink) || ignored.has(event.id)) continue;
-    if (alerted.has(event.id)) continue;
-    const snoozedUntil = snoozed.get(event.id) || 0;
-    const alertAt = Math.max(event.startEpochSeconds - leadSeconds, snoozedUntil);
-    if (alertAt > nowEpochSeconds) candidates.push(alertAt);
-  }
-
-  return candidates.length > 0 ? Math.min(...candidates) : null;
-}
-
 export function formatRelativeTime(
   targetEpochSeconds: number,
   referenceEpochSeconds: number,
@@ -324,7 +230,7 @@ export function formatRelativeTime(
   return isFuture ? `${days}d` : `${days}d ago`;
 }
 
-export function formatEventTime(event: MeetingEvent): string {
+export function formatEventTime(event: CalendarEvent): string {
   const start = new Date(event.startEpochSeconds * 1000);
   const end = new Date(event.endEpochSeconds * 1000);
   const options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };

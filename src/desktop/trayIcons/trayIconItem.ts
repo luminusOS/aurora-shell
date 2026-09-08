@@ -6,7 +6,6 @@ import GObject from '@girs/gobject-2.0';
 import GdkPixbuf from '@girs/gdkpixbuf-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
-import { PopupAnimation } from '@girs/gnome-shell/ui/boxpointer';
 import { logger } from '~/core/logger.ts';
 
 import { TRAY_ICON_FALLBACK_NAME, type TrayItem } from './trayState.ts';
@@ -15,6 +14,11 @@ import { DBusMenuClient } from './dbusMenu.ts';
 const BADGE_SIZE = 6;
 const BOUNCE_DURATION = 1400;
 const LOG_PREFIX = 'AuroraTray';
+const BUTTON_MASK = St.ButtonMask as typeof St.ButtonMask & {
+  PRIMARY: St.ButtonMask;
+  MIDDLE: St.ButtonMask;
+  SECONDARY: St.ButtonMask;
+};
 
 // Module-level tooltip shared by all TrayIconItems to avoid allocating one per icon.
 let _tooltipLabel: St.Label | null = null;
@@ -65,7 +69,7 @@ export const TrayIconItem = GObject.registerClass(
     override _init(item: TrayItem, iconSize: number): void {
       super._init({
         style_class: 'aurora-tray-icon-item',
-        button_mask: St.ButtonMask.ONE | St.ButtonMask.TWO | St.ButtonMask.THREE,
+        button_mask: BUTTON_MASK.PRIMARY | BUTTON_MASK.MIDDLE | BUTTON_MASK.SECONDARY,
         can_focus: true,
         track_hover: true,
       });
@@ -137,8 +141,9 @@ export const TrayIconItem = GObject.registerClass(
         }
       });
 
-      this.connect('button-press-event', (_actor: St.Button, event: Clutter.Event) => {
-        const btn = event.get_button();
+      const clickGesture = new Clutter.ClickGesture({ recognize_on_press: true });
+      clickGesture.connect('recognize', () => {
+        const btn = clickGesture.get_button();
         const [x, y] = this.get_transformed_position();
         const [w, h] = this.get_transformed_size();
         const centerX = x + w / 2;
@@ -146,20 +151,20 @@ export const TrayIconItem = GObject.registerClass(
 
         if (btn === 3 && this._dbusMenuClient && this._menu) {
           if (this._menu.isOpen) {
-            this._menu.close(PopupAnimation.FULL);
+            this._menu.close();
           } else {
             this._showDbusMenu();
           }
-          return Clutter.EVENT_STOP;
+          return;
         }
 
         if (btn === 3 && this._localMenu) {
           if (this._localMenu.isOpen) {
-            this._localMenu.close(PopupAnimation.FULL);
+            this._localMenu.close();
           } else {
-            this._localMenu.open(PopupAnimation.FULL);
+            this._localMenu.open();
           }
-          return Clutter.EVENT_STOP;
+          return;
         }
 
         if (btn === 1) {
@@ -169,8 +174,8 @@ export const TrayIconItem = GObject.registerClass(
         } else if (btn === 3 && this._trayItem.showMenu) {
           this._trayItem.showMenu(centerX, centerY);
         }
-        return Clutter.EVENT_STOP;
       });
+      this.add_action(clickGesture);
     }
 
     private _addManagedMenu(menu: PopupMenu.PopupMenu): void {
@@ -193,7 +198,7 @@ export const TrayIconItem = GObject.registerClass(
       try {
         await this._dbusMenuClient.init();
         await this._dbusMenuClient.updateMenu(this._menu);
-        this._menu.open(PopupAnimation.FULL);
+        this._menu.open();
       } catch (e) {
         logger.warn(`_showDbusMenu failed: ${e}`, { prefix: LOG_PREFIX });
       }

@@ -163,6 +163,57 @@ async function exerciseOverviewVisibility(settings, dock) {
   await Scripting.waitLeisure();
 }
 
+async function assertRevealAfterOverview(binding, reveal, description) {
+  Main.overview.show();
+  await waitForCondition({
+    evaluate: () => Main.overview.visible,
+    signals: [
+      [Main.overview, 'showing'],
+      [Main.overview, 'shown'],
+    ],
+    description: `overview to open before ${description}`,
+  });
+  await ensureOverviewHidden();
+
+  binding.dash.hide(false);
+  binding.container.hide();
+
+  let deferFirstAllocation = true;
+  const originalHasValidAllocation = binding.dash._visibility._hasValidAllocation;
+  binding.dash._visibility._hasValidAllocation = function (...args) {
+    if (deferFirstAllocation) {
+      deferFirstAllocation = false;
+      return false;
+    }
+
+    return originalHasValidAllocation.apply(this, args);
+  };
+  try {
+    reveal();
+    if (!binding.dash.visible || binding.dash.opacity !== 0)
+      throw new Error(`${description} did not expose the hidden Dock for allocation`);
+
+    await waitForActorState(
+      binding.dash,
+      (actor) =>
+        actor.visible &&
+        actor.opacity === 255 &&
+        actor.scale_x === 1 &&
+        actor.scale_y === 1 &&
+        actor.translation_x === 0 &&
+        actor.translation_y === 0,
+      {
+        properties: ['visible', 'opacity', 'scale-x', 'scale-y', 'translation-x', 'translation-y'],
+        description: `${description} to complete after Dock allocation`,
+      },
+    );
+  } finally {
+    binding.dash._visibility._hasValidAllocation = originalHasValidAllocation;
+  }
+
+  if (!binding.container.visible) throw new Error(`${description} left the Dock container hidden`);
+}
+
 async function exerciseDockStacking(settings, dock) {
   const originalShowOnAllMonitors = settings.get_boolean('dock-show-on-all-monitors');
   const originalAlwaysShow = settings.get_boolean('dock-always-show');
@@ -1388,6 +1439,19 @@ export async function run() {
   Scripting.scriptEvent('itemDragKeepsDockStable');
 
   const binding = dock.bindings[0];
+
+  await assertRevealAfterOverview(
+    binding,
+    () => dock.revealMonitorFromHotArea(binding.monitorIndex),
+    'Hot Area reveal after Overview',
+  );
+  dock._clearHotAreaReveal(binding);
+  binding.hotAreaActive = false;
+  await assertRevealAfterOverview(
+    binding,
+    () => dock.showMonitor(binding.monitorIndex),
+    'forced Show after Overview',
+  );
 
   // Switching from a small window to fullscreen hands BLOCKED to hover autohide.
   dash.show(false);

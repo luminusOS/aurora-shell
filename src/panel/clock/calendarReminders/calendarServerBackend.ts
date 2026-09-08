@@ -6,19 +6,19 @@ import GLib from '@girs/glib-2.0';
 import { logger } from '~/core/logger.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 
-import { normalizeCalendarServerEvent, type MeetingEvent } from './meetingClockLogic.ts';
+import { normalizeCalendarServerEvent, type CalendarEvent } from './calendarRemindersLogic.ts';
 
-const LOG_PREFIX = 'MeetingClock';
+const LOG_PREFIX = 'CalendarReminders';
 const CALENDAR_SERVER_BUS_NAME = 'org.gnome.Shell.CalendarServer';
 const CALENDAR_SERVER_OBJECT_PATH = '/org/gnome/Shell/CalendarServer';
 const CALENDAR_SERVER_INTERFACE = 'org.gnome.Shell.CalendarServer';
 
-type EventsChangedCallback = (events: MeetingEvent[]) => void;
+type EventsChangedCallback = (events: CalendarEvent[]) => void;
 
 export class CalendarServerBackend {
   private _proxy: Gio.DBusProxy | null = null;
   private _lifecycle: LifecycleScope | null = null;
-  private _eventsById = new Map<string, MeetingEvent>();
+  private _eventsById = new Map<string, CalendarEvent>();
   private _onEventsChanged: EventsChangedCallback;
 
   constructor(onEventsChanged: EventsChangedCallback) {

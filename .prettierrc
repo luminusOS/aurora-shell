@@ -3,5 +3,6 @@
   "tabWidth": 2,
   "trailingComma": "all",
   "semi": true,
-  "printWidth": 100
+  "printWidth": 100,
+  "proseWrap": "never"
 }

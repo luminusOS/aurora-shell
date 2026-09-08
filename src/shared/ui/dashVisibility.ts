@@ -114,6 +114,7 @@ export class DashVisibilityController {
 
     if (!this._hasValidAllocation()) {
       this._pendingShow = { animate };
+      this._options.showActor();
       return;
     }
 

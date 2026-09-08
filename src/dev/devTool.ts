@@ -14,7 +14,7 @@ import { ClipboardHistoryDevTool } from './clipboardHistoryDevTool.ts';
 import { CaptureToolsDevTool } from './captureToolsDevTool.ts';
 import { DockDevTool } from './dockDevTool.ts';
 import { GeneralDevTool } from './generalDevTool.ts';
-import { MeetingClockDevTool } from './meetingClockDevTool.ts';
+import { CalendarRemindersDevTool } from './calendarRemindersDevTool.ts';
 import { TrayIconsDevTool } from './trayIconsDevTool.ts';
 import { WeatherClockDevTool } from './weatherClockDevTool.ts';
 
@@ -39,7 +39,7 @@ type DevTools = {
   clipboardHistory: ClipboardHistoryDevTool;
   trayIcons: TrayIconsDevTool;
   weatherClock: WeatherClockDevTool;
-  meetingClock: MeetingClockDevTool;
+  calendarReminders: CalendarRemindersDevTool;
 };
 
 export class DevTool extends Module {
@@ -75,7 +75,11 @@ export class DevTool extends Module {
       clipboardHistory: new ClipboardHistoryDevTool(this._callbacks.getModule, rebuildMenu),
       trayIcons: new TrayIconsDevTool(rebuildMenu),
       weatherClock: new WeatherClockDevTool(this._callbacks.getModule, rebuildMenu),
-      meetingClock: new MeetingClockDevTool(this._callbacks.getModule, rebuildMenu),
+      calendarReminders: new CalendarRemindersDevTool(
+        this.context.settings,
+        this._callbacks.getModule,
+        rebuildMenu,
+      ),
     };
 
     const menu = this._getMenu();
@@ -99,7 +103,7 @@ export class DevTool extends Module {
       tools.captureTools.destroy();
       tools.trayIcons.destroy();
       tools.weatherClock.destroy();
-      tools.meetingClock.destroy();
+      tools.calendarReminders.destroy();
     }
 
     if (this._menuOpenStateId && this._button) {
@@ -131,8 +135,8 @@ export class DevTool extends Module {
     return this._tools ? this._tools.dock : null;
   }
 
-  get meetingClockTool(): MeetingClockDevTool | null {
-    return this._tools ? this._tools.meetingClock : null;
+  get calendarRemindersTool(): CalendarRemindersDevTool | null {
+    return this._tools ? this._tools.calendarReminders : null;
   }
 
   get weatherClockTool(): WeatherClockDevTool | null {
@@ -151,7 +155,7 @@ export class DevTool extends Module {
 
   private _buildPanel(): St.Widget {
     const panel = new St.BoxLayout({
-      vertical: true,
+      orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-devtool-panel',
     });
 
@@ -185,7 +189,7 @@ export class DevTool extends Module {
 
   private _buildBody(): St.Widget {
     const body = new St.BoxLayout({
-      vertical: true,
+      orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-devtool-body',
       x_expand: true,
       y_expand: true,
@@ -194,7 +198,7 @@ export class DevTool extends Module {
     body.add_child(this._buildSectionDropdown());
 
     const content = new St.BoxLayout({
-      vertical: true,
+      orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-devtool-content',
       x_expand: true,
       y_expand: true,
@@ -211,7 +215,7 @@ export class DevTool extends Module {
 
   private _buildSectionDropdown(): St.Widget {
     const dropdown = new St.BoxLayout({
-      vertical: true,
+      orientation: Clutter.Orientation.VERTICAL,
       style_class: 'aurora-devtool-section-dropdown',
       x_expand: true,
     });
@@ -223,7 +227,7 @@ export class DevTool extends Module {
 
     if (this._sectionDropdownOpen) {
       const list = new St.BoxLayout({
-        vertical: true,
+        orientation: Clutter.Orientation.VERTICAL,
         style_class: 'aurora-devtool-section-menu',
         x_expand: true,
       });

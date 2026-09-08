@@ -23,7 +23,7 @@ const MODULE_SETTINGS_KEYS = [
   'module-auto-theme-switcher',
   'module-bluetooth-menu',
   'module-weather-clock',
-  'module-meeting-clock',
+  'module-calendar-reminders',
 ];
 
 export var METRICS = {};

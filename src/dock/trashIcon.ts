@@ -76,19 +76,13 @@ export const TrashIcon = GObject.registerClass(
 
       this._buildMenu();
 
-      this.toggleButton.connectObject(
-        'clicked',
-        () => this._openTrash(),
-        'button-press-event',
-        (_actor: St.Button, event: Clutter.Event) => {
-          if (event.get_button() === Clutter.BUTTON_SECONDARY) {
-            this._menu?.toggle();
-            return Clutter.EVENT_STOP;
-          }
-          return Clutter.EVENT_PROPAGATE;
-        },
-        this,
-      );
+      this.toggleButton.connectObject('clicked', () => this._openTrash(), this);
+      const menuGesture = new Clutter.ClickGesture({
+        recognize_on_press: true,
+        required_button: Clutter.BUTTON_SECONDARY,
+      });
+      menuGesture.connect('recognize', () => this._menu?.toggle());
+      this.toggleButton.add_action(menuGesture);
 
       this._startMonitor();
       this._refresh();
