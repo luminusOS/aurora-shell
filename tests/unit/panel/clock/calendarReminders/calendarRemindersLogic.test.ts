@@ -6,6 +6,7 @@ import {
   getStartReminderEvents,
   getStartReminderId,
   normalizeCalendarServerEvent,
+  removeCalendarEventsByPrefix,
   type CalendarEvent,
 } from '~/panel/clock/calendarReminders/calendarRemindersLogic.ts';
 
@@ -42,6 +43,18 @@ test('calendarReminders: normalizes CalendarServer identity and times', () => {
   assert.strictEqual(normalized.sourceName, 'Work');
   assert.strictEqual(normalized.calendarUuid, 'calendar-1:event-1');
   assert.strictEqual(normalized.startEpochSeconds, NOW + 60);
+});
+
+test('calendarReminders: removes every recurring instance matching a server prefix', () => {
+  const events = new Map([
+    ['calendar-1\nevent-1\nfirst', event({ id: 'calendar-1\nevent-1\nfirst' })],
+    ['calendar-1\nevent-1\nsecond', event({ id: 'calendar-1\nevent-1\nsecond' })],
+    ['calendar-1\nevent-2\nfirst', event({ id: 'calendar-1\nevent-2\nfirst' })],
+  ]);
+
+  assert.equal(removeCalendarEventsByPrefix(events, 'calendar-1\nevent-1\n'), true);
+  assert.deepEqual([...events.keys()], ['calendar-1\nevent-2\nfirst']);
+  assert.equal(removeCalendarEventsByPrefix(events, 'missing\n'), false);
 });
 
 test('calendarReminders: start reminders exclude stale, ended and all-day events', () => {

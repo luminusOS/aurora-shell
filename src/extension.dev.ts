@@ -3,7 +3,7 @@ import '@girs/gjs';
 import GLib from '@girs/glib-2.0';
 import { Extension } from '@girs/gnome-shell/extensions/extension';
 
-import { logger } from '~/core/logger.ts';
+import { enableDebugLogging, logger } from '~/core/logger.ts';
 import { ShellRuntime } from '~/core/shellRuntime.ts';
 import { DevTool } from '~/dev/devTool.ts';
 
@@ -14,6 +14,8 @@ export default class AuroraShellDevelopmentExtension extends Extension {
   private _devTool: DevTool | null = null;
 
   override enable(): void {
+    enableDebugLogging();
+
     const runtime = new ShellRuntime(this);
     this._runtime = runtime;
     runtime.start();
@@ -25,6 +27,9 @@ export default class AuroraShellDevelopmentExtension extends Extension {
       this._devTool = new DevTool(context, {
         getModule: (key) => runtime.getModule(key),
         openPreferences: () => this.openPreferences(),
+        versionName: String(
+          this.metadata['version-name'] || this.metadata['version'] || 'Development',
+        ),
       });
       this._devTool.enable();
     } catch (error) {

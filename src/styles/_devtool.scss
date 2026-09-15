@@ -1,86 +1,608 @@
-.aurora-devtool-panel {
-  width: 360px;
-  padding: 8px;
-  spacing: 8px;
+@use 'variables' as vars;
+
+// St parses only a single box-shadow layer, so the multi-layer prototype
+// shadows keep their dominant layer and the 0 0 0 1px outline becomes a border.
+$devtool-window-bg: #36363a;
+$devtool-card-bg: #46464b;
+$devtool-fg: #ffffff;
+$devtool-heading: #ffffff;
+$devtool-dim: rgba(255, 255, 255, 0.62);
+$devtool-separator: rgba(255, 255, 255, 0.08);
+$devtool-button-bg: rgba(255, 255, 255, 0.09);
+$devtool-button-bg-hover: rgba(255, 255, 255, 0.13);
+$devtool-button-bg-active: rgba(255, 255, 255, 0.18);
+$devtool-row-hover: rgba(255, 255, 255, 0.05);
+$devtool-row-active: rgba(255, 255, 255, 0.1);
+$devtool-entry-bg: rgba(255, 255, 255, 0.08);
+$devtool-switch-off: rgba(255, 255, 255, 0.2);
+$devtool-accent-soft: st-mix(-st-accent-color, transparent, 16%);
+$devtool-destructive-bg: #c01c28;
+$devtool-error: #ff7b63;
+$devtool-toast-bg: #e8e8e8;
+$devtool-toast-fg: #1a1a1a;
+$devtool-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.08);
+$devtool-outline-window: rgba(255, 255, 255, 0.08);
+
+@if vars.$variant == 'light' {
+  $devtool-window-bg: #fafafb;
+  $devtool-card-bg: #ffffff;
+  $devtool-fg: #222226;
+  $devtool-heading: #222226;
+  $devtool-dim: rgba(0, 0, 0, 0.55);
+  $devtool-separator: rgba(0, 0, 0, 0.09);
+  $devtool-button-bg: rgba(0, 0, 0, 0.07);
+  $devtool-button-bg-hover: rgba(0, 0, 0, 0.11);
+  $devtool-button-bg-active: rgba(0, 0, 0, 0.15);
+  $devtool-row-hover: rgba(0, 0, 0, 0.04);
+  $devtool-row-active: rgba(0, 0, 0, 0.08);
+  $devtool-entry-bg: rgba(0, 0, 0, 0.05);
+  $devtool-switch-off: rgba(0, 0, 0, 0.16);
+  $devtool-accent-soft: st-mix(-st-accent-color, transparent, 12%);
+  $devtool-destructive-bg: #e01b24;
+  $devtool-error: #c01c28;
+  $devtool-toast-bg: #1a1a1a;
+  $devtool-toast-fg: #ffffff;
+  $devtool-outline-window: rgba(0, 0, 0, 0.08);
 }
 
-.aurora-devtool-header {
-  spacing: 8px;
-  padding: 2px 4px 0;
-}
+// Shell popup-menu chrome hosting the card: strip the frame, the card below
+// carries its own radius/shadow. -arrow-rise/-boxpointer-gap hide the beak,
+// following the .background-menu pattern in gnome-shell-sass.
+.aurora-devtool-menu {
+  -arrow-rise: 0px;
+  -boxpointer-gap: 10px;
 
-.aurora-devtool-title {
-  font-weight: 700;
-}
-
-.aurora-devtool-body {
-  spacing: 10px;
-}
-
-.aurora-devtool-section-dropdown {
-  spacing: 4px;
-}
-
-.aurora-devtool-section-trigger,
-.aurora-devtool-section-option {
-  border-radius: 8px;
-  padding: 7px 9px;
-  border: 1px solid transparent;
-
-  &:active,
-  &.active {
-    border-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.35), 35%);
-    background-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.12), 24%);
+  .popup-menu-content {
+    padding: 0;
+    border: none;
+    border-radius: 14px;
+    background-color: transparent;
+    box-shadow: none;
   }
 }
 
-.aurora-devtool-section-menu {
-  spacing: 4px;
-  padding: 4px;
-  border-radius: 8px;
-  border: 1px solid rgba(127, 127, 127, 0.18);
-  background-color: rgba(127, 127, 127, 0.08);
+.aurora-devtool-panel {
+  width: 448px;
+  max-height: 690px;
+  spacing: 0;
+  padding: 0;
+  border: 1px solid $devtool-outline-window;
+  border-radius: 14px;
+  color: $devtool-fg;
+  background-color: $devtool-window-bg;
+  box-shadow: $devtool-shadow-card;
+  font-size: 15px;
 }
 
-.aurora-devtool-section-button-content {
+// Header (Adwaita header bar): BinLayout stack — .aurora-devtool-header-nav
+// holds the buttons, .aurora-devtool-header-labels overlays dead-center.
+.aurora-devtool-header {
+  min-height: 47px;
+  border-bottom: 1px solid $devtool-separator;
+}
+
+.aurora-devtool-header-nav {
+  spacing: 6px;
+  padding: 0 8px;
+}
+
+.aurora-devtool-header-labels {
+  spacing: 0;
+}
+
+.aurora-devtool-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: $devtool-heading;
+  text-align: center;
+}
+
+.aurora-devtool-subtitle {
+  font-size: 12px;
+  color: $devtool-dim;
+  text-align: center;
+}
+
+.aurora-devtool-header-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  color: $devtool-fg;
+  background-color: transparent;
+  box-shadow: none;
+  transition-duration: 120ms;
+
+  &:hover {
+    background-color: $devtool-button-bg;
+  }
+
+  &:active {
+    background-color: $devtool-button-bg-active;
+  }
+}
+
+.aurora-devtool-back-button {
+  padding: 0;
+}
+
+.aurora-devtool-view-switcher {
+  padding: 12px 16px 2px;
+}
+
+.aurora-devtool-view-track {
+  spacing: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: $devtool-entry-bg;
+}
+
+.aurora-devtool-view-button {
+  padding: 7px 4px;
+  border-radius: 999px;
+  color: $devtool-dim;
+  background-color: transparent;
+  box-shadow: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition-duration: 250ms;
+
+  &.active {
+    color: $devtool-heading;
+    background-color: $devtool-button-bg;
+    box-shadow: none;
+  }
+}
+
+.aurora-devtool-view-button-content {
   spacing: 7px;
 }
 
+.aurora-devtool-search-box {
+  padding: 10px 16px 2px;
+}
+
+.aurora-devtool-search {
+  padding: 7px 14px;
+  border: 1px solid $devtool-separator;
+  border-radius: 9px;
+  background-color: $devtool-entry-bg;
+  font-size: 14px;
+
+  StLabel.hint-text {
+    color: $devtool-dim;
+  }
+}
+
+.aurora-devtool-search-icon {
+  color: $devtool-dim;
+}
+
+.aurora-devtool-scroll {
+  // card max-height 690px minus the 47px header; switcher/search shrink it further
+  max-height: 643px;
+  padding-top: 8px;
+}
+
 .aurora-devtool-content {
-  spacing: 8px;
+  spacing: 0;
+  padding: 12px 16px 16px;
 }
 
 .aurora-devtool-module-panel {
+  spacing: 10px;
+}
+
+.aurora-devtool-page-title {
+  margin: 6px 6px 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: $devtool-heading;
+}
+
+.aurora-devtool-page-subtitle {
+  margin: 0 6px 18px;
+  font-size: 13.5px;
+  color: $devtool-dim;
+}
+
+.aurora-devtool-group {
+  spacing: 0;
+  margin-bottom: 28px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.aurora-devtool-group-title {
+  margin: 0 14px 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: $devtool-heading;
+}
+
+.aurora-devtool-group-description {
+  // St parses negative margins as huge unsigned values.
+  margin: 0 14px 8px;
+  font-size: 13px;
+  color: $devtool-dim;
+}
+
+.aurora-devtool-group-list {
+  spacing: 0;
+  padding: 0;
+  border: 1px solid $devtool-separator;
+  border-radius: 12px;
+  background-color: $devtool-card-bg;
+
+  > * {
+    border-top: 1px solid $devtool-separator;
+  }
+
+  > *:first-child {
+    border-top: none;
+    border-radius-topleft: 12px;
+    border-radius-topright: 12px;
+  }
+
+  > *:last-child {
+    border-radius-bottomleft: 12px;
+    border-radius-bottomright: 12px;
+  }
+}
+
+.aurora-devtool-row,
+.aurora-devtool-module-row {
+  min-height: 52px;
+  spacing: 14px;
+  padding: 12px 14px;
+}
+
+.aurora-devtool-row.activatable {
+  transition-duration: 100ms;
+
+  &:hover {
+    background-color: $devtool-row-hover;
+  }
+
+  &:active {
+    background-color: $devtool-row-active;
+  }
+}
+
+.aurora-devtool-row-trailing {
+  spacing: 10px;
+}
+
+.aurora-devtool-row-icon {
+  color: $devtool-dim;
+}
+
+.aurora-devtool-row-title {
+  font-size: 15px;
+  color: $devtool-heading;
+}
+
+.aurora-devtool-row-subtitle {
+  // Reset: inherits bold from the `.button` ancestor on module/nav rows.
+  font-weight: 400;
+  font-size: 13px;
+  color: $devtool-dim;
+}
+
+.aurora-devtool-module-open {
+  padding: 0;
+  background-color: transparent;
+  box-shadow: none;
+
+  &:hover,
+  &:active {
+    background-color: transparent;
+  }
+}
+
+.aurora-devtool-navigation-content {
+  spacing: 14px;
+}
+
+.aurora-devtool-list-button {
+  background-color: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  transition-duration: 100ms;
+
+  &:hover {
+    background-color: $devtool-row-hover;
+  }
+
+  &:active {
+    background-color: $devtool-row-active;
+  }
+}
+
+.aurora-devtool-chevron {
+  color: $devtool-dim;
+}
+
+.aurora-devtool-switch-button {
+  padding: 4px;
+  border-radius: 999px;
+  background-color: transparent;
+  box-shadow: none;
+
+  .toggle-switch {
+    background-color: $devtool-switch-off;
+    transition-duration: 180ms;
+
+    &:checked {
+      background-color: -st-accent-color;
+    }
+  }
+}
+
+.aurora-devtool-hero {
+  margin: 6px 10px 20px;
+}
+
+.aurora-devtool-hero-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: $devtool-heading;
+}
+
+.aurora-devtool-hero-subtitle {
+  font-size: 13.5px;
+  color: $devtool-dim;
+}
+
+.aurora-devtool-banner {
+  min-height: 0;
+  spacing: 12px;
+  padding: 12px 16px;
+  background-color: $devtool-accent-soft;
+  border-bottom: 1px solid $devtool-separator;
+
+  .aurora-devtool-button {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}
+
+.aurora-devtool-banner-label {
+  font-size: 14px;
+  color: $devtool-fg;
+}
+
+.aurora-devtool-button,
+.aurora-devtool-action-button {
+  padding: 7px 12px;
+  border-radius: 8px;
+  color: $devtool-fg;
+  background-color: $devtool-button-bg;
+  font-size: 14px;
+  font-weight: 500;
+  transition-duration: 120ms;
+
+  &:hover {
+    background-color: $devtool-button-bg-hover;
+  }
+
+  &:active {
+    background-color: $devtool-button-bg-active;
+  }
+
+  // St has no filter: brightness(); the prototype's 1.07 hover lighten is
+  // approximated with a white st-mix.
+  &.suggested {
+    color: -st-accent-fg-color;
+    background-color: -st-accent-color;
+    font-weight: 700;
+
+    &:hover {
+      background-color: st-mix(-st-accent-color, #ffffff, 93%);
+    }
+  }
+
+  &.destructive {
+    color: #ffffff;
+    background-color: $devtool-destructive-bg;
+    font-weight: 700;
+
+    &:hover {
+      background-color: st-mix($devtool-destructive-bg, #ffffff, 92%);
+    }
+  }
+
+  &.flat {
+    background-color: transparent;
+
+    &:hover {
+      background-color: $devtool-button-bg;
+    }
+
+    &:active {
+      background-color: $devtool-button-bg-hover;
+    }
+  }
+}
+
+.aurora-devtool-action-button.active {
+  color: -st-accent-fg-color;
+  background-color: -st-accent-color;
+}
+
+.aurora-devtool-button-content,
+.aurora-devtool-action-content {
   spacing: 8px;
 }
 
-.aurora-devtool-summary {
+.aurora-devtool-action-row {
+  spacing: 10px;
+}
+
+.aurora-devtool-button-row {
+  spacing: 10px;
+  padding: 12px 14px;
+}
+
+.aurora-devtool-group-footer {
+  spacing: 7px;
+  margin-top: 10px;
+}
+
+.aurora-devtool-inline-controls {
+  spacing: 7px;
+}
+
+.aurora-devtool-stepper-control {
   spacing: 8px;
-  padding: 7px 9px;
+}
+
+.aurora-devtool-stepper {
+  spacing: 6px;
+}
+
+.aurora-devtool-stepper-button {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.aurora-devtool-stepper-value {
+  min-width: 22px;
+  padding: 0;
+  color: $devtool-fg;
+  font-size: 14px;
+  font-feature-settings: 'tnum';
+  text-align: center;
+}
+
+.aurora-devtool-stepper-reset {
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 999px;
+}
+
+.aurora-devtool-time-colon {
+  color: $devtool-dim;
+  font-weight: 700;
+}
+
+// Fixed-width anchor for the entry (entryWrap in devTool.ts): St.Entry
+// ignores width/min-width set directly on it, so the cap has to come from
+// the wrapper's allocation instead.
+.aurora-devtool-entry-wrap {
+  width: 130px;
+}
+
+.aurora-devtool-entry {
+  padding: 6px 8px;
+  border: 1px solid $devtool-separator;
   border-radius: 8px;
-  border: 1px solid rgba(127, 127, 127, 0.16);
-  background-color: rgba(127, 127, 127, 0.08);
+  background-color: $devtool-entry-bg;
+  color: $devtool-fg;
+  font-size: 13px;
+
+  &:focus {
+    border-color: -st-accent-color;
+    box-shadow: inset 0 0 0 1px -st-accent-color;
+  }
+
+  StLabel.hint-text {
+    color: $devtool-dim;
+  }
+}
+
+.aurora-devtool-kbd {
+  padding: 3px 8px;
+  border: 1px solid $devtool-separator;
+  border-radius: 6px;
+  background-color: $devtool-button-bg;
+  font-size: 12.5px;
+}
+
+.aurora-devtool-kbd-chip {
+  padding: 2px 6px;
+  border: 1px solid $devtool-separator;
+  border-radius: 6px;
+  background-color: $devtool-button-bg;
+  font-size: 12.5px;
+}
+
+.aurora-devtool-commands-note {
+  spacing: 6px;
+  margin: 0 14px;
+  color: $devtool-dim;
+  font-size: 12.5px;
+}
+
+.aurora-devtool-segmented {
+  spacing: 6px;
+  padding: 0 14px 12px;
+}
+
+.aurora-devtool-segmented-button {
+  padding: 6px 8px;
+  font-size: 13px;
+
+  &:checked {
+    background-color: $devtool-button-bg-active;
+  }
+}
+
+.aurora-devtool-summary {
+  spacing: 7px;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background-color: $devtool-entry-bg;
+}
+
+.aurora-devtool-summary-icon {
+  color: $devtool-dim;
 }
 
 .aurora-devtool-summary-label {
   font-weight: 600;
 }
 
-.aurora-devtool-action-row {
-  spacing: 8px;
+.aurora-devtool-error {
+  padding: 3px 8px;
+  color: $devtool-error;
 }
 
-.aurora-devtool-action-button {
-  border-radius: 8px;
-  padding: 8px 10px;
-  border: 1px solid transparent;
-
-  &.active {
-    border-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.35), 42%);
-    background-color: st-mix(-st-accent-color, rgba(127, 127, 127, 0.12), 30%);
-  }
+.aurora-devtool-status-page {
+  spacing: 6px;
+  padding: 60px 40px;
 }
 
-.aurora-devtool-action-content {
-  spacing: 7px;
+.aurora-devtool-status-icon {
+  margin-bottom: 10px;
+  color: $devtool-dim;
+}
+
+.aurora-devtool-status-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: $devtool-heading;
+  text-align: center;
+}
+
+.aurora-devtool-status-description {
+  max-width: 380px;
+  font-size: 14px;
+  color: $devtool-dim;
+  text-align: center;
+}
+
+.aurora-devtool-toast {
+  margin-bottom: 24px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  color: $devtool-toast-fg;
+  background-color: $devtool-toast-bg;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  text-align: center;
 }

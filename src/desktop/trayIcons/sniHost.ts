@@ -178,12 +178,20 @@ export class SniHost {
             'org.freedesktop.DBus.Properties.Get',
             new GLib.Variant('(ss)', ['org.kde.StatusNotifierItem', prop]),
             Gio.DBusCallFlags.NONE,
-            -1,
+            5000,
             cancellable,
           );
           proxy.set_cached_property(prop, result.get_child_value(0).get_variant());
-        } catch {
-          // property may not be supported by this item
+        } catch (e) {
+          const remoteError = e instanceof GLib.Error ? Gio.DBusError.get_remote_error(e) : null;
+          if (
+            !cancellable.is_cancelled() &&
+            remoteError !== 'org.freedesktop.DBus.Error.UnknownProperty'
+          ) {
+            logger.warn(`Failed to fetch SNI property ${prop} from ${proxy.g_name}: ${e}`, {
+              prefix: LOG_PREFIX,
+            });
+          }
         }
       }),
     );

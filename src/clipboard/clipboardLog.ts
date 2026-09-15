@@ -34,10 +34,22 @@ type IdOp = {
 
 type ClipboardLogOp = AddOp | IdOp;
 
+type ClipboardEntryNode = {
+  entry: ClipboardEntrySnapshot;
+  previous: ClipboardEntryNode | null;
+  next: ClipboardEntryNode | null;
+  list: ClipboardEntryList | null;
+};
+
+type ClipboardEntryList = {
+  first: ClipboardEntryNode | null;
+  last: ClipboardEntryNode | null;
+};
+
 export function parseClipboardLog(source: string): ClipboardLogState {
-  const pinned: ClipboardEntrySnapshot[] = [];
-  const history: ClipboardEntrySnapshot[] = [];
-  const byId = new Map<string, ClipboardEntrySnapshot>();
+  const pinned: ClipboardEntryList = { first: null, last: null };
+  const history: ClipboardEntryList = { first: null, last: null };
+  const byId = new Map<string, ClipboardEntryNode>();
   let nextId = 1;
   let wastedOps = 0;
 
@@ -62,37 +74,42 @@ export function parseClipboardLog(source: string): ClipboardLogState {
       };
       if (op.mimeType) entry.mimeType = op.mimeType;
       if (op.filePath) entry.filePath = op.filePath;
-      byId.set(entry.id, entry);
-      history.unshift(entry);
+      const node: ClipboardEntryNode = { entry, previous: null, next: null, list: null };
+      byId.set(entry.id, node);
+      moveNodeToFront(history, node);
       nextId = Math.max(nextId, Number.parseInt(entry.id, 10) + 1 || nextId);
       continue;
     }
 
-    const entry = byId.get(op.id);
-    if (!entry) continue;
+    const node = byId.get(op.id);
+    if (!node) continue;
+
+    const entry = node.entry;
 
     if (op.op === 'delete') {
-      removeClipboardEntry(pinned, entry);
-      removeClipboardEntry(history, entry);
+      removeNode(node);
       byId.delete(op.id);
       wastedOps += 2;
     } else if (op.op === 'move') {
       const list = entry.pinned ? pinned : history;
-      moveToFront(list, entry);
+      moveNodeToFront(list, node);
       wastedOps += 1;
     } else if (op.op === 'pin') {
-      removeClipboardEntry(history, entry);
       entry.pinned = true;
-      moveToFront(pinned, entry);
+      moveNodeToFront(pinned, node);
     } else if (op.op === 'unpin') {
-      removeClipboardEntry(pinned, entry);
       entry.pinned = false;
-      moveToFront(history, entry);
+      moveNodeToFront(history, node);
       wastedOps += 2;
     }
   }
 
-  return { pinned, history, nextId, wastedOps };
+  return {
+    pinned: materializeClipboardEntries(pinned),
+    history: materializeClipboardEntries(history),
+    nextId,
+    wastedOps,
+  };
 }
 
 export function encodeAddOp(entry: ClipboardEntrySnapshot): string {
@@ -145,7 +162,37 @@ export function removeClipboardEntry(
   if (index !== -1) list.splice(index, 1);
 }
 
-function moveToFront(list: ClipboardEntrySnapshot[], entry: ClipboardEntrySnapshot): void {
-  removeClipboardEntry(list, entry);
-  list.unshift(entry);
+function removeNode(node: ClipboardEntryNode): void {
+  if (!node.list) return;
+
+  const list = node.list;
+  if (node.previous) node.previous.next = node.next;
+  else list.first = node.next;
+
+  if (node.next) node.next.previous = node.previous;
+  else list.last = node.previous;
+
+  node.previous = null;
+  node.next = null;
+  node.list = null;
+}
+
+function moveNodeToFront(list: ClipboardEntryList, node: ClipboardEntryNode): void {
+  removeNode(node);
+
+  node.next = list.first;
+  node.list = list;
+  if (list.first) list.first.previous = node;
+  else list.last = node;
+  list.first = node;
+}
+
+function materializeClipboardEntries(list: ClipboardEntryList): ClipboardEntrySnapshot[] {
+  const entries: ClipboardEntrySnapshot[] = [];
+  let node = list.first;
+  while (node) {
+    entries.push(node.entry);
+    node = node.next;
+  }
+  return entries;
 }

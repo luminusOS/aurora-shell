@@ -78,7 +78,7 @@ export async function run() {
       state.collapsed = !state.collapsed;
       trayContainer._syncLayout(true);
       await waitForCondition({
-        evaluate: () => !clipArea._viewportTimeout.active,
+        evaluate: () => clipArea.get_transition('viewport-progress') === null,
         signals: [[animationCompleted, 'activate']],
         description: 'TrayClipArea viewport animation to finish before the next collapse toggle',
       });

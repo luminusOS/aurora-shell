@@ -556,7 +556,6 @@ export const TrayContainer = GObject.registerClass(
     }
 
     override destroy(): void {
-      this._clipArea.cancelViewportAnimation();
       this._lifecycle.dispose();
       destroyTooltip();
       for (const widget of this._items.values()) widget.destroy();

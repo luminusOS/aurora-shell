@@ -20,6 +20,17 @@ export type CalendarPanelPresentation = {
   isInProgress: boolean;
 } | null;
 
+export function removeCalendarEventsByPrefix(
+  eventsById: Map<string, CalendarEvent>,
+  prefix: string,
+): boolean {
+  let changed = false;
+  for (const id of eventsById.keys()) {
+    if (id.startsWith(prefix)) changed = eventsById.delete(id) || changed;
+  }
+  return changed;
+}
+
 const MAX_PANEL_TITLE_LENGTH = 24;
 
 function _deepUnpack(value: unknown): unknown {

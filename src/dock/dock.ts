@@ -770,8 +770,9 @@ export class Dock extends Module {
   private _enableHotAreaWhenDockHidden(binding: ManagedDockBinding): void {
     this._clearHotAreaEnable(binding);
 
+    // Polls while the dash stays visible; idle priority so it can never starve redraws.
     binding.hotAreaEnable.replace(() =>
-      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT_IDLE, 100, () => {
         if (binding.dash.visible) return GLib.SOURCE_CONTINUE;
 
         binding.hotAreaEnable.complete();

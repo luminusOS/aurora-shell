@@ -1,4 +1,4 @@
-import GioUnix from '@girs/giounix-2.0';
+import type GioUnix from '@girs/giounix-2.0';
 import GLib from '@girs/glib-2.0';
 import Meta from '@girs/meta-18';
 import Shell from '@girs/shell-18';
@@ -7,9 +7,13 @@ import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
 
-import { normalize, scoreIconWeaveCandidate } from './iconWeaveScoring.ts';
+import {
+  createIconWeaveCandidateMetadata,
+  scoreIconWeaveCandidate,
+  type IconWeaveCandidateMetadata,
+} from './iconWeaveScoring.ts';
 import type { NativeWindowAppResolver } from './iconWeavePatches.ts';
-import type { IconWeaveWindowRegistry } from './iconWeaveRegistry.ts';
+import { createIconWeaveResolutionKey, type IconWeaveWindowRegistry } from './iconWeaveRegistry.ts';
 
 const WINDOW_INSPECT_DELAY_MS = 500;
 const MIN_MATCH_SCORE = 50;
@@ -40,12 +44,16 @@ export class IconWeaveInspector {
   private _lifecycle = new LifecycleScope();
   private _windowScopes = new Map<any, LifecycleScope>();
   private _titleScopes = new Map<any, LifecycleScope>();
+  private _candidateMetadata = new Map<string, IconWeaveCandidateMetadata>();
 
   constructor(private _options: IconWeaveInspectorOptions) {}
 
   start(): void {
     this._lifecycle.connect(global.display, 'window-created', (_display: any, window: any) => {
       this._schedule(window);
+    });
+    this._lifecycle.connect(Shell.AppSystem.get_default(), 'installed-changed', () => {
+      this._handleInstalledChanged();
     });
   }
 
@@ -61,6 +69,7 @@ export class IconWeaveInspector {
       scope.dispose();
     }
     this._windowScopes.clear();
+    this._candidateMetadata.clear();
   }
 
   private _schedule(window: any): void {
@@ -95,10 +104,26 @@ export class IconWeaveInspector {
     );
   }
 
+  private _handleInstalledChanged(): void {
+    this._candidateMetadata.clear();
+    this._options.registry.clearResolutions();
+
+    const previousApps = new Set<any>();
+    for (const [window, app] of this._options.registry.mappings) {
+      previousApps.add(app);
+      this._options.registry.remove(window);
+    }
+    if (previousApps.size > 0) {
+      this._options.onMappingChanged();
+      Shell.WindowTracker.get_default().emit('tracked-windows-changed');
+      for (const app of previousApps) app.emit('windows-changed');
+    }
+
+    for (const window of this._windowScopes.keys()) this._matchWindow(window);
+  }
+
   private _removeWindow(window: any): void {
-    const wmClass: string = window.get_wm_class() || '';
-    const appId: string = window.get_gtk_application_id() || '';
-    this._options.registry.remove(window, wmClass, appId);
+    this._options.registry.remove(window);
 
     this._titleScopes.get(window)?.dispose();
     this._titleScopes.delete(window);
@@ -163,18 +188,24 @@ export class IconWeaveInspector {
     if (wmClass.toLowerCase() === appId.toLowerCase()) return;
 
     const tracker = Shell.WindowTracker.get_default();
-    const identity = wmClass || appId;
+    const title: string = window.get_title() || '';
+    const resolutionKey = createIconWeaveResolutionKey(wmClass, appId, title);
 
-    if (this._options.registry.hasProcessed(identity)) {
-      const mappedApp = this._options.registry.findMappedApp(wmClass, appId);
-      if (mappedApp) {
-        this._applyMapping(window, mappedApp, tracker, false);
+    if (this._options.registry.hasResolved(resolutionKey)) {
+      const resolvedId = this._options.registry.getResolvedApp(resolutionKey);
+      if (resolvedId) {
+        const app = Shell.AppSystem.get_default().lookup_app(resolvedId);
+        if (app) {
+          this._applyMapping(window, app, tracker);
+          return;
+        }
+
+        this._options.registry.removeResolution(resolutionKey);
+      } else {
+        return;
       }
-
-      return;
     }
 
-    const title: string = window.get_title() || '';
     logger.log(`untracked window: title="${title}" wm_class="${wmClass}" app_id="${appId}"`, {
       prefix: LOG_PREFIX,
     });
@@ -186,7 +217,7 @@ export class IconWeaveInspector {
         prefix: LOG_PREFIX,
       });
       this._applyMapping(window, deterministic, tracker);
-      this._options.registry.markProcessed(identity);
+      this._options.registry.setResolvedApp(resolutionKey, deterministic.get_id());
       return;
     }
 
@@ -201,11 +232,11 @@ export class IconWeaveInspector {
         prefix: LOG_PREFIX,
       });
       this._applyMapping(window, candidate, tracker);
+      this._options.registry.setResolvedApp(resolutionKey, candidate.get_id());
     } else {
       logger.log(`no candidate found for wm_class="${wmClass}"`, { prefix: LOG_PREFIX });
+      this._options.registry.setResolvedApp(resolutionKey, null);
     }
-
-    this._options.registry.markProcessed(identity);
   }
 
   private _applyMapping(window: any, app: any, tracker: any, notifyApp = true): void {
@@ -278,7 +309,8 @@ export class IconWeaveInspector {
       const app = appSystem.lookup_app(id);
       if (!app) continue;
 
-      const score = this._scoreCandidate(app, wmClass, appId, title);
+      const candidate = this._getCandidateMetadata(appInfo, id);
+      const score = this._scoreCandidate(candidate, wmClass, appId, title);
       if (score <= bestScore) continue;
 
       bestScore = score;
@@ -298,28 +330,26 @@ export class IconWeaveInspector {
     return BLACKLISTED_PREFIXES.some((prefix) => normalizedClass.startsWith(prefix));
   }
 
-  private _scoreCandidate(app: any, wmClass: string, appId: string, title: string): number {
-    const desktopId = (app.get_id() || '').toLowerCase().replace(/\.desktop$/, '');
-    const appName = String(app.get_name() || '').toLowerCase();
+  private _getCandidateMetadata(appInfo: any, id: string): IconWeaveCandidateMetadata {
+    const cached = this._candidateMetadata.get(id);
+    if (cached) return cached;
 
-    if (this._isSteamGame(app, wmClass)) return 99;
-
-    return scoreIconWeaveCandidate({ desktopId, appName, wmClass, appId, title });
+    const desktopInfo = appInfo as GioUnix.DesktopAppInfo;
+    const metadata = createIconWeaveCandidateMetadata(
+      id,
+      String(appInfo.get_name() || ''),
+      desktopInfo.get_string('Exec') || '',
+    );
+    this._candidateMetadata.set(id, metadata);
+    return metadata;
   }
 
-  private _isSteamGame(app: any, wmClass: string): boolean {
-    const info = GioUnix.DesktopAppInfo.new(app.get_id());
-    const executable: string = info?.get_string('Exec') || '';
-    const steamMatch = executable.match(/steam:\/\/rungameid\/(\d+)/);
-    if (!steamMatch) return false;
-
-    const gameId = steamMatch[1];
-    const normalizedClass = normalize(wmClass);
-    if (normalizedClass === `steamapp${gameId}`) return true;
-
-    const appName = String(app.get_name() || '').toLowerCase();
-    const words = appName.split(/[^a-z0-9]/).filter((word: string) => word.length > 0);
-    const abbreviation = words.map((word: string) => word[0]).join('');
-    return normalizedClass === abbreviation && abbreviation.length >= 2;
+  private _scoreCandidate(
+    candidate: IconWeaveCandidateMetadata,
+    wmClass: string,
+    appId: string,
+    title: string,
+  ): number {
+    return scoreIconWeaveCandidate({ candidate, wmClass, appId, title });
   }
 }

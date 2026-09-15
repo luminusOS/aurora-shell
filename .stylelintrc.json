@@ -13,7 +13,16 @@
           "spacing",
           "icon-size",
           "z-position",
-          "icon-shadow"
+          "icon-shadow",
+          "border-radius-topleft",
+          "border-radius-topright",
+          "border-radius-bottomleft",
+          "border-radius-bottomright",
+          "background-gradient-direction",
+          "background-gradient-start",
+          "background-gradient-end",
+          "-arrow-rise",
+          "-boxpointer-gap"
         ]
       }
     ],

@@ -1,7 +1,7 @@
 import Clutter from '@girs/clutter-18';
 import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
 import * as Main from '@girs/gnome-shell/ui/main';
+import Meta from '@girs/meta-18';
 
 import type { RuntimeCapability } from '~/module.ts';
 import {
@@ -26,8 +26,6 @@ const SENSOR_DBUS_NAME = 'net.hadess.SensorProxy';
 const SENSOR_PATH = '/net/hadess/SensorProxy';
 const SENSOR_IFACE = 'net.hadess.SensorProxy';
 const MODEM_MANAGER_NAME = 'org.freedesktop.ModemManager1';
-const DISPLAY_CONFIG_NAME = 'org.gnome.Mutter.DisplayConfig';
-const DISPLAY_CONFIG_PATH = '/org/gnome/Mutter/DisplayConfig';
 
 export class DefaultDeviceService implements DeviceService {
   private readonly _listeners = new Set<DeviceChangeListener>();
@@ -35,22 +33,43 @@ export class DefaultDeviceService implements DeviceService {
   private _monitorChangedId: number | null;
   private _deviceAddedId: number | null;
   private _deviceRemovedId: number | null;
-  private _nameWatchIds: number[] | null;
+  private _sensorWatchId: number | null = null;
+  private _modemManagerWatchId: number | null = null;
+  private _sensorOwner: string | null = null;
+  private _modemManagerOwned = false;
+  private _sensorProxyRequest: Gio.Cancellable | null = null;
+  private _sensorProxy: Gio.DBusProxy | null = null;
+  private _sensorPropertiesChangedId: number | null = null;
+  private _refreshLaterId: number | null = null;
   private _snapshot: DeviceSnapshot;
 
   constructor() {
     this._snapshot = this._detect();
-    this._monitorChangedId = Main.layoutManager.connect('monitors-changed', () => this.refresh());
-    this._deviceAddedId = this._seat.connect('device-added', () => this.refresh());
-    this._deviceRemovedId = this._seat.connect('device-removed', () => this.refresh());
-    this._nameWatchIds = [SENSOR_DBUS_NAME, MODEM_MANAGER_NAME].map((name) =>
-      Gio.bus_watch_name(
-        Gio.BusType.SYSTEM,
-        name,
-        Gio.BusNameWatcherFlags.NONE,
-        () => this.refresh(),
-        () => this.refresh(),
-      ),
+    this._monitorChangedId = Main.layoutManager.connect('monitors-changed', () =>
+      this._queueRefresh(),
+    );
+    this._deviceAddedId = this._seat.connect('device-added', () => this._queueRefresh());
+    this._deviceRemovedId = this._seat.connect('device-removed', () => this._queueRefresh());
+
+    this._sensorWatchId = Gio.bus_watch_name(
+      Gio.BusType.SYSTEM,
+      SENSOR_DBUS_NAME,
+      Gio.BusNameWatcherFlags.NONE,
+      (_connection, _name, owner) => this._sensorAppeared(owner),
+      () => this._sensorVanished(),
+    );
+    this._modemManagerWatchId = Gio.bus_watch_name(
+      Gio.BusType.SYSTEM,
+      MODEM_MANAGER_NAME,
+      Gio.BusNameWatcherFlags.NONE,
+      () => {
+        this._modemManagerOwned = true;
+        this._queueRefresh();
+      },
+      () => {
+        this._modemManagerOwned = false;
+        this._queueRefresh();
+      },
     );
   }
 
@@ -63,7 +82,8 @@ export class DefaultDeviceService implements DeviceService {
   }
 
   refresh(): DeviceSnapshot {
-    if (!this._nameWatchIds) return this._snapshot;
+    if (this._sensorWatchId === null || this._modemManagerWatchId === null) return this._snapshot;
+
     const next = this._detect();
     if (!sameDeviceSnapshot(this._snapshot, next)) {
       this._snapshot = next;
@@ -78,15 +98,32 @@ export class DefaultDeviceService implements DeviceService {
   }
 
   destroy(): void {
-    if (!this._nameWatchIds) return;
+    if (this._sensorWatchId === null || this._modemManagerWatchId === null) return;
+
+    if (this._refreshLaterId !== null) {
+      global.compositor.get_laters().remove(this._refreshLaterId);
+      this._refreshLaterId = null;
+    }
+
+    Gio.bus_unwatch_name(this._sensorWatchId);
+    Gio.bus_unwatch_name(this._modemManagerWatchId);
+    this._sensorWatchId = null;
+    this._modemManagerWatchId = null;
+
+    this._sensorOwner = null;
+    this._modemManagerOwned = false;
+    if (this._sensorProxyRequest) {
+      this._sensorProxyRequest.cancel();
+      this._sensorProxyRequest = null;
+    }
+    this._clearSensorProxy();
+
     if (this._monitorChangedId !== null) Main.layoutManager.disconnect(this._monitorChangedId);
     if (this._deviceAddedId !== null) this._seat.disconnect(this._deviceAddedId);
     if (this._deviceRemovedId !== null) this._seat.disconnect(this._deviceRemovedId);
-    for (const id of this._nameWatchIds) Gio.bus_unwatch_name(id);
     this._monitorChangedId = null;
     this._deviceAddedId = null;
     this._deviceRemovedId = null;
-    this._nameWatchIds = null;
     this._listeners.clear();
   }
 
@@ -127,69 +164,29 @@ export class DefaultDeviceService implements DeviceService {
     const capabilities = new Set<RuntimeCapability>();
     if (hasTouch) capabilities.add('touch');
     if (this._hasBacklight()) capabilities.add('backlight');
-    if (this._hasDBusNameOwner(MODEM_MANAGER_NAME)) capabilities.add('cellular');
+    if (this._modemManagerOwned) capabilities.add('cellular');
 
-    const sensorProxy = this._getSensorProxy();
-    if (sensorProxy) {
-      if (this._getBooleanProperty(sensorProxy, 'HasAccelerometer'))
+    if (this._sensorProxy) {
+      if (this._getBooleanProperty(this._sensorProxy, 'HasAccelerometer'))
         capabilities.add('accelerometer');
-      if (this._getBooleanProperty(sensorProxy, 'HasAmbientLight'))
+      if (this._getBooleanProperty(this._sensorProxy, 'HasAmbientLight'))
         capabilities.add('light-sensor');
-      if (this._getBooleanProperty(sensorProxy, 'HasProximity'))
+      if (this._getBooleanProperty(this._sensorProxy, 'HasProximity'))
         capabilities.add('proximity-sensor');
     }
     return capabilities;
   }
 
   private _detectBuiltinMonitorIndices(): ReadonlySet<number> {
-    try {
-      const result = Gio.DBus.session.call_sync(
-        DISPLAY_CONFIG_NAME,
-        DISPLAY_CONFIG_PATH,
-        DISPLAY_CONFIG_NAME,
-        'GetCurrentState',
-        null,
-        null,
-        Gio.DBusCallFlags.NONE,
-        200,
-        null,
-      );
-      return this._parseBuiltinMonitorIndices(result?.recursiveUnpack<unknown>());
-    } catch {
-      return new Set();
-    }
-  }
-
-  private _parseBuiltinMonitorIndices(state: unknown): ReadonlySet<number> {
-    if (!Array.isArray(state) || !Array.isArray(state[1]) || !Array.isArray(state[2]))
-      return new Set();
-
-    const builtinConnectors = new Set<string>();
-    for (const physical of state[1]) {
-      if (!Array.isArray(physical) || !Array.isArray(physical[0])) continue;
-      const connector = physical[0][0];
-      const properties = physical[2];
-      if (
-        typeof connector === 'string' &&
-        this._isRecord(properties) &&
-        properties['is-builtin'] === true
-      )
-        builtinConnectors.add(connector);
-    }
-
+    const logicalMonitors = global.backend.get_monitor_manager().get_logical_monitors();
     const indices = new Set<number>();
-    for (const [index, logical] of state[2].entries()) {
-      if (!Array.isArray(logical) || !Array.isArray(logical[5])) continue;
-      const containsBuiltin = logical[5].some(
-        (spec) => Array.isArray(spec) && builtinConnectors.has(spec[0]),
-      );
-      if (containsBuiltin) indices.add(index);
+    if (!logicalMonitors) return indices;
+
+    for (const logicalMonitor of logicalMonitors) {
+      if (logicalMonitor.get_monitors().some((monitor) => monitor.is_builtin()))
+        indices.add(logicalMonitor.get_number());
     }
     return indices;
-  }
-
-  private _isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 
   private _hasBacklight(): boolean {
@@ -210,43 +207,75 @@ export class DefaultDeviceService implements DeviceService {
     }
   }
 
-  private _getSensorProxy(): Gio.DBusProxy | null {
-    if (!this._hasDBusNameOwner(SENSOR_DBUS_NAME)) return null;
-    try {
-      return Gio.DBusProxy.new_for_bus_sync(
-        Gio.BusType.SYSTEM,
-        Gio.DBusProxyFlags.NONE,
-        null,
-        SENSOR_DBUS_NAME,
-        SENSOR_PATH,
-        SENSOR_IFACE,
-        null,
-      );
-    } catch {
-      return null;
+  private _sensorAppeared(owner: string): void {
+    if (this._sensorWatchId === null) return;
+
+    this._sensorOwner = owner;
+    if (this._sensorProxyRequest) this._sensorProxyRequest.cancel();
+    this._sensorProxyRequest = new Gio.Cancellable();
+    this._clearSensorProxy();
+    this._queueRefresh();
+
+    const sensorProxyRequest = this._sensorProxyRequest;
+    Gio.DBusProxy.new_for_bus(
+      Gio.BusType.SYSTEM,
+      Gio.DBusProxyFlags.NONE,
+      null,
+      owner,
+      SENSOR_PATH,
+      SENSOR_IFACE,
+      sensorProxyRequest,
+      (_source, result) => {
+        let proxy: Gio.DBusProxy;
+        try {
+          proxy = Gio.DBusProxy.new_for_bus_finish(result);
+        } catch {
+          if (this._sensorProxyRequest === sensorProxyRequest) this._sensorProxyRequest = null;
+          return;
+        }
+
+        if (this._sensorProxyRequest !== sensorProxyRequest || this._sensorOwner !== owner) return;
+
+        this._sensorProxyRequest = null;
+        this._sensorProxy = proxy;
+        this._sensorPropertiesChangedId = proxy.connect('g-properties-changed', () =>
+          this._queueRefresh(),
+        );
+        this._queueRefresh();
+      },
+    );
+  }
+
+  private _sensorVanished(): void {
+    if (this._sensorWatchId === null) return;
+
+    this._sensorOwner = null;
+    if (this._sensorProxyRequest) {
+      this._sensorProxyRequest.cancel();
+      this._sensorProxyRequest = null;
     }
+    this._clearSensorProxy();
+    this._queueRefresh();
+  }
+
+  private _queueRefresh(): void {
+    if (this._sensorWatchId === null || this._refreshLaterId !== null) return;
+
+    this._refreshLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+      this._refreshLaterId = null;
+      this.refresh();
+      return false;
+    });
+  }
+
+  private _clearSensorProxy(): void {
+    if (this._sensorProxy && this._sensorPropertiesChangedId !== null)
+      this._sensorProxy.disconnect(this._sensorPropertiesChangedId);
+    this._sensorProxy = null;
+    this._sensorPropertiesChangedId = null;
   }
 
   private _getBooleanProperty(proxy: Gio.DBusProxy, propertyName: string): boolean {
     return Boolean(proxy.get_cached_property(propertyName)?.unpack());
-  }
-
-  private _hasDBusNameOwner(name: string): boolean {
-    try {
-      const result = Gio.DBus.system.call_sync(
-        'org.freedesktop.DBus',
-        '/org/freedesktop/DBus',
-        'org.freedesktop.DBus',
-        'NameHasOwner',
-        new GLib.Variant('(s)', [name]),
-        new GLib.VariantType('(b)'),
-        Gio.DBusCallFlags.NONE,
-        200,
-        null,
-      );
-      return Boolean(result?.get_child_value(0).unpack());
-    } catch {
-      return false;
-    }
   }
 }

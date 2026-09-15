@@ -206,8 +206,11 @@ export class DashVisibilityController {
       return;
     }
 
+    // Below Clutter's redraw priority: this used to poll at PRIORITY_DEFAULT for as long as
+    // a window blocked autohide, and once GC pressure made each tick outlast the 100 ms
+    // interval it was always ready and starved painting, freezing the whole screen.
     this._autohideTimeout.replace(() =>
-      GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUTOHIDE_TIMEOUT, () => {
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT_IDLE, AUTOHIDE_TIMEOUT, () => {
         if (!this._options.getContentActor()) {
           this._autohideTimeout.complete();
           return GLib.SOURCE_REMOVE;
@@ -218,18 +221,22 @@ export class DashVisibilityController {
           return GLib.SOURCE_REMOVE;
         }
 
+        const menuOpen = this._options.isMenuOpen();
         const shouldHide = shouldHideDash({
           target: this._target,
           blocked: this._blockAutoHide,
           hovered: this._hovered,
-          menuOpen: this._options.isMenuOpen(),
+          menuOpen,
           dragHeld: this._itemDragHold,
         });
-        if (!shouldHide) {
+        if (shouldHide) {
+          this.hide(true);
+        } else if (menuOpen) {
+          // A closing menu may not change hover, so nothing else would re-arm us.
+          // Blocking, hover and drag changes call updateAutoHide() themselves.
           return GLib.SOURCE_CONTINUE;
         }
 
-        this.hide(true);
         this._autohideTimeout.complete();
         return GLib.SOURCE_REMOVE;
       }),

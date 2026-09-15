@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-09-06 17:06-0300\n"
+"POT-Creation-Date: 2026-09-13 18:39-0300\n"
 "PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -226,27 +226,19 @@ msgstr ""
 "Insere o texto selecionado no campo que estava em foco anteriormente. "
 "Atenção: requer um campo Wayland ativo compatível com text-input-v3"
 
-#: dist/clipboard/clipboardHistory.manifest.js:27
-msgid "Poll Interval (ms)"
-msgstr "Intervalo de verificação (ms)"
-
-#: dist/clipboard/clipboardHistory.manifest.js:28
-msgid "How often to check the clipboard for changes"
-msgstr "Frequência de verificação de alterações na área de transferência"
-
-#: dist/clipboard/clipboardItem.js:148
+#: dist/clipboard/clipboardItem.js:151
 msgid "Copy"
 msgstr "Copiar"
 
-#: dist/clipboard/clipboardItem.js:151
+#: dist/clipboard/clipboardItem.js:154
 msgid "Unpin"
 msgstr "Desafixar"
 
-#: dist/clipboard/clipboardItem.js:151
+#: dist/clipboard/clipboardItem.js:154
 msgid "Pin"
 msgstr "Fixar"
 
-#: dist/clipboard/clipboardItem.js:154
+#: dist/clipboard/clipboardItem.js:157 dist/dev/devToolModuleSettings.js:144
 msgid "Delete"
 msgstr "Excluir"
 
@@ -333,6 +325,386 @@ msgid "Automatically recolor monochrome SNI icons to match the panel theme"
 msgstr ""
 "Recolore automaticamente ícones SNI monocromáticos para corresponder ao tema "
 "do painel"
+
+#: dist/dev/calendarRemindersDevTool.js:50
+#, fuzzy
+msgid "Fake events"
+msgstr "Eventos e alertas fictícios"
+
+#: dist/dev/calendarRemindersDevTool.js:59
+#, fuzzy
+msgid "reminder"
+msgstr "Lembrete do calendário"
+
+#: dist/dev/calendarRemindersDevTool.js:59
+#, fuzzy
+msgid "no reminder"
+msgstr "Lembrete do calendário"
+
+#: dist/dev/clipboardHistoryDevTool.js:116
+msgid "Generated samples"
+msgstr ""
+
+#: dist/dev/clipboardHistoryDevTool.js:118
+#, fuzzy
+msgid "Added by Aurora DevTool"
+msgstr "Aurora DevTool"
+
+#: dist/dev/clipboardHistoryDevTool.js:160
+msgid "Generated code sample"
+msgstr ""
+
+#: dist/dev/clipboardHistoryDevTool.js:174
+msgid "Generated image sample"
+msgstr ""
+
+#: dist/dev/devTool.js:28
+msgid "Extension tools and session info"
+msgstr "Ferramentas da extensão e informações da sessão"
+
+#: dist/dev/devTool.js:29
+msgid "Visibility, layout and monitor bindings"
+msgstr "Visibilidade, layout e vínculos de monitores"
+
+#: dist/dev/devTool.js:30
+msgid "Annotation overlay and OCR states"
+msgstr "Sobreposição de anotação e estados de OCR"
+
+#: dist/dev/devTool.js:31
+msgid "Populate the history panel"
+msgstr "Preenche o painel de histórico"
+
+#: dist/dev/devTool.js:32
+msgid "Fake SNI items and attention badges"
+msgstr "Itens SNI e selos de atenção fictícios"
+
+#: dist/dev/devTool.js:33
+msgid "Fake weather snapshots"
+msgstr "Instantâneos de clima fictícios"
+
+#: dist/dev/devTool.js:34
+msgid "Fake events and alerts"
+msgstr "Eventos e alertas fictícios"
+
+#: dist/dev/devTool.js:82
+msgid "Runtime updated"
+msgstr "Ambiente atualizado"
+
+#: dist/dev/devTool.js:346
+msgid "Back"
+msgstr "Voltar"
+
+#: dist/dev/devTool.js:375 dist/dev/devToolModuleSettings.js:58
+msgid "Module"
+msgstr "Módulo"
+
+#: dist/dev/devTool.js:377
+msgid "Custom Commands"
+msgstr "Comandos personalizados"
+
+#: dist/dev/devTool.js:378
+msgid "Aurora DevTool"
+msgstr "Aurora DevTool"
+
+#: dist/dev/devTool.js:382 dist/dev/devTool.js:394
+#: dist/dev/devToolModuleBrowser.js:107
+msgid "Modules"
+msgstr "Módulos"
+
+#: dist/dev/devTool.js:383 dist/dev/devTool.js:447
+msgid "Developer Tools"
+msgstr "Ferramentas de desenvolvedor"
+
+#: dist/dev/devTool.js:384
+msgid "Module Settings"
+msgstr "Configurações do módulo"
+
+#: dist/dev/devTool.js:385 dist/panel/auroraMenu.js:342
+#: dist/panel/auroraMenu.js:355 dist/panel/auroraMenu.js:377
+#: dist/panel/auroraMenu.manifest.js:8
+msgid "Aurora Menu"
+msgstr "Aurora Menu"
+
+#: dist/dev/devTool.js:387
+msgid "Developer Tool"
+msgstr "Ferramenta de desenvolvedor"
+
+#: dist/dev/devTool.js:395
+msgid "Dev Tools"
+msgstr "Ferramentas de desenvolvimento"
+
+#: dist/dev/devTool.js:448 dist/dev/devToolModuleSettings.js:95
+msgid "Simulate runtime states and trigger module actions"
+msgstr "Simula estados de execução e dispara ações de módulos"
+
+#: dist/dev/devTool.js:455
+msgid "Inspect and simulate runtime state"
+msgstr "Inspeciona e simula o estado em tempo de execução"
+
+#: dist/dev/devTool.js:480
+msgid "Live development controls"
+msgstr "Controles de desenvolvimento em tempo real"
+
+#: dist/dev/devToolModuleBrowser.js:54
+msgid "Search modules"
+msgstr "Buscar módulos"
+
+#: dist/dev/devToolModuleBrowser.js:84 dist/prefs.js:24
+msgid "Other"
+msgstr "Outros"
+
+#: dist/dev/devToolModuleBrowser.js:111
+#, javascript-format
+msgid "%d of %d modules · toggle a module or open its settings"
+msgstr "%d de %d módulos · ative um módulo ou abra suas configurações"
+
+#: dist/dev/devToolModuleBrowser.js:143
+msgid "No Results Found"
+msgstr "Nenhum resultado encontrado"
+
+#: dist/dev/devToolModuleBrowser.js:148
+#, javascript-format
+msgid "No modules match “%s”. Try a different search."
+msgstr "Nenhum módulo corresponde a “%s”. Tente uma busca diferente."
+
+#: dist/dev/devToolModuleBrowser.js:202 dist/dev/devToolModuleSettings.js:61
+#: dist/dev/devToolModuleSettings.js:73 dist/dev/devToolModuleSettings.js:234
+#, javascript-format
+msgid "Enable %s"
+msgstr "Ativar %s"
+
+#: dist/dev/devToolModuleSettings.js:63
+msgid "Module is running in this session"
+msgstr "O módulo está em execução nesta sessão"
+
+#: dist/dev/devToolModuleSettings.js:65
+#, fuzzy
+msgid "Module is enabled but not running in this session"
+msgstr "O módulo está em execução nesta sessão"
+
+#: dist/dev/devToolModuleSettings.js:66
+msgid "Module is off"
+msgstr "O módulo está desativado"
+
+#: dist/dev/devToolModuleSettings.js:80
+msgid "Settings"
+msgstr "Configurações"
+
+#: dist/dev/devToolModuleSettings.js:89
+#, javascript-format
+msgid "%s Dev Tools"
+msgstr "Ferramentas de desenvolvedor de %s"
+
+#: dist/dev/devToolModuleSettings.js:91
+msgid "Developer"
+msgstr "Desenvolvedor"
+
+#: dist/dev/devToolModuleSettings.js:112 dist/panel/auroraMenu.manifest.js:83
+msgid "Custom Menu Commands"
+msgstr "Comandos de menu personalizados"
+
+#: dist/dev/devToolModuleSettings.js:116
+msgid "Shortcuts that run commands from Aurora Menu"
+msgstr "Atalhos que executam comandos do Aurora Menu"
+
+#: dist/dev/devToolModuleSettings.js:120
+msgid "Commands"
+msgstr "Comandos"
+
+#: dist/dev/devToolModuleSettings.js:130
+msgid "Edit"
+msgstr "Editar"
+
+#: dist/dev/devToolModuleSettings.js:136
+#, javascript-format
+msgid "Edit %s"
+msgstr "Editar %s"
+
+#: dist/dev/devToolModuleSettings.js:156
+#, javascript-format
+msgid "Delete %s"
+msgstr "Excluir %s"
+
+#: dist/dev/devToolModuleSettings.js:165
+#: dist/preferences/commandListEditor.js:39
+msgid "No custom commands"
+msgstr "Nenhum comando personalizado"
+
+#: dist/dev/devToolModuleSettings.js:165
+msgid "Add one below."
+msgstr "Adicione um abaixo."
+
+#: dist/dev/devToolModuleSettings.js:175 dist/dev/devToolModuleSettings.js:462
+#: dist/preferences/commandListEditor.js:63
+#: dist/preferences/commandListEditor.js:232
+msgid "Add Command"
+msgstr "Adicionar comando"
+
+#: dist/dev/devToolModuleSettings.js:191
+msgid "Stored in"
+msgstr "Armazenados em"
+
+#: dist/dev/devToolModuleSettings.js:201
+#, javascript-format
+msgid "· module %s"
+msgstr "· módulo %s"
+
+#: dist/dev/devToolModuleSettings.js:219
+msgid "This module is disabled. Its settings are stored but have no effect."
+msgstr ""
+"Este módulo está desativado. Suas configurações ficam salvas, mas não têm "
+"efeito."
+
+#: dist/dev/devToolModuleSettings.js:228
+msgid "Enable"
+msgstr "Ativar"
+
+#: dist/dev/devToolModuleSettings.js:282
+msgid "Hours"
+msgstr "Horas"
+
+#: dist/dev/devToolModuleSettings.js:296
+msgid "Minutes"
+msgstr "Minutos"
+
+#: dist/dev/devToolModuleSettings.js:349
+msgid "Unsupported option"
+msgstr "Opção não suportada"
+
+#: dist/dev/devToolModuleSettings.js:374
+#, fuzzy, javascript-format
+msgid "Decrease %s"
+msgstr "Excluir %s"
+
+#: dist/dev/devToolModuleSettings.js:389
+#, fuzzy, javascript-format
+msgid "Increase %s"
+msgstr "Ativar %s"
+
+#: dist/dev/devToolModuleSettings.js:402
+msgid "Reset"
+msgstr "Redefinir"
+
+#: dist/dev/devToolModuleSettings.js:417 dist/dev/devToolModuleSettings.js:429
+#: dist/prefs.js:324 dist/prefs.js:359 dist/prefs.js:366 dist/prefs.js:376
+msgid "Disabled"
+msgstr "Desativado"
+
+#: dist/dev/devToolModuleSettings.js:424
+msgid "Keyboard shortcut"
+msgstr "Atalho de teclado"
+
+#: dist/dev/devToolModuleSettings.js:429
+msgid "Press shortcut…"
+msgstr "Pressione o atalho…"
+
+#: dist/dev/devToolModuleSettings.js:462
+#: dist/preferences/commandListEditor.js:149
+#: dist/preferences/commandListEditor.js:232
+msgid "Edit Command"
+msgstr "Editar comando"
+
+#: dist/dev/devToolModuleSettings.js:465 dist/dev/devToolModuleSettings.js:466
+#: dist/dev/devToolModuleSettings.js:483
+#: dist/preferences/commandListEditor.js:171
+msgid "Name"
+msgstr "Nome"
+
+#: dist/dev/devToolModuleSettings.js:473 dist/dev/devToolModuleSettings.js:474
+#: dist/dev/devToolModuleSettings.js:484
+#: dist/preferences/commandListEditor.js:176
+msgid "Command"
+msgstr "Comando"
+
+#: dist/dev/devToolModuleSettings.js:483
+msgid "Shown in the Aurora menu"
+msgstr "Exibido no menu Aurora"
+
+#: dist/dev/devToolModuleSettings.js:484
+msgid "Executed when selected"
+msgstr "Executado ao ser selecionado"
+
+#: dist/dev/devToolModuleSettings.js:487
+#: dist/preferences/commandListEditor.js:274
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: dist/dev/devToolModuleSettings.js:494 dist/dev/devToolModuleSettings.js:520
+#: dist/preferences/commandListEditor.js:219
+msgid "Save"
+msgstr "Salvar"
+
+#: dist/dev/devToolModuleSettings.js:501
+msgid "Name and command are required."
+msgstr "Nome e comando são obrigatórios."
+
+#: dist/dev/devToolModuleSettings.js:502
+msgid "Name cannot contain “|”."
+msgstr "O nome não pode conter “|”."
+
+#: dist/dev/devToolModuleSettings.js:510
+msgid "Command list changed. Reopen this command before saving."
+msgstr ""
+
+#: dist/dev/devToolUi.js:122 dist/dev/devToolUi.js:127
+msgid "On"
+msgstr "Ligado"
+
+#: dist/dev/devToolUi.js:122 dist/dev/devToolUi.js:127
+msgid "Off"
+msgstr "Desligado"
+
+#: dist/dev/generalDevTool.js:30
+msgid "Environment"
+msgstr ""
+
+#: dist/dev/generalDevTool.js:31
+#, fuzzy
+msgid "GNOME Shell"
+msgstr "Usar alternativa do GNOME Shell"
+
+#: dist/dev/generalDevTool.js:33
+msgid "Session"
+msgstr ""
+
+#: dist/dev/generalDevTool.js:33 dist/panel/volumeMixer/mixerItem.js:76
+msgid "Unknown"
+msgstr "Desconhecido"
+
+#: dist/dev/generalDevTool.js:36
+#, fuzzy
+msgid "Enabled modules"
+msgstr "Ativar %s"
+
+#: dist/dev/generalDevTool.js:43
+#, fuzzy
+msgid "Open Settings"
+msgstr "Configurações"
+
+#: dist/dev/generalDevTool.js:51
+msgid "Looking Glass"
+msgstr ""
+
+#: dist/dev/trayIconsDevTool.js:77
+msgid "Fake tray preview"
+msgstr ""
+
+#: dist/dev/trayIconsDevTool.js:82
+msgid "Active"
+msgstr ""
+
+#: dist/dev/weatherClockDevTool.js:21 dist/dev/weatherClockDevTool.js:27
+#: dist/dev/weatherClockDevTool.js:126
+msgid "No fake weather"
+msgstr ""
+
+#: dist/dev/weatherClockDevTool.js:116
+msgid "Offline"
+msgstr ""
+
+#: dist/dev/weatherClockDevTool.js:120
+msgid "Weather service unavailable"
+msgstr ""
 
 #: dist/dock/dock.manifest.js:8
 msgid "Dock"
@@ -548,11 +920,6 @@ msgid "No recent items"
 msgstr "Nenhum item recente"
 
 #: dist/panel/auroraMenu.js:342 dist/panel/auroraMenu.js:355
-#: dist/panel/auroraMenu.js:377 dist/panel/auroraMenu.manifest.js:8
-msgid "Aurora Menu"
-msgstr "Menu Aurora"
-
-#: dist/panel/auroraMenu.js:342 dist/panel/auroraMenu.js:355
 msgid "Could not launch the selected command."
 msgstr "Não foi possível iniciar o comando selecionado."
 
@@ -656,10 +1023,6 @@ msgstr "Comando de aplicativos"
 msgid "Command used by the Software menu item"
 msgstr "Comando usado pelo item Aplicativos do menu"
 
-#: dist/panel/auroraMenu.manifest.js:83
-msgid "Custom Menu Commands"
-msgstr "Comandos de menu personalizados"
-
 #: dist/panel/auroraMenu.manifest.js:84
 msgid "Add shortcuts that run commands from Aurora Menu"
 msgstr "Adicione atalhos que executam comandos pelo Menu Aurora"
@@ -698,7 +1061,9 @@ msgstr "Lembretes do calendário"
 
 #: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:9
 msgid "Shows upcoming events next to the clock and notifies calendar reminders"
-msgstr "Mostra os próximos eventos ao lado do relógio e notifica os lembretes do calendário"
+msgstr ""
+"Mostra os próximos eventos ao lado do relógio e notifica os lembretes do "
+"calendário"
 
 #: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:13
 msgid "Notifications"
@@ -714,7 +1079,9 @@ msgstr "Forçar lembrete no início do evento"
 
 #: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:20
 msgid "Always notify when a timed event starts, even after an earlier reminder"
-msgstr "Sempre notificar quando um evento com horário começar, mesmo após um lembrete anterior"
+msgstr ""
+"Sempre notificar quando um evento com horário começar, mesmo após um "
+"lembrete anterior"
 
 #: dist/panel/clock/calendarReminders/calendarReminders.manifest.js:25
 msgid "Snooze Duration (minutes)"
@@ -797,10 +1164,6 @@ msgstr "Mostra o avatar e o nome do usuário atual no menu de energia"
 #: dist/panel/volumeMixer/mixerItem.js:54
 msgid "Audio"
 msgstr "Áudio"
-
-#: dist/panel/volumeMixer/mixerItem.js:76
-msgid "Unknown"
-msgstr "Desconhecido"
 
 #: dist/panel/volumeMixer/mixerPanel.js:29
 msgid "No audio playing"
@@ -920,10 +1283,6 @@ msgstr "Mostra um emblema X11 em aplicativos XWayland no alternador Alt+Tab"
 msgid "Manage Commands"
 msgstr "Gerenciar comandos"
 
-#: dist/preferences/commandListEditor.js:39
-msgid "No custom commands"
-msgstr "Nenhum comando personalizado"
-
 #: dist/preferences/commandListEditor.js:42
 #, javascript-format
 msgid "%d custom command"
@@ -934,11 +1293,6 @@ msgstr[1] "%d comandos personalizados"
 #: dist/preferences/commandListEditor.js:59
 msgid "Menu Commands"
 msgstr "Comandos do menu"
-
-#: dist/preferences/commandListEditor.js:63
-#: dist/preferences/commandListEditor.js:232
-msgid "Add Command"
-msgstr "Adicionar comando"
 
 #: dist/preferences/commandListEditor.js:86
 msgid "No commands yet"
@@ -956,22 +1310,9 @@ msgstr "Mover para cima"
 msgid "Move Down"
 msgstr "Mover para baixo"
 
-#: dist/preferences/commandListEditor.js:149
-#: dist/preferences/commandListEditor.js:232
-msgid "Edit Command"
-msgstr "Editar comando"
-
 #: dist/preferences/commandListEditor.js:150
 msgid "Remove Command"
 msgstr "Remover comando"
-
-#: dist/preferences/commandListEditor.js:171
-msgid "Name"
-msgstr "Nome"
-
-#: dist/preferences/commandListEditor.js:176
-msgid "Command"
-msgstr "Comando"
 
 #: dist/preferences/commandListEditor.js:193
 msgid "The name cannot contain “|”"
@@ -980,10 +1321,6 @@ msgstr "O nome não pode conter “|”"
 #: dist/preferences/commandListEditor.js:208
 msgid "Choose the name shown in Aurora Menu and the command to run."
 msgstr "Escolha o nome exibido no Menu Aurora e o comando a ser executado."
-
-#: dist/preferences/commandListEditor.js:219
-msgid "Save"
-msgstr "Salvar"
 
 #: dist/preferences/commandListEditor.js:219
 msgid "Add"
@@ -998,10 +1335,6 @@ msgstr "Remover comando?"
 msgid "“%s” will be removed from Aurora Menu."
 msgstr "“%s” será removido do Menu Aurora."
 
-#: dist/preferences/commandListEditor.js:274
-msgid "Cancel"
-msgstr "Cancelar"
-
 #: dist/preferences/commandListEditor.js:275
 msgid "Remove"
 msgstr "Remover"
@@ -1009,10 +1342,6 @@ msgstr "Remover"
 #: dist/prefs.js:20
 msgid "General"
 msgstr "Geral"
-
-#: dist/prefs.js:24
-msgid "Other"
-msgstr "Outros"
 
 #: dist/prefs.js:47
 msgid "Aurora Shell logo"
@@ -1025,10 +1354,6 @@ msgstr "Acessar website"
 #: dist/prefs.js:146
 msgid "Reset to Default"
 msgstr "Restaurar padrão"
-
-#: dist/prefs.js:324 dist/prefs.js:359 dist/prefs.js:366 dist/prefs.js:376
-msgid "Disabled"
-msgstr "Desativado"
 
 #: dist/prefs.js:354
 msgid "Press a shortcut…"
@@ -1098,29 +1423,11 @@ msgstr "Alternador de Tema"
 msgid "Monitors and synchronizes GNOME color scheme"
 msgstr "Monitora e sincroniza o esquema de cores do GNOME"
 
-#~ msgid "Dismiss"
-#~ msgstr "Dispensar"
+#~ msgid "No configurable options"
+#~ msgstr "Nenhuma opção configurável"
 
-#~ msgid "Ignore"
-#~ msgstr "Ignorar"
+#~ msgid "This module works out of the box once enabled"
+#~ msgstr "Este módulo funciona de imediato após ser ativado"
 
-#~ msgid "Restore"
-#~ msgstr "Restaurar"
-
-#~ msgid "Minimize"
-#~ msgstr "Minimizar"
-
-#~ msgid "Save Changes"
-#~ msgstr "Salvar alterações"
-
-#~ msgid "Manage"
-#~ msgstr "Gerenciar"
-
-#~ msgid "One command per line, using “Label | command”"
-#~ msgstr "Um comando por linha, usando “Rótulo | comando”"
-
-#~ msgid "Clear OCR result"
-#~ msgstr "Limpar resultado do OCR"
-
-#~ msgid "Recognizing text…"
-#~ msgstr "Reconhecendo texto…"
+#~ msgid "Choose"
+#~ msgstr "Escolher"

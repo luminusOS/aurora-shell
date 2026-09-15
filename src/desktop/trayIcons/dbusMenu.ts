@@ -92,11 +92,19 @@ export class DBusMenuClient {
         'AboutToShow',
         new GLib.Variant('(i)', [0]),
         Gio.DBusCallFlags.NONE,
-        -1,
+        5000,
         null,
       );
-    } catch {
-      // Not all apps implement AboutToShow; ignore errors silently
+    } catch (e) {
+      const remoteError = e instanceof GLib.Error ? Gio.DBusError.get_remote_error(e) : null;
+      if (
+        !this._cancellable.is_cancelled() &&
+        remoteError !== 'org.freedesktop.DBus.Error.UnknownMethod'
+      ) {
+        logger.warn(`DBusMenu AboutToShow failed for ${this._busName}: ${e}`, {
+          prefix: LOG_PREFIX,
+        });
+      }
     }
 
     try {
@@ -104,7 +112,7 @@ export class DBusMenuClient {
         'GetLayout',
         new GLib.Variant('(iias)', [0, -1, []]),
         Gio.DBusCallFlags.NONE,
-        -1,
+        5000,
         null,
       );
 
@@ -211,7 +219,7 @@ export class DBusMenuClient {
         'Event',
         new GLib.Variant('(isvu)', [id, 'clicked', new GLib.Variant('i', 0), timestamp]),
         Gio.DBusCallFlags.NONE,
-        -1,
+        5000,
         null,
         (p, res) => {
           try {

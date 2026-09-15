@@ -1,13 +1,14 @@
 import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
+import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import GObject from '@girs/gobject-2.0';
 import Clutter from '@girs/clutter-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
 
-import type { ClipboardEntry } from '~/clipboard/clipboardStore.ts';
+import { thumbnailPathFor, type ClipboardEntry } from '~/clipboard/clipboardStore.ts';
 import { classifyClipboardCard, parseClipboardUrl } from '~/clipboard/clipboardCardState.ts';
 import {
   buildCodeCard,
@@ -137,8 +138,9 @@ export const ClipboardItem = GObject.registerClass(
     private _buildImageCard(): void {
       this.add_style_class_name('aurora-clipboard-item--image');
 
-      if (this._entry.filePath) {
-        this.style = `background-image: url("file://${this._entry.filePath}"); background-size: cover;`;
+      const thumbnail = this._entry.filePath ? thumbnailPathFor(this._entry.filePath) : null;
+      if (thumbnail && GLib.file_test(thumbnail, GLib.FileTest.EXISTS)) {
+        this.style = `background-image: url("file://${thumbnail}"); background-size: cover;`;
       }
 
       this.set_child(buildImageCard(this._entry, this._actions));

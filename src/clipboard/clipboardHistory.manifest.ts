@@ -22,13 +22,5 @@ export const manifest: ModuleManifest = {
       ),
       type: 'switch',
     },
-    {
-      key: 'clipboard-history-poll-interval',
-      title: _('Poll Interval (ms)'),
-      subtitle: _('How often to check the clipboard for changes'),
-      type: 'spin',
-      min: 250,
-      max: 5000,
-    },
   ],
 };
