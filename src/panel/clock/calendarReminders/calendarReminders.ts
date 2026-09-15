@@ -37,6 +37,8 @@ export class CalendarReminders extends Module {
   private _pill: CalendarRemindersPill | null = null;
   private _alerts: CalendarReminderController | null = null;
   private _lifecycle: LifecycleScope | null = null;
+  private _refreshTimer: ManagedSource | null = null;
+  private _labelTimer: ManagedSource | null = null;
   private _panelRevealTimer: ManagedSource | null = null;
   private _startReminderTimer: ManagedSource | null = null;
   private _notifiedStarts = new Map<string, number>();
@@ -57,6 +59,8 @@ export class CalendarReminders extends Module {
       onStateChanged: () => this._render(),
     });
     this._lifecycle = lifecycle;
+    this._refreshTimer = refreshTimer;
+    this._labelTimer = labelTimer;
     this._panelRevealTimer = panelRevealTimer;
     this._startReminderTimer = createManagedSource(lifecycle);
     this._pill = pill;
@@ -111,8 +115,15 @@ export class CalendarReminders extends Module {
   }
 
   override disable(): void {
+    if (this._refreshTimer) this._refreshTimer.clear();
+    if (this._labelTimer) this._labelTimer.clear();
+    if (this._panelRevealTimer) this._panelRevealTimer.clear();
+    if (this._startReminderTimer) this._startReminderTimer.clear();
+
     this._lifecycle?.dispose();
     this._lifecycle = null;
+    this._refreshTimer = null;
+    this._labelTimer = null;
     this._panelRevealTimer = null;
     this._startReminderTimer = null;
     this._notifiedStarts.clear();
