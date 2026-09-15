@@ -403,11 +403,5 @@
       <summary>Insert clipboard text automatically</summary>
       <description>Insert the selected clipboard text into the input that was focused before opening the panel. Warning: requires an active Wayland field that supports text-input-v3</description>
     </key>
-    <key name="clipboard-history-poll-interval" type="i">
-      <range min="250" max="5000"/>
-      <default>1000</default>
-      <summary>Clipboard poll interval (ms)</summary>
-      <description>How often to check the clipboard for new content in milliseconds</description>
-    </key>
   </schema>
 </schemalist>

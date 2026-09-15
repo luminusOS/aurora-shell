@@ -26,7 +26,7 @@ const AUTO_PASTE_DELAY_MS = 100;
 const LOG_PREFIX = 'ClipboardHistory';
 
 // @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
-Gio._promisify(Gio.File.prototype, 'load_contents_async');
+Gio._promisify(Gio.File.prototype, 'load_bytes_async');
 
 export class ClipboardHistory extends Module {
   private _store: ClipboardStore | null = null;
@@ -34,6 +34,7 @@ export class ClipboardHistory extends Module {
   private _panel: ClipboardPanel | null = null;
   private _lifecycle: LifecycleScope | null = null;
   private _autoPasteTimeout: ManagedSource | null = null;
+  private _restoreCancellable: Gio.Cancellable | null = null;
   private _pasteTargetWindow: Meta.Window | null = null;
   private _pasteTargetInputFocus: Clutter.InputFocus | null = null;
 
@@ -51,7 +52,6 @@ export class ClipboardHistory extends Module {
     const filePath = sessionDir + '/clipboard-history.log';
     const mediaDir = sessionDir + '/clipboard-media';
     const rawSettings = this.context.settings.getRawSettings();
-    const pollMs = rawSettings.get_int('clipboard-history-poll-interval');
 
     const store = new ClipboardStore(filePath, mediaDir);
     this._store = store;
@@ -63,23 +63,30 @@ export class ClipboardHistory extends Module {
     });
     this._panel = panel;
 
-    const monitor = new ClipboardMonitor(pollMs, {
+    const monitor = new ClipboardMonitor({
       onText: (text) => this.addText(text),
-      onImage: (payload) => void this.addImage(payload),
+      onImage: (payload) => this.addImage(payload),
     });
     this._monitor = monitor;
 
     void store.load().then(() => {
-      if (this._panel === panel) panel.refresh();
-    });
+      if (
+        this._lifecycle !== lifecycle ||
+        this._store !== store ||
+        this._panel !== panel ||
+        this._monitor !== monitor
+      )
+        return;
 
-    startupIdle.replace(() =>
-      GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-        startupIdle.complete();
-        monitor.start();
-        return GLib.SOURCE_REMOVE;
-      }),
-    );
+      panel.refresh();
+      startupIdle.replace(() =>
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+          startupIdle.complete();
+          monitor.start();
+          return GLib.SOURCE_REMOVE;
+        }),
+      );
+    });
 
     Main.wm.addKeybinding(
       KEYBINDING_KEY,
@@ -89,15 +96,14 @@ export class ClipboardHistory extends Module {
       () => this.togglePanel(),
     );
     lifecycle.onDispose(() => Main.wm.removeKeybinding(KEYBINDING_KEY));
-
-    lifecycle.connect(rawSettings, 'changed::clipboard-history-poll-interval', () => {
-      monitor.setInterval(rawSettings.get_int('clipboard-history-poll-interval'));
-    });
   }
 
   override disable(): void {
     this._pasteTargetWindow = null;
     this._pasteTargetInputFocus = null;
+
+    if (this._restoreCancellable) this._restoreCancellable.cancel();
+    this._restoreCancellable = null;
 
     this._lifecycle?.dispose();
     this._lifecycle = null;
@@ -111,6 +117,7 @@ export class ClipboardHistory extends Module {
     this._monitor = null;
 
     this._store?.save();
+    this._store?.destroy();
     this._store = null;
   }
 
@@ -196,6 +203,7 @@ export class ClipboardHistory extends Module {
       ? this._pasteTargetWindow
       : null;
     const pasteTargetInputFocus = pasteTarget ? this._pasteTargetInputFocus : null;
+    this._monitor?.suppressNextOwnerChange();
     St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, entry.text);
     this.closePanel();
     if (pasteTarget && pasteTargetInputFocus)
@@ -204,14 +212,29 @@ export class ClipboardHistory extends Module {
   }
 
   private async _restoreImage(entry: ClipboardEntry): Promise<void> {
-    if (!entry.filePath || !entry.mimeType) return;
+    if (!this._lifecycle || !entry.filePath || !entry.mimeType) return;
+
+    if (this._restoreCancellable) this._restoreCancellable.cancel();
+    const restoreCancellable = new Gio.Cancellable();
+    this._restoreCancellable = restoreCancellable;
 
     try {
-      const [contents] = await Gio.File.new_for_path(entry.filePath).load_contents_async(null);
-      St.Clipboard.get_default().set_content(St.ClipboardType.CLIPBOARD, entry.mimeType, contents);
+      const [bytes] = await Gio.File.new_for_path(entry.filePath).load_bytes_async(
+        restoreCancellable,
+      );
+      if (this._restoreCancellable !== restoreCancellable || restoreCancellable.is_cancelled())
+        return;
+
+      if (!this._monitor) return;
+      this._monitor.suppressNextOwnerChange();
+      St.Clipboard.get_default().set_content(St.ClipboardType.CLIPBOARD, entry.mimeType, bytes);
       logger.debug(`Restored clipboard image: ${entry.mimeType}`, { prefix: LOG_PREFIX });
     } catch (e) {
+      if (restoreCancellable.is_cancelled()) return;
+
       logger.warn('Failed to restore clipboard image:', { prefix: LOG_PREFIX }, e as Error);
+    } finally {
+      if (this._restoreCancellable === restoreCancellable) this._restoreCancellable = null;
     }
   }
 

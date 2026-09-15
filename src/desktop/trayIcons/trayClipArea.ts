@@ -1,26 +1,41 @@
 import '@girs/gjs';
 
 import Clutter from '@girs/clutter-18';
-import GLib from '@girs/glib-2.0';
 import GObject from '@girs/gobject-2.0';
 
-import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
-import { createManagedSource } from '~/core/mainLoop.ts';
+const VIEWPORT_TRANSITION = 'viewport-progress';
 
 export const TrayClipArea = GObject.registerClass(
   class TrayClipArea extends Clutter.Actor {
+    static [GObject.properties]: Record<string, GObject.ParamSpec> = {
+      [VIEWPORT_TRANSITION]: GObject.ParamSpec.double(
+        VIEWPORT_TRANSITION,
+        VIEWPORT_TRANSITION,
+        'Viewport animation progress',
+        GObject.ParamFlags.READWRITE,
+        0,
+        1,
+        0,
+      ),
+    };
+
     public fullWidth = 0;
     public reservedWidth = 0;
     private _childOffsetX = 0;
     private _viewportWidth = 0;
     private _clipStart = 0;
-    declare private _lifecycle: LifecycleScope;
-    declare private _viewportTimeout: ManagedSource;
+    private _viewportProgress = 0;
+
+    get viewport_progress(): number {
+      return this._viewportProgress;
+    }
+
+    set viewport_progress(progress: number) {
+      this._viewportProgress = progress;
+    }
 
     override _init(params = {}) {
       super._init({ clip_to_allocation: false, x_expand: false, y_expand: true, ...params });
-      this._lifecycle = new LifecycleScope();
-      this._viewportTimeout = createManagedSource(this._lifecycle);
     }
 
     override vfunc_allocate(box: Clutter.ActorBox): void {
@@ -58,32 +73,43 @@ export const TrayClipArea = GObject.registerClass(
       onFrame: (viewportWidth: number, clipStart: number) => void,
       onComplete: () => void,
     ): void {
-      const startUs = GLib.get_monotonic_time();
-      const durationUs = durationMs * 1000;
+      this.cancelViewportAnimation();
+      this._viewportProgress = 0;
 
-      this._viewportTimeout.replace(() =>
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
-          const progress = Math.min(1, (GLib.get_monotonic_time() - startUs) / durationUs);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          this._viewportWidth = fromViewportWidth + (toViewportWidth - fromViewportWidth) * eased;
-          this._clipStart = fromClipStart + (toClipStart - fromClipStart) * eased;
-          this._syncClip();
-          onFrame(this._viewportWidth, this._clipStart);
-          if (progress < 1) return GLib.SOURCE_CONTINUE;
+      if (durationMs <= 0 || !this.mapped) {
+        this._viewportWidth = toViewportWidth;
+        this._clipStart = toClipStart;
+        this._syncClip();
+        onFrame(toViewportWidth, toClipStart);
+        onComplete();
+        return;
+      }
 
-          this._viewportTimeout.complete();
+      this.ease_property(VIEWPORT_TRANSITION, 1, {
+        duration: durationMs,
+        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+        onComplete: () => {
           this._viewportWidth = toViewportWidth;
           this._clipStart = toClipStart;
           this._syncClip();
           onFrame(toViewportWidth, toClipStart);
           onComplete();
-          return GLib.SOURCE_REMOVE;
-        }),
-      );
+        },
+      });
+      const transition = this.get_transition(VIEWPORT_TRANSITION);
+      if (!transition) return;
+
+      transition.connect('new-frame', () => {
+        this._viewportWidth =
+          fromViewportWidth + (toViewportWidth - fromViewportWidth) * this._viewportProgress;
+        this._clipStart = fromClipStart + (toClipStart - fromClipStart) * this._viewportProgress;
+        this._syncClip();
+        onFrame(this._viewportWidth, this._clipStart);
+      });
     }
 
     cancelViewportAnimation(): void {
-      this._viewportTimeout.clear();
+      this.remove_transition(VIEWPORT_TRANSITION);
     }
 
     get viewportWidth(): number {
@@ -110,7 +136,7 @@ export const TrayClipArea = GObject.registerClass(
     }
 
     override destroy(): void {
-      this._lifecycle.dispose();
+      this.cancelViewportAnimation();
       super.destroy();
     }
 

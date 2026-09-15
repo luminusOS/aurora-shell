@@ -6,10 +6,13 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import {
   createDevToolActionButton,
   createDevToolActionRow,
+  createDevToolGroup,
   createDevToolModulePanel,
+  createDevToolRow,
   createDevToolSummary,
 } from '~/dev/devToolUi.ts';
 import type { TrayItem } from '~/desktop/trayIcons/trayState.ts';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 const TRAY_ID = 'aurora-tray-icons';
 const FAKE_ICON_NAMES = [
@@ -66,6 +69,9 @@ export class TrayIconsDevTool {
         () => this.toggleAttentionOnAll(),
         !hasFakeItems,
         this._attentionEnabled,
+        undefined,
+        'tray-attention',
+        true,
       ),
     );
     panel.add_child(primaryRow);
@@ -80,6 +86,20 @@ export class TrayIconsDevTool {
       ),
     );
     panel.add_child(secondaryRow);
+
+    if (hasFakeItems) {
+      const preview = createDevToolGroup(_('Fake tray preview'));
+      for (const item of this._fakeItems.values())
+        preview.list.add_child(
+          createDevToolRow(
+            item.tooltip || item.id,
+            item.status || _('Active'),
+            undefined,
+            typeof item.icon === 'string' ? item.icon : undefined,
+          ),
+        );
+      panel.add_child(preview.container);
+    }
 
     if (!tray) {
       for (const row of [primaryRow, secondaryRow]) {

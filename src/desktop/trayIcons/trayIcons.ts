@@ -211,7 +211,7 @@ export class TrayIcons extends Module {
         GLib.Variant.new('(s)', [busName]),
         new GLib.VariantType('(s)'),
         Gio.DBusCallFlags.NONE,
-        -1,
+        5000,
         null,
       );
       return res.get_child_value(0).unpack() as string;
@@ -230,7 +230,7 @@ export class TrayIcons extends Module {
         GLib.Variant.new('(s)', [busName]),
         new GLib.VariantType('(u)'),
         Gio.DBusCallFlags.NONE,
-        -1,
+        5000,
         null,
       );
       return res.get_child_value(0).unpack() as number;

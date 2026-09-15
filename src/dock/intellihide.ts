@@ -43,9 +43,11 @@ const OVERLAP_WINDOW_TYPES: Meta.WindowType[] = [
   Meta.WindowType.SPLASHSCREEN,
 ];
 
-const TRACKED_WINDOW_SIGNALS = [
-  'position-changed',
-  'size-changed',
+/** High-frequency signals during interactive drag/resize — coalesced per frame. */
+const GEOMETRY_SIGNALS = ['position-changed', 'size-changed'] as const;
+
+/** Discrete state transitions — checked immediately. */
+const STATE_SIGNALS = [
   'workspace-changed',
   'notify::fullscreen',
   'notify::main-monitor',
@@ -53,7 +55,6 @@ const TRACKED_WINDOW_SIGNALS = [
   'notify::maximized-vertically',
   'notify::minimized',
   'notify::on-all-workspaces',
-  'notify::title',
 ] as const;
 
 export enum OverlapStatus {
@@ -77,6 +78,9 @@ export const DockIntellihide = GObject.registerClass(
     declare private _trackedWindowActors: Set<any>;
     declare private _trackedWindows: Set<Meta.Window>;
     declare private _queuedRefreshes: ManagedTimeoutBatch;
+    private _dirty = false;
+    private _dirtyReason = 'unspecified';
+    private _dirtyLaterId: number | null = null;
 
     override _init(monitorIndex: number) {
       super._init();
@@ -150,6 +154,10 @@ export const DockIntellihide = GObject.registerClass(
 
     destroy(): void {
       this._cancelPendingStatus();
+      if (this._dirtyLaterId !== null) {
+        global.compositor.get_laters().remove(this._dirtyLaterId);
+        this._dirtyLaterId = null;
+      }
       this._lifecycle.dispose();
       this._clearTrackedWindows();
       global.display.disconnectObject(this);
@@ -159,7 +167,43 @@ export const DockIntellihide = GObject.registerClass(
       Main.overview.disconnectObject(this);
     }
 
+    /**
+     * Coalesce high-frequency window geometry signals into a single
+     * `_checkOverlap` per render frame via `Meta.LaterType.BEFORE_REDRAW`.
+     *
+     * During interactive window drag/resize, `position-changed`,
+     * `size-changed`, and `notify::allocation` fire on every pixel of
+     * movement. Without coalescing, each fires a full `_checkOverlap`
+     * (enumerating all window actors, filtering, querying geometries) —
+     * hundreds of times per second.
+     *
+     * `BEFORE_REDRAW` aligns the check with Mutter's frame boundary,
+     * matching how GNOME Shell coalesces region updates in `layout.js`.
+     */
+    private _markDirty(reason: string): void {
+      this._dirtyReason = reason;
+      if (this._dirty) return;
+      this._dirty = true;
+
+      if (this._dirtyLaterId !== null) return;
+      this._dirtyLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+        this._dirtyLaterId = null;
+        if (this._dirty) {
+          this._dirty = false;
+          this._checkOverlap(this._dirtyReason);
+        }
+        return false;
+      });
+      global.stage.queue_redraw();
+    }
+
     private _checkOverlap(reason = 'unspecified', force = false): void {
+      if (this._dirtyLaterId !== null) {
+        global.compositor.get_laters().remove(this._dirtyLaterId);
+        this._dirtyLaterId = null;
+      }
+      this._dirty = false;
+
       if (!this._isMonitorValid()) return;
 
       if (Main.overview.visible) {
@@ -365,7 +409,7 @@ export const DockIntellihide = GObject.registerClass(
         this._trackedWindowActors.add(actor);
         actor.connectObject(
           'notify::allocation',
-          () => this._checkOverlap('window-allocation'),
+          () => this._markDirty('window-allocation'),
           'destroy',
           () => this._trackedWindowActors.delete(actor),
           this,
@@ -389,7 +433,10 @@ export const DockIntellihide = GObject.registerClass(
 
     private _connectTrackedWindow(win: Meta.Window): void {
       const signalArgs: any[] = [];
-      for (const signal of TRACKED_WINDOW_SIGNALS) {
+      for (const signal of GEOMETRY_SIGNALS) {
+        signalArgs.push(signal, () => this._markDirty(signal));
+      }
+      for (const signal of STATE_SIGNALS) {
         signalArgs.push(signal, () => this._checkOverlap(signal));
       }
       signalArgs.push('unmanaged', () => this._trackedWindows.delete(win));

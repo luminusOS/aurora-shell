@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  createIconWeaveCandidateMetadata,
+  isIconWeaveSteamGame,
   registerIconWeaveWindow,
   scoreIconWeaveCandidate,
   unregisterIconWeaveWindow,
@@ -9,10 +11,13 @@ import {
 
 const MIN_MATCH_SCORE = 50;
 
+function candidate(desktopId: string, appName: string, executable = '') {
+  return createIconWeaveCandidateMetadata(desktopId, appName, executable);
+}
+
 test('IconWeave scoring rejects helper classes that only share a generic short token', () => {
   const score = scoreIconWeaveCandidate({
-    desktopId: 'io.ente.auth',
-    appName: 'Ente Auth',
+    candidate: candidate('io.ente.auth', 'Ente Auth'),
     wmClass: 'nm-openconnect-auth-dialog',
     appId: '',
     title: 'Authentication Required',
@@ -31,8 +36,7 @@ test('IconWeave registration updates immutably and removes mapped windows', () =
 
 test('IconWeave scoring keeps exact identity matches strong', () => {
   const score = scoreIconWeaveCandidate({
-    desktopId: 'io.ente.auth',
-    appName: 'Ente Auth',
+    candidate: candidate('io.ente.auth', 'Ente Auth'),
     wmClass: 'io.ente.auth',
     appId: '',
     title: '',
@@ -43,12 +47,56 @@ test('IconWeave scoring keeps exact identity matches strong', () => {
 
 test('IconWeave scoring keeps compact short-id variants matchable', () => {
   const score = scoreIconWeaveCandidate({
-    desktopId: 'com.discordapp.Discord',
-    appName: 'Discord',
+    candidate: candidate('com.discordapp.Discord', 'Discord'),
     wmClass: 'discordcanary',
     appId: '',
     title: '',
   });
 
   assert.ok(score >= MIN_MATCH_SCORE);
+});
+
+test('IconWeave candidate metadata normalizes desktop identity once', () => {
+  const metadata = candidate(
+    'Com.ValveSoftware.Game.desktop',
+    'Half-Life 2',
+    'steam steam://rungameid/220',
+  );
+
+  assert.deepEqual(metadata, {
+    desktopId: 'com.valvesoftware.game',
+    appName: 'half-life 2',
+    shortId: 'game',
+    normalizedDesktopId: 'comvalvesoftwaregame',
+    normalizedAppName: 'halflife2',
+    normalizedShortId: 'game',
+    abbreviation: 'hl2',
+    steamGameId: '220',
+  });
+});
+
+test('IconWeave Steam matching uses cached Exec ID and name abbreviation', () => {
+  const metadata = candidate('half-life-2.desktop', 'Half-Life 2', 'steam://rungameid/220');
+
+  assert.equal(isIconWeaveSteamGame(metadata, 'steam_app_220'), true);
+  assert.equal(isIconWeaveSteamGame(metadata, 'hl2'), true);
+  assert.equal(isIconWeaveSteamGame(metadata, 'steam_app_221'), false);
+  assert.equal(isIconWeaveSteamGame(candidate('half-life-2.desktop', 'Half-Life 2'), 'hl2'), false);
+});
+
+test('IconWeave Steam identity takes precedence over ordinary candidate scoring', () => {
+  const metadata = candidate(
+    'com.valvesoftware.steam-app-220.desktop',
+    'Half-Life 2',
+    'steam://rungameid/220',
+  );
+  const ordinaryScore = scoreIconWeaveCandidate({
+    candidate: metadata,
+    wmClass: 'steam_app_220',
+    appId: '',
+    title: '',
+  });
+
+  assert.equal(isIconWeaveSteamGame(metadata, 'steam_app_220'), true);
+  assert.equal(ordinaryScore, 99);
 });

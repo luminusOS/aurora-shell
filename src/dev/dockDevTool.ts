@@ -61,7 +61,14 @@ export class DockDevTool {
 
     const firstRow = createDevToolActionRow();
     firstRow.add_child(
-      createDevToolActionButton('go-up-symbolic', 'Reveal All', () => this.revealAll(), !dock),
+      createDevToolActionButton(
+        'go-up-symbolic',
+        'Reveal All',
+        () => this.revealAll(),
+        !dock,
+        false,
+        'suggested',
+      ),
     );
     firstRow.add_child(
       createDevToolActionButton('go-down-symbolic', 'Hide All', () => this.hideAll(), !dock),
@@ -83,6 +90,9 @@ export class DockDevTool {
         `Always Show: ${dock?.alwaysShow ? 'On' : 'Off'}`,
         () => this.toggleAlwaysShow(),
         !dock,
+        false,
+        undefined,
+        'dock-always-show',
       ),
     );
     panel.add_child(secondRow);
@@ -237,13 +247,25 @@ export class DockDevTool {
 
     const actions = createDevToolActionRow();
     actions.add_child(
-      createDevToolActionButton('go-up-symbolic', 'Show', () =>
-        this.showMonitor(binding.monitorIndex),
+      createDevToolActionButton(
+        'go-up-symbolic',
+        'Show',
+        () => this.showMonitor(binding.monitorIndex),
+        false,
+        false,
+        undefined,
+        `dock-monitor-${binding.monitorIndex}-show`,
       ),
     );
     actions.add_child(
-      createDevToolActionButton('go-down-symbolic', 'Hide', () =>
-        this.hideMonitor(binding.monitorIndex),
+      createDevToolActionButton(
+        'go-down-symbolic',
+        'Hide',
+        () => this.hideMonitor(binding.monitorIndex),
+        false,
+        false,
+        undefined,
+        `dock-monitor-${binding.monitorIndex}-hide`,
       ),
     );
     actions.add_child(
@@ -252,6 +274,9 @@ export class DockDevTool {
         'Hot Area',
         () => this.triggerMonitorHotArea(binding.monitorIndex),
         !binding.hotArea,
+        false,
+        undefined,
+        `dock-monitor-${binding.monitorIndex}-hot-area`,
       ),
     );
     panel.add_child(actions);

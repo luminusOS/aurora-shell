@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { IconWeaveWindowRegistry } from '~/patches/iconWeaveRegistry.ts';
+import {
+  createIconWeaveResolutionKey,
+  IconWeaveWindowRegistry,
+} from '~/patches/iconWeaveRegistry.ts';
 
 function fakeWindow(wmClass: string, appId: string) {
   return {
@@ -10,43 +13,61 @@ function fakeWindow(wmClass: string, appId: string) {
   };
 }
 
-test('icon weave registry reuses mappings with the same application identity', () => {
+test('icon weave registry exposes current window mappings', () => {
   const registry = new IconWeaveWindowRegistry();
   const application = { id: 'example.desktop' };
   const first = fakeWindow('Example', 'com.example.App');
 
   registry.map(first, application);
 
-  assert.equal(registry.findMappedApp('Example', ''), application);
-  assert.equal(registry.findMappedApp('', 'com.example.App'), application);
-  assert.equal(registry.findMappedApp('Different', 'different.app'), null);
+  assert.equal(registry.mappings.get(first), application);
 });
 
-test('icon weave registry retains a processed identity until its last mapping is removed', () => {
+test('icon weave registry retains cached resolutions after mappings are removed', () => {
   const registry = new IconWeaveWindowRegistry();
   const application = { id: 'example.desktop' };
   const first = fakeWindow('Example', 'com.example.App');
   const second = fakeWindow('Example', 'com.example.App');
+  const key = createIconWeaveResolutionKey('Example', 'com.example.App', 'Example');
 
   registry.map(first, application);
   registry.map(second, application);
-  registry.markProcessed('Example');
+  registry.setResolvedApp(key, 'example.desktop');
 
-  registry.remove(first, 'Example', 'com.example.App');
-  assert.equal(registry.hasProcessed('Example'), true);
+  registry.remove(first);
+  assert.equal(registry.getResolvedApp(key), 'example.desktop');
 
-  registry.remove(second, 'Example', 'com.example.App');
-  assert.equal(registry.hasProcessed('Example'), false);
+  registry.remove(second);
+  assert.equal(registry.getResolvedApp(key), 'example.desktop');
 });
 
-test('icon weave registry clears mappings and processed identities together', () => {
+test('icon weave resolution keys distinguish title-dependent matches', () => {
+  const first = createIconWeaveResolutionKey('Example', 'com.example.App', 'First');
+  const second = createIconWeaveResolutionKey('Example', 'com.example.App', 'Second');
+
+  assert.notEqual(first, second);
+});
+
+test('icon weave registry invalidates resolutions without dropping live mappings', () => {
   const registry = new IconWeaveWindowRegistry();
   const window = fakeWindow('Example', 'com.example.App');
+  const key = createIconWeaveResolutionKey('Example', 'com.example.App', 'Example');
 
   registry.map(window, { id: 'example.desktop' });
-  registry.markProcessed('Example');
-  registry.clear();
+  registry.setResolvedApp(key, null);
+  registry.clearResolutions();
 
-  assert.equal(registry.mappings.size, 0);
-  assert.equal(registry.hasProcessed('Example'), false);
+  assert.equal(registry.mappings.size, 1);
+  assert.equal(registry.hasResolved(key), false);
+});
+
+test('icon weave registry bounds persistent title resolutions', () => {
+  const registry = new IconWeaveWindowRegistry();
+
+  for (let index = 0; index <= 256; index++) {
+    registry.setResolvedApp(`key-${index}`, `app-${index}.desktop`);
+  }
+
+  assert.equal(registry.hasResolved('key-0'), false);
+  assert.equal(registry.getResolvedApp('key-256'), 'app-256.desktop');
 });

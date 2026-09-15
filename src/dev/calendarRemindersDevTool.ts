@@ -9,12 +9,15 @@ import type { SettingsManager } from '~/core/settings.ts';
 import {
   createDevToolActionButton,
   createDevToolActionRow,
+  createDevToolGroup,
   createDevToolModulePanel,
+  createDevToolRow,
   createDevToolSummary,
 } from '~/dev/devToolUi.ts';
 import type { Module } from '~/module.ts';
 import { CalendarReminders } from '~/panel/clock/calendarReminders/calendarReminders.ts';
 import type { CalendarEvent } from '~/panel/clock/calendarReminders/calendarRemindersLogic.ts';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 const DEVTOOL_SOURCE_KEY = 'aurora-devtool';
 
@@ -53,6 +56,23 @@ export class CalendarRemindersDevTool {
       ),
     );
 
+    if (this._events.length) {
+      const preview = createDevToolGroup(_('Fake events'));
+      for (const event of this._events) {
+        const time = new Date(event.startEpochSeconds * 1000).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        preview.list.add_child(
+          createDevToolRow(
+            event.title,
+            `${time} · ${this._withReminder ? _('reminder') : _('no reminder')}`,
+          ),
+        );
+      }
+      panel.add_child(preview.container);
+    }
+
     const firstRow = createDevToolActionRow();
     firstRow.add_child(
       createDevToolActionButton(
@@ -80,6 +100,9 @@ export class CalendarRemindersDevTool {
         () => this.setWithReminder(!this._withReminder),
         !calendarReminders,
         this._withReminder,
+        undefined,
+        'calendar-with-reminder',
+        true,
       ),
     );
     secondRow.add_child(

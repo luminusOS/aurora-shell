@@ -1,5 +1,6 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
+import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import St from 'gi://St';
@@ -91,6 +92,18 @@ async function waitForFloatingActions(
   });
 }
 
+async function waitForHistoryWrite(evaluate, description) {
+  const historyFile = Gio.File.new_for_path(
+    `${GLib.get_user_runtime_dir()}/aurora-shell/${EXTENSION_UUID}/clipboard-history.log`,
+  );
+  const historyMonitor = historyFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
+  try {
+    await waitForCondition({ evaluate, signals: [[historyMonitor, 'changed']], description });
+  } finally {
+    historyMonitor.cancel();
+  }
+}
+
 export var METRICS = {};
 
 export function init() {
@@ -145,53 +158,90 @@ export async function run() {
   Scripting.scriptEvent('workspacePanelOk');
 
   const beforeTextCount = getClipboardModule().entryCount;
-  const textHistoryFile = Gio.File.new_for_path(
-    `${GLib.get_user_runtime_dir()}/aurora-shell/${EXTENSION_UUID}/clipboard-history.log`,
+  St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, 'aurora-test-clipboard-entry');
+  await waitForHistoryWrite(
+    () => getClipboardModule().entryCount > beforeTextCount,
+    'clipboard text to be persisted by the monitor',
   );
-  const textHistoryMonitor = textHistoryFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
-  try {
-    St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, 'aurora-test-clipboard-entry');
-    await waitForCondition({
-      evaluate: () => getClipboardModule().entryCount > beforeTextCount,
-      signals: [[textHistoryMonitor, 'changed']],
-      description: 'clipboard text to be persisted by the monitor',
-    });
-  } finally {
-    textHistoryMonitor.cancel();
-  }
 
   Scripting.scriptEvent('clipboardWritten');
 
-  const beforeImageCount = getClipboardModule().entryCount;
-  const historyFile = Gio.File.new_for_path(
-    `${GLib.get_user_runtime_dir()}/aurora-shell/${EXTENSION_UUID}/clipboard-history.log`,
+  const clipboard = St.Clipboard.get_default();
+  const clipboardModule = getClipboardModule();
+  const newestEntry = () => clipboardModule._store.getHistory()[0];
+
+  const screenshot = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, false, 8, 3840, 2160);
+  screenshot.fill(0x3366ccff);
+  const [, screenshotPng] = screenshot.save_to_bufferv('png', [], []);
+  const beforeImageCount = clipboardModule.entryCount;
+  clipboard.set_content(St.ClipboardType.CLIPBOARD, 'image/png', screenshotPng);
+  await waitForHistoryWrite(
+    () => clipboardModule.entryCount > beforeImageCount,
+    'screenshot-sized clipboard image to be captured by the monitor',
   );
-  const historyMonitor = historyFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
-  try {
-    St.Clipboard.get_default().set_content(
-      St.ClipboardType.CLIPBOARD,
-      'image/png',
-      new Uint8Array([
-        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6,
-        0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 255, 255, 255,
-        127, 0, 9, 251, 3, 253, 42, 134, 227, 138, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
-      ]),
-    );
-    await waitForCondition({
-      evaluate: () => getClipboardModule().entryCount > beforeImageCount,
-      signals: [[historyMonitor, 'changed']],
-      description: 'clipboard image to be persisted by the monitor',
-    });
-  } finally {
-    historyMonitor.cancel();
+
+  const imageEntry = newestEntry();
+  if (imageEntry?.kind !== 'image') throw new Error('Newest clipboard entry is not the image');
+  const thumbnailPath = imageEntry.filePath.replace(/\.[^./]+$/, '') + '.thumb.png';
+  const [, thumbnailWidth, thumbnailHeight] = GdkPixbuf.Pixbuf.get_file_info(thumbnailPath);
+  if (!thumbnailWidth || Math.max(thumbnailWidth, thumbnailHeight) > 640) {
+    throw new Error(`Image thumbnail has wrong size: ${thumbnailWidth}x${thumbnailHeight}`);
   }
 
-  if (getClipboardModule().entryCount <= beforeImageCount) {
-    throw new Error('Clipboard image was not captured by the monitor');
+  const store = clipboardModule._store;
+  const originalWriteThumbnail = store._writeThumbnail;
+  store._writeThumbnail = async () => {
+    throw new Error('Injected thumbnail failure');
+  };
+  let imageWithoutThumbnailAdded;
+  try {
+    imageWithoutThumbnailAdded = await clipboardModule.addImage({
+      mimeType: 'image/png',
+      bytes: new GLib.Bytes(screenshotPng),
+      fingerprint: `thumbnail-failure-${Date.now()}`,
+    });
+  } finally {
+    store._writeThumbnail = originalWriteThumbnail;
+  }
+  const imageWithoutThumbnail = newestEntry();
+  if (!imageWithoutThumbnailAdded || imageWithoutThumbnail?.kind !== 'image')
+    throw new Error('Valid image was dropped when thumbnail generation failed');
+  if (!Gio.File.new_for_path(imageWithoutThumbnail.filePath).query_exists(null))
+    throw new Error('Original image was removed when thumbnail generation failed');
+  if (
+    Gio.File.new_for_path(
+      imageWithoutThumbnail.filePath.replace(/\.[^./]+$/, '') + '.thumb.png',
+    ).query_exists(null)
+  )
+    throw new Error('Failed thumbnail unexpectedly exists');
+
+  const marker = 'aurora-test-before-image-restore';
+  clipboard.set_text(St.ClipboardType.CLIPBOARD, marker);
+  await waitForHistoryWrite(() => newestEntry()?.text === marker, 'marker text to be captured');
+
+  const selection = global.display.get_selection();
+  const originalTransfer = selection.transfer_async;
+  let imageReads = 0;
+  selection.transfer_async = function (...args) {
+    imageReads++;
+    return originalTransfer.apply(this, args);
+  };
+  try {
+    clipboardModule._onActivate(imageEntry);
+    await waitForCondition({
+      evaluate: () => clipboard.get_mimetypes(St.ClipboardType.CLIPBOARD).includes('image/png'),
+      signals: [[global.display.get_selection(), 'owner-changed']],
+      description: 'restored image to own the clipboard',
+    });
+    await waitForTiming(250, 'negative check: the 50 ms monitor read delay passes with no read');
+  } finally {
+    selection.transfer_async = originalTransfer;
+  }
+  if (imageReads !== 0) {
+    throw new Error(`Restoring an image made the monitor read it back (${imageReads} reads)`);
   }
   Scripting.scriptEvent('clipboardImageWritten');
 
-  const clipboardModule = getClipboardModule();
   const longText =
     'This long clipboard entry must wrap onto several visual lines while remaining inside the fixed panel width. '.repeat(
       6,
@@ -480,6 +530,14 @@ export async function run() {
 
   auroraSettings.set_boolean('module-clipboard-history', true);
   await Scripting.waitLeisure();
+
+  const reenabledModule = getClipboardModule();
+  const beforeReenabledCapture = reenabledModule.entryCount;
+  clipboard.set_text(St.ClipboardType.CLIPBOARD, 'aurora-test-after-reenable');
+  await waitForHistoryWrite(
+    () => getClipboardModule().entryCount > beforeReenabledCapture,
+    'clipboard monitor to resume after re-enable',
+  );
 }
 
 let _moduleEnabled = false;

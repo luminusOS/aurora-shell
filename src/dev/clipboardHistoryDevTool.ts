@@ -8,10 +8,13 @@ import { fingerprintBytes } from '~/clipboard/clipboardMonitor.ts';
 import {
   createDevToolActionButton,
   createDevToolActionRow,
+  createDevToolGroup,
   createDevToolModulePanel,
+  createDevToolRow,
   createDevToolSummary,
 } from '~/dev/devToolUi.ts';
 import type { Module } from '~/module.ts';
+import { gettext as _ } from '~/shared/i18n.ts';
 
 const RANDOM_MESSAGES = [
   'Aurora dev note: clipboard entry',
@@ -36,6 +39,8 @@ export class ClipboardHistoryDevTool {
   readonly key = 'clipboard-history';
   readonly title = 'Clipboard';
   readonly iconName = 'edit-paste-symbolic';
+
+  private _generatedSamples: string[] = [];
 
   constructor(
     private readonly _getModule: (key: string) => Module | null,
@@ -86,6 +91,8 @@ export class ClipboardHistoryDevTool {
         'Clear History',
         () => this.clearHistory(),
         !clipboard || clipboard.entryCount === 0,
+        false,
+        'destructive',
       ),
     );
     panel.add_child(secondaryRow);
@@ -117,6 +124,13 @@ export class ClipboardHistoryDevTool {
     );
     panel.add_child(sampleRow);
 
+    if (this._generatedSamples.length) {
+      const preview = createDevToolGroup(_('Generated samples'));
+      for (const sample of this._generatedSamples)
+        preview.list.add_child(createDevToolRow(sample, _('Added by Aurora DevTool')));
+      panel.add_child(preview.container);
+    }
+
     return panel;
   }
 
@@ -133,7 +147,7 @@ export class ClipboardHistoryDevTool {
 
     const text = this._makeRandomMessage();
     if (!clipboard.addText(text)) return null;
-    this._requestMenuRebuild();
+    this._remember(text);
     return text;
   }
 
@@ -151,7 +165,7 @@ export class ClipboardHistoryDevTool {
     if (!clipboard) return false;
 
     const added = clipboard.addText(SAMPLE_LINK);
-    if (added) this._requestMenuRebuild();
+    if (added) this._remember(SAMPLE_LINK);
     return added;
   }
 
@@ -160,7 +174,7 @@ export class ClipboardHistoryDevTool {
     if (!clipboard) return false;
 
     const added = clipboard.addText(SAMPLE_CODE_SNIPPET);
-    if (added) this._requestMenuRebuild();
+    if (added) this._remember(_('Generated code sample'));
     return added;
   }
 
@@ -175,7 +189,7 @@ export class ClipboardHistoryDevTool {
       bytes,
       fingerprint: fingerprintBytes(bytes),
     });
-    if (added) this._requestMenuRebuild();
+    if (added) this._remember(_('Generated image sample'));
     return added;
   }
 
@@ -184,6 +198,7 @@ export class ClipboardHistoryDevTool {
     if (!clipboard) return false;
     if (!clipboard.clearHistory()) return false;
 
+    this._generatedSamples = [];
     this._requestMenuRebuild();
     return true;
   }
@@ -210,5 +225,10 @@ export class ClipboardHistoryDevTool {
   private _makeRandomMessage(): string {
     const base = RANDOM_MESSAGES[Math.floor(Math.random() * RANDOM_MESSAGES.length)]!;
     return `${base} #${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  }
+
+  private _remember(sample: string): void {
+    this._generatedSamples = [sample, ...this._generatedSamples].slice(0, 5);
+    this._requestMenuRebuild();
   }
 }

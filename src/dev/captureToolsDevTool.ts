@@ -57,6 +57,8 @@ export class CaptureToolsDevTool {
         'Open Preview',
         () => void this.openPreview(),
         !capture,
+        false,
+        'suggested',
       ),
     );
     sessionRow.add_child(
@@ -71,6 +73,9 @@ export class CaptureToolsDevTool {
         `Tool: ${toolLabel}`,
         () => this.cycleTool(),
         !capture,
+        false,
+        undefined,
+        'capture-tool',
       ),
     );
     appearanceRow.add_child(
@@ -79,6 +84,9 @@ export class CaptureToolsDevTool {
         `Color: ${colorLabel}`,
         () => this.cycleColor(),
         !capture,
+        false,
+        undefined,
+        'capture-color',
       ),
     );
     appearanceRow.add_child(
@@ -87,6 +95,9 @@ export class CaptureToolsDevTool {
         `Width: ${widthLabel}`,
         () => this.cycleWidth(),
         !capture,
+        false,
+        undefined,
+        'capture-width',
       ),
     );
     panel.add_child(appearanceRow);
@@ -99,6 +110,9 @@ export class CaptureToolsDevTool {
         () => this.toggleInteraction('selection'),
         !capture,
         Boolean(state && state.interaction === 'selection'),
+        undefined,
+        'capture-interaction-selection',
+        true,
       ),
     );
     opacityRow.add_child(
@@ -108,6 +122,9 @@ export class CaptureToolsDevTool {
         () => this.toggleInteraction('drawing'),
         !capture,
         Boolean(state && state.interaction === 'drawing'),
+        undefined,
+        'capture-interaction-drawing',
+        true,
       ),
     );
     panel.add_child(opacityRow);
@@ -120,6 +137,9 @@ export class CaptureToolsDevTool {
         () => this.setTesseractAvailable(true),
         !capture,
         Boolean(state && state.ocrAvailabilityOverridden && state.ocrAvailable === true),
+        undefined,
+        'capture-tesseract-on',
+        true,
       ),
     );
     tesseractRow.add_child(
@@ -129,6 +149,9 @@ export class CaptureToolsDevTool {
         () => this.setTesseractAvailable(false),
         !capture,
         Boolean(state && state.ocrAvailabilityOverridden && state.ocrAvailable === false),
+        undefined,
+        'capture-tesseract-off',
+        true,
       ),
     );
     panel.add_child(tesseractRow);

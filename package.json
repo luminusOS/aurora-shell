@@ -20,7 +20,8 @@
     "stylelint": "stylelint \"src/styles/**/*.scss\"",
     "watch:css": "tsx sass.config.ts --watch",
     "test:unit": "node --import tsx/esm --test \"tests/unit/**/*.test.ts\"",
-    "test:unit:coverage": "node --import tsx/esm --experimental-test-coverage --test \"tests/unit/**/*.test.ts\""
+    "test:unit:coverage": "node --import tsx/esm --experimental-test-coverage --test \"tests/unit/**/*.test.ts\"",
+    "benchmark:runtime": "tsx tests/performance/runtimePerformance.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

@@ -11,6 +11,7 @@ import {
   waitForModuleState,
 } from '../support/testUtils.js';
 import { exerciseCaptureTools, exerciseClipboardHistory } from './scenarios/captureAndClipboard.js';
+import { exerciseDevToolUi } from './scenarios/devToolUi.js';
 import { exerciseDock } from './scenarios/dock.js';
 import {
   exerciseCalendarReminders,
@@ -27,6 +28,7 @@ export function init() {
   Scripting.defineScriptEvent('extensionEnabled', 'Extension enabled');
   Scripting.defineScriptEvent('devToolAbsent', 'DevTool absent without AURORA_DEVTOOLS');
   Scripting.defineScriptEvent('devToolFound', 'DevTool found with AURORA_DEVTOOLS');
+  Scripting.defineScriptEvent('devToolUiPassed', 'DevTool card navigation and reset passed');
   Scripting.defineScriptEvent('captureToolPassed', 'Capture Tool DevTool actions passed');
   Scripting.defineScriptEvent('clipboardToolPassed', 'Clipboard History DevTool actions passed');
   Scripting.defineScriptEvent('trayIconsToolPassed', 'Tray Icons DevTool actions passed');
@@ -71,10 +73,13 @@ export async function run() {
 
   if (!devTool.generalTool) throw new Error('General DevTool section not found');
 
-  await exerciseCaptureTools(settings, devTool);
+  await exerciseDevToolUi(panelButton, settings);
+  Scripting.scriptEvent('devToolUiPassed');
+
+  await exerciseCaptureTools(panelButton, settings, devTool);
   Scripting.scriptEvent('captureToolPassed');
 
-  await exerciseClipboardHistory(settings, devTool);
+  await exerciseClipboardHistory(panelButton, settings, devTool);
   Scripting.scriptEvent('clipboardToolPassed');
 
   await exerciseTrayIcons(devTool, tray);
@@ -93,6 +98,7 @@ export async function run() {
 let _extensionEnabled = false;
 let _devToolAbsent = false;
 let _devToolFound = false;
+let _devToolUiPassed = false;
 let _captureToolPassed = false;
 let _clipboardToolPassed = false;
 let _trayIconsToolPassed = false;
@@ -110,6 +116,10 @@ export function script_devToolAbsent() {
 
 export function script_devToolFound() {
   _devToolFound = true;
+}
+
+export function script_devToolUiPassed() {
+  _devToolUiPassed = true;
 }
 
 export function script_captureToolPassed() {
@@ -141,6 +151,7 @@ export function finish() {
 
   if (GLib.getenv('AURORA_DEVTOOLS') === '1') {
     if (!_devToolFound) throw new Error('DevTool was not found with AURORA_DEVTOOLS=1');
+    if (!_devToolUiPassed) throw new Error('DevTool card UI checks did not complete');
     if (!_captureToolPassed) throw new Error('Capture Tool DevTool actions did not complete');
     if (!_clipboardToolPassed)
       throw new Error('Clipboard History DevTool actions did not complete');
