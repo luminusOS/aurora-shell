@@ -8,7 +8,14 @@ import St from '@girs/st-18';
 import { TRAY_ICON_FALLBACK_NAME, type TrayItem, type TrayItemStatus } from './trayState.ts';
 import type { SniWatcher } from './sniWatcher.ts';
 import { sniIdentityMatchesAppId } from './appIdentity.ts';
-import { isSymbolicSniArgb } from './sniIconState.ts';
+import {
+  ARGB_LAYOUT,
+  RGBA_LAYOUT,
+  isSymbolicSniPixels,
+  packRgbaRows,
+  toRgba,
+  type Tone,
+} from './sniIconState.ts';
 import { SniEntry } from './sniEntry.ts';
 import { logger } from '~/core/logger.ts';
 
@@ -38,10 +45,8 @@ const SNI_ITEM_XML = `
 </node>`;
 
 const MIN_PIXMAP_SIZE = 8;
-const SYMBOLIC_CHANNEL_TOLERANCE = 18;
-const SYMBOLIC_REQUIRED_RATIO = 0.92;
-const LIGHT_PANEL_ICON = [48, 48, 48] as const;
-const DARK_PANEL_ICON = [250, 250, 251] as const;
+const LIGHT_PANEL_ICON: Tone = [48, 48, 48];
+const DARK_PANEL_ICON: Tone = [250, 250, 251];
 const LOG_PREFIX = 'AuroraTray';
 
 // @ts-ignore — _promisify is a GJS extension not reflected in .d.ts
@@ -316,52 +321,17 @@ export class SniHost {
   ): GdkPixbuf.Pixbuf {
     if (!this._shouldRecolorSymbolicPixmaps() || pixbuf.get_n_channels() !== 4) return pixbuf;
 
-    const w = pixbuf.get_width();
-    const h = pixbuf.get_height();
-    const rowstride = pixbuf.get_rowstride();
     const data = pixbuf.get_pixels();
     if (!data) return pixbuf;
 
-    let opaquePixels = 0;
-    let monochromePixels = 0;
-    for (let row = 0; row < h; row++) {
-      const base = row * rowstride;
-      for (let col = 0; col < w; col++) {
-        const i = base + col * 4;
-        const a = data[i + 3]!;
-        if (a < 16) continue;
-        opaquePixels++;
-        const r = data[i]!;
-        const g = data[i + 1]!;
-        const b = data[i + 2]!;
-        if (Math.max(r, g, b) - Math.min(r, g, b) <= SYMBOLIC_CHANNEL_TOLERANCE) monochromePixels++;
-      }
-    }
+    const w = pixbuf.get_width();
+    const h = pixbuf.get_height();
+    const pixels = packRgbaRows(data, w, h, pixbuf.get_rowstride());
+    if (!isSymbolicSniPixels(pixels, RGBA_LAYOUT, w * h)) return pixbuf;
 
-    if (opaquePixels === 0 || monochromePixels / opaquePixels < SYMBOLIC_REQUIRED_RATIO)
-      return pixbuf;
+    this._logRecolor('theme-path icon', itemId, reason, w, h);
 
-    const [targetR, targetG, targetB] = this._panelIconColor();
-    const pixels = new Uint8Array(w * h * 4);
-    for (let row = 0; row < h; row++) {
-      const srcBase = row * rowstride;
-      const dstBase = row * w * 4;
-      for (let col = 0; col < w; col++) {
-        const si = srcBase + col * 4;
-        const di = dstBase + col * 4;
-        pixels[di] = targetR;
-        pixels[di + 1] = targetG;
-        pixels[di + 2] = targetB;
-        pixels[di + 3] = data[si + 3]!;
-      }
-    }
-
-    logger.debug(
-      `Recolored symbolic theme-path icon ${itemId} reason=${reason} scheme=${this._getColorScheme()} size=${w}x${h}`,
-      { prefix: LOG_PREFIX },
-    );
-
-    return GdkPixbuf.Pixbuf.new_from_bytes(pixels, GdkPixbuf.Colorspace.RGB, true, 8, w, h, w * 4);
+    return this._createPixbuf(toRgba(pixels, RGBA_LAYOUT, w * h, this._panelIconColor()), w, h);
   }
 
   private _extractPixbuf(
@@ -400,35 +370,40 @@ export class SniHost {
     const unpacked = data.get_data();
     if (!unpacked || unpacked.length < w * h * 4) return null;
 
-    const pixels = new Uint8Array(unpacked.length);
-    const symbolic = this._shouldRecolorSymbolicPixmaps() && this._isSymbolicPixmap(unpacked, w, h);
-    const [targetR, targetG, targetB] = this._panelIconColor();
-    for (let i = 0; i < unpacked.length; i += 4) {
-      pixels[i] = symbolic ? targetR : unpacked[i + 1]!; // R
-      pixels[i + 1] = symbolic ? targetG : unpacked[i + 2]!; // G
-      pixels[i + 2] = symbolic ? targetB : unpacked[i + 3]!; // B
-      pixels[i + 3] = unpacked[i]!; // A
-    }
+    const recolor =
+      this._shouldRecolorSymbolicPixmaps() && isSymbolicSniPixels(unpacked, ARGB_LAYOUT, w * h);
+    const tone = recolor ? this._panelIconColor() : undefined;
+    if (recolor) this._logRecolor('pixmap', itemId, reason, w, h);
 
-    if (symbolic) {
-      logger.debug(
-        `Recolored symbolic SNI pixmap ${itemId} reason=${reason} scheme=${this._getColorScheme()} size=${w}x${h}`,
-        { prefix: LOG_PREFIX },
-      );
-    }
-
-    return GdkPixbuf.Pixbuf.new_from_bytes(pixels, GdkPixbuf.Colorspace.RGB, true, 8, w, h, w * 4);
+    return this._createPixbuf(toRgba(unpacked, ARGB_LAYOUT, w * h, tone), w, h);
   }
 
-  private _panelIconColor(): readonly [number, number, number] {
+  private _panelIconColor(): Tone {
     return this._getColorScheme() === 'prefer-light' ? LIGHT_PANEL_ICON : DARK_PANEL_ICON;
   }
 
-  private _isSymbolicPixmap(data: Uint8Array, width: number, height: number): boolean {
-    return isSymbolicSniArgb(
-      data.slice(0, width * height * 4),
-      SYMBOLIC_CHANNEL_TOLERANCE,
-      SYMBOLIC_REQUIRED_RATIO,
+  private _createPixbuf(rgba: Uint8Array, width: number, height: number): GdkPixbuf.Pixbuf {
+    return GdkPixbuf.Pixbuf.new_from_bytes(
+      rgba,
+      GdkPixbuf.Colorspace.RGB,
+      true,
+      8,
+      width,
+      height,
+      width * 4,
+    );
+  }
+
+  private _logRecolor(
+    source: string,
+    itemId: string,
+    reason: string,
+    width: number,
+    height: number,
+  ): void {
+    logger.debug(
+      `Recolored symbolic SNI ${source} ${itemId} reason=${reason} scheme=${this._getColorScheme()} size=${width}x${height}`,
+      { prefix: LOG_PREFIX },
     );
   }
 
