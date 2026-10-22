@@ -2,6 +2,7 @@ import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 import GLib from '@girs/glib-2.0';
 import Gio from '@girs/gio-2.0';
+import * as Main from '@girs/gnome-shell/ui/main';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
@@ -18,6 +19,9 @@ import type { SettingsManager } from '~/core/settings.ts';
  * enable and reschedules precisely at each boundary using a single-shot
  * GLib timer. Subscribes to PrepareForSleep to reset the timer after
  * system suspend, since GLib monotonic timers pause during sleep.
+ *
+ * Every switch after the initial one runs Shell's screen transition first, matching the
+ * cross-fade of the Dark Style Quick Settings toggle.
  */
 const LIGHT_HOURS_KEY = 'auto-theme-switcher-light-hours';
 const LIGHT_MINUTES_KEY = 'auto-theme-switcher-light-minutes';
@@ -59,7 +63,7 @@ export class AutoThemeSwitcher extends Module {
       },
     );
     this._lifecycle.onDispose(() => Gio.DBus.system.signal_unsubscribe(subscriptionId));
-    this._tick();
+    this._tick(false);
   }
 
   override disable(): void {
@@ -69,7 +73,7 @@ export class AutoThemeSwitcher extends Module {
     this._desktopSettings = null;
   }
 
-  private _tick(): void {
+  private _tick(animated: boolean = true): void {
     const scheduledTick = this._scheduledTick;
     if (!scheduledTick || !this._desktopSettings) return;
 
@@ -89,6 +93,8 @@ export class AutoThemeSwitcher extends Module {
     const currentScheme = this._desktopSettings.getString('color-scheme');
 
     if (currentScheme !== scheme) {
+      if (animated) Main.layoutManager.screenTransition.run();
+
       this._desktopSettings.setString('color-scheme', scheme);
       logger.debug(`applied ${scheme}`, { prefix: LOG_PREFIX });
     } else {
