@@ -28,7 +28,6 @@ type DashVisibilityOptions = {
   getWorkArea: () => DashBounds | null;
   isMenuOpen: () => boolean;
   applyWorkArea: (workArea: DashBounds) => void;
-  queueTargetBoxUpdate: () => void;
   showActor: () => void;
   hideActor: () => void;
 };
@@ -288,7 +287,6 @@ export class DashVisibilityController {
     if (!animate) {
       this._applyShownState();
       this._options.showActor();
-      this._options.queueTargetBoxUpdate();
       this._flushShowCompletionCallbacks();
       return;
     }
@@ -308,7 +306,6 @@ export class DashVisibilityController {
         if (this._target !== 'shown') return;
 
         this._applyShownState();
-        this._options.queueTargetBoxUpdate();
         logger.debug(`monitor=${this._options.getMonitorIndex()} shown transition completed`, {
           prefix: LOG_PREFIX,
         });

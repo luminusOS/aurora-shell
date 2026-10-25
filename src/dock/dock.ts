@@ -112,14 +112,12 @@ export class Dock extends Module {
     Main.layoutManager.connectObject(
       'monitors-changed',
       () => {
-        this._rebuildBindings();
+        this._syncBindingsToMonitors();
         this._fullscreenMonitors = this._getFullscreenMonitors();
         this._beginActivationCooldown('monitors-changed');
       },
-      'hot-corners-changed',
-      () => this._rebuildBindings(),
       'startup-complete',
-      () => this._rebuildBindings(),
+      () => this._syncBindingsToMonitors(),
       this,
     );
     this._lifecycle.onDispose(() => Main.layoutManager.disconnectObject(this));
@@ -362,6 +360,20 @@ export class Dock extends Module {
 
     this._pendingRebuild = false;
     this._clearBindings();
+    this._syncBindingsToMonitors();
+  }
+
+  /**
+   * Matches the bindings to the current monitor layout: bindings for monitors that are still
+   * selected are kept and repositioned by the work-area refresh, the rest are destroyed, and
+   * missing ones are created. Keeping a binding preserves its visibility state, so a monitor
+   * change does not replace a shown dock with a new one that has to appear again.
+   */
+  private _syncBindingsToMonitors(): void {
+    if (Main.overview.visible) {
+      this._pendingRebuild = true;
+      return;
+    }
 
     const monitors: DashBounds[] = Main.layoutManager.monitors || [];
     const primaryIndex = Main.layoutManager.primaryIndex;
@@ -378,17 +390,27 @@ export class Dock extends Module {
       .join(';');
     logger.debug(
       [
-        `rebuild primary=${primaryIndex}`,
+        `sync bindings primary=${primaryIndex}`,
         `showOnAllMonitors=${this._showOnAllMonitors}`,
         `position=${this._position}`,
+        `existing=[${[...this._bindings.keys()].join(',')}]`,
         `selected=[${monitorIndexes.join(',')}]`,
         `monitors=[${monitorSummary}]`,
       ].join(' '),
       { prefix: LOG_PREFIX },
     );
+
+    for (const [monitorIndex, binding] of this._bindings) {
+      if (monitorIndexes.includes(monitorIndex) && monitors[monitorIndex]) continue;
+
+      this._destroyBinding(binding);
+      this._bindings.delete(monitorIndex);
+    }
+
     monitorIndexes.forEach((monitorIndex) => {
       const monitor = monitors[monitorIndex];
-      if (!monitor) return;
+      if (!monitor || this._bindings.has(monitorIndex)) return;
+
       const binding = this._createBinding(monitor, monitorIndex);
       if (binding) this._bindings.set(monitorIndex, binding);
     });
@@ -461,13 +483,21 @@ export class Dock extends Module {
         return binding;
       }
 
+      // Like always-autohide, start hidden and let intellihide reveal the dock. Its first overlap
+      // check is debounced, so a dock created shown would flash under a maximized window first.
+      dash.hide(false);
+
       const intellihide = new DockIntellihide(monitorIndex);
       binding.intellihide = intellihide;
       dash.setTargetBoxListener((box) => intellihide.updateTargetBox(box));
 
+      let awaitingFirstStatus = true;
       intellihide.connectObject(
         'status-changed',
         () => {
+          const isFirstStatus = awaitingFirstStatus;
+          awaitingFirstStatus = false;
+
           if (binding.hotAreaActive) {
             this._handleHotAreaActiveIntellihideChange(binding);
             return;
@@ -481,6 +511,14 @@ export class Dock extends Module {
             this._clearHotAreaEnable(binding);
             binding.hotArea?.setEnabled(false);
             dash.blockAutoHide(true);
+          } else if (intellihide.status === OverlapStatus.BLOCKED && isFirstStatus) {
+            // A rebuilt binding (monitor change) has never been shown, so there is no shown
+            // state to hand over to autohide. Autohide would leave the dock where it is and
+            // the hot area unarmed until an overview refresh; hide it explicitly instead.
+            logger.debug(`monitor=${monitorIndex} intellihide=BLOCKED on first status, hiding`, {
+              prefix: LOG_PREFIX,
+            });
+            this._hideBinding(binding);
           } else if (intellihide.status === OverlapStatus.BLOCKED) {
             logger.debug(`monitor=${monitorIndex} intellihide=BLOCKED handoff autohide`, {
               prefix: LOG_PREFIX,
