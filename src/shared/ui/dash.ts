@@ -105,7 +105,6 @@ export const AuroraDash = GObject.registerClass(
         getWorkArea: () => this._workArea,
         isMenuOpen: () => this._isMenuOpen(),
         applyWorkArea: (workArea) => this.applyWorkArea(workArea),
-        queueTargetBoxUpdate: () => this._queueTargetBoxUpdate(),
         showActor: () => Dash.prototype.show.call(this),
         hideActor: () => Dash.prototype.hide.call(this),
       });
@@ -162,7 +161,7 @@ export const AuroraDash = GObject.registerClass(
         : Clutter.Orientation.HORIZONTAL;
       if (vertical) this._transposeBackgroundConstraints(dashContainer);
 
-      this.connectObject('notify::allocation', () => this._queueTargetBoxUpdate(), this);
+      this.connectObject('notify::allocation', () => this._visibility.flushPendingShow(), this);
 
       // Track _box allocation so the chrome container follows the dash's
       // preferred width every frame. Critical during drag: the placeholder
@@ -367,7 +366,7 @@ export const AuroraDash = GObject.registerClass(
 
       container.connectObject(
         'notify::allocation',
-        () => this._queueTargetBoxUpdate(),
+        () => this._visibility.flushPendingShow(),
         'destroy',
         () => {
           if (this._container === container) this._container = null;
@@ -375,7 +374,7 @@ export const AuroraDash = GObject.registerClass(
         this,
       );
 
-      this._queueTargetBoxUpdate();
+      this._visibility.flushPendingShow();
     }
 
     detachFromContainer(): void {
@@ -410,7 +409,11 @@ export const AuroraDash = GObject.registerClass(
 
       this._container.set_size(placement.width, placement.height);
       this._container.set_position(placement.x, placement.y);
-      this._queueTargetBoxUpdate();
+      this._publishTargetBox(placement);
+
+      // Re-showing a dash whose size did not change emits no notify::allocation, so a show
+      // deferred for allocation must also be retried once its layout is applied.
+      this._visibility.flushPendingShow();
     }
 
     blockAutoHide(block: boolean): void {
@@ -755,41 +758,20 @@ export const AuroraDash = GObject.registerClass(
       }
     }
 
-    private _getAllocationSize(): { width: number; height: number } | null {
-      const allocation = this.get_allocation_box();
-      const width = Math.max(0, allocation.x2 - allocation.x1);
-      const height = Math.max(0, allocation.y2 - allocation.y1);
-      return width > 0 && height > 0 ? { width, height } : null;
-    }
-
     /**
-     * Compute the dash bounds in stage coordinates and notify the intellihide
-     * listener. Only reads `get_transformed_position` when the dash is visible
-     * with no active translation, so the result reflects the true resting
-     * position rather than a mid-animation snapshot.
+     * Publishes the dock's resting bounds to the intellihide listener.
+     *
+     * The bounds come from the computed placement rather than from the painted actor: Clutter
+     * does not allocate unmapped actors, so a hidden dock has no usable allocation, yet intellihide
+     * must know where the dock would sit before deciding whether to show it. The placement is in
+     * uiGroup coordinates, which coincide with stage coordinates.
      */
-    private _queueTargetBoxUpdate(): void {
-      if (!this._container) return;
+    private _publishTargetBox(placement: DashBounds): void {
+      if (placement.width <= 0 || placement.height <= 0) return;
+      if (boundsEqual(this._targetBox, placement)) return;
 
-      const size = this._getAllocationSize();
-      if (!size) return;
-
-      this._visibility.flushPendingShow();
-      if (!this.visible || this.translation_x !== 0 || this.translation_y !== 0) return;
-
-      const [stageX, stageY] = this.get_transformed_position();
-
-      const bounds: DashBounds = {
-        x: stageX,
-        y: stageY,
-        width: size.width,
-        height: size.height,
-      };
-
-      if (!boundsEqual(this._targetBox, bounds)) {
-        this._targetBox = bounds;
-        if (this._targetBoxListener) this._targetBoxListener(this._targetBox);
-      }
+      this._targetBox = placement;
+      if (this._targetBoxListener) this._targetBoxListener(this._targetBox);
     }
 
     private _getEdgeMargin(): number {

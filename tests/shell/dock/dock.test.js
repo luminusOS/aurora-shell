@@ -19,7 +19,11 @@ import {
   waitForTiming,
   waitForExtension,
 } from '../support/testUtils.js';
-import { exerciseExternalWorkspace, exerciseMonitorScope } from './scenarios/monitors.js';
+import {
+  exerciseExternalWorkspace,
+  exerciseMonitorScope,
+  exerciseRebuiltBindingBlockedFirst,
+} from './scenarios/monitors.js';
 
 const DOCK_ACTOR_PREFIX = 'aurora-dock-container-';
 const APPLICATION_POPUP_WINDOW_TYPES = [
@@ -1061,6 +1065,10 @@ export function init() {
     'Intellihide keeps the dock actor stable on external monitors in workspace two',
   );
   Scripting.defineScriptEvent(
+    'rebuiltBindingBlockedFirstHides',
+    'A rebuilt Dock starts hidden, follows its first status and survives a monitor sync',
+  );
+  Scripting.defineScriptEvent(
     'primaryMonitorOnly',
     'Primary-only Dock aggregates active-workspace apps from every monitor',
   );
@@ -1818,6 +1826,8 @@ export async function run() {
   }
   Scripting.scriptEvent('alwaysAutoHideIndependent');
 
+  await exerciseRebuiltBindingBlockedFirst(settings, dock);
+
   // The Shell may destroy the Dash content actor from C before the module's
   // explicit teardown runs. Pending autohide callbacks must stop immediately
   // instead of reading children from the disposed actor.
@@ -1898,6 +1908,7 @@ let _configuredIconSizeApplied = false;
 let _motionTextureSupersampled = false;
 let _fixedIconMotionRegistered = false;
 let _externalWorkspaceActorStable = false;
+let _rebuiltBindingBlockedFirstHides = false;
 let _primaryMonitorOnly = false;
 let _allMonitorsEnabled = false;
 let _alwaysAutoHideIndependent = false;
@@ -1996,6 +2007,10 @@ export function script_externalWorkspaceActorStable() {
   _externalWorkspaceActorStable = true;
 }
 
+export function script_rebuiltBindingBlockedFirstHides() {
+  _rebuiltBindingBlockedFirstHides = true;
+}
+
 export function script_primaryMonitorOnly() {
   _primaryMonitorOnly = true;
 }
@@ -2054,6 +2069,8 @@ export function finish() {
     throw new Error('Trash and removable-storage icons were not registered with dock motion');
   if (!_externalWorkspaceActorStable)
     throw new Error('External-monitor Dock actor did not remain stable in workspace two');
+  if (!_rebuiltBindingBlockedFirstHides)
+    throw new Error('Rebuilt Dock did not start hidden and follow its first intellihide status');
   if (!_primaryMonitorOnly) throw new Error('Dock primary-monitor-only behavior was not verified');
   if (!_allMonitorsEnabled) throw new Error('Dock all-monitors opt-in behavior was not verified');
   if (!_alwaysAutoHideIndependent)

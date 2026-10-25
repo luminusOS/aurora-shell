@@ -42,6 +42,74 @@ export async function exerciseMonitorScope(settings, dock) {
   Scripting.scriptEvent('allMonitorsEnabled');
 }
 
+export async function exerciseRebuiltBindingBlockedFirst(settings, dock) {
+  settings.set_boolean('dock-intellihide', true);
+  await Scripting.waitLeisure();
+
+  dock._rebuildBindings();
+  const binding = dock.bindings.find(
+    (candidate) => candidate.monitorIndex === Main.layoutManager.primaryIndex,
+  );
+  if (!binding?.intellihide)
+    throw new Error('Rebuilt Dock has no intellihide on the primary monitor');
+
+  binding.intellihide._queuedRefreshes.clear();
+  binding.intellihide._settle.clear();
+
+  if (binding.dash.visible) throw new Error('Rebuilt Dock was shown before intellihide decided');
+  if (!binding.dash.targetBox)
+    throw new Error('Hidden rebuilt Dock published no target box for intellihide');
+
+  let revealed = false;
+  const visibleId = binding.dash.connect('notify::visible', () => {
+    if (binding.dash.visible) revealed = true;
+  });
+  try {
+    binding.intellihide._applyOverlap(true, 'shell-test-first-status', [], true);
+    await waitForCondition({
+      evaluate: () => binding.hotArea?.reactive && !binding.hotAreaActive,
+      signals: [
+        [binding.dash, 'transitions-completed'],
+        ...(binding.hotArea ? [[binding.hotArea, 'notify::reactive']] : []),
+      ],
+      description: 'rebuilt Dock to arm its hot area on its first BLOCKED status',
+    });
+  } finally {
+    binding.dash.disconnect(visibleId);
+  }
+  if (revealed || binding.dash.visible)
+    throw new Error('Rebuilt Dock appeared although its first intellihide status was BLOCKED');
+
+  binding.intellihide._applyOverlap(false, 'shell-test-clear', [], true);
+  await waitForCondition({
+    evaluate: () => binding.dash.visible,
+    signals: [[binding.dash, 'notify::visible']],
+    description: 'hidden rebuilt Dock to appear once intellihide reports CLEAR',
+  });
+
+  let hiddenDuringSync = false;
+  const syncVisibleId = binding.dash.connect('notify::visible', () => {
+    if (!binding.dash.visible) hiddenDuringSync = true;
+  });
+  try {
+    dock._syncBindingsToMonitors();
+    await Scripting.waitLeisure();
+  } finally {
+    binding.dash.disconnect(syncVisibleId);
+  }
+  const syncedBinding = dock.bindings.find(
+    (candidate) => candidate.monitorIndex === binding.monitorIndex,
+  );
+  if (syncedBinding !== binding)
+    throw new Error('Monitor sync replaced a Dock binding whose monitor is still selected');
+  if (hiddenDuringSync || !binding.dash.visible)
+    throw new Error('Monitor sync hid a shown Dock whose monitor is still selected');
+
+  settings.set_boolean('dock-intellihide', false);
+  await Scripting.waitLeisure();
+  Scripting.scriptEvent('rebuiltBindingBlockedFirstHides');
+}
+
 function isStable(binding, bounds = null) {
   const dash = binding.dash;
   const current = dash.targetBox;
