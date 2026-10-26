@@ -34,7 +34,9 @@ The [module reference](docs/module-reference.md) lists every module's settings k
 
 Install Aurora Shell from [extensions.gnome.org](https://extensions.gnome.org/extension/9389/aurora-shell/), with the browser or an app such as Extension Manager.
 
-> [!IMPORTANT] Aurora Shell supports only the GNOME Shell versions listed in [metadata.json](metadata.json). Shell internals change between releases, so do not force-install it on another version.
+> [!IMPORTANT]
+>
+> Aurora Shell supports only the GNOME Shell versions listed in [metadata.json](metadata.json). Shell internals change between releases, so do not force-install it on another version.
 
 To install a release by hand, download `aurora-shell@luminusos.github.io.shell-extension.zip` from the [releases page](https://github.com/luminusOS/aurora-shell/releases) and run:
 
@@ -43,7 +45,9 @@ gnome-extensions install --force aurora-shell@luminusos.github.io.shell-extensio
 gnome-extensions enable aurora-shell@luminusos.github.io
 ```
 
-> [!NOTE] On Wayland, GNOME Shell only loads a newly installed extension after you log out and back in.
+> [!NOTE]
+>
+> On Wayland, GNOME Shell only loads a newly installed extension after you log out and back in.
 
 Releases also include a `.development.shell-extension.zip` with tools for contributors and QA sessions.
 
