@@ -1,59 +1,86 @@
 <div align="center">
-  <img src="data/media/aurora-shell-logo.svg" width="200" alt="Aurora Shell logo" />
-</div>
+  <img src="data/media/aurora-shell-logo.svg" width="128" alt="Aurora Shell logo" />
 
 # Aurora Shell
 
-Aurora Shell brings optional desktop features to GNOME Shell, from dock and panel controls to appearance, window behavior, and clipboard tools. Choose which modules to enable and configure them in one preferences window.
+_Optional desktop features for GNOME Shell, each one a switch away_
 
-Supported GNOME Shell versions are listed in [metadata.json](metadata.json). Shell internals change between GNOME releases, so do not force-install Aurora Shell on an unlisted version. Some modules also depend on services that may be absent: GNOME Weather for Weather Clock, Tesseract for Capture Tools OCR, and Vela for Vela VPN Quick Settings.
+<a href="https://extensions.gnome.org/extension/9389/aurora-shell/"><img src="https://raw.githubusercontent.com/andyholmes/gnome-shell-extensions-badge/master/get-it-on-ego.svg" height="100" alt="Get it on GNOME Extensions" /></a>
 
-Aurora Shell is licensed under GPL-3.0-only. See [LICENSE](LICENSE) and [CREDITS.md](CREDITS.md).
+[![CI](https://github.com/luminusOS/aurora-shell/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/luminusOS/aurora-shell/actions/workflows/ci.yml?query=branch%3Amain) [![Release](https://img.shields.io/github/v/release/luminusOS/aurora-shell?include_prereleases&sort=semver)](https://github.com/luminusOS/aurora-shell/releases) [![GNOME Shell 51](https://img.shields.io/badge/GNOME%20Shell-51-4a86cf?logo=gnome&logoColor=white)](metadata.json) [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue)](LICENSE)
+
+[Modules](#modules) · [Install](#install) · [Configure](#configure) · [Develop](#develop)
+
+</div>
+
+Aurora Shell adds dock and panel controls, appearance tweaks, window behavior and clipboard tools to GNOME Shell. Every feature is a separate module: turn on the ones you want in a single preferences window and the rest stay out of the way.
+
+## Modules
+
+Most modules are enabled by default. Auto Theme Switcher and Vela VPN Quick Settings are opt-in.
+
+| Area | Modules |
+| --- | --- |
+| Dock and panel | Dock, Aurora Menu, Power Menu Avatar, Volume Mixer, Low Battery Percentage, Lock Key Indicators, Bluetooth Menu, Weather Clock, Calendar Reminders, Tray Icons |
+| Appearance | Theme Changer, Icon Weave, App Search Tooltip, Auto Theme Switcher |
+| Behavior | Skip Overview on Login, Pip On Top, Focus Launched Windows, Capture Tools, XWayland Indicator, Vela VPN Quick Settings |
+| Privacy and clipboard | Privacy, Clipboard History |
+
+Low Battery Percentage shows GNOME's battery percentage while the battery discharges below 30%, and leaves it alone if you already turned it on. Vela VPN Quick Settings routes the Quick Settings VPN toggle through Vela's D-Bus API; its fallback to GNOME Shell's own VPN handling is off by default.
+
+The [module reference](docs/module-reference.md) lists every module's settings key, default, dependencies, runtime policy and where its code and tests live.
 
 ## Install
 
-The recommended build is published on [extensions.gnome.org](https://extensions.gnome.org/extension/9389/aurora-shell/).
+Install Aurora Shell from [extensions.gnome.org](https://extensions.gnome.org/extension/9389/aurora-shell/), with the browser or an app such as Extension Manager.
 
-To install a release asset manually, download `aurora-shell@luminusos.github.io.shell-extension.zip` from the [GitHub releases page](https://github.com/luminusOS/aurora-shell/releases), then run:
+> [!IMPORTANT] Aurora Shell supports only the GNOME Shell versions listed in [metadata.json](metadata.json). Shell internals change between releases, so do not force-install it on another version.
+
+To install a release by hand, download `aurora-shell@luminusos.github.io.shell-extension.zip` from the [releases page](https://github.com/luminusOS/aurora-shell/releases) and run:
 
 ```bash
 gnome-extensions install --force aurora-shell@luminusos.github.io.shell-extension.zip
 gnome-extensions enable aurora-shell@luminusos.github.io
 ```
 
-Log out and back in if the extension is not available in the current Shell session. Open the Extensions app or run `gnome-extensions prefs aurora-shell@luminusos.github.io` to configure modules.
+> [!NOTE] On Wayland, GNOME Shell only loads a newly installed extension after you log out and back in.
 
-Release assets also include a `.development.shell-extension.zip` package with contributor tools for development and QA sessions.
+Releases also include a `.development.shell-extension.zip` with tools for contributors and QA sessions.
 
-## Update or remove
+Some modules need software that may not be installed:
 
-Install a newer ZIP with the same `--force` command. Existing GSettings values remain in the extension schema unless you reset them explicitly.
+| Module                         | Needs         |
+| ------------------------------ | ------------- |
+| Weather Clock                  | GNOME Weather |
+| Capture Tools text recognition | Tesseract     |
+| Vela VPN Quick Settings        | Vela          |
 
-Disable or remove Aurora Shell with:
+### Update or remove
+
+To update, install a newer ZIP with the same `--force` command. Your settings stay in the extension's GSettings schema unless you reset them.
+
+To remove Aurora Shell:
 
 ```bash
 gnome-extensions disable aurora-shell@luminusos.github.io
 gnome-extensions uninstall aurora-shell@luminusos.github.io
 ```
 
-See [Troubleshooting](docs/troubleshooting.md) when installation, loading, or a module fails.
+If installation, loading or a module fails, see [Troubleshooting](docs/troubleshooting.md).
 
-## Modules
+## Configure
 
-All modules can be toggled independently. Most are enabled by default; Auto Theme Switcher and Vela VPN Quick Settings are opt-in.
+Open the preferences from the Extensions app, or run:
 
-- **Dock and panel:** Dock, Aurora Menu, Power Menu Avatar, Volume Mixer, Low Battery Percentage, Lock Key Indicators, Bluetooth Menu, Weather Clock, Calendar Reminders, and Tray Icons.
-- **Appearance:** Theme Changer, Icon Weave, App Search Tooltip, and Auto Theme Switcher.
-- **Behavior:** Skip Overview on Login, Pip On Top, Focus Launched Windows, Capture Tools, XWayland Indicator, and Vela VPN Quick Settings.
-- **Privacy and clipboard:** Privacy and Clipboard History.
+```bash
+gnome-extensions prefs aurora-shell@luminusos.github.io
+```
 
-Low Battery Percentage temporarily enables GNOME's native percentage display while a battery is discharging below 30%. It does not override a percentage display that the user enabled. Vela VPN Quick Settings routes the Shell VPN toggle through Vela's D-Bus API; its optional GNOME Shell fallback is also disabled by default.
-
-The [module reference](docs/module-reference.md) records every module key, default, dependency, runtime policy, and implementation/test location.
+Each module has its own switch, and modules with options show them below it.
 
 ## Develop
 
-Follow the [development guide](docs/development.md) to set up the required tools and choose a test environment. The Yarn version is pinned in [package.json](package.json), and [Containerfile](Containerfile) defines the GNOME development environment used by CI and Toolbox. Project commands use `just`.
+The [development guide](docs/development.md) covers the tools you need and the test environments you can use. Commands run through `just`, the Yarn version is pinned in [package.json](package.json), and [Containerfile](Containerfile) defines the GNOME environment that CI and Toolbox share.
 
 ```bash
 just deps
@@ -62,8 +89,8 @@ just test unit
 just package check
 ```
 
-Start with the [documentation index](docs/README.md). It links to architecture, the edit-run-debug loop, module authoring, test selection, troubleshooting, and releases. Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md).
+The [documentation index](docs/README.md) links to the architecture, the edit-run-debug loop, writing modules, choosing tests, troubleshooting and releases. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## Credits
 
-Aurora Shell incorporates or adapts work from the GNOME extension community. The complete source, license, and inspiration record is in [CREDITS.md](CREDITS.md).
+Aurora Shell includes and adapts work from the GNOME extension community. [CREDITS.md](CREDITS.md) records every source, license and inspiration.
