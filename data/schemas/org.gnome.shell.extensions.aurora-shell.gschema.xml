@@ -72,6 +72,16 @@
       <summary>Enable Power Menu Avatar module</summary>
       <description>Shows the current user's avatar and name in the power menu</description>
     </key>
+    <key name="module-external-brightness" type="b">
+      <default>false</default>
+      <summary>Enable External Display Brightness module</summary>
+      <description>Combine built-in and external display brightness in one Quick Settings control. Requires DDC/CI and ddcutil-service</description>
+    </key>
+    <key name="external-brightness-calibrations" type="as">
+      <default>[]</default>
+      <summary>External display calibration profiles</summary>
+      <description>Manual DDC brightness ranges and paused displays, keyed by a SHA-256 of each display's EDID. Edit through the calibration preferences</description>
+    </key>
     <key name="volume-mixer-always-show" type="b">
       <default>false</default>
       <summary>Always show Volume Mixer</summary>

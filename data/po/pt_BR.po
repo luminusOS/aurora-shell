@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: aurora-shell\n"
 "Report-Msgid-Bugs-To: https://github.com/luminusOS/aurora-shell/issues\n"
-"POT-Creation-Date: 2026-09-13 18:39-0300\n"
+"POT-Creation-Date: 2026-10-25 21:49-0300\n"
 "PO-Revision-Date: 2026-07-16 09:20-0300\n"
 "Last-Translator: Aurora Shell Contributors\n"
 "Language-Team: Portuguese (Brazil)\n"
@@ -449,7 +449,7 @@ msgstr "Controles de desenvolvimento em tempo real"
 msgid "Search modules"
 msgstr "Buscar módulos"
 
-#: dist/dev/devToolModuleBrowser.js:84 dist/prefs.js:24
+#: dist/dev/devToolModuleBrowser.js:84 dist/prefs.js:25
 msgid "Other"
 msgstr "Outros"
 
@@ -586,7 +586,7 @@ msgid "Reset"
 msgstr "Redefinir"
 
 #: dist/dev/devToolModuleSettings.js:417 dist/dev/devToolModuleSettings.js:429
-#: dist/prefs.js:324 dist/prefs.js:359 dist/prefs.js:366 dist/prefs.js:376
+#: dist/prefs.js:327 dist/prefs.js:362 dist/prefs.js:369 dist/prefs.js:379
 msgid "Disabled"
 msgstr "Desativado"
 
@@ -871,19 +871,19 @@ msgstr "Lixeira"
 msgid "Empty Trash"
 msgstr "Esvaziar lixeira"
 
-#: dist/moduleCatalog.js:28
+#: dist/moduleCatalog.js:29
 msgid "Dock &amp; Panel"
 msgstr "Dock e painel"
 
-#: dist/moduleCatalog.js:29
+#: dist/moduleCatalog.js:30
 msgid "Appearance"
 msgstr "Aparência"
 
-#: dist/moduleCatalog.js:30
+#: dist/moduleCatalog.js:31
 msgid "Behavior"
 msgstr "Comportamento"
 
-#: dist/moduleCatalog.js:31
+#: dist/moduleCatalog.js:32
 msgid "Privacy &amp; Clipboard"
 msgstr "Privacidade e área de transferência"
 
@@ -1136,6 +1136,49 @@ msgstr "Mostrar clima após o relógio"
 msgid "Place the weather indicator after the clock instead of before it"
 msgstr "Posiciona o indicador meteorológico depois do relógio, em vez de antes"
 
+#: dist/panel/externalBrightness/brightnessSliders.js:46
+#, javascript-format
+msgid "Brightness of %s"
+msgstr "Brilho de %s"
+
+#: dist/panel/externalBrightness/brightnessSliders.js:52
+#: dist/panel/externalBrightness/brightnessSliders.js:55
+msgid "Brightness"
+msgstr "Brilho"
+
+#: dist/panel/externalBrightness/brightnessSliders.js:53
+msgid "Open brightness menu"
+msgstr "Abrir menu de brilho"
+
+#: dist/panel/externalBrightness/externalBrightness.js:241
+#: dist/panel/externalBrightness/externalBrightness.js:312
+#: dist/panel/externalBrightness/externalBrightness.js:444
+msgid "External Display"
+msgstr "Monitor externo"
+
+#: dist/panel/externalBrightness/externalBrightness.manifest.js:8
+msgid "External Display Brightness"
+msgstr "Brilho de monitores externos"
+
+#: dist/panel/externalBrightness/externalBrightness.manifest.js:10
+msgid ""
+"Combine built-in and external display brightness in one Quick Settings "
+"control. Requires DDC/CI and ddcutil-service"
+msgstr ""
+"Reúne o brilho da tela interna e dos monitores externos em um único controle "
+"nas Configurações rápidas. Requer DDC/CI e ddcutil-service"
+
+#: dist/panel/externalBrightness/externalBrightness.manifest.js:17
+#: dist/preferences/brightnessCalibration.js:35
+#: dist/preferences/brightnessCalibration.js:40
+msgid "Monitor calibration"
+msgstr "Calibração de monitores"
+
+#: dist/panel/externalBrightness/externalBrightness.manifest.js:18
+msgid "Configure raw DDC limits or pause individual external displays"
+msgstr ""
+"Configure limites DDC brutos ou pause monitores externos individualmente"
+
 #: dist/panel/lockKeyIndicators.manifest.js:8
 msgid "Lock Key Indicators"
 msgstr "Indicadores de teclas de bloqueio"
@@ -1279,6 +1322,109 @@ msgstr "Indicador XWayland"
 msgid "Shows an X11 badge on XWayland apps in the Alt+Tab switcher"
 msgstr "Mostra um emblema X11 em aplicativos XWayland no alternador Alt+Tab"
 
+#: dist/preferences/brightnessCalibration.js:23
+msgid "Configure…"
+msgstr "Configurar…"
+
+#: dist/preferences/brightnessCalibration.js:36
+#: dist/preferences/brightnessCalibration.js:112
+msgid "Loading displays…"
+msgstr "Carregando telas…"
+
+#: dist/preferences/brightnessCalibration.js:46
+msgid ""
+"Raw DDC limits, not percentages. Saving does not change brightness. Each "
+"profile is saved for the monitor model and applies to every monitor of that "
+"model."
+msgstr ""
+"Limites DDC brutos, não porcentagens. Salvar não altera o brilho. Cada "
+"perfil é salvo para o modelo do monitor e vale para todos os monitores desse "
+"modelo."
+
+#: dist/preferences/brightnessCalibration.js:51
+msgid "Refresh displays"
+msgstr "Atualizar telas"
+
+#: dist/preferences/brightnessCalibration.js:119
+msgid "External displays"
+msgstr "Monitores externos"
+
+#: dist/preferences/brightnessCalibration.js:120
+msgid "No external displays available"
+msgstr "Nenhum monitor externo disponível"
+
+#: dist/preferences/brightnessCalibration.js:122
+msgid ""
+"Enable External Display Brightness and wait for detection. Refresh if needed."
+msgstr ""
+"Ative Brilho de monitores externos e aguarde a detecção. Atualize se "
+"necessário."
+
+#: dist/preferences/brightnessCalibration.js:127
+msgid "Calibration unavailable"
+msgstr "Calibração indisponível"
+
+#: dist/preferences/brightnessCalibration.js:129
+msgid ""
+"Enable External Display Brightness, then refresh. Existing limits are not "
+"changed."
+msgstr ""
+"Ative Brilho de monitores externos e atualize. Os limites existentes não são "
+"alterados."
+
+#: dist/preferences/brightnessCalibration.js:142
+#, javascript-format
+msgid "Reported maximum: %s"
+msgstr "Máximo informado: %s"
+
+#: dist/preferences/brightnessCalibration.js:147
+msgid "Control paused"
+msgstr "Controle pausado"
+
+#: dist/preferences/brightnessCalibration.js:149
+msgid "Manual limits active"
+msgstr "Limites manuais ativos"
+
+#: dist/preferences/brightnessCalibration.js:150
+msgid "Using reported range"
+msgstr "Usando a faixa informada"
+
+#: dist/preferences/brightnessCalibration.js:152
+msgid "Saved for this monitor model"
+msgstr "Salvo para este modelo de monitor"
+
+#: dist/preferences/brightnessCalibration.js:153
+msgid "Display detection is pending or brightness is unavailable"
+msgstr "A detecção da tela está pendente ou o brilho está indisponível"
+
+#: dist/preferences/brightnessCalibration.js:157
+msgid "Use reported range"
+msgstr "Usar faixa informada"
+
+#: dist/preferences/brightnessCalibration.js:167
+msgid "Minimum raw value"
+msgstr "Valor bruto mínimo"
+
+#: dist/preferences/brightnessCalibration.js:172
+msgid "Maximum raw value"
+msgstr "Valor bruto máximo"
+
+#: dist/preferences/brightnessCalibration.js:179
+msgid "Apply without changing brightness"
+msgstr "Aplicar sem alterar o brilho"
+
+#: dist/preferences/brightnessCalibration.js:183
+msgid "Pause control"
+msgstr "Pausar controle"
+
+#: dist/preferences/brightnessCalibration.js:184
+msgid "Apply limits"
+msgstr "Aplicar limites"
+
+#: dist/preferences/brightnessCalibration.js:195
+msgid "Use whole numbers: 0 ≤ minimum < maximum ≤ 65535."
+msgstr "Use números inteiros: 0 ≤ mínimo < máximo ≤ 65535."
+
 #: dist/preferences/commandListEditor.js:28
 msgid "Manage Commands"
 msgstr "Gerenciar comandos"
@@ -1339,23 +1485,23 @@ msgstr "“%s” será removido do Menu Aurora."
 msgid "Remove"
 msgstr "Remover"
 
-#: dist/prefs.js:20
+#: dist/prefs.js:21
 msgid "General"
 msgstr "Geral"
 
-#: dist/prefs.js:47
+#: dist/prefs.js:48
 msgid "Aurora Shell logo"
 msgstr "Logo do Aurora Shell"
 
-#: dist/prefs.js:68
+#: dist/prefs.js:69
 msgid "Access website"
 msgstr "Acessar website"
 
-#: dist/prefs.js:146
+#: dist/prefs.js:147
 msgid "Reset to Default"
 msgstr "Restaurar padrão"
 
-#: dist/prefs.js:354
+#: dist/prefs.js:357
 msgid "Press a shortcut…"
 msgstr "Pressione um atalho…"
 

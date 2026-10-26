@@ -9,6 +9,7 @@ import { manifest as dock } from '~/dock/dock.manifest.ts';
 import { manifest as auroraMenu } from '~/panel/auroraMenu.manifest.ts';
 import { manifest as powerMenuAvatar } from '~/panel/powerMenuAvatar.manifest.ts';
 import { manifest as volumeMixer } from '~/panel/volumeMixer/volumeMixer.manifest.ts';
+import { manifest as externalBrightness } from '~/panel/externalBrightness/externalBrightness.manifest.ts';
 import { manifest as lowBatteryPercentage } from '~/panel/lowBatteryPercentage.manifest.ts';
 import { manifest as lockKeyIndicators } from '~/panel/lockKeyIndicators.manifest.ts';
 import { manifest as xwaylandIndicator } from '~/patches/xwaylandIndicator.manifest.ts';
@@ -46,6 +47,7 @@ export const MODULE_CATALOG: readonly ModuleManifest[] = [
   auroraMenu,
   powerMenuAvatar,
   volumeMixer,
+  externalBrightness,
   lowBatteryPercentage,
   lockKeyIndicators,
   xwaylandIndicator,

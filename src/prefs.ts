@@ -14,6 +14,7 @@ import {
   type ModuleOption,
 } from '~/moduleCatalog.ts';
 import { buildCommandListRow } from '~/preferences/commandListEditor.ts';
+import { buildBrightnessCalibrationRow } from '~/preferences/brightnessCalibration.ts';
 import { gettext as _ } from '~/shared/i18n.ts';
 
 const OTHER_SECTION_ID = '__other__';
@@ -245,6 +246,8 @@ export default class AuroraShellPreferences extends ExtensionPreferences {
         expander.add_row(this._buildIconSelectRow(option, settings));
       } else if (option.type === 'command-list') {
         expander.add_row(buildCommandListRow(option.key!, option.title, option.subtitle, settings));
+      } else if (option.type === 'brightness-calibration') {
+        expander.add_row(buildBrightnessCalibrationRow(option.title, option.subtitle, settings));
       }
     }
 
