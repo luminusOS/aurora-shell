@@ -952,16 +952,21 @@ async function exerciseDockPositions(settings, dock) {
       stackedActors.indexOf(strut) >= stackedActors.indexOf(alwaysBinding.container)
     )
       throw new Error(`${position} Dock strut is not stacked below its container`);
-    if (
-      vertical &&
-      (strut.width !== alwaysBinding.container.width || strut.height !== monitor.height)
-    )
-      throw new Error(`${position} Dock did not reserve a vertical strut`);
-    if (
-      !vertical &&
-      (strut.height !== alwaysBinding.container.height || strut.width !== monitor.width)
-    )
-      throw new Error('Bottom Dock did not reserve a horizontal strut');
+
+    // The strut takes its size from the rebuilt container's first allocation, which can land
+    // after the leisure wait on a slow runner.
+    const reservesStrut = () =>
+      vertical
+        ? strut.width === alwaysBinding.container.width && strut.height === monitor.height
+        : strut.height === alwaysBinding.container.height && strut.width === monitor.width;
+    await waitForCondition({
+      evaluate: reservesStrut,
+      signals: [
+        [alwaysBinding.container, 'notify::allocation'],
+        [strut, 'notify::allocation'],
+      ],
+      description: `${position} Dock to reserve a ${vertical ? 'vertical' : 'horizontal'} strut`,
+    });
 
     settings.set_boolean('dock-always-show', false);
     settings.set_boolean('dock-intellihide', true);
