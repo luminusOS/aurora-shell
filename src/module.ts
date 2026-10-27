@@ -30,7 +30,8 @@ export type ModuleOption = {
     | 'shortcut'
     | 'select'
     | 'icon-select'
-    | 'command-list';
+    | 'command-list'
+    | 'brightness-calibration';
   min?: number;
   max?: number;
   resettable?: boolean;

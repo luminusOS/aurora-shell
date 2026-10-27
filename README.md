@@ -17,11 +17,11 @@ Aurora Shell adds dock and panel controls, appearance tweaks, window behavior an
 
 ## Modules
 
-Most modules are enabled by default. Auto Theme Switcher and Vela VPN Quick Settings are opt-in.
+Most modules are enabled by default. Auto Theme Switcher, Vela VPN Quick Settings and External Display Brightness are opt-in.
 
 | Area | Modules |
 | --- | --- |
-| Dock and panel | Dock, Aurora Menu, Power Menu Avatar, Volume Mixer, Low Battery Percentage, Lock Key Indicators, Bluetooth Menu, Weather Clock, Calendar Reminders, Tray Icons |
+| Dock and panel | Dock, Aurora Menu, Power Menu Avatar, Volume Mixer, External Display Brightness, Low Battery Percentage, Lock Key Indicators, Bluetooth Menu, Weather Clock, Calendar Reminders, Tray Icons |
 | Appearance | Theme Changer, Icon Weave, App Search Tooltip, Auto Theme Switcher |
 | Behavior | Skip Overview on Login, Pip On Top, Focus Launched Windows, Capture Tools, XWayland Indicator, Vela VPN Quick Settings |
 | Privacy and clipboard | Privacy, Clipboard History |
@@ -53,11 +53,12 @@ Releases also include a `.development.shell-extension.zip` with tools for contri
 
 Some modules need software that may not be installed:
 
-| Module                         | Needs         |
-| ------------------------------ | ------------- |
-| Weather Clock                  | GNOME Weather |
-| Capture Tools text recognition | Tesseract     |
-| Vela VPN Quick Settings        | Vela          |
+| Module                         | Needs                           |
+| ------------------------------ | ------------------------------- |
+| Weather Clock                  | GNOME Weather                   |
+| Capture Tools text recognition | Tesseract                       |
+| Vela VPN Quick Settings        | Vela                            |
+| External Display Brightness    | `ddcutil` and `ddcutil-service` |
 
 ### Update or remove
 
