@@ -326,6 +326,14 @@ msgstr ""
 "Recolore automaticamente ícones SNI monocromáticos para corresponder ao tema "
 "do painel"
 
+#: dist/desktop/wiggleCursor/wiggleCursor.manifest.js:8
+msgid "Wiggle Cursor"
+msgstr "Ampliar cursor ao agitar"
+
+#: dist/desktop/wiggleCursor/wiggleCursor.manifest.js:9
+msgid "Shake the mouse to temporarily enlarge the pointer"
+msgstr "Agite o mouse para ampliar temporariamente o ponteiro"
+
 #: dist/dev/calendarRemindersDevTool.js:50
 #, fuzzy
 msgid "Fake events"

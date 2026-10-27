@@ -23,10 +23,12 @@ Most modules are enabled by default. Auto Theme Switcher, Vela VPN Quick Setting
 | --- | --- |
 | Dock and panel | Dock, Aurora Menu, Power Menu Avatar, Volume Mixer, External Display Brightness, Low Battery Percentage, Lock Key Indicators, Bluetooth Menu, Weather Clock, Calendar Reminders, Tray Icons |
 | Appearance | Theme Changer, Icon Weave, App Search Tooltip, Auto Theme Switcher |
-| Behavior | Skip Overview on Login, Pip On Top, Focus Launched Windows, Capture Tools, XWayland Indicator, Vela VPN Quick Settings |
+| Behavior | Skip Overview on Login, Pip On Top, Focus Launched Windows, Capture Tools, XWayland Indicator, Vela VPN Quick Settings, Wiggle Cursor |
 | Privacy and clipboard | Privacy, Clipboard History |
 
 Low Battery Percentage shows GNOME's battery percentage while the battery discharges below 30%, and leaves it alone if you already turned it on. Vela VPN Quick Settings routes the Quick Settings VPN toggle through Vela's D-Bus API; its fallback to GNOME Shell's own VPN handling is off by default.
+
+Wiggle Cursor enlarges the pointer to five times its size after a quick shake of the mouse, then returns it to normal after 1.8 seconds. It keeps your cursor theme, ignores shaking while a button is held, and yields to accessibility magnification.
 
 The [module reference](docs/module-reference.md) lists every module's settings key, default, dependencies, runtime policy and where its code and tests live.
 

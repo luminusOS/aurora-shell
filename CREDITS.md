@@ -38,3 +38,31 @@ The annotation workflow in **Capture Tools** is inspired by [**AlexanderVanhee/g
 ## Dock Motion
 
 The Dock motion recipes and controller behavior are adapted from [**Orsso/d2d-companion**](https://github.com/Orsso/d2d-companion), version `v0.1.0-beta.1` (commit `33eef1d2ddc4678c46d015a4a2c276d4177901df`). The adapted source is redistributed under GPL-2.0-or-later and is combined with Aurora Shell under GPL-3.0-only.
+
+## Wiggle Cursor
+
+The shake detector is adapted from [**adityakrishnan005-a11y/adaptive-wiggle-cursor**](https://github.com/adityakrishnan005-a11y/adaptive-wiggle-cursor), commit `14e187362e765b1083ae6c22e9a5bf48938a82d9`. Aurora keeps its 800 ms window, the merging of same-direction samples and the path-to-diagonal ratio, and judges only the latest strokes. The enlargement is a fixed 5x, and the image comes from the Shell's own cursor texture instead of parsing cursor theme files. The adapted detector retains the following MIT license notice and is combined with Aurora Shell under GPL-3.0-only:
+
+```text
+MIT License
+
+Copyright (c) 2026 Aditya
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
