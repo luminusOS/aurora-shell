@@ -1,6 +1,6 @@
 import GLib from 'gi://GLib';
 import St from 'gi://St';
-import { waitForCondition, waitForTiming } from '../../support/testUtils.js';
+import { waitForActorState, waitForCondition, waitForTiming } from '../../support/testUtils.js';
 
 export const MAGNIFICATION = 5;
 
@@ -30,6 +30,41 @@ export async function shake(pointer, settleMs = 60) {
     const last = i === SHAKE_SAMPLES - 1;
     if (!last) await waitForTiming(60, 'Delay each reversal to deliver a shake within 800ms');
     else if (settleMs > 0) await waitForTiming(settleMs, 'Delay settling after the last sample');
+  }
+}
+
+/**
+ * @param {Clutter.Actor} actor The cursor overlay.
+ */
+export function waitForEnlarged(actor) {
+  return waitForActorState(actor, (a) => a.visible && Math.abs(a.scale_x - MAGNIFICATION) < 0.01, {
+    properties: ['visible', 'scale-x'],
+    description: `fixed ${MAGNIFICATION}x cursor enlargement`,
+  });
+}
+
+/**
+ * Keep shaking the pointer until `action` settles, so the cursor stays enlarged meanwhile.
+ *
+ * @param {Clutter.VirtualInputDevice} pointer
+ * @param {() => Promise<T>} action
+ * @returns {Promise<T>}
+ * @template T
+ */
+export async function whileShaking(pointer, action) {
+  let shaking = true;
+  const keepShaking = (async () => {
+    for (let i = 0; shaking; i++) {
+      pointer.notify_absolute_motion(GLib.get_monotonic_time(), 400 + (i % 2) * 100, 350);
+      await waitForTiming(60, 'Delay each reversal of a continuous shake');
+    }
+  })();
+
+  try {
+    return await action();
+  } finally {
+    shaking = false;
+    await keepShaking;
   }
 }
 

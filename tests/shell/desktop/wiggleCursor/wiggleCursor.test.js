@@ -7,7 +7,13 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import { exerciseEnvironment } from './environment.js';
 import { exerciseCursorShape } from './cursorShape.js';
-import { MAGNIFICATION, shake, waitForSharpCursor } from './support.js';
+import {
+  MAGNIFICATION,
+  shake,
+  waitForEnlarged,
+  waitForSharpCursor,
+  whileShaking,
+} from './support.js';
 import {
   EXTENSION_UUID,
   ensureOverviewHidden,
@@ -57,51 +63,53 @@ export async function run() {
     }
     if (actor.visible) throw new Error('Normal navigation enlarged the cursor');
 
-    await shake(pointer);
-    await waitForActorState(actor, (a) => a.visible && Math.abs(a.scale_x - MAGNIFICATION) < 0.01, {
-      properties: ['visible', 'scale-x'],
-      description: `fixed ${MAGNIFICATION}x cursor enlargement`,
-    });
-    if (tracker.get_pointer_visible()) throw new Error('Native cursor was not inhibited');
     const sprite = actor.get_first_child();
-    const nativeTexture = tracker.get_sprite();
-    const sharpTexture = await waitForSharpCursor(sprite);
-    if (
-      sharpTexture.get_width() !== nativeTexture.get_width() * MAGNIFICATION ||
-      sharpTexture.get_height() !== nativeTexture.get_height() * MAGNIFICATION
-    )
-      throw new Error(
-        `Sharpened cursor is ${sharpTexture.get_width()}x${sharpTexture.get_height()} ` +
-          `for a ${nativeTexture.get_width()}x${nativeTexture.get_height()} native texture`,
-      );
-    const [hotX, hotY] = tracker.get_hot();
-    const nativeScale = tracker.get_scale();
-    if (
-      Math.abs(sprite.x + hotX * nativeScale) > 0.1 ||
-      Math.abs(sprite.y + hotY * nativeScale) > 0.1
-    )
-      throw new Error('Enlarged cursor hotspot is misaligned');
-    if (!sprite.content || sprite.width <= 0 || sprite.height <= 0)
-      throw new Error('Cursor overlay has no native content');
+    await whileShaking(pointer, async () => {
+      await waitForEnlarged(actor);
+      if (tracker.get_pointer_visible()) throw new Error('Native cursor was not inhibited');
+      const nativeTexture = tracker.get_sprite();
+      const sharpTexture = await waitForSharpCursor(sprite);
+      if (
+        sharpTexture.get_width() !== nativeTexture.get_width() * MAGNIFICATION ||
+        sharpTexture.get_height() !== nativeTexture.get_height() * MAGNIFICATION
+      )
+        throw new Error(
+          `Sharpened cursor is ${sharpTexture.get_width()}x${sharpTexture.get_height()} ` +
+            `for a ${nativeTexture.get_width()}x${nativeTexture.get_height()} native texture`,
+        );
 
-    // Mutter updates client cursor textures in place and only emits cursor-changed. A second
-    // change while the first image is still being built must not leave the obsolete one showing.
-    const firstImage = sprite.content;
-    tracker.emit('cursor-changed');
-    tracker.emit('cursor-changed');
-    await waitForCondition({
-      evaluate: () => sprite.content instanceof St.ImageContent && sprite.content !== firstImage,
-      signals: [[sprite, 'notify::content']],
-      description: 'sharpened image to be rebuilt after the cursor texture changed',
+      // The Shell's cursors report a tracker scale of 1 but are rasterised at the monitor scale.
+      const monitorScale = global.display.get_monitor_scale(global.display.get_current_monitor());
+      if (Math.abs(sprite.width * monitorScale - nativeTexture.get_width()) > 0.5)
+        throw new Error(
+          `Cursor is ${sprite.width} logical px wide on a ${monitorScale}x monitor ` +
+            `for a ${nativeTexture.get_width()} px texture`,
+        );
+      const [hotX, hotY] = tracker.get_hot();
+      if (
+        Math.abs(sprite.x + hotX / monitorScale) > 0.1 ||
+        Math.abs(sprite.y + hotY / monitorScale) > 0.1
+      )
+        throw new Error('Enlarged cursor hotspot is misaligned');
+      if (!sprite.content || sprite.width <= 0 || sprite.height <= 0)
+        throw new Error('Cursor overlay has no native content');
+
+      // Mutter updates client cursor textures in place and only emits cursor-changed. A second
+      // change while the first image is still being built must not leave the obsolete one showing.
+      const firstImage = sprite.content;
+      tracker.emit('cursor-changed');
+      tracker.emit('cursor-changed');
+      await waitForCondition({
+        evaluate: () => sprite.content instanceof St.ImageContent && sprite.content !== firstImage,
+        signals: [[sprite, 'notify::content']],
+        description: 'sharpened image to be rebuilt after the cursor texture changed',
+      });
+
+      await waitForTiming(1500, 'Negative check: continuous shaking outlives the settle delay');
+      if (!actor.visible || Math.abs(actor.scale_x - MAGNIFICATION) > 0.01)
+        throw new Error('The cursor shrank while the pointer was still being shaken');
     });
 
-    await waitForTiming(900, 'Delay retrigger until near the original hold deadline');
-    await shake(pointer);
-    if (actor.scale_x > MAGNIFICATION + 0.01)
-      throw new Error('Repeated shaking exceeded fixed magnification');
-    await waitForTiming(700, 'Negative check: retrigger must outlive the original hold deadline');
-    if (!actor.visible || Math.abs(actor.scale_x - MAGNIFICATION) > 0.01)
-      throw new Error('Repeated shaking did not extend the hold deadline');
     let deflationAnimated = false;
     const scaleId = actor.connect('notify::scale-x', () => {
       if (
@@ -115,7 +123,8 @@ export async function run() {
     try {
       await waitForActorState(actor, (a) => !a.visible, {
         properties: ['visible'],
-        description: 'cursor to deflate after the hold period',
+        description: 'cursor to shrink right after the shaking stops',
+        timeoutMs: 1200,
       });
     } finally {
       actor.disconnect(scaleId);
@@ -123,6 +132,17 @@ export async function run() {
     if (St.Settings.get().enable_animations && !deflationAnimated)
       throw new Error('Cursor did not animate its restoration before hiding');
     if (!tracker.get_pointer_visible()) throw new Error('Native cursor was not restored');
+
+    await whileShaking(pointer, () => waitForEnlarged(actor));
+    for (let i = 1; i <= 8; i++) {
+      pointer.notify_absolute_motion(GLib.get_monotonic_time(), 400 + i * 30, 350);
+      await waitForTiming(30, 'Delay each step of the straight sweep that ends the shake');
+    }
+    await waitForActorState(actor, (a) => !a.visible, {
+      properties: ['visible'],
+      description: 'cursor to shrink once the pointer sweeps away',
+      timeoutMs: 1500,
+    });
 
     await exerciseEnvironment(actor, pointer, tracker);
     await waitForModuleState(settings, 'module-wiggle-cursor', 'wiggle-cursor', true);

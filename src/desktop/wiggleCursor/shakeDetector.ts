@@ -2,18 +2,46 @@
 
 type MotionPoint = { x: number; y: number; time: number };
 
+export type ShakeProfile = {
+  // Each reversal adds one point, so five points are four strokes.
+  minPoints: number;
+  // Only this many of the latest points are judged, so older motion cannot vouch for newer.
+  maxPoints: number;
+  minDistance: number;
+  minDiagonal: number;
+  // Path length over bounding-box diagonal: a straight sweep is 1, a shake grows with every stroke.
+  minPathRatio: number;
+  // Forget the history after a detection, so the next one needs a whole new gesture.
+  restartAfterShake: boolean;
+};
+
+// Starting needs a deliberate shake of at least four strokes.
+export const START_SHAKE: ShakeProfile = {
+  minPoints: 5,
+  maxPoints: 8,
+  minDistance: 120,
+  minDiagonal: 30,
+  minPathRatio: 3,
+  restartAfterShake: true,
+};
+
+// Staying enlarged only needs the latest back-and-forth, so the cursor shrinks soon after the
+// shaking stops. It keeps its history so every further stroke counts.
+export const KEEP_SHAKE: ShakeProfile = {
+  minPoints: 3,
+  maxPoints: 4,
+  minDistance: 60,
+  minDiagonal: 30,
+  minPathRatio: 1.8,
+  restartAfterShake: false,
+};
+
 // Times are milliseconds and distances are logical pixels.
 const WINDOW_MS = 800;
 const MAX_POINTS = 8;
 // A larger jump is a warp between monitors or a pointer teleport, not hand motion.
 const MAX_STEP = 500;
 const MIN_SAMPLE_DISTANCE = 4;
-// Each reversal adds one point, so five points are four strokes.
-const MIN_POINTS = 5;
-const MIN_DISTANCE = 120;
-const MIN_DIAGONAL = 30;
-// Path length over bounding-box diagonal: a straight sweep is 1, a shake grows with every stroke.
-const MIN_PATH_RATIO = 3;
 const DIRECTION_TOLERANCE = 2;
 
 function sameDirection(a: number, b: number): boolean {
@@ -25,6 +53,8 @@ function sameDirection(a: number, b: number): boolean {
 
 export class ShakeDetector {
   private readonly _points: MotionPoint[] = [];
+
+  constructor(private readonly _profile: ShakeProfile = START_SHAKE) {}
 
   reset(): void {
     this._points.length = 0;
@@ -58,9 +88,10 @@ export class ShakeDetector {
 
     // The stroke in progress counts too, so dense sampling detects as early as sparse sampling.
     // Judge only the latest strokes: a long sweep before the shake must not dilute its path ratio.
-    for (let start = 0; start + MIN_POINTS <= this._points.length; start++) {
+    const firstStart = Math.max(0, this._points.length - this._profile.maxPoints);
+    for (let start = firstStart; start + this._profile.minPoints <= this._points.length; start++) {
       if (this._isShake(start)) {
-        this.reset();
+        if (this._profile.restartAfterShake) this.reset();
         return true;
       }
     }
@@ -87,8 +118,8 @@ export class ShakeDetector {
     }
 
     const diagonal = Math.hypot(right - left, bottom - top);
-    if (diagonal < MIN_DIAGONAL || distance < MIN_DISTANCE) return false;
+    if (diagonal < this._profile.minDiagonal || distance < this._profile.minDistance) return false;
 
-    return distance / diagonal >= MIN_PATH_RATIO;
+    return distance / diagonal >= this._profile.minPathRatio;
   }
 }

@@ -8,11 +8,13 @@ import { Module } from '~/module.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { createManagedSource, createManagedTimeout, type ManagedTimeout } from '~/core/mainLoop.ts';
+import { textureToLogical } from './cursorGeometry.ts';
 import { createSharpCursorContent } from './cursorImage.ts';
-import { ShakeDetector } from './shakeDetector.ts';
+import { KEEP_SHAKE, ShakeDetector } from './shakeDetector.ts';
 
 const MAGNIFICATION = 5;
-const HOLD_MS = 1800;
+// How long the cursor stays large after the last back-and-forth of the shake.
+const SETTLE_MS = 350;
 const TRANSITION_MS = 180;
 const BUTTON_MASK =
   Clutter.ModifierType.BUTTON1_MASK |
@@ -24,7 +26,8 @@ type SharpRequest = { texture: Cogl.Texture; revision: number };
 type SharpImage = { texture: Cogl.Texture; revision: number; content: Clutter.Content };
 
 export class WiggleCursor extends Module {
-  private readonly _detector = new ShakeDetector();
+  private readonly _startDetector = new ShakeDetector();
+  private readonly _keepDetector = new ShakeDetector(KEEP_SHAKE);
   private readonly _tracker = global.backend.get_cursor_tracker();
   private readonly _seat = global.stage.context.get_backend().get_default_seat();
   private _overlay: Clutter.Actor | null = null;
@@ -36,6 +39,7 @@ export class WiggleCursor extends Module {
   private _sharpImage: SharpImage | null = null;
   private _cursorRevision = 0;
   private _cursorInhibited = false;
+  private _shrinking = false;
 
   override enable(): void {
     this._lifecycle = new LifecycleScope();
@@ -100,7 +104,7 @@ export class WiggleCursor extends Module {
       return;
     }
     if (!this._cursorInhibited && !this._tracker.get_pointer_visible()) {
-      this._detector.reset();
+      this._resetDetectors();
       return;
     }
 
@@ -112,12 +116,16 @@ export class WiggleCursor extends Module {
 
     // Dragging a slider or a selection back and forth is not a lost pointer.
     if (modifiers !== null && (modifiers & BUTTON_MASK) !== 0) {
-      this._detector.reset();
+      this._resetDetectors();
       return;
     }
 
+    // Both keep their history, so a shake that has just started is already known to the second.
     const now = GLib.get_monotonic_time() / 1000;
-    if (this._detector.update(position.x, position.y, now)) this._enlarge();
+    const shaken = this._startDetector.update(position.x, position.y, now);
+    const stillShaking = this._keepDetector.update(position.x, position.y, now);
+
+    if (this._cursorInhibited ? stillShaking : shaken) this._enlarge();
   }
 
   private _onCursorChanged(): void {
@@ -127,6 +135,8 @@ export class WiggleCursor extends Module {
 
   private _enlarge(): void {
     if (!this._overlay || !this._sprite || !this._hold) return;
+
+    const needsGrowing = !this._cursorInhibited || this._shrinking;
     if (!this._cursorInhibited) {
       if (!this._syncSprite()) return;
 
@@ -138,27 +148,33 @@ export class WiggleCursor extends Module {
       this._overlay.show();
     }
 
-    this._overlay.remove_all_transitions();
-    const enlargement = {
-      scale_x: MAGNIFICATION,
-      scale_y: MAGNIFICATION,
-      duration: St.Settings.get().enable_animations ? TRANSITION_MS : 0,
-      mode: Clutter.AnimationMode.EASE_IN_OUT_CUBIC,
-    };
-    this._overlay.ease(enlargement);
-
-    this._hold.schedule(HOLD_MS, () => {
-      if (!this._overlay) return;
-
-      const restoration = {
-        scale_x: 1,
-        scale_y: 1,
+    if (needsGrowing) {
+      this._shrinking = false;
+      this._overlay.remove_all_transitions();
+      const enlargement = {
+        scale_x: MAGNIFICATION,
+        scale_y: MAGNIFICATION,
         duration: St.Settings.get().enable_animations ? TRANSITION_MS : 0,
         mode: Clutter.AnimationMode.EASE_IN_OUT_CUBIC,
-        onComplete: () => this._restore(),
       };
-      this._overlay.ease(restoration);
-    });
+      this._overlay.ease(enlargement);
+    }
+
+    this._hold.schedule(SETTLE_MS, () => this._shrink());
+  }
+
+  private _shrink(): void {
+    if (!this._overlay) return;
+
+    this._shrinking = true;
+    const restoration = {
+      scale_x: 1,
+      scale_y: 1,
+      duration: St.Settings.get().enable_animations ? TRANSITION_MS : 0,
+      mode: Clutter.AnimationMode.EASE_IN_OUT_CUBIC,
+      onComplete: () => this._restore(),
+    };
+    this._overlay.ease(restoration);
   }
 
   private _syncSprite(): boolean {
@@ -237,15 +253,24 @@ export class WiggleCursor extends Module {
       return;
     }
 
-    const scale = this._tracker.get_scale();
+    const scale = textureToLogical(
+      this._tracker.get_scale(),
+      global.display.get_monitor_scale(global.display.get_current_monitor()),
+    );
     const [hotX, hotY] = this._tracker.get_hot();
     this._sprite.set_size(texture.get_width() * scale, texture.get_height() * scale);
     this._sprite.set_position(-hotX * scale, -hotY * scale);
   }
 
+  private _resetDetectors(): void {
+    this._startDetector.reset();
+    this._keepDetector.reset();
+  }
+
   private _restore(): void {
     if (this._hold) this._hold.clear();
-    this._detector.reset();
+    this._resetDetectors();
+    this._shrinking = false;
     if (this._overlay) {
       this._overlay.remove_all_transitions();
       this._overlay.hide();

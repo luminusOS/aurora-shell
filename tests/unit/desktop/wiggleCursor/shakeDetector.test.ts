@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ShakeDetector } from '../../../../src/desktop/wiggleCursor/shakeDetector.ts';
+import { KEEP_SHAKE, ShakeDetector } from '../../../../src/desktop/wiggleCursor/shakeDetector.ts';
 
 function shake(detector: ShakeDetector, vertical = false, start = 0, steps = 1): boolean {
   let detected = false;
@@ -15,6 +15,88 @@ function shake(detector: ShakeDetector, vertical = false, start = 0, steps = 1):
   }
   return detected;
 }
+
+describe('ShakeDetector while keeping the cursor enlarged', () => {
+  const zigzag = (detector: ShakeDetector, strokes: number, length = 90, step = 70) => {
+    const results: boolean[] = [];
+    for (let i = 0; i <= strokes; i++) results.push(detector.update((i % 2) * length, 0, i * step));
+    return results;
+  };
+
+  it('needs only two strokes', () => {
+    assert.deepEqual(zigzag(new ShakeDetector(KEEP_SHAKE), 2), [false, false, true]);
+  });
+
+  it('keeps reporting every further stroke instead of starting over', () => {
+    assert.deepEqual(zigzag(new ShakeDetector(KEEP_SHAKE), 6), [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it('keeps reporting while a stroke is still being drawn', () => {
+    const detector = new ShakeDetector(KEEP_SHAKE);
+    zigzag(detector, 2);
+
+    assert.ok(detector.update(20, 0, 250));
+  });
+
+  it('stops once the pointer sweeps away in one direction', () => {
+    const detector = new ShakeDetector(KEEP_SHAKE);
+    zigzag(detector, 4);
+
+    let stillShaking = false;
+    for (let i = 1; i <= 8; i++) stillShaking = detector.update(i * 60, 0, 300 + i * 30);
+
+    assert.equal(stillShaking, false);
+  });
+
+  it('stops after a long pause, as the history ages out', () => {
+    const detector = new ShakeDetector(KEEP_SHAKE);
+    zigzag(detector, 4);
+
+    assert.equal(detector.update(500, 0, 2000), false);
+    assert.equal(detector.update(540, 0, 2070), false);
+  });
+
+  it('does not count a single move or a small overshoot as shaking', () => {
+    const detector = new ShakeDetector(KEEP_SHAKE);
+    const results = [
+      detector.update(0, 0, 0),
+      detector.update(300, 0, 100),
+      detector.update(280, 0, 180),
+    ];
+
+    assert.deepEqual(results, [false, false, false]);
+  });
+
+  it('ignores a tiny wiggle under 30 pixels', () => {
+    const detector = new ShakeDetector(KEEP_SHAKE);
+
+    assert.deepEqual(zigzag(detector, 6, 20, 60), [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it('starts over after a reset', () => {
+    const detector = new ShakeDetector(KEEP_SHAKE);
+    zigzag(detector, 4);
+    detector.reset();
+
+    assert.deepEqual(zigzag(detector, 2, 90, 70).map(Boolean), [false, false, true]);
+  });
+});
 
 describe('ShakeDetector', () => {
   it('detects deliberate horizontal and vertical shakes', () => {
