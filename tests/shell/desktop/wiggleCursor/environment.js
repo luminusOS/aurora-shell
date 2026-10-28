@@ -2,7 +2,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { waitForCondition, waitForTiming } from '../../support/testUtils.js';
-import { MAGNIFICATION, shake } from './support.js';
+import { shake, waitForEnlarged } from './support.js';
 
 export async function exerciseEnvironment(actor, pointer, tracker) {
   const interfaceSettings = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
@@ -17,7 +17,8 @@ export async function exerciseEnvironment(actor, pointer, tracker) {
       description: 'reduced-animation preference to reach Shell',
     });
     await shake(pointer);
-    if (!actor.visible || actor.scale_x !== MAGNIFICATION || actor.get_transition('scale-x'))
+    await waitForEnlarged(actor);
+    if (actor.get_transition('scale-x'))
       throw new Error('Reduced animation did not enlarge immediately');
 
     accessibility.set_boolean('screen-magnifier-enabled', true);
@@ -47,7 +48,7 @@ export async function exerciseEnvironment(actor, pointer, tracker) {
     }
 
     await shake(pointer);
-    if (!actor.visible) throw new Error('Cursor did not enlarge after magnifier teardown');
+    await waitForEnlarged(actor);
     tracker.inhibit_cursor_visibility();
     try {
       Main.layoutManager.emit('monitors-changed');
@@ -58,6 +59,7 @@ export async function exerciseEnvironment(actor, pointer, tracker) {
     }
 
     await shake(pointer);
+    await waitForEnlarged(actor);
     Main.screenShield.activate(false);
     await waitForCondition({
       evaluate: () => Main.sessionMode.currentMode === 'unlock-dialog' && !actor.visible,

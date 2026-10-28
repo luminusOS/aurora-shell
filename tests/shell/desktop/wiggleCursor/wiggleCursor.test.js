@@ -7,13 +7,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import { exerciseEnvironment } from './environment.js';
 import { exerciseCursorShape } from './cursorShape.js';
-import {
-  MAGNIFICATION,
-  shake,
-  waitForEnlarged,
-  waitForSharpCursor,
-  whileShaking,
-} from './support.js';
+import { assertDrawnFromTheme } from './themeCursor.js';
+import { MAGNIFICATION, shake, waitForEnlarged, whileShaking } from './support.js';
 import {
   EXTENSION_UUID,
   ensureOverviewHidden,
@@ -68,15 +63,17 @@ export async function run() {
       await waitForEnlarged(actor);
       if (tracker.get_pointer_visible()) throw new Error('Native cursor was not inhibited');
       const nativeTexture = tracker.get_sprite();
-      const sharpTexture = await waitForSharpCursor(sprite);
+      const enlargedTexture = sprite.content.get_texture();
       if (
-        sharpTexture.get_width() !== nativeTexture.get_width() * MAGNIFICATION ||
-        sharpTexture.get_height() !== nativeTexture.get_height() * MAGNIFICATION
+        enlargedTexture.get_width() !== nativeTexture.get_width() * MAGNIFICATION ||
+        enlargedTexture.get_height() !== nativeTexture.get_height() * MAGNIFICATION
       )
         throw new Error(
-          `Sharpened cursor is ${sharpTexture.get_width()}x${sharpTexture.get_height()} ` +
+          `Enlarged cursor is ${enlargedTexture.get_width()}x${enlargedTexture.get_height()} ` +
             `for a ${nativeTexture.get_width()}x${nativeTexture.get_height()} native texture`,
         );
+
+      await assertDrawnFromTheme(enlargedTexture, 'default');
 
       // The Shell's cursors report a tracker scale of 1 but are rasterised at the monitor scale.
       const monitorScale = global.display.get_monitor_scale(global.display.get_current_monitor());
@@ -100,9 +97,9 @@ export async function run() {
       tracker.emit('cursor-changed');
       tracker.emit('cursor-changed');
       await waitForCondition({
-        evaluate: () => sprite.content instanceof St.ImageContent && sprite.content !== firstImage,
+        evaluate: () => sprite.content !== firstImage,
         signals: [[sprite, 'notify::content']],
-        description: 'sharpened image to be rebuilt after the cursor texture changed',
+        description: 'cursor image to be redrawn after the cursor texture changed',
       });
 
       await waitForTiming(1500, 'Negative check: continuous shaking outlives the settle delay');
@@ -151,6 +148,7 @@ export async function run() {
     await exerciseCursorShape(resumedOverlay, pointer, tracker);
 
     await shake(pointer);
+    await waitForEnlarged(resumedOverlay);
     settings.set_boolean('module-wiggle-cursor', false);
     await waitForModuleState(settings, 'module-wiggle-cursor', 'wiggle-cursor', false);
     if (overlay() || !tracker.get_pointer_visible())
@@ -161,9 +159,12 @@ export async function run() {
     await shake(pointer, 0);
     settings.set_boolean('module-wiggle-cursor', false);
     await waitForModuleState(settings, 'module-wiggle-cursor', 'wiggle-cursor', false);
-    await waitForTiming(300, 'Negative check: a late sharpened image must not revive the overlay');
+    await waitForTiming(
+      300,
+      'Negative check: a cursor image still being drawn must not revive the overlay',
+    );
     if (overlay() || !tracker.get_pointer_visible())
-      throw new Error('A pending sharpened image outlived the module');
+      throw new Error('A pending cursor image outlived the module');
 
     for (let i = 0; i < 3; i++) {
       settings.set_boolean('module-wiggle-cursor', true);

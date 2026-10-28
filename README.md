@@ -28,7 +28,7 @@ Most modules are enabled by default. Auto Theme Switcher, Vela VPN Quick Setting
 
 Low Battery Percentage shows GNOME's battery percentage while the battery discharges below 30%, and leaves it alone if you already turned it on. Vela VPN Quick Settings routes the Quick Settings VPN toggle through Vela's D-Bus API; its fallback to GNOME Shell's own VPN handling is off by default.
 
-Wiggle Cursor enlarges the pointer to five times its size after a quick shake of the mouse, and returns it to normal as soon as you stop shaking. It keeps your cursor theme, ignores shaking while a button is held, and yields to accessibility magnification.
+Wiggle Cursor enlarges the pointer to five times its size after a quick shake of the mouse, and returns it to normal as soon as you stop shaking. It redraws the cursor from the SVG image of your cursor theme, so it needs a scalable cursor theme (the default Adwaita is one) and leaves any other cursor alone. It ignores shaking while a button is held and yields to accessibility magnification.
 
 The [module reference](docs/module-reference.md) lists every module's settings key, default, dependencies, runtime policy and where its code and tests live.
 

@@ -1,9 +1,9 @@
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
-import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { waitForCondition, waitForTiming } from '../../support/testUtils.js';
-import { shake, waitForEnlarged, waitForSharpCursor, whileShaking } from './support.js';
+import { assertDrawnFromTheme } from './themeCursor.js';
+import { shake, waitForEnlarged, whileShaking } from './support.js';
 
 export async function exerciseCursorShape(overlay, pointer, tracker) {
   const surface = new Clutter.Actor({
@@ -32,23 +32,30 @@ export async function exerciseCursorShape(overlay, pointer, tracker) {
       );
     }
 
+    // The theme animates the wait cursor, so no single SVG reproduces it and it is left alone.
+    surface.cursor_type = Clutter.CursorType.WAIT;
+    await whileShaking(pointer, () =>
+      waitForTiming(600, 'Negative check: a cursor without a single SVG stays native'),
+    );
+    if (overlay.visible || !tracker.get_pointer_visible())
+      throw new Error('A cursor with no SVG image in the theme was enlarged');
+    surface.cursor_type = Clutter.CursorType.CROSSHAIR;
+
     const sprite = overlay.get_first_child();
     await whileShaking(pointer, async () => {
       await waitForEnlarged(overlay);
-      const crosshairTexture = await waitForSharpCursor(sprite);
+      const crosshairTexture = sprite.content.get_texture();
 
       surface.cursor_type = Clutter.CursorType.TEXT;
       await waitForCondition({
-        evaluate: () =>
-          overlay.visible &&
-          sprite.content instanceof St.ImageContent &&
-          sprite.content.get_texture() !== crosshairTexture,
+        evaluate: () => overlay.visible && sprite.content.get_texture() !== crosshairTexture,
         signals: [
           [tracker, 'cursor-changed'],
           [sprite, 'notify::content'],
         ],
-        description: 'sharpened cursor image to follow a native cursor-shape change',
+        description: 'cursor image to follow a native cursor-shape change',
       });
+      await assertDrawnFromTheme(sprite.content.get_texture(), 'text');
       const [hotX, hotY] = tracker.get_hot();
       const monitorScale = global.display.get_monitor_scale(global.display.get_current_monitor());
       if (

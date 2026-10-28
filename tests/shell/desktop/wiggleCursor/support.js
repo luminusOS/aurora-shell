@@ -1,5 +1,4 @@
 import GLib from 'gi://GLib';
-import St from 'gi://St';
 import { waitForActorState, waitForCondition, waitForTiming } from '../../support/testUtils.js';
 
 export const MAGNIFICATION = 5;
@@ -66,19 +65,4 @@ export async function whileShaking(pointer, action) {
     shaking = false;
     await keepShaking;
   }
-}
-
-/**
- * Wait until the overlay shows the resampled, sharpened cursor image.
- *
- * @param {Clutter.Actor} sprite
- * @returns {Promise<Cogl.Texture>} The sharpened image's texture.
- */
-export async function waitForSharpCursor(sprite) {
-  const content = await waitForCondition({
-    evaluate: () => (sprite.content instanceof St.ImageContent ? sprite.content : null),
-    signals: [[sprite, 'notify::content']],
-    description: 'sharpened cursor image to replace the native texture',
-  });
-  return content.get_texture();
 }

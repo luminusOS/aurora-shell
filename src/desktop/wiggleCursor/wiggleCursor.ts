@@ -1,16 +1,18 @@
 import Clutter from '@girs/clutter-18';
 import type Cogl from '@girs/cogl-18';
+import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
 
 import { Module } from '~/module.ts';
-import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
-import { createManagedSource, createManagedTimeout, type ManagedTimeout } from '~/core/mainLoop.ts';
+import { createManagedTimeout, type ManagedTimeout } from '~/core/mainLoop.ts';
 import { textureToLogical } from './cursorGeometry.ts';
-import { createSharpCursorContent } from './cursorImage.ts';
+import { createVectorCursorContent } from './cursorImage.ts';
 import { KEEP_SHAKE, ShakeDetector } from './shakeDetector.ts';
+import { VectorCursorSource } from './vectorCursor.ts';
 
 const MAGNIFICATION = 5;
 // How long the cursor stays large after the last back-and-forth of the shake.
@@ -22,8 +24,9 @@ const BUTTON_MASK =
   Clutter.ModifierType.BUTTON3_MASK;
 
 // Cursor textures can be updated in place, so an image is only valid for the revision it was made in.
-type SharpRequest = { texture: Cogl.Texture; revision: number };
-type SharpImage = { texture: Cogl.Texture; revision: number; content: Clutter.Content };
+type CursorImageRequest = { texture: Cogl.Texture; revision: number };
+// A null content means the theme has no vector image for this cursor.
+type CursorImage = CursorImageRequest & { content: Clutter.Content | null };
 
 export class WiggleCursor extends Module {
   private readonly _startDetector = new ShakeDetector();
@@ -34,9 +37,9 @@ export class WiggleCursor extends Module {
   private _sprite: Clutter.Actor | null = null;
   private _lifecycle: LifecycleScope | null = null;
   private _hold: ManagedTimeout | null = null;
-  private _renderingPause: ManagedSource | null = null;
-  private _sharpRequest: SharpRequest | null = null;
-  private _sharpImage: SharpImage | null = null;
+  private _vectorCursors: VectorCursorSource | null = null;
+  private _imageRequest: CursorImageRequest | null = null;
+  private _image: CursorImage | null = null;
   private _cursorRevision = 0;
   private _cursorInhibited = false;
   private _shrinking = false;
@@ -44,7 +47,9 @@ export class WiggleCursor extends Module {
   override enable(): void {
     this._lifecycle = new LifecycleScope();
     this._hold = createManagedTimeout(this._lifecycle);
-    this._renderingPause = createManagedSource(this._lifecycle);
+    this._vectorCursors = new VectorCursorSource(
+      new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' }),
+    );
     this._overlay = new Clutter.Actor({
       name: 'aurora-wiggle-cursor',
       reactive: false,
@@ -77,12 +82,12 @@ export class WiggleCursor extends Module {
   }
 
   override disable(): void {
-    this._sharpRequest = null;
-    this._sharpImage = null;
+    this._imageRequest = null;
+    this._image = null;
     if (this._lifecycle) this._lifecycle.dispose();
     this._lifecycle = null;
     this._hold = null;
-    this._renderingPause = null;
+    this._vectorCursors = null;
 
     this._tracker.disconnectObject(this);
     Main.sessionMode.disconnectObject(this);
@@ -99,7 +104,7 @@ export class WiggleCursor extends Module {
 
   private _onMotion(): void {
     if (!this._overlay || !this._sprite || !this._hold) return;
-    if (Main.sessionMode.isLocked || St.Settings.get().magnifier_active) {
+    if (this._isEnlargementBlocked()) {
       if (this._cursorInhibited) this._restore();
       return;
     }
@@ -130,7 +135,11 @@ export class WiggleCursor extends Module {
 
   private _onCursorChanged(): void {
     this._cursorRevision++;
-    if (this._cursorInhibited) this._syncSprite();
+    if (!this._cursorInhibited) return;
+
+    const texture = this._tracker.get_sprite();
+    if (texture) void this._loadImage(texture, false);
+    else this._restore();
   }
 
   private _enlarge(): void {
@@ -138,7 +147,18 @@ export class WiggleCursor extends Module {
 
     const needsGrowing = !this._cursorInhibited || this._shrinking;
     if (!this._cursorInhibited) {
-      if (!this._syncSprite()) return;
+      const texture = this._tracker.get_sprite();
+      if (!texture) return;
+
+      const image = this._currentImage(texture);
+      if (!image) {
+        void this._loadImage(texture, true);
+        return;
+      }
+      if (!image.content) return;
+
+      this._sprite.content = image.content;
+      this._positionSprite();
 
       // Keep the native sprite available while our visibility inhibitor hides it.
       this._seat.inhibit_unfocus();
@@ -177,72 +197,58 @@ export class WiggleCursor extends Module {
     this._overlay.ease(restoration);
   }
 
-  private _syncSprite(): boolean {
-    if (!this._sprite) return false;
-    const texture = this._tracker.get_sprite();
-    if (!texture) {
-      this._restore();
-      return false;
-    }
-
-    if (
-      this._sharpImage &&
-      this._sharpImage.texture === texture &&
-      this._sharpImage.revision === this._cursorRevision
-    ) {
-      this._sprite.content = this._sharpImage.content;
-    } else {
-      this._sprite.content = Clutter.TextureContent.new_from_texture(texture, null);
-      if (!this._sharpRequest) void this._loadSharpContent(texture);
-    }
-
-    this._positionSprite();
-    return true;
+  private _isEnlargementBlocked(): boolean {
+    return Main.sessionMode.isLocked || St.Settings.get().magnifier_active;
   }
 
-  private async _loadSharpContent(texture: Cogl.Texture): Promise<void> {
-    const request: SharpRequest = { texture, revision: this._cursorRevision };
-    this._sharpRequest = request;
+  private _currentImage(texture: Cogl.Texture): CursorImage | null {
+    const image = this._image;
+    if (!image || image.texture !== texture || image.revision !== this._cursorRevision) return null;
+
+    return image;
+  }
+
+  private async _loadImage(texture: Cogl.Texture, enlargeWhenReady: boolean): Promise<void> {
+    const vectorCursors = this._vectorCursors;
+    if (!vectorCursors) return;
+
+    const request: CursorImageRequest = { texture, revision: this._cursorRevision };
+    this._imageRequest = request;
+    const placement = {
+      hotspot: this._tracker.get_hot(),
+      monitorScale: global.display.get_monitor_scale(global.display.get_current_monitor()),
+    };
     const isCurrent = (): boolean =>
-      this._sharpRequest === request && request.revision === this._cursorRevision;
+      this._imageRequest === request && request.revision === this._cursorRevision;
 
-    let content: Clutter.Content | null;
+    let content: Clutter.Content | null = null;
     try {
-      content = await createSharpCursorContent(texture, MAGNIFICATION, {
-        pause: () => this._pauseForRendering(),
+      content = await createVectorCursorContent(
+        texture,
+        MAGNIFICATION,
+        placement,
+        vectorCursors,
         isCurrent,
-      });
+      );
     } catch (error) {
-      logger.warn('Could not sharpen the cursor image', { prefix: 'WiggleCursor' }, error);
-      content = Clutter.TextureContent.new_from_texture(texture, null);
+      logger.warn('Could not draw the enlarged cursor', { prefix: 'WiggleCursor' }, error);
     }
-    if (this._sharpRequest !== request) return;
+    if (!isCurrent()) return;
 
-    this._sharpRequest = null;
-    if (content && request.revision === this._cursorRevision)
-      this._sharpImage = { texture, revision: request.revision, content };
-    if (this._cursorInhibited) this._syncSprite();
-  }
+    this._imageRequest = null;
+    this._image = { ...request, content };
 
-  private _pauseForRendering(): Promise<void> {
-    const renderingPause = this._renderingPause;
-
-    return new Promise((resolve) => {
-      // A request that outlives disable() has nothing left to wait for.
-      if (!renderingPause) {
-        resolve();
+    if (this._cursorInhibited) {
+      if (!content || !this._sprite) {
+        this._restore();
         return;
       }
 
-      // Low priority lets the frame clock run before the next slice of work.
-      renderingPause.replace(() =>
-        GLib.idle_add(GLib.PRIORITY_LOW, () => {
-          renderingPause.complete();
-          resolve();
-          return GLib.SOURCE_REMOVE;
-        }),
-      );
-    });
+      this._sprite.content = content;
+      this._positionSprite();
+    } else if (enlargeWhenReady && content && !this._isEnlargementBlocked()) {
+      this._enlarge();
+    }
   }
 
   private _positionSprite(): void {

@@ -41,7 +41,7 @@ The Dock motion recipes and controller behavior are adapted from [**Orsso/d2d-co
 
 ## Wiggle Cursor
 
-The shake detector is adapted from [**adityakrishnan005-a11y/adaptive-wiggle-cursor**](https://github.com/adityakrishnan005-a11y/adaptive-wiggle-cursor), commit `14e187362e765b1083ae6c22e9a5bf48938a82d9`. Aurora keeps its 800 ms window, the merging of same-direction samples and the path-to-diagonal ratio, and judges only the latest strokes. The enlargement is a fixed 5x, and the image comes from the Shell's own cursor texture instead of parsing cursor theme files. The adapted detector retains the following MIT license notice and is combined with Aurora Shell under GPL-3.0-only:
+The shake detector is adapted from [**adityakrishnan005-a11y/adaptive-wiggle-cursor**](https://github.com/adityakrishnan005-a11y/adaptive-wiggle-cursor), commit `14e187362e765b1083ae6c22e9a5bf48938a82d9`. Aurora keeps its 800 ms window, the merging of same-direction samples and the path-to-diagonal ratio, and judges only the latest strokes. The enlargement is a fixed 5x, and the enlarged image is the SVG of the current cursor theme redrawn at that size. The adapted detector retains the following MIT license notice and is combined with Aurora Shell under GPL-3.0-only:
 
 ```text
 MIT License
