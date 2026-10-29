@@ -17,6 +17,14 @@ On 2026-10-25, the production ZIP reported six findings: one version-validation 
 
 Do not copy these decisions to a new line automatically. A future scan is accepted only after the reported source owner, teardown path, and package behavior are traced again.
 
+## Wiggle Cursor
+
+A scan of the production ZIP reports the same six rule groups as the baseline above, and no Wiggle Cursor file in any of them except one `EGO-L-002` location: `desktop/wiggleCursor/wiggleCursor.js`, where `_sprite` is a child of `_overlay`. It is an actor-tree ownership false positive. `disable()` disposes the lifecycle scope (which removes the settle timeout), disconnects every owned signal, and `_restore()` cancels transitions, drops the sprite content and releases only this module's cursor-visibility and seat-unfocus inhibitions. Destroying `_overlay` destroys `_sprite`, and both fields are cleared. The scalable cursor lookup in `vectorCursor.ts` reads small theme files asynchronously and imports `Rsvg` on first use, so a missing typelib only leaves the module inactive. Real Shell tests exercise disable while enlarged, disable with a cursor image still being drawn, repeated enable/disable, lock and unlock, and coexistence with another owner's visibility inhibitor.
+
+The module adds no subprocess or clipboard access and only reads cursor theme files. It reads the cursor texture through `Shell.Screenshot.composite_to_stream` into an in-memory stream and keeps a single cursor image, replaced when the cursor texture or its revision changes and dropped by `disable()`.
+
+The overlay is extension-only. The cropped or transformed Wayland cursor and mid-enlargement visibility limitations are listed in the module reference; this review does not establish native compositor or capture fidelity.
+
 ## Clipboard declaration
 
 Aurora Shell intentionally accesses the clipboard in Clipboard History and Capture Tools. `metadata.json` describes both uses, states that data remains local, and records that Clipboard History has no default shortcut. This satisfies the guideline that clipboard access be declared.

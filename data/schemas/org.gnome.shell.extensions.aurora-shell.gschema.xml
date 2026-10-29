@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.aurora-shell" path="/org/gnome/shell/extensions/aurora-shell/">
+    <key name="module-wiggle-cursor" type="b">
+      <default>true</default>
+      <summary>Enable Wiggle Cursor module</summary>
+      <description>Shake the mouse to temporarily enlarge the pointer to five times its normal size</description>
+    </key>
     <key name="module-no-overview" type="b">
       <default>true</default>
       <summary>Enable No Overview module</summary>
