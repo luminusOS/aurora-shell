@@ -7,7 +7,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import { exerciseEnvironment } from './environment.js';
 import { exerciseCursorShape } from './cursorShape.js';
-import { assertDrawnFromTheme } from './themeCursor.js';
+import { assertCursorGeometry, assertDrawnFromTheme } from './themeCursor.js';
 import { MAGNIFICATION, shake, waitForEnlarged, whileShaking } from './support.js';
 import {
   EXTENSION_UUID,
@@ -75,19 +75,7 @@ export async function run() {
 
       await assertDrawnFromTheme(enlargedTexture, 'default');
 
-      // The Shell's cursors report a tracker scale of 1 but are rasterised at the monitor scale.
-      const monitorScale = global.display.get_monitor_scale(global.display.get_current_monitor());
-      if (Math.abs(sprite.width * monitorScale - nativeTexture.get_width()) > 0.5)
-        throw new Error(
-          `Cursor is ${sprite.width} logical px wide on a ${monitorScale}x monitor ` +
-            `for a ${nativeTexture.get_width()} px texture`,
-        );
-      const [hotX, hotY] = tracker.get_hot();
-      if (
-        Math.abs(sprite.x + hotX / monitorScale) > 0.1 ||
-        Math.abs(sprite.y + hotY / monitorScale) > 0.1
-      )
-        throw new Error('Enlarged cursor hotspot is misaligned');
+      assertCursorGeometry(sprite, tracker);
       if (!sprite.content || sprite.width <= 0 || sprite.height <= 0)
         throw new Error('Cursor overlay has no native content');
 

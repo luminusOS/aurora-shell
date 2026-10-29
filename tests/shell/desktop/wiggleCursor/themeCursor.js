@@ -94,3 +94,33 @@ export async function assertDrawnFromTheme(texture, name) {
       `The enlarged cursor is not the '${name}' SVG of the theme (mean difference ${difference})`,
     );
 }
+
+/**
+ * Throw unless the overlay sprite has the logical size and hotspot of the native cursor.
+ *
+ * The Shell rasterises its cursors at the monitor scale and truncates the texture size and hotspot
+ * to whole pixels, so they only agree with the sprite to within a logical pixel.
+ *
+ * @param {Clutter.Actor} sprite
+ * @param {Meta.CursorTracker} tracker
+ */
+export function assertCursorGeometry(sprite, tracker) {
+  const monitorScale = global.display.get_monitor_scale(global.display.get_current_monitor());
+  const texture = tracker.get_sprite();
+  const [hotX, hotY] = tracker.get_hot();
+  const mismatches = [
+    [sprite.width, texture.get_width() / monitorScale, 'width'],
+    [sprite.height, texture.get_height() / monitorScale, 'height'],
+    [-sprite.x, hotX / monitorScale, 'hotspot x'],
+    [-sprite.y, hotY / monitorScale, 'hotspot y'],
+  ].filter(([actual, expected]) => Math.abs(actual - expected) > 1);
+
+  if (mismatches.length > 0) {
+    const details = mismatches.map(
+      ([actual, expected, what]) => `${what} ${actual} (expected ${expected})`,
+    );
+    throw new Error(
+      `Enlarged cursor does not match the native one on a ${monitorScale}x monitor: ${details.join(', ')}`,
+    );
+  }
+}

@@ -2,7 +2,7 @@ import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { waitForCondition, waitForTiming } from '../../support/testUtils.js';
-import { assertDrawnFromTheme } from './themeCursor.js';
+import { assertCursorGeometry, assertDrawnFromTheme } from './themeCursor.js';
 import { shake, waitForEnlarged, whileShaking } from './support.js';
 
 export async function exerciseCursorShape(overlay, pointer, tracker) {
@@ -56,13 +56,7 @@ export async function exerciseCursorShape(overlay, pointer, tracker) {
         description: 'cursor image to follow a native cursor-shape change',
       });
       await assertDrawnFromTheme(sprite.content.get_texture(), 'text');
-      const [hotX, hotY] = tracker.get_hot();
-      const monitorScale = global.display.get_monitor_scale(global.display.get_current_monitor());
-      if (
-        Math.abs(sprite.x + hotX / monitorScale) > 0.1 ||
-        Math.abs(sprite.y + hotY / monitorScale) > 0.1
-      )
-        throw new Error('Cursor-shape change lost hotspot alignment');
+      assertCursorGeometry(sprite, tracker);
 
       surface.cursor_type = Clutter.CursorType.NONE;
       await waitForCondition({

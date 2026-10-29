@@ -1,45 +1,41 @@
+import type Clutter from '@girs/clutter-18';
+import Cogl from '@girs/cogl-18';
 import type GdkPixbuf from '@girs/gdkpixbuf-2.0';
 import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
+import Shell from '@girs/shell-18';
+import St from '@girs/st-18';
 import type Rsvg from 'gi://Rsvg';
 
 import { logger } from '~/core/logger.ts';
 import {
-  MATCH_THRESHOLD,
+  EXACT_MATCH_DIFFERENCE,
+  MAX_MATCH_DIFFERENCE,
+  logicalGeometry,
   matchesHotspot,
   meanPixelDifference,
-  parseCursorMetadata,
-  type CursorFrame,
+  type CursorGeometry,
   type PixelView,
 } from './cursorMatching.ts';
-
-// @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
-Gio._promisify(Gio.File.prototype, 'load_contents_async');
-// @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
-Gio._promisify(Gio.File.prototype, 'enumerate_children_async');
-// @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
-Gio._promisify(Gio.FileEnumerator.prototype, 'next_files_async');
+import { readCursorSvg, readScalableCursors, type ThemeCursor } from './cursorTheme.ts';
 
 type RsvgModule = typeof Rsvg;
 
-// The Shell's own fallback when the configured theme has no scalable cursor for a shape.
-const SHELL_THEME_URI = 'resource:///org/gnome/shell/cursor-theme/';
-const FALLBACK_THEME = 'Adwaita';
 // A 3x monitor draws a 96 px cursor, so 5x is 480 px. Anything larger is not worth the memory.
 const MAX_VECTOR_SIDE = 640;
-const DIRECTORY_BATCH = 64;
 
-export type CursorPlacement = {
-  /** Hotspot in the pixels of the cursor texture, as the tracker reports it. */
-  hotspot: [number, number];
-  monitorScale: number;
+/** The enlarged cursor and where it goes, in logical pixels relative to the pointer. */
+export type VectorCursor = {
+  content: Clutter.Content;
+  geometry: CursorGeometry;
 };
 
-type CatalogEntry = {
-  name: string;
-  frame: CursorFrame;
-  directory: Gio.File;
-  svg: Uint8Array | null;
+/** What the cursor tracker exposes of the cursor the Shell is drawing. */
+type NativeCursor = {
+  texture: Cogl.Texture;
+  /** Hotspot in the pixels of the texture, as the tracker reports it. */
+  hotspot: [number, number];
+  /** Scale of the monitor the pointer was on when the image was requested. */
+  monitorScale: number;
 };
 
 let rsvgModule: Promise<RsvgModule | null> | null = null;
@@ -63,103 +59,52 @@ function loadRsvg(): Promise<RsvgModule | null> {
   return rsvgModule;
 }
 
-async function listDirectory(directory: Gio.File): Promise<string[] | null> {
-  try {
-    const enumerator = await directory.enumerate_children_async(
-      'standard::name',
-      Gio.FileQueryInfoFlags.NONE,
-      GLib.PRIORITY_DEFAULT,
+function readPixbuf(texture: Cogl.Texture): Promise<GdkPixbuf.Pixbuf> {
+  // The Shell API also encodes a PNG into this stream; only the returned pixbuf is used.
+  const discardedPng = Gio.MemoryOutputStream.new_resizable();
+
+  return new Promise((resolve, reject) => {
+    Shell.Screenshot.composite_to_stream(
+      texture,
+      0,
+      0,
+      -1,
+      -1,
+      1,
       null,
+      0,
+      0,
+      1,
+      discardedPng,
+      (_source, result) => {
+        try {
+          const pixbuf = Shell.Screenshot.composite_to_stream_finish(result);
+          if (pixbuf) resolve(pixbuf);
+          else reject(new Error('The cursor texture could not be read'));
+        } catch (error) {
+          reject(error);
+        }
+      },
     );
-    const names: string[] = [];
-
-    for (;;) {
-      const infos = await enumerator.next_files_async(DIRECTORY_BATCH, GLib.PRIORITY_DEFAULT, null);
-      if (infos.length === 0) break;
-      for (const info of infos) names.push(info.get_name());
-    }
-    enumerator.close(null);
-
-    return names;
-  } catch {
-    return null;
-  }
+  });
 }
 
-// Same search order as the Shell: user data, system data, then the theme bundled in the Shell.
-function scalableDirectories(theme: string): Gio.File[] {
-  const relative = `icons/${theme}/cursors_scalable`;
-  const dataRoots = [GLib.get_user_data_dir(), ...GLib.get_system_data_dirs()];
-
-  return [
-    ...dataRoots.map((root) => Gio.File.new_for_path(root).resolve_relative_path(relative)),
-    Gio.File.new_for_uri(`${SHELL_THEME_URI}${relative}`),
-  ];
-}
-
-type ScalableDirectory = { directory: Gio.File; names: string[] };
-
-async function findScalableDirectory(theme: string): Promise<ScalableDirectory | null> {
-  if (theme.includes('/')) return null;
-
-  for (const directory of scalableDirectories(theme)) {
-    const names = await listDirectory(directory);
-    if (names) return { directory, names };
-  }
-
-  return null;
-}
-
-async function readCatalogEntry(directory: Gio.File, name: string): Promise<CatalogEntry | null> {
-  const cursorDirectory = directory.get_child(name);
-
-  try {
-    const [metadata] = await cursorDirectory.get_child('metadata.json').load_contents_async(null);
-    const frames = parseCursorMetadata(new TextDecoder().decode(metadata));
-    // Animated cursors would need every frame tested, and nobody looks for a spinner.
-    if (!frames || frames.length !== 1) return null;
-
-    return { name, frame: frames[0]!, directory: cursorDirectory, svg: null };
-  } catch {
-    return null;
-  }
-}
-
-async function readCatalog(theme: string): Promise<CatalogEntry[]> {
-  const sources: ScalableDirectory[] = [];
-  const themed = await findScalableDirectory(theme);
-  if (themed) sources.push(themed);
-
-  const fallback = await findScalableDirectory(FALLBACK_THEME);
-  if (fallback && !sources.some((source) => source.directory.equal(fallback.directory)))
-    sources.push(fallback);
-
-  const seen = new Set<string>();
-  const pending: Promise<CatalogEntry | null>[] = [];
-  for (const { directory, names } of sources) {
-    for (const name of names) {
-      if (seen.has(name)) continue;
-
-      seen.add(name);
-      pending.push(readCatalogEntry(directory, name));
-    }
-  }
-
-  return (await Promise.all(pending)).filter((entry): entry is CatalogEntry => entry !== null);
-}
-
-function renderSvg(
-  rsvg: RsvgModule,
-  svg: Uint8Array,
-  width: number,
-  height: number,
-): GdkPixbuf.Pixbuf | null {
-  const handle = rsvg.Handle.new_from_data(svg);
-  handle.set_stylesheet(
-    new TextEncoder().encode(`svg { width: ${width}px; height: ${height}px; }`),
+function uploadImage(pixbuf: GdkPixbuf.Pixbuf): Clutter.Content {
+  const width = pixbuf.get_width();
+  const height = pixbuf.get_height();
+  const content = new St.ImageContent({ preferred_width: width, preferred_height: height });
+  const coglContext = global.stage.context.get_backend().get_cogl_context();
+  const uploaded = content.set_bytes(
+    coglContext,
+    pixbuf.get_pixels(),
+    Cogl.PixelFormat.RGBA_8888,
+    width,
+    height,
+    pixbuf.get_rowstride(),
   );
+  if (!uploaded) throw new Error('The cursor image could not be uploaded');
 
-  return handle.get_pixbuf();
+  return content;
 }
 
 function pixelView(pixbuf: GdkPixbuf.Pixbuf): PixelView {
@@ -172,26 +117,44 @@ function pixelView(pixbuf: GdkPixbuf.Pixbuf): PixelView {
   };
 }
 
+// `get_pixbuf` draws at the size the document declares, so the stylesheet is what picks the pixel
+// size. It changes the handle, so read the intrinsic size from it beforehand.
+function drawSvg(handle: Rsvg.Handle, width: number, height: number): GdkPixbuf.Pixbuf | null {
+  handle.set_stylesheet(
+    new TextEncoder().encode(`svg { width: ${width}px; height: ${height}px; }`),
+  );
+
+  return handle.get_pixbuf();
+}
+
 /**
  * Redraws the current cursor from the vector image of the cursor theme at the enlarged size.
  *
  * The tracker only exposes the pixels the Shell rasterised, not which cursor they show. The theme
- * is searched for the cursor whose SVG, drawn at the size of those pixels, reproduces them. A
- * cursor that no theme file reproduces, such as the one an application sets itself, yields null.
+ * is searched for the cursor whose SVG, drawn at the size of those pixels, comes closest to them.
+ * A cursor that no theme shape comes close to, such as the one an application sets itself,
+ * yields null.
  */
 export class VectorCursorSource {
-  private _catalog: { theme: string; entries: Promise<CatalogEntry[]> } | null = null;
+  private _catalog: { theme: string; cursors: Promise<ThemeCursor[]> } | null = null;
 
   constructor(private readonly _interfaceSettings: Gio.Settings) {}
 
-  async draw(
-    native: GdkPixbuf.Pixbuf,
-    placement: CursorPlacement,
+  /**
+   * Resolves to null when the cursor cannot be enlarged from the theme: no theme shape comes close,
+   * the image would be too large, or Rsvg is missing. It also resolves to null once `isCurrent()`
+   * turns false, which it is polled for between the awaits so that a superseded request stops early.
+   */
+  async createCursor(
+    nativeCursor: NativeCursor,
     magnification: number,
     isCurrent: () => boolean,
-  ): Promise<GdkPixbuf.Pixbuf | null> {
-    const width = native.get_width();
-    const height = native.get_height();
+  ): Promise<VectorCursor | null> {
+    const nativePixels = await readPixbuf(nativeCursor.texture);
+    if (!isCurrent()) return null;
+
+    const width = nativePixels.get_width();
+    const height = nativePixels.get_height();
     if (Math.max(width, height) * magnification > MAX_VECTOR_SIDE) return null;
 
     const rsvg = await loadRsvg();
@@ -199,46 +162,80 @@ export class VectorCursorSource {
 
     try {
       const cursorSize = this._interfaceSettings.get_int('cursor-size');
-      const entries = await this._entriesFor(this._interfaceSettings.get_string('cursor-theme'));
-      const nativeView = pixelView(native);
+      const match = await this._findClosest(
+        rsvg,
+        nativePixels,
+        nativeCursor,
+        cursorSize,
+        isCurrent,
+      );
+      if (!match || !isCurrent()) return null;
 
-      for (const entry of entries) {
-        if (!isCurrent()) return null;
-        if (!matchesHotspot(entry.frame, cursorSize, placement.monitorScale, placement.hotspot))
-          continue;
+      const handle = rsvg.Handle.new_from_data(match.svg);
+      const [hasSize, svgWidth, svgHeight] = handle.get_intrinsic_size_in_pixels();
+      if (!hasSize) return null;
 
-        const svg = await this._readSvg(entry);
-        const sameSize = renderSvg(rsvg, svg, width, height);
-        if (!sameSize || meanPixelDifference(nativeView, pixelView(sameSize)) > MATCH_THRESHOLD)
-          continue;
+      const enlarged = drawSvg(handle, width * magnification, height * magnification);
+      if (!enlarged) return null;
 
-        if (!isCurrent()) return null;
-
-        return renderSvg(rsvg, svg, width * magnification, height * magnification);
-      }
+      return {
+        content: uploadImage(enlarged),
+        geometry: logicalGeometry(match.cursor.frame, svgWidth, svgHeight, cursorSize),
+      };
     } catch (error) {
       logger.warn('Could not draw the scalable cursor', { prefix: 'WiggleCursor' }, error);
+      return null;
     }
-
-    return null;
   }
 
-  private _entriesFor(theme: string): Promise<CatalogEntry[]> {
-    if (!this._catalog || this._catalog.theme !== theme) {
-      this._catalog = { theme, entries: readCatalog(theme) };
+  private async _findClosest(
+    rsvg: RsvgModule,
+    nativePixels: GdkPixbuf.Pixbuf,
+    nativeCursor: NativeCursor,
+    cursorSize: number,
+    isCurrent: () => boolean,
+  ): Promise<{ cursor: ThemeCursor; svg: Uint8Array } | null> {
+    const nativeView = pixelView(nativePixels);
+    let closest: { cursor: ThemeCursor; svg: Uint8Array } | null = null;
+    let smallestDifference = MAX_MATCH_DIFFERENCE;
+
+    for (const themeCursor of await this._cursorsFor(
+      this._interfaceSettings.get_string('cursor-theme'),
+    )) {
+      if (!isCurrent()) return null;
+      if (
+        !matchesHotspot(
+          themeCursor.frame,
+          cursorSize,
+          nativeCursor.monitorScale,
+          nativeCursor.hotspot,
+        )
+      )
+        continue;
+
+      const svg = await readCursorSvg(themeCursor);
+      const drawn = drawSvg(
+        rsvg.Handle.new_from_data(svg),
+        nativePixels.get_width(),
+        nativePixels.get_height(),
+      );
+      if (!drawn) continue;
+
+      const difference = meanPixelDifference(nativeView, pixelView(drawn));
+      if (!(difference < smallestDifference)) continue;
+
+      smallestDifference = difference;
+      closest = { cursor: themeCursor, svg };
+      if (difference < EXACT_MATCH_DIFFERENCE) break;
     }
 
-    return this._catalog.entries;
+    return closest;
   }
 
-  private async _readSvg(entry: CatalogEntry): Promise<Uint8Array> {
-    if (!entry.svg) {
-      const [contents] = await entry.directory
-        .get_child(entry.frame.filename)
-        .load_contents_async(null);
-      entry.svg = contents;
-    }
+  private _cursorsFor(theme: string): Promise<ThemeCursor[]> {
+    if (!this._catalog || this._catalog.theme !== theme)
+      this._catalog = { theme, cursors: readScalableCursors(theme) };
 
-    return entry.svg;
+    return this._catalog.cursors;
   }
 }

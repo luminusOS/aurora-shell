@@ -9,10 +9,8 @@ import { Module } from '~/module.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { createManagedTimeout, type ManagedTimeout } from '~/core/mainLoop.ts';
-import { textureToLogical } from './cursorGeometry.ts';
-import { createVectorCursorContent } from './cursorImage.ts';
 import { KEEP_SHAKE, ShakeDetector } from './shakeDetector.ts';
-import { VectorCursorSource } from './vectorCursor.ts';
+import { VectorCursorSource, type VectorCursor } from './vectorCursor.ts';
 
 const MAGNIFICATION = 5;
 // How long the cursor stays large after the last back-and-forth of the shake.
@@ -25,8 +23,8 @@ const BUTTON_MASK =
 
 // Cursor textures can be updated in place, so an image is only valid for the revision it was made in.
 type CursorImageRequest = { texture: Cogl.Texture; revision: number };
-// A null content means the theme has no vector image for this cursor.
-type CursorImage = CursorImageRequest & { content: Clutter.Content | null };
+// A null cursor means the theme has no vector image for this cursor.
+type CursorImage = CursorImageRequest & { cursor: VectorCursor | null };
 
 export class WiggleCursor extends Module {
   private readonly _startDetector = new ShakeDetector();
@@ -103,7 +101,7 @@ export class WiggleCursor extends Module {
   }
 
   private _onMotion(): void {
-    if (!this._overlay || !this._sprite || !this._hold) return;
+    if (!this._overlay || !this._hold) return;
     if (this._isEnlargementBlocked()) {
       if (this._cursorInhibited) this._restore();
       return;
@@ -117,7 +115,6 @@ export class WiggleCursor extends Module {
     if (!position) return;
 
     this._overlay.set_position(position.x, position.y);
-    if (this._cursorInhibited) this._positionSprite();
 
     // Dragging a slider or a selection back and forth is not a lost pointer.
     if (modifiers !== null && (modifiers & BUTTON_MASK) !== 0) {
@@ -143,7 +140,7 @@ export class WiggleCursor extends Module {
   }
 
   private _enlarge(): void {
-    if (!this._overlay || !this._sprite || !this._hold) return;
+    if (!this._overlay || !this._hold) return;
 
     const needsGrowing = !this._cursorInhibited || this._shrinking;
     if (!this._cursorInhibited) {
@@ -155,10 +152,9 @@ export class WiggleCursor extends Module {
         void this._loadImage(texture, true);
         return;
       }
-      if (!image.content) return;
+      if (!image.cursor) return;
 
-      this._sprite.content = image.content;
-      this._positionSprite();
+      this._showCursor(image.cursor);
 
       // Keep the native sprite available while our visibility inhibitor hides it.
       this._seat.inhibit_unfocus();
@@ -214,58 +210,39 @@ export class WiggleCursor extends Module {
 
     const request: CursorImageRequest = { texture, revision: this._cursorRevision };
     this._imageRequest = request;
-    const placement = {
+    const native = {
+      texture,
       hotspot: this._tracker.get_hot(),
       monitorScale: global.display.get_monitor_scale(global.display.get_current_monitor()),
     };
     const isCurrent = (): boolean =>
       this._imageRequest === request && request.revision === this._cursorRevision;
 
-    let content: Clutter.Content | null = null;
+    let cursor: VectorCursor | null = null;
     try {
-      content = await createVectorCursorContent(
-        texture,
-        MAGNIFICATION,
-        placement,
-        vectorCursors,
-        isCurrent,
-      );
+      cursor = await vectorCursors.createCursor(native, MAGNIFICATION, isCurrent);
     } catch (error) {
       logger.warn('Could not draw the enlarged cursor', { prefix: 'WiggleCursor' }, error);
     }
     if (!isCurrent()) return;
 
     this._imageRequest = null;
-    this._image = { ...request, content };
+    this._image = { ...request, cursor };
 
     if (this._cursorInhibited) {
-      if (!content || !this._sprite) {
-        this._restore();
-        return;
-      }
-
-      this._sprite.content = content;
-      this._positionSprite();
-    } else if (enlargeWhenReady && content && !this._isEnlargementBlocked()) {
+      if (cursor) this._showCursor(cursor);
+      else this._restore();
+    } else if (enlargeWhenReady && cursor && !this._isEnlargementBlocked()) {
       this._enlarge();
     }
   }
 
-  private _positionSprite(): void {
+  private _showCursor({ content, geometry }: VectorCursor): void {
     if (!this._sprite) return;
-    const texture = this._tracker.get_sprite();
-    if (!texture) {
-      this._restore();
-      return;
-    }
 
-    const scale = textureToLogical(
-      this._tracker.get_scale(),
-      global.display.get_monitor_scale(global.display.get_current_monitor()),
-    );
-    const [hotX, hotY] = this._tracker.get_hot();
-    this._sprite.set_size(texture.get_width() * scale, texture.get_height() * scale);
-    this._sprite.set_position(-hotX * scale, -hotY * scale);
+    this._sprite.content = content;
+    this._sprite.set_size(geometry.width, geometry.height);
+    this._sprite.set_position(-geometry.hotspotX, -geometry.hotspotY);
   }
 
   private _resetDetectors(): void {

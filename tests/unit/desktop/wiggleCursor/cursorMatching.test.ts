@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  MATCH_THRESHOLD,
+  MAX_MATCH_DIFFERENCE,
   expectedHotspot,
+  logicalGeometry,
   matchesHotspot,
   meanPixelDifference,
   parseCursorMetadata,
@@ -15,7 +16,6 @@ const ARROW: CursorFrame = {
   hotspotX: 8,
   hotspotY: 7,
   nominalSize: 24,
-  delay: 0,
 };
 
 function image(width: number, height: number, fill: [number, number, number, number]): PixelView {
@@ -34,13 +34,15 @@ describe('parseCursorMetadata', () => {
     assert.deepEqual(frames, [ARROW]);
   });
 
-  it('keeps the delay of an animated frame', () => {
+  it('returns every frame of an animated cursor', () => {
     const frames = parseCursorMetadata(
       '[{"filename":"a.svg","delay":16,"nominal_size":24},{"filename":"b.svg","delay":16,"nominal_size":24}]',
     );
 
-    assert.equal(frames?.length, 2);
-    assert.equal(frames?.[0]?.delay, 16);
+    assert.deepEqual(
+      frames?.map((frame) => frame.filename),
+      ['a.svg', 'b.svg'],
+    );
   });
 
   it('rejects text that is not JSON', () => {
@@ -50,6 +52,11 @@ describe('parseCursorMetadata', () => {
   it('rejects anything but a non-empty list', () => {
     assert.equal(parseCursorMetadata('{}'), null);
     assert.equal(parseCursorMetadata('[]'), null);
+  });
+
+  it('rejects a filename that leaves the cursor directory', () => {
+    assert.equal(parseCursorMetadata('[{"filename":"../x/default.svg","nominal_size":24}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"/etc/a.svg","nominal_size":24}]'), null);
   });
 
   it('rejects a frame without a file or a nominal size', () => {
@@ -86,6 +93,30 @@ describe('matchesHotspot', () => {
   });
 });
 
+describe('logicalGeometry', () => {
+  it('scales the svg size and the hotspot by the cursor size over the nominal size', () => {
+    assert.deepEqual(logicalGeometry(ARROW, 32, 32, 24), {
+      width: 32,
+      height: 32,
+      hotspotX: 8,
+      hotspotY: 7,
+    });
+    assert.deepEqual(logicalGeometry(ARROW, 32, 32, 48), {
+      width: 64,
+      height: 64,
+      hotspotX: 16,
+      hotspotY: 14,
+    });
+  });
+
+  it('keeps the fraction the truncated texture hotspot would lose', () => {
+    const geometry = logicalGeometry(ARROW, 32, 32, 36);
+
+    assert.equal(geometry.hotspotX, 12);
+    assert.equal(geometry.hotspotY, 10.5);
+  });
+});
+
 describe('meanPixelDifference', () => {
   it('is zero for identical images', () => {
     const opaque = image(4, 4, [200, 10, 10, 255]);
@@ -115,7 +146,7 @@ describe('meanPixelDifference', () => {
   it('stays under the match threshold for rounding noise', () => {
     const noisy = image(4, 4, [201, 10, 10, 255]);
 
-    assert.ok(meanPixelDifference(image(4, 4, [200, 10, 10, 255]), noisy) < MATCH_THRESHOLD);
+    assert.ok(meanPixelDifference(image(4, 4, [200, 10, 10, 255]), noisy) < MAX_MATCH_DIFFERENCE);
   });
 
   it('is far above the match threshold for a different shape', () => {
@@ -123,7 +154,7 @@ describe('meanPixelDifference', () => {
     const second = image(4, 4, [0, 0, 0, 0]);
     for (let i = 0; i < 8; i++) second.pixels.set([0, 0, 0, 255], i * 4);
 
-    assert.ok(meanPixelDifference(first, second) > MATCH_THRESHOLD);
+    assert.ok(meanPixelDifference(first, second) > MAX_MATCH_DIFFERENCE);
   });
 
   it('never matches images of a different size or format', () => {

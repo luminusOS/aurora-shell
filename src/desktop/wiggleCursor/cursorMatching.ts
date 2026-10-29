@@ -1,11 +1,12 @@
+/** One image of a theme cursor, as listed in its `metadata.json`. */
 export type CursorFrame = {
   filename: string;
   hotspotX: number;
   hotspotY: number;
   nominalSize: number;
-  delay: number;
 };
 
+/** Straight RGBA pixels with their layout, as gdk-pixbuf hands them out. */
 export type PixelView = {
   pixels: Uint8Array;
   width: number;
@@ -14,9 +15,13 @@ export type PixelView = {
   channels: number;
 };
 
-// Both images come out of the same librsvg at the same size, so a true match differs by nothing
-// but rounding. A different cursor of the same hotspot differs by tens of levels.
-export const MATCH_THRESHOLD = 1.5;
+// Measured on Adwaita, drawing a shape at the size of the Shell's texture differs from the Shell's
+// own pixels by 0 when its viewport is a whole number of pixels, and by up to 12 on a 4/3 or 5/3
+// monitor, whose fractional viewport librsvg cannot reproduce. Another shape is at least 12 away
+// and usually over 20, so the nearest shape wins and anything beyond this is not a theme cursor.
+export const MAX_MATCH_DIFFERENCE = 16;
+// Below this no other shape can be nearer, so the search can stop.
+export const EXACT_MATCH_DIFFERENCE = 1.5;
 const HOTSPOT_TOLERANCE = 1.5;
 const RGBA_CHANNELS = 4;
 
@@ -39,14 +44,15 @@ export function parseCursorMetadata(json: string): CursorFrame[] | null {
     if (typeof entry !== 'object' || entry === null) return null;
     const description = entry as Record<string, unknown>;
     const nominalSize = numberOrZero(description['nominal_size']);
-    if (typeof description['filename'] !== 'string' || nominalSize <= 0) return null;
+    const filename = description['filename'];
+    // The theme is untrusted input, and a path would reach outside the cursor's own directory.
+    if (typeof filename !== 'string' || filename.includes('/') || nominalSize <= 0) return null;
 
     frames.push({
-      filename: description['filename'],
+      filename,
       hotspotX: numberOrZero(description['hotspot_x']),
       hotspotY: numberOrZero(description['hotspot_y']),
       nominalSize,
-      delay: numberOrZero(description['delay']),
     });
   }
 
@@ -64,6 +70,7 @@ export function expectedHotspot(
   return [Math.trunc(frame.hotspotX * factor), Math.trunc(frame.hotspotY * factor)];
 }
 
+/** Whether `frame` puts its hotspot where the tracker reports it, give or take truncation. */
 export function matchesHotspot(
   frame: CursorFrame,
   cursorSize: number,
@@ -76,6 +83,33 @@ export function matchesHotspot(
     Math.abs(expectedX - hotspot[0]) <= HOTSPOT_TOLERANCE &&
     Math.abs(expectedY - hotspot[1]) <= HOTSPOT_TOLERANCE
   );
+}
+
+export type CursorGeometry = {
+  width: number;
+  height: number;
+  hotspotX: number;
+  hotspotY: number;
+};
+
+/**
+ * Logical size and hotspot of a frame, before the monitor scale. They come from the theme rather
+ * than from the texture, whose size and hotspot the Shell truncates to whole pixels.
+ */
+export function logicalGeometry(
+  frame: CursorFrame,
+  svgWidth: number,
+  svgHeight: number,
+  cursorSize: number,
+): CursorGeometry {
+  const factor = cursorSize / frame.nominalSize;
+
+  return {
+    width: svgWidth * factor,
+    height: svgHeight * factor,
+    hotspotX: frame.hotspotX * factor,
+    hotspotY: frame.hotspotY * factor,
+  };
 }
 
 /**

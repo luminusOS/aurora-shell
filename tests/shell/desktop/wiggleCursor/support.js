@@ -47,14 +47,15 @@ export function waitForEnlarged(actor) {
  *
  * @param {Clutter.VirtualInputDevice} pointer
  * @param {() => Promise<T>} action
+ * @param {{x: number, y: number}} [origin] Where the shake is centred on the stage.
  * @returns {Promise<T>}
  * @template T
  */
-export async function whileShaking(pointer, action) {
+export async function whileShaking(pointer, action, origin = { x: 400, y: 350 }) {
   let shaking = true;
   const keepShaking = (async () => {
     for (let i = 0; shaking; i++) {
-      pointer.notify_absolute_motion(GLib.get_monotonic_time(), 400 + (i % 2) * 100, 350);
+      pointer.notify_absolute_motion(GLib.get_monotonic_time(), origin.x + (i % 2) * 100, origin.y);
       await waitForTiming(60, 'Delay each reversal of a continuous shake');
     }
   })();
