@@ -553,13 +553,32 @@ function resolveLivePreviewApp(window, currentApp) {
   return reassignedApp?.get_windows().includes(window) ? reassignedApp : currentApp;
 }
 
+let rebuildingDock = false;
+
+// The synthetic hover used here does not keep an auto-hidden Dock mapped, and a hidden Dash defers
+// its redisplay. An icon that kept a replaced Shell.App is therefore only rebuilt once it is shown.
+function rebuildDock(dash) {
+  if (rebuildingDock) return;
+
+  rebuildingDock = true;
+  try {
+    dash.show(false);
+    dash.refresh();
+  } finally {
+    rebuildingDock = false;
+  }
+}
+
 // Re-resolve after app or tree changes because a rebuild may replace the icon.
 async function waitForWindowPreviewTarget(dash, window, currentApp) {
   let app = resolveLivePreviewApp(window, currentApp);
   const target = await waitForCondition({
     evaluate: () => {
       app = resolveLivePreviewApp(window, app);
-      return findWindowPreviewTarget(dash, window, app);
+      const found = findWindowPreviewTarget(dash, window, app);
+      if (!found) rebuildDock(dash);
+
+      return found;
     },
     signals: [
       [Shell.AppSystem.get_default(), 'app-state-changed'],
@@ -652,7 +671,10 @@ async function exerciseWindowPreviews(settings, dock) {
 
         previewApp = resolveLivePreviewApp(window, previewApp);
         const target = findWindowPreviewTarget(dash, window, previewApp);
-        if (!target) return false;
+        if (!target) {
+          rebuildDock(dash);
+          return false;
+        }
         if (dash._windowPreviews._pendingSource?.appIcon === target.appIcon) return false;
 
         ({ item, appIcon } = target);
