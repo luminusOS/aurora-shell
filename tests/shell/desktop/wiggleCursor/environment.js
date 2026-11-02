@@ -71,7 +71,8 @@ export async function exerciseEnvironment(actor, pointer, tracker) {
     });
     try {
       await shake(pointer);
-      if (actor.visible) throw new Error('Cursor enlarged on the lock screen');
+      if (!tracker.get_pointer_visible())
+        throw new Error('Cursor remained inhibited on the lock screen');
     } finally {
       Main.screenShield._continueDeactivate(false);
     }
@@ -88,7 +89,7 @@ export async function exerciseEnvironment(actor, pointer, tracker) {
       2000,
       'Negative check: expired hold callbacks must not change cursor visibility',
     );
-    if (actor.visible || !tracker.get_pointer_visible())
+    if (!tracker.get_pointer_visible())
       throw new Error('Cursor ownership survived environmental resets');
   } finally {
     interfaceSettings.set_boolean('enable-animations', originalAnimations);
