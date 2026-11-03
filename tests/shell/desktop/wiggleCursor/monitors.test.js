@@ -19,7 +19,7 @@ import {
 export var METRICS = {};
 let completed = false;
 
-// A laptop panel next to an external monitor at a fractional scale, as on many desks.
+// At 4/3 the Shell rasterises a fractional viewport that librsvg cannot reproduce exactly.
 const MONITOR_SCALES = [1, 4 / 3];
 
 export function init() {

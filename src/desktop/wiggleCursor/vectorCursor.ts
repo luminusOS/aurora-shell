@@ -20,8 +20,7 @@ import { readCursorSvg, readScalableCursors, type ThemeCursor } from './cursorTh
 
 type RsvgModule = typeof Rsvg;
 
-// Longest side of the enlarged image (4 MiB of pixels). A pointer so large that 5x would exceed it
-// is enlarged less instead of being skipped.
+// Longest side of the enlarged image. A larger pointer is enlarged less, not skipped.
 const MAX_VECTOR_SIDE = 1024;
 
 /** The enlarged cursor and where it goes, in logical pixels relative to the pointer. */
@@ -30,7 +29,6 @@ export type VectorCursor = {
   geometry: CursorGeometry;
 };
 
-/** What the cursor tracker exposes of the cursor the Shell is drawing. */
 type NativeCursor = {
   texture: Cogl.Texture;
   /** Hotspot in the pixels of the texture, as the tracker reports it. */
@@ -118,9 +116,8 @@ function pixelView(pixbuf: GdkPixbuf.Pixbuf): PixelView {
   };
 }
 
-// `get_pixbuf` draws at the size the document declares, so the stylesheet is what picks the pixel
-// size. It changes the handle, so read the intrinsic size from it beforehand. The size is
-// `!important` because the theme is untrusted and a style element in the SVG would otherwise win.
+// The stylesheet picks the pixel size and changes the handle, so read the intrinsic size first. It
+// is `!important` because a style element in an untrusted SVG would otherwise win.
 function drawSvg(handle: Rsvg.Handle, width: number, height: number): GdkPixbuf.Pixbuf | null {
   handle.set_stylesheet(
     new TextEncoder().encode(
@@ -155,12 +152,9 @@ async function drawCandidate(
 }
 
 /**
- * Redraws the current cursor from the vector image of the cursor theme at the enlarged size.
- *
- * The tracker only exposes the pixels the Shell rasterised, not which cursor they show. The theme
- * is searched for the cursor whose SVG, drawn at the size of those pixels, comes closest to them.
- * A cursor that no theme shape comes close to, such as the one an application sets itself,
- * yields null.
+ * Redraws the current cursor from the theme's SVG. The tracker exposes the pixels the Shell
+ * rasterised but not which cursor they show, so the theme is searched for the shape whose SVG,
+ * drawn at the size of those pixels, comes closest to them.
  */
 export class VectorCursorSource {
   private _catalog: { theme: string; cursors: Promise<ThemeCursor[]> } | null = null;
@@ -168,12 +162,8 @@ export class VectorCursorSource {
   constructor(private readonly _interfaceSettings: Gio.Settings) {}
 
   /**
-   * Resolves to null when the cursor cannot be enlarged from the theme: no theme shape comes close
-   * or Rsvg is missing. It also resolves to null once `isCurrent()` turns false; that is polled
-   * between the awaits so a superseded request stops early.
-   *
-   * The image is `magnification` times the size of the tracker texture, or less for a pointer so
-   * large that this would pass `MAX_VECTOR_SIDE`.
+   * Resolves to null when no theme shape comes close, Rsvg is missing, or `isCurrent()` turned
+   * false (polled between the awaits, so a superseded request stops early).
    */
   async createCursor(
     nativeCursor: NativeCursor,

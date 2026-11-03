@@ -1,4 +1,3 @@
-/** One image of a theme cursor, as listed in its `metadata.json`. */
 export type CursorFrame = {
   filename: string;
   hotspotX: number;
@@ -6,7 +5,6 @@ export type CursorFrame = {
   nominalSize: number;
 };
 
-/** Straight RGBA pixels with their layout, as gdk-pixbuf hands them out. */
 export type PixelView = {
   pixels: Uint8Array;
   width: number;
@@ -15,10 +13,9 @@ export type PixelView = {
   channels: number;
 };
 
-// Measured on Adwaita, drawing a shape at the size of the Shell's texture differs from the Shell's
-// own pixels by 0 when its viewport is a whole number of pixels, and by up to 12 on a 4/3 or 5/3
-// monitor, whose fractional viewport librsvg cannot reproduce. Another shape is at least 12 away
-// and usually over 20, so the nearest shape wins and anything beyond this is not a theme cursor.
+// Measured on Adwaita: the right shape differs from the Shell's pixels by 0, or up to 12 on a 4/3
+// or 5/3 monitor, whose fractional viewport librsvg cannot reproduce. A wrong shape is at least 12
+// away and usually over 20, so the nearest wins and anything past this is not a theme cursor.
 export const MAX_MATCH_DIFFERENCE = 16;
 // Below this no other shape can be nearer, so the search can stop.
 export const EXACT_MATCH_DIFFERENCE = 1.5;
@@ -29,11 +26,7 @@ function numberOrZero(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-/**
- * Reads a theme's `metadata.json`, which lists one frame per image of the cursor. Returns null when
- * it is not that: not JSON, empty, or a frame whose file name is not a plain SVG name or whose
- * nominal size is missing.
- */
+/** The frames a theme's `metadata.json` lists, or null when it is malformed. */
 export function parseCursorMetadata(json: string): CursorFrame[] | null {
   let parsed: unknown;
   try {
@@ -64,7 +57,6 @@ export function parseCursorMetadata(json: string): CursorFrame[] | null {
   return frames;
 }
 
-/** Where the Shell puts the hotspot of a frame, in the pixels of the cursor texture. */
 function expectedHotspot(
   frame: CursorFrame,
   cursorSize: number,
@@ -75,7 +67,6 @@ function expectedHotspot(
   return [Math.trunc(frame.hotspotX * factor), Math.trunc(frame.hotspotY * factor)];
 }
 
-/** Whether `frame` puts its hotspot where the tracker reports it, give or take truncation. */
 export function matchesHotspot(
   frame: CursorFrame,
   cursorSize: number,
@@ -98,8 +89,8 @@ export type CursorGeometry = {
 };
 
 /**
- * Logical size and hotspot of a frame, before the monitor scale. They come from the theme rather
- * than from the texture, whose size and hotspot the Shell truncates to whole pixels.
+ * Logical size and hotspot of a frame, taken from the theme because the Shell truncates those of
+ * its texture to whole pixels.
  */
 export function logicalGeometry(
   frame: CursorFrame,
@@ -118,10 +109,9 @@ export function logicalGeometry(
 }
 
 /**
- * Mean absolute difference between two straight RGBA images, in 0 to 255 over premultiplied
- * colour, so transparent pixels do not count for whatever colour they happen to hold. Images of a
- * different size or format never match. Once the difference is certain to reach `ceiling` the
- * comparison stops and returns Infinity, because the caller only keeps nearer images.
+ * Mean absolute difference, 0 to 255, over premultiplied colour so that transparent pixels count
+ * for nothing. Returns Infinity for images of a different size or format, and once the difference
+ * is certain to reach `ceiling`, since the caller only keeps nearer images.
  */
 export function meanPixelDifference(
   first: PixelView,

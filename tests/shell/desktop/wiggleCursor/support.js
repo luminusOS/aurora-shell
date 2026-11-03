@@ -33,7 +33,6 @@ export async function shake(pointer, settleMs = 60) {
   }
 }
 
-/** @returns {Clutter.Actor | undefined} The cursor overlay of the running module, if any. */
 export function findOverlay() {
   return Main.uiGroup.get_children().find((actor) => actor.name === 'aurora-wiggle-cursor');
 }
@@ -42,10 +41,6 @@ export function findOverlay() {
  * Run `action`, then give an enlargement time to load its image, and throw if the overlay was
  * ever shown. Watching the signal matters: the cursor shrinks again on its own after about 350 ms,
  * so looking at its state afterwards could pass for a cursor that did grow.
- *
- * @param {Clutter.Actor} overlay
- * @param {() => Promise<void>} action
- * @param {string} message
  */
 export async function expectNoEnlargement(overlay, action, message) {
   let shown = false;
@@ -62,9 +57,6 @@ export async function expectNoEnlargement(overlay, action, message) {
   if (shown) throw new Error(message);
 }
 
-/**
- * @param {Clutter.Actor} actor The cursor overlay.
- */
 export function waitForEnlarged(actor) {
   return waitForActorState(actor, (a) => a.visible && Math.abs(a.scale_x - MAGNIFICATION) < 0.01, {
     properties: ['visible', 'scale-x'],
@@ -75,11 +67,7 @@ export function waitForEnlarged(actor) {
 /**
  * Keep shaking the pointer until `action` settles, so the cursor stays enlarged meanwhile.
  *
- * @param {Clutter.VirtualInputDevice} pointer
- * @param {() => Promise<T>} action
  * @param {{x: number, y: number}} [origin] Where the shake is centred on the stage.
- * @returns {Promise<T>}
- * @template T
  */
 export async function whileShaking(pointer, action, origin = { x: 400, y: 350 }) {
   let shaking = true;

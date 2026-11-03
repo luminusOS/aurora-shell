@@ -15,7 +15,6 @@ const SHELL_THEME_URI = 'resource:///org/gnome/shell/cursor-theme/';
 const FALLBACK_THEME = 'Adwaita';
 const DIRECTORY_BATCH = 64;
 
-/** A static cursor shape of the theme: its single frame and the directory holding its SVG. */
 export type ThemeCursor = {
   frame: CursorFrame;
   directory: Gio.File;
@@ -74,7 +73,7 @@ async function readThemeCursor(directory: Gio.File, name: string): Promise<Theme
   try {
     const [metadata] = await cursorDirectory.get_child('metadata.json').load_contents_async(null);
     const frames = parseCursorMetadata(new TextDecoder().decode(metadata));
-    // Animated cursors have several frames and are not matched, so the pointer is not enlarged for them.
+    // Animated cursors have several frames and are left alone.
     if (!frames || frames.length !== 1) return null;
 
     return { frame: frames[0]!, directory: cursorDirectory };
@@ -83,10 +82,7 @@ async function readThemeCursor(directory: Gio.File, name: string): Promise<Theme
   }
 }
 
-/**
- * The static cursors the Shell can draw from `theme`: those of the theme itself and, for the shapes
- * it lacks, those of the Shell's fallback theme.
- */
+/** The static cursors of `theme`, plus those of the fallback theme for the shapes it lacks. */
 export async function readScalableCursors(theme: string): Promise<ThemeCursor[]> {
   const sources: ScalableDirectory[] = [];
   const themed = await findScalableDirectory(theme);
@@ -112,10 +108,7 @@ export async function readScalableCursors(theme: string): Promise<ThemeCursor[]>
 
 const svgReads = new WeakMap<ThemeCursor, Promise<Uint8Array>>();
 
-/**
- * The SVG of the cursor's frame. A successful read is kept for as long as the cursor is; a failed
- * one is forgotten so that the next search tries the file again.
- */
+/** The SVG of the cursor's frame. A failed read is forgotten so the next search retries it. */
 export function readCursorSvg(cursor: ThemeCursor): Promise<Uint8Array> {
   let read = svgReads.get(cursor);
   if (!read) {

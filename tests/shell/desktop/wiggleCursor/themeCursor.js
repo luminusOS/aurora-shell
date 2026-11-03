@@ -9,14 +9,7 @@ import Shell from 'gi://Shell';
 const SHELL_THEME = 'resource:///org/gnome/shell/cursor-theme/icons/Adwaita/cursors_scalable/';
 const MAX_MEAN_DIFFERENCE = 2;
 
-/**
- * Draw a cursor of the Shell's bundled theme from its SVG, as the module is expected to.
- *
- * @param {string} name Cursor shape, such as `default` or `text`.
- * @param {number} width
- * @param {number} height
- * @returns {GdkPixbuf.Pixbuf}
- */
+/** Draw a cursor of the Shell's bundled theme from its SVG, as the module is expected to. */
 export function drawThemeCursor(name, width, height) {
   const file = Gio.File.new_for_uri(`${SHELL_THEME}${name}/${name}.svg`);
   const [, contents] = file.load_contents(null);
@@ -28,10 +21,6 @@ export function drawThemeCursor(name, width, height) {
   return handle.get_pixbuf();
 }
 
-/**
- * @param {Cogl.Texture} texture
- * @returns {Promise<GdkPixbuf.Pixbuf>}
- */
 export function readTexture(texture) {
   // The Shell API also encodes a PNG into this stream; only the returned pixbuf is used.
   const discardedPng = Gio.MemoryOutputStream.new_resizable();
@@ -81,12 +70,7 @@ function meanDifference(first, second) {
   return total / (first.get_width() * first.get_height() * 4);
 }
 
-/**
- * Throw unless the overlay's image is the theme's SVG, drawn at the size of the image.
- *
- * @param {Cogl.Texture} texture The image shown by the cursor overlay.
- * @param {string} name Cursor shape the theme is expected to draw.
- */
+/** Throw unless the overlay's image is the theme's SVG `name`, drawn at the size of the image. */
 export async function assertDrawnFromTheme(texture, name) {
   const shown = await readTexture(texture);
   const expected = drawThemeCursor(name, shown.get_width(), shown.get_height());
@@ -103,9 +87,6 @@ export async function assertDrawnFromTheme(texture, name) {
  *
  * The Shell rasterises its cursors at the monitor scale and truncates the texture size and hotspot
  * to whole pixels, so they only agree with the sprite to within a logical pixel.
- *
- * @param {Clutter.Actor} sprite
- * @param {Meta.CursorTracker} tracker
  */
 export function assertCursorGeometry(sprite, tracker) {
   const monitorScale = global.display.get_monitor_scale(global.display.get_current_monitor());

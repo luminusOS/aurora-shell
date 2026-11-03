@@ -1040,9 +1040,8 @@ export async function run() {
       flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
     });
     launcher.setenv('GDK_BACKEND', 'wayland', true);
-    // Libadwaita reads its settings through xdg-desktop-portal, which GDK_DEBUG=no-portals does not
-    // cover. When the portal's GTK backend does not answer, the window waits for the 25 s D-Bus
-    // activation timeout, and by then the perf helper that shuts the run down has gone.
+    // Libadwaita reads settings through xdg-desktop-portal, which GDK_DEBUG=no-portals does not
+    // cover. A portal backend that never answers stalls the window for the 25 s D-Bus timeout.
     launcher.setenv('ADW_DISABLE_PORTAL', '1', true);
     // The preferences save profiles to the extension's own schema, as the Shell reads them.
     launcher.setenv(

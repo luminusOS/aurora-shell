@@ -555,10 +555,9 @@ function resolveLivePreviewApp(window, currentApp) {
 
 let rebuildingDock = false;
 
-// The synthetic hover used here does not keep an auto-hidden Dock mapped, and a hidden Dash defers
-// its redisplay. An icon that kept a replaced Shell.App is therefore only rebuilt once it is shown.
-// The refresh adds and removes children, which are signals the waits below watch, so a wait that
-// calls this would re-enter itself without the guard.
+// The synthetic hover does not keep an auto-hidden Dock mapped, and a hidden Dash defers its
+// redisplay, so an icon holding a replaced Shell.App is only rebuilt once the Dock is shown. The
+// refresh emits signals that the waits below watch, hence the re-entrancy guard.
 function rebuildDock(dash) {
   if (rebuildingDock) return;
 

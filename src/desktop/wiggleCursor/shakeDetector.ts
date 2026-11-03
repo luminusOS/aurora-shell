@@ -15,7 +15,6 @@ type ShakeProfile = {
   restartAfterShake: boolean;
 };
 
-// Starting needs a deliberate shake of at least four strokes.
 const START_SHAKE: ShakeProfile = {
   minPoints: 5,
   maxPoints: 8,
@@ -50,25 +49,17 @@ function sameDirection(a: number, b: number): boolean {
   );
 }
 
-/**
- * Decides from a stream of pointer samples whether the mouse is being shaken back and forth.
- * Which gesture counts is set by the profile; the default asks for a deliberate shake.
- */
+/** Decides from a stream of pointer samples whether the mouse is being shaken back and forth. */
 export class ShakeDetector {
   private readonly _points: MotionPoint[] = [];
 
   constructor(private readonly _profile: ShakeProfile = START_SHAKE) {}
 
-  /** Forgets the motion seen so far. */
   reset(): void {
     this._points.length = 0;
   }
 
-  /**
-   * Feeds one pointer sample, in logical pixels and monotonic milliseconds. Returns whether the
-   * motion within the last 800 ms now satisfies the profile; a profile that restarts after a shake
-   * forgets its history when it reports one.
-   */
+  /** Takes a sample (logical pixels, monotonic ms); true when the last 800 ms of motion fit the profile. */
   update(x: number, y: number, time: number): boolean {
     const previous = this._points.at(-1);
     if (previous && (time < previous.time || Math.hypot(x - previous.x, y - previous.y) > MAX_STEP))

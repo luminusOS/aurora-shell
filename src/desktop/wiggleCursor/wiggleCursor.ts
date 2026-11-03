@@ -28,10 +28,8 @@ type CursorImageRequest = { revision: number };
 type CursorImage = CursorImageRequest & { cursor: VectorCursor | null };
 
 /**
- * Enlarges the pointer five times while the mouse is shaken, so it is easy to find, then shrinks it
- * a moment after the shaking stops. The Shell cannot magnify its own pointer, so the module hides
- * it and draws the matching vector cursor of the cursor theme in an overlay at the same spot.
- * Cursors the theme has no SVG for are left as they are.
+ * Enlarges the pointer while the mouse is shaken and shrinks it shortly after. The Shell cannot
+ * magnify its own pointer, so the module hides it and draws the theme's SVG cursor in an overlay.
  */
 export class WiggleCursor extends Module {
   private readonly _startDetector = new ShakeDetector();
