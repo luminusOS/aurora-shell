@@ -331,8 +331,8 @@ msgid "Wiggle Cursor"
 msgstr "Ampliar cursor ao agitar"
 
 #: dist/desktop/wiggleCursor/wiggleCursor.manifest.js:9
-msgid "Shake the mouse to enlarge the pointer. Needs an SVG cursor theme"
-msgstr "Agite o mouse para ampliar o ponteiro. Requer um tema de cursor SVG"
+msgid "Shake the mouse to enlarge the pointer"
+msgstr "Agite o mouse para ampliar o ponteiro"
 
 #: dist/dev/calendarRemindersDevTool.js:50
 #, fuzzy

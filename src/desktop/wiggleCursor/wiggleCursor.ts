@@ -1,6 +1,5 @@
 import Clutter from '@girs/clutter-18';
 import type Cogl from '@girs/cogl-18';
-import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 import St from '@girs/st-18';
 import * as Main from '@girs/gnome-shell/ui/main';
@@ -24,7 +23,7 @@ const BUTTON_MASK =
 // The tracker announces every change of the cursor image, including in-place texture updates, so an
 // image is only valid for the revision it was made in.
 type CursorImageRequest = { revision: number };
-// A null cursor means the theme has no vector image for this cursor.
+// A null cursor means no theme shape matches this cursor, as with one an application supplies.
 type CursorImage = CursorImageRequest & { cursor: VectorCursor | null };
 
 /**
@@ -50,9 +49,7 @@ export class WiggleCursor extends Module {
   override enable(): void {
     this._lifecycle = new LifecycleScope();
     this._hold = createManagedTimeout(this._lifecycle);
-    this._vectorCursors = new VectorCursorSource(
-      new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' }),
-    );
+    this._vectorCursors = new VectorCursorSource();
     this._overlay = new Clutter.Actor({
       name: 'aurora-wiggle-cursor',
       reactive: false,

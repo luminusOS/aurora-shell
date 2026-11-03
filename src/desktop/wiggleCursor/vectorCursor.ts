@@ -2,6 +2,7 @@ import type Clutter from '@girs/clutter-18';
 import Cogl from '@girs/cogl-18';
 import type GdkPixbuf from '@girs/gdkpixbuf-2.0';
 import Gio from '@girs/gio-2.0';
+import Meta from '@girs/meta-18';
 import Shell from '@girs/shell-18';
 import St from '@girs/st-18';
 import type Rsvg from 'gi://Rsvg';
@@ -180,8 +181,6 @@ async function drawCandidate(
 export class VectorCursorSource {
   private _catalog: { theme: string; cursors: Promise<ThemeCursor[]> } | null = null;
 
-  constructor(private readonly _interfaceSettings: Gio.Settings) {}
-
   /**
    * Resolves to null when no theme shape comes close, Rsvg is missing, or `isCurrent()` turned
    * false (polled between the awaits, so a superseded request stops early).
@@ -202,7 +201,7 @@ export class VectorCursorSource {
     const rsvg = await loadRsvg();
     if (!rsvg) return null;
 
-    const cursorSize = this._interfaceSettings.get_int('cursor-size');
+    const cursorSize = Meta.prefs_get_cursor_size();
     const match = await this._findClosest(rsvg, nativePixels, nativeCursor, cursorSize, isCurrent);
     if (!match || !isCurrent()) return null;
 
@@ -231,7 +230,7 @@ export class VectorCursorSource {
     isCurrent: () => boolean,
   ): Promise<{ cursor: ThemeCursor; svg: Uint8Array } | null> {
     const nativeView = pixelView(nativePixels);
-    const themeCursors = await this._cursorsFor(this._interfaceSettings.get_string('cursor-theme'));
+    const themeCursors = await this._cursorsFor(Meta.prefs_get_cursor_theme());
     let closest: { cursor: ThemeCursor; svg: Uint8Array } | null = null;
     let smallestDifference = Infinity;
 

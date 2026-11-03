@@ -1,3 +1,4 @@
+import Clutter from '@girs/clutter-18';
 import Gio from '@girs/gio-2.0';
 import GLib from '@girs/glib-2.0';
 
@@ -5,105 +6,61 @@ import { parseCursorMetadata, type CursorFrame } from './cursorMatching.ts';
 
 // @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
 Gio._promisify(Gio.File.prototype, 'load_contents_async');
-// @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
-Gio._promisify(Gio.File.prototype, 'enumerate_children_async');
-// @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
-Gio._promisify(Gio.FileEnumerator.prototype, 'next_files_async');
 
-// The Shell's own fallback when the configured theme has no scalable cursor for a shape.
 const SHELL_THEME_URI = 'resource:///org/gnome/shell/cursor-theme/';
 const FALLBACK_THEME = 'Adwaita';
-const DIRECTORY_BATCH = 64;
 
 export type ThemeCursor = {
   frame: CursorFrame;
   directory: Gio.File;
 };
 
-type ScalableDirectory = { directory: Gio.File; names: string[] };
-
-async function listDirectory(directory: Gio.File): Promise<string[] | null> {
-  try {
-    const enumerator = await directory.enumerate_children_async(
-      'standard::name',
-      Gio.FileQueryInfoFlags.NONE,
-      GLib.PRIORITY_DEFAULT,
-      null,
-    );
-    const names: string[] = [];
-
-    for (;;) {
-      const infos = await enumerator.next_files_async(DIRECTORY_BATCH, GLib.PRIORITY_DEFAULT, null);
-      if (infos.length === 0) break;
-      for (const info of infos) names.push(info.get_name());
-    }
-    enumerator.close(null);
-
-    return names;
-  } catch {
-    return null;
-  }
-}
-
-// The order StCursor uses: user data, system data, then the theme bundled in the Shell.
-function scalableDirectories(theme: string): Gio.File[] {
-  const relative = `icons/${theme}/cursors_scalable`;
+// Where StCursor looks for a cursor, in its order: user data, system data, the theme bundled in the
+// Shell, and finally the Adwaita bundled there when the theme has no such cursor.
+function cursorDirectories(theme: string, name: string): Gio.File[] {
+  const relative = (themeName: string): string => `icons/${themeName}/cursors_scalable/${name}`;
   const dataRoots = [GLib.get_user_data_dir(), ...GLib.get_system_data_dirs()];
 
   return [
-    ...dataRoots.map((root) => Gio.File.new_for_path(root).resolve_relative_path(relative)),
-    Gio.File.new_for_uri(`${SHELL_THEME_URI}${relative}`),
+    ...dataRoots.map((root) => Gio.File.new_for_path(root).resolve_relative_path(relative(theme))),
+    Gio.File.new_for_uri(`${SHELL_THEME_URI}${relative(theme)}`),
+    Gio.File.new_for_uri(`${SHELL_THEME_URI}${relative(FALLBACK_THEME)}`),
   ];
 }
 
-async function findScalableDirectory(theme: string): Promise<ScalableDirectory | null> {
-  if (theme.includes('/')) return null;
+async function readThemeCursor(
+  theme: string,
+  cursorType: Clutter.CursorType,
+): Promise<ThemeCursor | null> {
+  for (const directory of cursorDirectories(theme, Clutter.cursor_type_to_name(cursorType))) {
+    try {
+      const [metadata] = await directory.get_child('metadata.json').load_contents_async(null);
+      const frames = parseCursorMetadata(new TextDecoder().decode(metadata));
+      if (!frames) continue;
 
-  for (const directory of scalableDirectories(theme)) {
-    const names = await listDirectory(directory);
-    if (names) return { directory, names };
+      // Animated cursors have several frames and are left alone.
+      return frames.length === 1 ? { frame: frames[0]!, directory } : null;
+    } catch {
+      // This directory has no such cursor, so the next one is tried.
+    }
   }
 
   return null;
 }
 
-async function readThemeCursor(directory: Gio.File, name: string): Promise<ThemeCursor | null> {
-  const cursorDirectory = directory.get_child(name);
-
-  try {
-    const [metadata] = await cursorDirectory.get_child('metadata.json').load_contents_async(null);
-    const frames = parseCursorMetadata(new TextDecoder().decode(metadata));
-    // Animated cursors have several frames and are left alone.
-    if (!frames || frames.length !== 1) return null;
-
-    return { frame: frames[0]!, directory: cursorDirectory };
-  } catch {
-    return null;
-  }
-}
-
-/** The static cursors of `theme`, plus those of the fallback theme for the shapes it lacks. */
+/** The static cursors the Shell draws from `theme`, found the way it finds them. */
 export async function readScalableCursors(theme: string): Promise<ThemeCursor[]> {
-  const sources: ScalableDirectory[] = [];
-  const themed = await findScalableDirectory(theme);
-  if (themed) sources.push(themed);
+  if (theme.includes('/')) return [];
 
-  const fallback = await findScalableDirectory(FALLBACK_THEME);
-  if (fallback && !sources.some((source) => source.directory.equal(fallback.directory)))
-    sources.push(fallback);
+  const cursorTypes = Object.values(Clutter.CursorType).filter(
+    (value): value is Clutter.CursorType =>
+      typeof value === 'number' &&
+      value !== Clutter.CursorType.INHERIT &&
+      value !== Clutter.CursorType.NONE,
+  );
+  const cursors = await Promise.all(cursorTypes.map((type) => readThemeCursor(theme, type)));
 
-  const seen = new Set<string>();
-  const pending: Promise<ThemeCursor | null>[] = [];
-  for (const { directory, names } of sources) {
-    for (const name of names) {
-      if (seen.has(name)) continue;
-
-      seen.add(name);
-      pending.push(readThemeCursor(directory, name));
-    }
-  }
-
-  return (await Promise.all(pending)).filter((cursor): cursor is ThemeCursor => cursor !== null);
+  return cursors.filter((cursor): cursor is ThemeCursor => cursor !== null);
 }
 
 const svgReads = new WeakMap<ThemeCursor, Promise<Uint8Array>>();
