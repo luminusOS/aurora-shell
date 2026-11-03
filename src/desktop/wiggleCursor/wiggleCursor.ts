@@ -21,11 +21,18 @@ const BUTTON_MASK =
   Clutter.ModifierType.BUTTON2_MASK |
   Clutter.ModifierType.BUTTON3_MASK;
 
-// Cursor textures can be updated in place, so an image is only valid for the revision it was made in.
-type CursorImageRequest = { texture: Cogl.Texture; revision: number };
+// The tracker announces every change of the cursor image, including in-place texture updates, so an
+// image is only valid for the revision it was made in.
+type CursorImageRequest = { revision: number };
 // A null cursor means the theme has no vector image for this cursor.
 type CursorImage = CursorImageRequest & { cursor: VectorCursor | null };
 
+/**
+ * Enlarges the pointer five times while the mouse is shaken, so it is easy to find, then shrinks it
+ * a moment after the shaking stops. The Shell cannot magnify its own pointer, so the module hides
+ * it and draws the matching vector cursor of the cursor theme in an overlay at the same spot.
+ * Cursors the theme has no SVG for are left as they are.
+ */
 export class WiggleCursor extends Module {
   private readonly _startDetector = new ShakeDetector();
   private readonly _keepDetector = new ShakeDetector(KEEP_SHAKE);
@@ -69,13 +76,7 @@ export class WiggleCursor extends Module {
       this,
     );
     Main.sessionMode.connectObject('updated', () => this._restore(), this);
-    St.Settings.get().connectObject(
-      'notify::magnifier-active',
-      () => this._restore(),
-      'notify::enable-animations',
-      () => this._restore(),
-      this,
-    );
+    St.Settings.get().connectObject('notify::magnifier-active', () => this._restore(), this);
     Main.layoutManager.connectObject('monitors-changed', () => this._restore(), this);
   }
 
@@ -122,7 +123,8 @@ export class WiggleCursor extends Module {
       return;
     }
 
-    // Both keep their history, so a shake that has just started is already known to the second.
+    // Both see every sample, so the keep detector already holds the strokes that started this shake
+    // and the cursor does not shrink right after growing.
     const now = GLib.get_monotonic_time() / 1000;
     const shaken = this._startDetector.update(position.x, position.y, now);
     const stillShaking = this._keepDetector.update(position.x, position.y, now);
@@ -147,7 +149,7 @@ export class WiggleCursor extends Module {
       const texture = this._tracker.get_sprite();
       if (!texture) return;
 
-      const image = this._currentImage(texture);
+      const image = this._currentImage();
       if (!image) {
         void this._loadImage(texture, true);
         return;
@@ -156,7 +158,8 @@ export class WiggleCursor extends Module {
 
       this._showCursor(image.cursor);
 
-      // Keep the native sprite available while our visibility inhibitor hides it.
+      // The tracker only exposes the cursor while the seat's unfocus is inhibited, which hiding the
+      // pointer lifts, so hold our own inhibition for the image and hotspot reads that follow.
       this._seat.inhibit_unfocus();
       this._cursorInhibited = true;
       this._tracker.inhibit_cursor_visibility();
@@ -170,7 +173,7 @@ export class WiggleCursor extends Module {
       const enlargement = {
         scale_x: MAGNIFICATION,
         scale_y: MAGNIFICATION,
-        duration: St.Settings.get().enable_animations ? TRANSITION_MS : 0,
+        duration: TRANSITION_MS,
         mode: Clutter.AnimationMode.EASE_IN_OUT_CUBIC,
       };
       this._overlay.ease(enlargement);
@@ -186,7 +189,7 @@ export class WiggleCursor extends Module {
     const restoration = {
       scale_x: 1,
       scale_y: 1,
-      duration: St.Settings.get().enable_animations ? TRANSITION_MS : 0,
+      duration: TRANSITION_MS,
       mode: Clutter.AnimationMode.EASE_IN_OUT_CUBIC,
       onComplete: () => this._restore(),
     };
@@ -197,18 +200,15 @@ export class WiggleCursor extends Module {
     return Main.sessionMode.isLocked || St.Settings.get().magnifier_active;
   }
 
-  private _currentImage(texture: Cogl.Texture): CursorImage | null {
-    const image = this._image;
-    if (!image || image.texture !== texture || image.revision !== this._cursorRevision) return null;
-
-    return image;
+  private _currentImage(): CursorImage | null {
+    return this._image && this._image.revision === this._cursorRevision ? this._image : null;
   }
 
   private async _loadImage(texture: Cogl.Texture, enlargeWhenReady: boolean): Promise<void> {
     const vectorCursors = this._vectorCursors;
     if (!vectorCursors) return;
 
-    const request: CursorImageRequest = { texture, revision: this._cursorRevision };
+    const request: CursorImageRequest = { revision: this._cursorRevision };
     this._imageRequest = request;
     const native = {
       texture,

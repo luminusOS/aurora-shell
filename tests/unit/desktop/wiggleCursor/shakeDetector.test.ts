@@ -94,7 +94,7 @@ describe('ShakeDetector while keeping the cursor enlarged', () => {
     zigzag(detector, 4);
     detector.reset();
 
-    assert.deepEqual(zigzag(detector, 2, 90, 70).map(Boolean), [false, false, true]);
+    assert.deepEqual(zigzag(detector, 2, 90, 70), [false, false, true]);
   });
 });
 

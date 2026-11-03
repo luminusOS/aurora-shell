@@ -1,3 +1,5 @@
+// There is no @girs package for Rsvg, so this lists only the members the module uses. Loading,
+// styling and drawing a document throw on malformed input.
 declare module 'gi://Rsvg' {
   import type GdkPixbuf from '@girs/gdkpixbuf-2.0';
 

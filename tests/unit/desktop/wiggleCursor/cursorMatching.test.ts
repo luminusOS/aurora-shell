@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   MAX_MATCH_DIFFERENCE,
-  expectedHotspot,
   logicalGeometry,
   matchesHotspot,
   meanPixelDifference,
@@ -57,35 +56,43 @@ describe('parseCursorMetadata', () => {
   it('rejects a filename that leaves the cursor directory', () => {
     assert.equal(parseCursorMetadata('[{"filename":"../x/default.svg","nominal_size":24}]'), null);
     assert.equal(parseCursorMetadata('[{"filename":"/etc/a.svg","nominal_size":24}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"..","nominal_size":24}]'), null);
   });
 
-  it('rejects a frame without a file or a nominal size', () => {
+  it('rejects a filename that is not an SVG', () => {
+    assert.equal(parseCursorMetadata('[{"filename":"default.png","nominal_size":24}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"","nominal_size":24}]'), null);
+  });
+
+  it('rejects a frame without a file or a usable nominal size', () => {
     assert.equal(parseCursorMetadata('[{"nominal_size":24}]'), null);
     assert.equal(parseCursorMetadata('[{"filename":"a.svg"}]'), null);
     assert.equal(parseCursorMetadata('[{"filename":"a.svg","nominal_size":0}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"a.svg","nominal_size":0.5}]'), null);
     assert.equal(parseCursorMetadata('[null]'), null);
   });
 });
 
-describe('expectedHotspot', () => {
-  it('scales the hotspot by the cursor size over the nominal size', () => {
-    assert.deepEqual(expectedHotspot(ARROW, 24, 1), [8, 7]);
-    assert.deepEqual(expectedHotspot(ARROW, 48, 1), [16, 14]);
-  });
-
-  it('follows the monitor scale, truncating like the Shell does', () => {
-    assert.deepEqual(expectedHotspot(ARROW, 24, 2), [16, 14]);
-    assert.deepEqual(expectedHotspot(ARROW, 24, 1.5), [12, 10]);
-  });
-});
-
 describe('matchesHotspot', () => {
-  it('accepts the hotspot the Shell reports', () => {
+  it('accepts the hotspot the Shell reports at the nominal size', () => {
     assert.equal(matchesHotspot(ARROW, 24, 1, [8, 7]), true);
   });
 
-  it('tolerates a pixel of rounding', () => {
-    assert.equal(matchesHotspot(ARROW, 24, 1.25, [10, 8]), true);
+  it('scales the hotspot by the cursor size over the nominal size', () => {
+    assert.equal(matchesHotspot(ARROW, 48, 1, [16, 14]), true);
+    assert.equal(matchesHotspot(ARROW, 48, 1, [8, 7]), false);
+  });
+
+  it('follows the monitor scale, truncating like the Shell does', () => {
+    assert.equal(matchesHotspot(ARROW, 24, 2, [16, 14]), true);
+    assert.equal(matchesHotspot(ARROW, 24, 1.5, [12, 10]), true);
+  });
+
+  it('tolerates a pixel of rounding and no more', () => {
+    assert.equal(matchesHotspot(ARROW, 24, 1, [9, 7]), true);
+    assert.equal(matchesHotspot(ARROW, 24, 1, [8, 8]), true);
+    assert.equal(matchesHotspot(ARROW, 24, 1, [10, 7]), false);
+    assert.equal(matchesHotspot(ARROW, 24, 1, [8, 9]), false);
   });
 
   it('rejects another cursor shape', () => {
@@ -143,10 +150,10 @@ describe('meanPixelDifference', () => {
     assert.equal(meanPixelDifference(tight, padded), 0);
   });
 
-  it('stays under the match threshold for rounding noise', () => {
+  it('averages the difference over every channel of every pixel', () => {
     const noisy = image(4, 4, [201, 10, 10, 255]);
 
-    assert.ok(meanPixelDifference(image(4, 4, [200, 10, 10, 255]), noisy) < MAX_MATCH_DIFFERENCE);
+    assert.equal(meanPixelDifference(image(4, 4, [200, 10, 10, 255]), noisy), 0.25);
   });
 
   it('is far above the match threshold for a different shape', () => {
@@ -155,6 +162,15 @@ describe('meanPixelDifference', () => {
     for (let i = 0; i < 8; i++) second.pixels.set([0, 0, 0, 255], i * 4);
 
     assert.ok(meanPixelDifference(first, second) > MAX_MATCH_DIFFERENCE);
+  });
+
+  it('stops early with Infinity once the ceiling is reached, and not before', () => {
+    const empty = image(4, 4, [0, 0, 0, 0]);
+    const opaque = image(4, 4, [0, 0, 0, 255]);
+
+    assert.equal(meanPixelDifference(empty, opaque), 63.75);
+    assert.equal(meanPixelDifference(empty, opaque, 100), 63.75);
+    assert.equal(meanPixelDifference(empty, opaque, 10), Infinity);
   });
 
   it('never matches images of a different size or format', () => {

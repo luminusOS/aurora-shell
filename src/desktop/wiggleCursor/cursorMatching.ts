@@ -29,7 +29,11 @@ function numberOrZero(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-/** Reads a theme's `metadata.json`, which lists one frame per image of the cursor. */
+/**
+ * Reads a theme's `metadata.json`, which lists one frame per image of the cursor. Returns null when
+ * it is not that: not JSON, empty, or a frame whose file name is not a plain SVG name or whose
+ * nominal size is missing.
+ */
 export function parseCursorMetadata(json: string): CursorFrame[] | null {
   let parsed: unknown;
   try {
@@ -46,7 +50,8 @@ export function parseCursorMetadata(json: string): CursorFrame[] | null {
     const nominalSize = numberOrZero(description['nominal_size']);
     const filename = description['filename'];
     // The theme is untrusted input, and a path would reach outside the cursor's own directory.
-    if (typeof filename !== 'string' || filename.includes('/') || nominalSize <= 0) return null;
+    if (typeof filename !== 'string' || !/^[^/]+\.svg$/.test(filename) || nominalSize < 1)
+      return null;
 
     frames.push({
       filename,
@@ -60,7 +65,7 @@ export function parseCursorMetadata(json: string): CursorFrame[] | null {
 }
 
 /** Where the Shell puts the hotspot of a frame, in the pixels of the cursor texture. */
-export function expectedHotspot(
+function expectedHotspot(
   frame: CursorFrame,
   cursorSize: number,
   monitorScale: number,
@@ -115,9 +120,14 @@ export function logicalGeometry(
 /**
  * Mean absolute difference between two straight RGBA images, in 0 to 255 over premultiplied
  * colour, so transparent pixels do not count for whatever colour they happen to hold. Images of a
- * different size or format never match.
+ * different size or format never match. Once the difference is certain to reach `ceiling` the
+ * comparison stops and returns Infinity, because the caller only keeps nearer images.
  */
-export function meanPixelDifference(first: PixelView, second: PixelView): number {
+export function meanPixelDifference(
+  first: PixelView,
+  second: PixelView,
+  ceiling = Infinity,
+): number {
   if (
     first.width !== second.width ||
     first.height !== second.height ||
@@ -126,8 +136,11 @@ export function meanPixelDifference(first: PixelView, second: PixelView): number
   )
     return Infinity;
 
+  const totalCeiling = ceiling * first.width * first.height * RGBA_CHANNELS;
   let total = 0;
   for (let y = 0; y < first.height; y++) {
+    if (total >= totalCeiling) return Infinity;
+
     for (let x = 0; x < first.width; x++) {
       const a = y * first.rowstride + x * RGBA_CHANNELS;
       const b = y * second.rowstride + x * RGBA_CHANNELS;

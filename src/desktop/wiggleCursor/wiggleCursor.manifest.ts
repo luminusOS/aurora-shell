@@ -6,6 +6,6 @@ export const manifest: ModuleManifest = {
   settingsKey: 'module-wiggle-cursor',
   section: 'behavior',
   title: _('Wiggle Cursor'),
-  subtitle: _('Shake the mouse to temporarily enlarge the pointer'),
+  subtitle: _('Shake the mouse to enlarge the pointer. Needs an SVG cursor theme'),
   runtime: { roles: ['desktop'], scope: 'session' },
 };

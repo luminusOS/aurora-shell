@@ -4,7 +4,7 @@
     <key name="module-wiggle-cursor" type="b">
       <default>true</default>
       <summary>Enable Wiggle Cursor module</summary>
-      <description>Shake the mouse to temporarily enlarge the pointer to five times its normal size</description>
+      <description>Shake the mouse to enlarge the pointer to five times its normal size. It redraws the cursors of an SVG cursor theme, such as Adwaita, and leaves other cursors alone</description>
     </key>
     <key name="module-no-overview" type="b">
       <default>true</default>

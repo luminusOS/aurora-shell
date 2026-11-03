@@ -15,9 +15,8 @@ const SHELL_THEME_URI = 'resource:///org/gnome/shell/cursor-theme/';
 const FALLBACK_THEME = 'Adwaita';
 const DIRECTORY_BATCH = 64;
 
-/** A static cursor shape of the theme: its name, its single frame and where its files are. */
+/** A static cursor shape of the theme: its single frame and the directory holding its SVG. */
 export type ThemeCursor = {
-  name: string;
   frame: CursorFrame;
   directory: Gio.File;
 };
@@ -47,7 +46,7 @@ async function listDirectory(directory: Gio.File): Promise<string[] | null> {
   }
 }
 
-// Same search order as the Shell: user data, system data, then the theme bundled in the Shell.
+// The order StCursor uses: user data, system data, then the theme bundled in the Shell.
 function scalableDirectories(theme: string): Gio.File[] {
   const relative = `icons/${theme}/cursors_scalable`;
   const dataRoots = [GLib.get_user_data_dir(), ...GLib.get_system_data_dirs()];
@@ -78,7 +77,7 @@ async function readThemeCursor(directory: Gio.File, name: string): Promise<Theme
     // Animated cursors have several frames and are not matched, so the pointer is not enlarged for them.
     if (!frames || frames.length !== 1) return null;
 
-    return { name, frame: frames[0]!, directory: cursorDirectory };
+    return { frame: frames[0]!, directory: cursorDirectory };
   } catch {
     return null;
   }
@@ -113,7 +112,10 @@ export async function readScalableCursors(theme: string): Promise<ThemeCursor[]>
 
 const svgReads = new WeakMap<ThemeCursor, Promise<Uint8Array>>();
 
-/** The SVG of the cursor's frame. It is read once and then kept for as long as the cursor is. */
+/**
+ * The SVG of the cursor's frame. A successful read is kept for as long as the cursor is; a failed
+ * one is forgotten so that the next search tries the file again.
+ */
 export function readCursorSvg(cursor: ThemeCursor): Promise<Uint8Array> {
   let read = svgReads.get(cursor);
   if (!read) {
@@ -122,6 +124,7 @@ export function readCursorSvg(cursor: ThemeCursor): Promise<Uint8Array> {
       .load_contents_async(null)
       .then(([svg]) => svg);
     svgReads.set(cursor, read);
+    read.catch(() => svgReads.delete(cursor));
   }
 
   return read;
