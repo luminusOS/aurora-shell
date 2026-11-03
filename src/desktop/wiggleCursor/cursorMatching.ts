@@ -13,10 +13,13 @@ export type PixelView = {
   channels: number;
 };
 
-// Measured on Adwaita: the right shape differs from the Shell's pixels by 0, or up to 12 on a 4/3
-// or 5/3 monitor, whose fractional viewport librsvg cannot reproduce. A wrong shape is at least 12
-// away and usually over 20, so the nearest wins and anything past this is not a theme cursor.
-export const MAX_MATCH_DIFFERENCE = 16;
+// Measured on Adwaita. Where the Shell rasterises a whole number of pixels the right shape matches
+// exactly, but a frame of the animated `wait` cursor sits about 10 from `not-allowed`, so the limit
+// is tight. On a fractional viewport (4/3, 5/3) the right shape differs by up to 6 and `wait` is at
+// least 12 away.
+const MAX_WHOLE_PIXEL_DIFFERENCE = 2;
+const MAX_FRACTIONAL_DIFFERENCE = 8;
+const WHOLE_PIXEL_TOLERANCE = 1e-4;
 // Below this no other shape can be nearer, so the search can stop.
 export const EXACT_MATCH_DIFFERENCE = 1.5;
 const HOTSPOT_TOLERANCE = 1.5;
@@ -87,6 +90,42 @@ export type CursorGeometry = {
   hotspotX: number;
   hotspotY: number;
 };
+
+/**
+ * The size the Shell rasterises `frame` at on a monitor, in the pixels of the cursor texture. It is
+ * fractional on a fractional scale, and the texture is that size truncated.
+ */
+export function rasterisedSize(
+  frame: CursorFrame,
+  svgWidth: number,
+  svgHeight: number,
+  cursorSize: number,
+  monitorScale: number,
+): { width: number; height: number } {
+  const factor = (cursorSize / frame.nominalSize) * monitorScale;
+
+  return { width: svgWidth * factor, height: svgHeight * factor };
+}
+
+/** The texture size for a rasterised size, as the Shell truncates it. */
+export function textureSize(size: { width: number; height: number }): {
+  width: number;
+  height: number;
+} {
+  return {
+    width: Math.floor(size.width + WHOLE_PIXEL_TOLERANCE),
+    height: Math.floor(size.height + WHOLE_PIXEL_TOLERANCE),
+  };
+}
+
+/** How far the nearest shape may be from the tracker's pixels, given how the Shell drew them. */
+export function maxMatchDifference(size: { width: number; height: number }): number {
+  const isWholePixel =
+    Math.abs(size.width - Math.round(size.width)) < WHOLE_PIXEL_TOLERANCE &&
+    Math.abs(size.height - Math.round(size.height)) < WHOLE_PIXEL_TOLERANCE;
+
+  return isWholePixel ? MAX_WHOLE_PIXEL_DIFFERENCE : MAX_FRACTIONAL_DIFFERENCE;
+}
 
 /**
  * Logical size and hotspot of a frame, taken from the theme because the Shell truncates those of

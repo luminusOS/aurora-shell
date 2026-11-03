@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  MAX_MATCH_DIFFERENCE,
   logicalGeometry,
   matchesHotspot,
+  maxMatchDifference,
   meanPixelDifference,
   parseCursorMetadata,
+  rasterisedSize,
+  textureSize,
   type CursorFrame,
   type PixelView,
 } from '../../../../src/desktop/wiggleCursor/cursorMatching.ts';
@@ -124,6 +126,45 @@ describe('logicalGeometry', () => {
   });
 });
 
+describe('rasterisedSize', () => {
+  it('is the svg size scaled by the cursor size and the monitor scale', () => {
+    assert.deepEqual(rasterisedSize(ARROW, 32, 32, 24, 1), { width: 32, height: 32 });
+    assert.deepEqual(rasterisedSize(ARROW, 32, 32, 48, 1.25), { width: 80, height: 80 });
+  });
+
+  it('stays fractional on a fractional scale, where the texture is that size truncated', () => {
+    const size = rasterisedSize(ARROW, 32, 32, 24, 4 / 3);
+
+    assert.ok(Math.abs(size.width - 42.667) < 0.001);
+    assert.deepEqual(textureSize(size), { width: 42, height: 42 });
+  });
+
+  it('does not lose a pixel to floating point error on a whole size', () => {
+    const size = rasterisedSize(ARROW, 32, 32, 24, 1.25);
+
+    assert.deepEqual(textureSize({ width: size.width - 1e-9, height: size.height }), {
+      width: 40,
+      height: 40,
+    });
+  });
+});
+
+describe('maxMatchDifference', () => {
+  it('is tight where the Shell reproduces the svg exactly', () => {
+    assert.ok(maxMatchDifference({ width: 32, height: 32 }) <= 2);
+    assert.ok(maxMatchDifference({ width: 40, height: 40 }) <= 2);
+  });
+
+  it('is looser on a fractional size', () => {
+    assert.ok(maxMatchDifference({ width: 42.667, height: 42.667 }) > 6);
+    assert.ok(maxMatchDifference({ width: 40, height: 42.5 }) > 6);
+  });
+
+  it('stays under what a frame of the wait cursor measures against another shape', () => {
+    assert.ok(maxMatchDifference({ width: 42.667, height: 42.667 }) < 9.69);
+  });
+});
+
 describe('meanPixelDifference', () => {
   it('is zero for identical images', () => {
     const opaque = image(4, 4, [200, 10, 10, 255]);
@@ -154,14 +195,6 @@ describe('meanPixelDifference', () => {
     const noisy = image(4, 4, [201, 10, 10, 255]);
 
     assert.equal(meanPixelDifference(image(4, 4, [200, 10, 10, 255]), noisy), 0.25);
-  });
-
-  it('is far above the match threshold for a different shape', () => {
-    const first = image(4, 4, [0, 0, 0, 0]);
-    const second = image(4, 4, [0, 0, 0, 0]);
-    for (let i = 0; i < 8; i++) second.pixels.set([0, 0, 0, 255], i * 4);
-
-    assert.ok(meanPixelDifference(first, second) > MAX_MATCH_DIFFERENCE);
   });
 
   it('stops early with Infinity once the ceiling is reached, and not before', () => {

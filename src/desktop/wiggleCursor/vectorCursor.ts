@@ -9,10 +9,12 @@ import type Rsvg from 'gi://Rsvg';
 import { logger } from '~/core/logger.ts';
 import {
   EXACT_MATCH_DIFFERENCE,
-  MAX_MATCH_DIFFERENCE,
   logicalGeometry,
   matchesHotspot,
+  maxMatchDifference,
   meanPixelDifference,
+  rasterisedSize,
+  textureSize,
   type CursorGeometry,
   type PixelView,
 } from './cursorMatching.ts';
@@ -129,18 +131,37 @@ function drawSvg(handle: Rsvg.Handle, width: number, height: number): GdkPixbuf.
   return pixbuf && pixbuf.get_width() === width && pixbuf.get_height() === height ? pixbuf : null;
 }
 
-// One unreadable or malformed theme file must not hide the cursors that come after it.
+type Candidate = { svg: Uint8Array; pixbuf: GdkPixbuf.Pixbuf; limit: number };
+
+// Draws the shape the way the Shell did: into the fractional viewport it rasterises on a fractional
+// scale, cut to the size of the texture. One unreadable or malformed theme file must not hide the
+// cursors that come after it.
 async function drawCandidate(
   rsvg: RsvgModule,
   themeCursor: ThemeCursor,
-  width: number,
-  height: number,
-): Promise<{ svg: Uint8Array; pixbuf: GdkPixbuf.Pixbuf } | null> {
+  nativePixels: GdkPixbuf.Pixbuf,
+  cursorSize: number,
+  monitorScale: number,
+): Promise<Candidate | null> {
   try {
     const svg = await readCursorSvg(themeCursor);
-    const pixbuf = drawSvg(rsvg.Handle.new_from_data(svg), width, height);
+    const handle = rsvg.Handle.new_from_data(svg);
+    const [hasSize, svgWidth, svgHeight] = handle.get_intrinsic_size_in_pixels();
+    if (!hasSize) return null;
 
-    return pixbuf ? { svg, pixbuf } : null;
+    const size = rasterisedSize(themeCursor.frame, svgWidth, svgHeight, cursorSize, monitorScale);
+    const texture = textureSize(size);
+    if (texture.width !== nativePixels.get_width() || texture.height !== nativePixels.get_height())
+      return null;
+
+    const pixbuf = drawSvg(handle, Math.ceil(size.width), Math.ceil(size.height));
+    if (!pixbuf) return null;
+
+    return {
+      svg,
+      pixbuf: pixbuf.new_subpixbuf(0, 0, texture.width, texture.height),
+      limit: maxMatchDifference(size),
+    };
   } catch (error) {
     logger.warn(
       `Skipping the cursor ${themeCursor.frame.filename}`,
@@ -212,7 +233,7 @@ export class VectorCursorSource {
     const nativeView = pixelView(nativePixels);
     const themeCursors = await this._cursorsFor(this._interfaceSettings.get_string('cursor-theme'));
     let closest: { cursor: ThemeCursor; svg: Uint8Array } | null = null;
-    let smallestDifference = MAX_MATCH_DIFFERENCE;
+    let smallestDifference = Infinity;
 
     for (const themeCursor of themeCursors) {
       if (!isCurrent()) return null;
@@ -229,17 +250,15 @@ export class VectorCursorSource {
       const drawn = await drawCandidate(
         rsvg,
         themeCursor,
-        nativePixels.get_width(),
-        nativePixels.get_height(),
+        nativePixels,
+        cursorSize,
+        nativeCursor.monitorScale,
       );
       if (!drawn) continue;
 
-      const difference = meanPixelDifference(
-        nativeView,
-        pixelView(drawn.pixbuf),
-        smallestDifference,
-      );
-      if (difference >= smallestDifference) continue;
+      const ceiling = Math.min(drawn.limit, smallestDifference);
+      const difference = meanPixelDifference(nativeView, pixelView(drawn.pixbuf), ceiling);
+      if (difference >= ceiling) continue;
 
       smallestDifference = difference;
       closest = { cursor: themeCursor, svg: drawn.svg };

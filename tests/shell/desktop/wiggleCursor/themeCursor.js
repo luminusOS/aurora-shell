@@ -3,6 +3,9 @@
 import Gio from 'gi://Gio';
 import Rsvg from 'gi://Rsvg';
 import Shell from 'gi://Shell';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { EXTENSION_UUID } from '../../support/testUtils.js';
+import { MAGNIFICATION } from './support.js';
 
 // The module looks in the user and system data directories before this bundled copy, so the test
 // assumes the session has no scalable Adwaita of its own, as in the CI image.
@@ -107,4 +110,26 @@ export function assertCursorGeometry(sprite, tracker) {
       `Enlarged cursor does not match the native one on a ${monitorScale}x monitor: ${details.join(', ')}`,
     );
   }
+}
+
+/**
+ * Ask the module's own search which theme cursor the tracker's current one is. Resolves to null when
+ * none comes close. This looks at one frozen texture, so unlike watching the overlay it cannot be
+ * hidden by an animated cursor changing before its image has loaded.
+ */
+export async function searchThemeFor(tracker) {
+  const { path } = Main.extensionManager.lookup(EXTENSION_UUID);
+  const { VectorCursorSource } = await import(
+    `file://${path}/desktop/wiggleCursor/vectorCursor.js`
+  );
+  const source = new VectorCursorSource(
+    new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' }),
+  );
+  const nativeCursor = {
+    texture: tracker.get_sprite(),
+    hotspot: tracker.get_hot(),
+    monitorScale: global.display.get_monitor_scale(global.display.get_current_monitor()),
+  };
+
+  return source.createCursor(nativeCursor, MAGNIFICATION, () => true);
 }
