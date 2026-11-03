@@ -11,19 +11,15 @@ ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     COREPACK_HOME=/opt/corepack \
     YARN_GLOBAL_FOLDER=/opt/yarn-cache
 
-# The integration tests must run against a stable GNOME Shell. This image is built once per
-# Containerfile hash, so an unconstrained install stayed on 51~rc, whose cursor tracker never
-# prepares a cursor while the pointer is hidden. RPM sorts a "~rc" version below the release, so
-# the constraint makes a stale pre-release fail the build instead of being tested against.
 RUN dnf install -y --quiet --setopt=install_weak_deps=False \
         dbus-daemon \
         gettext \
         git \
-        'gnome-shell >= 51.0' \
+        gnome-shell \
         gsettings-desktop-schemas \
         just \
         mesa-dri-drivers \
-        'mutter-devkit >= 51.0' \
+        mutter-devkit \
         nodejs \
         npm \
         python3-dbusmock \
