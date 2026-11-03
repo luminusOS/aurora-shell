@@ -3,12 +3,18 @@
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import St from 'gi://St';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import { exerciseEnvironment } from './environment.js';
 import { exerciseCursorShape } from './cursorShape.js';
 import { assertCursorGeometry, assertDrawnFromTheme } from './themeCursor.js';
-import { MAGNIFICATION, shake, waitForEnlarged, whileShaking } from './support.js';
+import {
+  MAGNIFICATION,
+  expectNoEnlargement,
+  findOverlay,
+  shake,
+  waitForEnlarged,
+  whileShaking,
+} from './support.js';
 import {
   EXTENSION_UUID,
   ensureOverviewHidden,
@@ -30,10 +36,6 @@ export function init() {
   );
 }
 
-function overlay() {
-  return Main.uiGroup.get_children().find((actor) => actor.name === 'aurora-wiggle-cursor');
-}
-
 export async function run() {
   await waitForExtension(EXTENSION_UUID);
   await ensureOverviewHidden();
@@ -49,14 +51,19 @@ export async function run() {
   try {
     settings.set_boolean('module-wiggle-cursor', true);
     await waitForModuleState(settings, 'module-wiggle-cursor', 'wiggle-cursor', true);
-    const actor = overlay();
+    const actor = findOverlay();
     if (!actor || actor.visible) throw new Error('Expected a hidden cursor overlay at startup');
 
-    for (let i = 0; i < 8; i++) {
-      pointer.notify_absolute_motion(GLib.get_monotonic_time(), 300 + i * 30, 350);
-      await waitForTiming(30, 'Negative check: delay straight-sweep samples without a shake');
-    }
-    if (actor.visible) throw new Error('Normal navigation enlarged the cursor');
+    await expectNoEnlargement(
+      actor,
+      async () => {
+        for (let i = 0; i < 8; i++) {
+          pointer.notify_absolute_motion(GLib.get_monotonic_time(), 300 + i * 30, 350);
+          await waitForTiming(30, 'Negative check: delay straight-sweep samples without a shake');
+        }
+      },
+      'Normal navigation enlarged the cursor',
+    );
 
     const sprite = actor.get_first_child();
     await whileShaking(pointer, async () => {
@@ -76,8 +83,6 @@ export async function run() {
       await assertDrawnFromTheme(enlargedTexture, 'default');
 
       assertCursorGeometry(sprite, tracker);
-      if (!sprite.content || sprite.width <= 0 || sprite.height <= 0)
-        throw new Error('Cursor overlay has no native content');
 
       // Mutter updates client cursor textures in place and only emits cursor-changed. A second
       // change while the first image is still being built must not leave the obsolete one showing.
@@ -131,7 +136,7 @@ export async function run() {
 
     await exerciseEnvironment(actor, pointer, tracker);
     await waitForModuleState(settings, 'module-wiggle-cursor', 'wiggle-cursor', true);
-    const resumedOverlay = overlay();
+    const resumedOverlay = findOverlay();
     if (!resumedOverlay) throw new Error('Cursor overlay did not return after unlocking');
     await exerciseCursorShape(resumedOverlay, pointer, tracker);
 
@@ -139,7 +144,7 @@ export async function run() {
     await waitForEnlarged(resumedOverlay);
     settings.set_boolean('module-wiggle-cursor', false);
     await waitForModuleState(settings, 'module-wiggle-cursor', 'wiggle-cursor', false);
-    if (overlay() || !tracker.get_pointer_visible())
+    if (findOverlay() || !tracker.get_pointer_visible())
       throw new Error('Disabling while enlarged did not restore the cursor');
 
     settings.set_boolean('module-wiggle-cursor', true);
@@ -151,7 +156,7 @@ export async function run() {
       300,
       'Negative check: a cursor image still being drawn must not revive the overlay',
     );
-    if (overlay() || !tracker.get_pointer_visible())
+    if (findOverlay() || !tracker.get_pointer_visible())
       throw new Error('A pending cursor image outlived the module');
 
     for (let i = 0; i < 3; i++) {
@@ -160,7 +165,7 @@ export async function run() {
       settings.set_boolean('module-wiggle-cursor', false);
       await waitForModuleState(settings, 'module-wiggle-cursor', 'wiggle-cursor', false);
     }
-    if (overlay() || !tracker.get_pointer_visible())
+    if (findOverlay() || !tracker.get_pointer_visible())
       throw new Error('Lifecycle leaked cursor ownership');
     Scripting.scriptEvent('wiggleCursorVerified');
   } finally {

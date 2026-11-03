@@ -1,10 +1,11 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import { setMonitorScales } from './displayConfig.js';
-import { waitForEnlarged, whileShaking } from './support.js';
+import { findOverlay, waitForEnlarged, whileShaking } from './support.js';
 import { assertCursorGeometry, assertDrawnFromTheme } from './themeCursor.js';
 import {
   EXTENSION_UUID,
@@ -48,14 +49,13 @@ export async function run() {
     if (Main.layoutManager.monitors.length !== MONITOR_SCALES.length)
       throw new Error(`Expected ${MONITOR_SCALES.length} monitors`);
 
-    const actor = Main.uiGroup
-      .get_children()
-      .find((child) => child.name === 'aurora-wiggle-cursor');
+    const actor = findOverlay();
+    if (!actor) throw new Error('Expected the cursor overlay after the monitor layout changed');
     const sprite = actor.get_first_child();
 
     for (const [index, monitor] of Main.layoutManager.monitors.entries()) {
       const origin = { x: monitor.x + 300, y: monitor.y + 300 };
-      pointer.notify_absolute_motion(Date.now() * 1000, origin.x, origin.y);
+      pointer.notify_absolute_motion(GLib.get_monotonic_time(), origin.x, origin.y);
 
       await whileShaking(
         pointer,

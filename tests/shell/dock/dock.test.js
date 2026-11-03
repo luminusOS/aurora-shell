@@ -557,6 +557,8 @@ let rebuildingDock = false;
 
 // The synthetic hover used here does not keep an auto-hidden Dock mapped, and a hidden Dash defers
 // its redisplay. An icon that kept a replaced Shell.App is therefore only rebuilt once it is shown.
+// The refresh adds and removes children, which are signals the waits below watch, so a wait that
+// calls this would re-enter itself without the guard.
 function rebuildDock(dash) {
   if (rebuildingDock) return;
 
@@ -617,8 +619,7 @@ async function exerciseWindowPreviews(settings, dock) {
     if (!dash?._windowPreviews)
       throw new Error('Window-preview controller was not created when enabled');
 
-    dash.show(false);
-    dash.refresh();
+    rebuildDock(dash);
     await Scripting.waitLeisure();
 
     // App tracking may rebuild this item between interactions.

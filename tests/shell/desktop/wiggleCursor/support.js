@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { waitForActorState, waitForCondition, waitForTiming } from '../../support/testUtils.js';
 
 export const MAGNIFICATION = 5;
@@ -30,6 +31,35 @@ export async function shake(pointer, settleMs = 60) {
     if (!last) await waitForTiming(60, 'Delay each reversal to deliver a shake within 800ms');
     else if (settleMs > 0) await waitForTiming(settleMs, 'Delay settling after the last sample');
   }
+}
+
+/** @returns {Clutter.Actor | undefined} The cursor overlay of the running module, if any. */
+export function findOverlay() {
+  return Main.uiGroup.get_children().find((actor) => actor.name === 'aurora-wiggle-cursor');
+}
+
+/**
+ * Run `action`, then give an enlargement time to load its image, and throw if the overlay was
+ * ever shown. Watching the signal matters: the cursor shrinks again on its own after about 350 ms,
+ * so looking at its state afterwards could pass for a cursor that did grow.
+ *
+ * @param {Clutter.Actor} overlay
+ * @param {() => Promise<void>} action
+ * @param {string} message
+ */
+export async function expectNoEnlargement(overlay, action, message) {
+  let shown = false;
+  const shownId = overlay.connect('notify::visible', () => {
+    if (overlay.visible) shown = true;
+  });
+
+  try {
+    await action();
+    await waitForTiming(300, 'Negative check: an enlargement loads its image asynchronously');
+  } finally {
+    overlay.disconnect(shownId);
+  }
+  if (shown) throw new Error(message);
 }
 
 /**

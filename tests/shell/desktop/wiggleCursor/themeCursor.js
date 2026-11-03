@@ -4,6 +4,8 @@ import Gio from 'gi://Gio';
 import Rsvg from 'gi://Rsvg';
 import Shell from 'gi://Shell';
 
+// The module looks in the user and system data directories before this bundled copy, so the test
+// assumes the session has no scalable Adwaita of its own, as in the CI image.
 const SHELL_THEME = 'resource:///org/gnome/shell/cursor-theme/icons/Adwaita/cursors_scalable/';
 const MAX_MEAN_DIFFERENCE = 2;
 
@@ -31,6 +33,7 @@ export function drawThemeCursor(name, width, height) {
  * @returns {Promise<GdkPixbuf.Pixbuf>}
  */
 export function readTexture(texture) {
+  // The Shell API also encodes a PNG into this stream; only the returned pixbuf is used.
   const discardedPng = Gio.MemoryOutputStream.new_resizable();
 
   return new Promise((resolve, reject) => {
