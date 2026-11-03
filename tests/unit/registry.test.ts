@@ -224,6 +224,7 @@ test('catalog: desktop module baseline is preserved', () => {
     'calendar-reminders',
     'tray-icons',
     'clipboard-history',
+    'wiggle-cursor',
   ]);
 });
 
