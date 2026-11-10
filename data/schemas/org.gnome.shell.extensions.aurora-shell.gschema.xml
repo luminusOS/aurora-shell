@@ -112,6 +112,11 @@
       <summary>Enable App Search Tooltip module</summary>
       <description>Shows app name tooltip on hover in the overview search results</description>
     </key>
+    <key name="module-foreground-bridge" type="b">
+      <default>false</default>
+      <summary>Enable Foreground Booster Bridge module</summary>
+      <description>Reports the focused application to gnome-foreground-booster over D-Bus</description>
+    </key>
     <key name="module-vela-vpn-quick-settings" type="b">
       <default>false</default>
       <summary>Enable Vela VPN Quick Settings module</summary>

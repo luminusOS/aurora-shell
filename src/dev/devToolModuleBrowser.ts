@@ -37,6 +37,7 @@ const MODULE_ICONS: Record<string, string> = {
   'calendar-reminders': 'x-office-calendar-symbolic',
   'tray-icons': 'view-grid-symbolic',
   'clipboard-history': 'edit-paste-symbolic',
+  'foreground-bridge': 'power-profile-performance-symbolic',
 };
 
 export function plainText(text: string): string {

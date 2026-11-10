@@ -22,6 +22,7 @@ import { WeatherClock } from '~/panel/clock/weatherClock/weatherClock.ts';
 import { CalendarReminders } from '~/panel/clock/calendarReminders/calendarReminders.ts';
 import { TrayIcons } from '~/desktop/trayIcons/trayIcons.ts';
 import { ClipboardHistory } from '~/clipboard/clipboardHistory.ts';
+import { ForegroundBridge } from '~/foreground/foregroundBridge.ts';
 
 import type { ModuleDefinition } from '~/module.ts';
 
@@ -49,6 +50,7 @@ const factories = {
   'calendar-reminders': (context) => new CalendarReminders(context),
   'tray-icons': (context) => new TrayIcons(context),
   'clipboard-history': (context) => new ClipboardHistory(context),
+  'foreground-bridge': (context) => new ForegroundBridge(context),
 } satisfies Record<string, ModuleDefinition['factory']>;
 
 export function getModuleRegistry(): ModuleDefinition[] {
