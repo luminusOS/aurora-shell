@@ -23,6 +23,7 @@ import { manifest as weatherClock } from '~/panel/clock/weatherClock/weatherCloc
 import { manifest as calendarReminders } from '~/panel/clock/calendarReminders/calendarReminders.manifest.ts';
 import { manifest as trayIcons } from '~/desktop/trayIcons/trayIcons.manifest.ts';
 import { manifest as clipboardHistory } from '~/clipboard/clipboardHistory.manifest.ts';
+import { manifest as wiggleCursor } from '~/desktop/wiggleCursor/wiggleCursor.manifest.ts';
 
 import type { ModuleManifest } from '~/module.ts';
 
@@ -61,6 +62,7 @@ export const MODULE_CATALOG: readonly ModuleManifest[] = [
   calendarReminders,
   trayIcons,
   clipboardHistory,
+  wiggleCursor,
 ];
 
 export type { ModuleManifest, ModuleOption, ModuleOptionChoice } from '~/module.ts';

@@ -38,7 +38,7 @@ Use `just test coverage` only when coverage data answers a review question; it i
 just test shell tests/shell/panel/powerMenuAvatar.test.js
 ```
 
-Capture Tools and Clipboard History request one extra virtual monitor; Dock requests two. The runner sorts and deduplicates targets, prints each pass or failure, preserves failing Shell output, and returns nonzero if any script fails.
+Capture Tools, Clipboard History and the Wiggle Cursor monitor test request one extra virtual monitor; Dock requests two. The runner sorts and deduplicates targets, prints each pass or failure, preserves failing Shell output, and returns nonzero if any script fails.
 
 `just test dev` builds the development ZIP and runs only the DevTool integration test with `AURORA_DEVTOOLS=1`.
 
