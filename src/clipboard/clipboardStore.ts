@@ -5,6 +5,7 @@ import Gio from '@girs/gio-2.0';
 import GdkPixbuf from '@girs/gdkpixbuf-2.0';
 
 import type { LinkPreview } from './linkPreview.ts';
+import { callAsync } from '~/core/callAsync.ts';
 import { logger } from '~/core/logger.ts';
 import {
   encodeAddOp,
@@ -42,21 +43,6 @@ export type ClipboardEntry = ClipboardEntrySnapshot & {
 
 export function thumbnailPathFor(filePath: string): string {
   return filePath.replace(/\.[^./]+$/, '') + '.thumb.png';
-}
-
-function callAsync<T>(
-  start: (callback: (_source: unknown, result: Gio.AsyncResult) => void) => void,
-  finish: (result: Gio.AsyncResult) => T,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    start((_source, result) => {
-      try {
-        resolve(finish(result));
-      } catch (e) {
-        reject(e);
-      }
-    });
-  });
 }
 
 export type ClipboardImagePayload = {
