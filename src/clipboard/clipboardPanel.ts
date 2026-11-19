@@ -1,10 +1,9 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import St from '@girs/st-18';
-import GObject from '@girs/gobject-2.0';
-import Clutter from '@girs/clutter-18';
-import * as Main from '@girs/gnome-shell/ui/main';
+import St from 'gi://St';
+import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import type { ClipboardEntry, ClipboardStore } from '~/clipboard/clipboardStore.ts';
 import { ClipboardList } from '~/clipboard/clipboardList.ts';

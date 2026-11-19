@@ -1,5 +1,3 @@
-import '@girs/gjs';
-
 import {
   CaptureTools,
   type CaptureToolsDevInteraction,

@@ -1,8 +1,8 @@
-import Clutter from '@girs/clutter-18';
-import type Cogl from '@girs/cogl-18';
-import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
+import Clutter from 'gi://Clutter';
+import type Cogl from 'gi://Cogl';
+import GLib from 'gi://GLib';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Module } from '~/module.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';

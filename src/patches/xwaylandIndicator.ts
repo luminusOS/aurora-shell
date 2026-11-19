@@ -1,8 +1,8 @@
 import { gettext as _ } from '~/shared/i18n.ts';
-import Meta from '@girs/meta-18';
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
-import * as AltTab from '@girs/gnome-shell/ui/altTab';
+import Meta from 'gi://Meta';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import * as AltTab from 'resource:///org/gnome/shell/ui/altTab.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { createIcon } from '~/shared/icons.ts';

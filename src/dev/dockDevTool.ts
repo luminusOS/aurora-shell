@@ -1,5 +1,3 @@
-import '@girs/gjs';
-
 import type { SettingsManager } from '~/core/settings.ts';
 import type { Module } from '~/module.ts';
 import { Dock, type ManagedDockBinding } from '~/dock/dock.ts';

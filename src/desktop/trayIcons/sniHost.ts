@@ -1,9 +1,7 @@
-import '@girs/gjs';
-
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import GdkPixbuf from '@girs/gdkpixbuf-2.0';
-import St from '@girs/st-18';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GdkPixbuf from 'gi://GdkPixbuf';
+import St from 'gi://St';
 
 import { TRAY_ICON_FALLBACK_NAME, type TrayItem, type TrayItemStatus } from './trayState.ts';
 import type { SniWatcher } from './sniWatcher.ts';
@@ -114,7 +112,7 @@ export class SniHost {
     if (this._pendingRegistrations.get(id) !== cancellable) return;
     this._pendingRegistrations.delete(id);
 
-    const item = this._makeItem(id, proxy);
+    const item = this._makeItem(id, proxy, busName);
     const sniId = (proxy.get_cached_property('Id')?.unpack() as string | undefined) || '';
     const desktopEntry =
       (proxy.get_cached_property('DesktopEntry')?.unpack() as string | undefined) || '';
@@ -407,21 +405,16 @@ export class SniHost {
     );
   }
 
-  private _makeItem(id: string, proxy: Gio.DBusProxy): TrayItem {
+  private _makeItem(id: string, proxy: Gio.DBusProxy, busName: string): TrayItem {
     return {
       id,
       icon: this._resolveIcon(proxy),
       get tooltip(): string | undefined {
         const raw = proxy.get_cached_property('ToolTip');
-        if (!raw) return undefined;
-        try {
-          const desc = raw.get_child_value(3).unpack() as string;
-          if (desc) return desc;
-          const title = raw.get_child_value(2).unpack() as string;
-          return title || undefined;
-        } catch {
-          return undefined;
-        }
+        if (raw?.get_type_string() !== '(sa(iiay)ss)') return undefined;
+        const description = raw.get_child_value(3).get_string()[0];
+        if (description) return description;
+        return raw.get_child_value(2).get_string()[0] || undefined;
       },
       get status(): TrayItemStatus {
         return (proxy.get_cached_property('Status')?.unpack() as TrayItemStatus) || 'Active';
@@ -429,7 +422,7 @@ export class SniHost {
       set status(v: TrayItemStatus) {
         proxy.set_cached_property('Status', new GLib.Variant('s', v));
       },
-      menuBusName: proxy.g_name,
+      menuBusName: busName,
       menuObjectPath: proxy.get_cached_property('Menu')?.unpack() as string | undefined,
       activate: (x: number, y: number) => {
         proxy.call(

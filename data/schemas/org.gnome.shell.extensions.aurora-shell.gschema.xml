@@ -62,6 +62,22 @@
       <summary>Enable Theme Changer module</summary>
       <description>Monitors and synchronizes GNOME color scheme</description>
     </key>
+    <key name="module-shell-background-effects" type="b">
+      <default>false</default>
+      <summary>Enable transparency</summary>
+    </key>
+    <key name="shell-background-effects-panel" type="b">
+      <default>true</default>
+      <summary>Translucent top bar</summary>
+    </key>
+    <key name="shell-background-effects-dock" type="b">
+      <default>true</default>
+      <summary>Translucent dock</summary>
+    </key>
+    <key name="shell-background-effects-blur" type="b">
+      <default>false</default>
+      <summary>Blur behind the top bar</summary>
+    </key>
     <key name="module-dock" type="b">
       <default>true</default>
       <summary>Enable Dock module</summary>

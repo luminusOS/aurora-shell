@@ -1,6 +1,4 @@
-import '@girs/gjs';
-
-import * as Main from '@girs/gnome-shell/ui/main';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { action, type RuntimeAction } from './protocol.ts';
 import type { TrayItem } from '~/desktop/trayIcons/trayState.ts';

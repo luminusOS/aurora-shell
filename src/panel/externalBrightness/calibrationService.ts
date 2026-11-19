@@ -1,5 +1,5 @@
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import {
   BRIGHTNESS_CALIBRATION_PATH,
   BRIGHTNESS_CALIBRATION_TARGETS_TYPE,

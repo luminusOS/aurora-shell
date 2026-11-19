@@ -1,7 +1,7 @@
-import Clutter from '@girs/clutter-18';
-import GLib from '@girs/glib-2.0';
-import type St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import type St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';

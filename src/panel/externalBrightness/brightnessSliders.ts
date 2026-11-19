@@ -1,11 +1,10 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
-import St from '@girs/st-18';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
 
-import { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
+import { QuickSlider } from 'resource:///org/gnome/shell/ui/quickSettings.js';
 
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 
@@ -28,6 +27,14 @@ export const DisplayBrightnessSlider = GObject.registerClass(
     },
   },
   class DisplayBrightnessSlider extends QuickSlider {
+    declare emit: GObject.SignalMethods<
+      this,
+      QuickSlider['$signals'] & {
+        'brightness-requested': (value: number) => void;
+        'brightness-shown': () => void;
+      }
+    >['emit'];
+
     declare private _lifecycle: LifecycleScope;
     declare private _label: St.Label;
     declare private _sliderChangedId: number;

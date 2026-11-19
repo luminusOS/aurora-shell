@@ -1,5 +1,3 @@
-import '@girs/gjs';
-
 import { action, type RuntimeAction } from './protocol.ts';
 import type { Module } from '~/module.ts';
 import { WeatherClock } from '~/panel/clock/weatherClock/weatherClock.ts';

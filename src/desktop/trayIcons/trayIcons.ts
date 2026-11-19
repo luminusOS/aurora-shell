@@ -1,11 +1,10 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import Shell from '@girs/shell-18';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import Shell from 'gi://Shell';
 
 // @ts-ignore
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
@@ -60,7 +59,8 @@ export class TrayIcons extends Module {
       this._hideBgAppsQuickSettings();
     }
 
-    const container = new TrayContainer(iconSize, limit);
+    const container = new TrayContainer(0, 'aurora-tray-icons', true);
+    container.buildIconRow(iconSize, limit);
     this._container = container;
     container.setAttentionTimeout(attentionTimeout);
 

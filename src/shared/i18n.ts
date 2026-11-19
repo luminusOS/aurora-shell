@@ -1,4 +1,4 @@
-import GLib from '@girs/glib-2.0';
+import GLib from 'gi://GLib';
 import { bindtextdomain } from 'gettext';
 
 export const GETTEXT_DOMAIN = 'aurora-shell@luminusos.github.io';

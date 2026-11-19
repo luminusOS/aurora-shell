@@ -1,9 +1,8 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import St from '@girs/st-18';
-import GObject from '@girs/gobject-2.0';
-import Clutter from '@girs/clutter-18';
+import St from 'gi://St';
+import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter';
 
 import type { ClipboardEntry } from '~/clipboard/clipboardStore.ts';
 import { ClipboardItem } from '~/clipboard/clipboardItem.ts';

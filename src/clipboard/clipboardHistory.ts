@@ -1,13 +1,12 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import GLib from '@girs/glib-2.0';
-import Gio from '@girs/gio-2.0';
-import type Clutter from '@girs/clutter-18';
-import St from '@girs/st-18';
-import Meta from '@girs/meta-18';
-import Shell from '@girs/shell-18';
-import * as Main from '@girs/gnome-shell/ui/main';
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
+import type Clutter from 'gi://Clutter';
+import St from 'gi://St';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';

@@ -1,13 +1,11 @@
-import '@girs/gjs';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
-import GLib from '@girs/glib-2.0';
-import Meta from '@girs/meta-18';
-import Shell from '@girs/shell-18';
-
-import GObject from '@girs/gobject-2.0';
-import * as Layout from '@girs/gnome-shell/ui/layout';
+import GObject from 'gi://GObject';
+import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
@@ -32,6 +30,11 @@ export const DockHotArea = GObject.registerClass(
     Signals: { triggered: {} },
   },
   class DockHotArea extends St.Widget {
+    declare emit: GObject.SignalMethods<
+      this,
+      St.Widget['$signals'] & { triggered: () => void }
+    >['emit'];
+
     declare private _pressureBarrier: Layout.PressureBarrier;
     private _edgeBarrier: Meta.Barrier | null = null;
     private _monitor!: DashBounds;

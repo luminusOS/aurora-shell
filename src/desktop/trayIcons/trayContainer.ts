@@ -1,10 +1,8 @@
-import '@girs/gjs';
-
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
-import GLib from '@girs/glib-2.0';
-import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import GLib from 'gi://GLib';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
@@ -80,10 +78,7 @@ export const TrayContainer = GObject.registerClass(
       this._schedulePostAllocateRelayoutIfNeeded();
     }
 
-    // @ts-expect-error Our _init signature differs from PanelMenu.Button._init overloads,
-    // which is the standard GJS GObject subclassing pattern when using custom constructor args.
-    override _init(iconSize: number, limit: number): void {
-      super._init(0.0, 'aurora-tray-icons', true); // dontCreateMenu = true
+    buildIconRow(iconSize: number, limit: number): void {
       this._lifecycle = new LifecycleScope();
       this._autoCollapseTimeout = createManagedSource(this._lifecycle);
       this._debugPostAllocate = createManagedSource(this._lifecycle);

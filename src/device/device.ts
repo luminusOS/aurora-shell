@@ -1,7 +1,7 @@
-import Clutter from '@girs/clutter-18';
-import Gio from '@girs/gio-2.0';
-import * as Main from '@girs/gnome-shell/ui/main';
-import Meta from '@girs/meta-18';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import Meta from 'gi://Meta';
 
 import type { RuntimeCapability } from '~/module.ts';
 import {
@@ -141,7 +141,7 @@ export class DefaultDeviceService implements DeviceService {
       y: monitor.y,
       width: monitor.width,
       height: monitor.height,
-      scale: monitor.geometryScale,
+      scale: monitor.geometry_scale,
       isBuiltin: builtinMonitorIndices.has(monitor.index),
     }));
   }

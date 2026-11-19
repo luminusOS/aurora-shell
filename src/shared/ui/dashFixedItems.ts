@@ -1,5 +1,5 @@
-import Shell from '@girs/shell-18';
-import type { Dash } from '@girs/gnome-shell/ui/dash';
+import Shell from 'gi://Shell';
+import type { Dash } from 'resource:///org/gnome/shell/ui/dash.js';
 import { logger } from '~/core/logger.ts';
 import { TrashIcon, type TrashIconInstance } from '~/dock/trashIcon.ts';
 import { canLaunchTrash, NAUTILUS_APP_ID } from '~/dock/trashLauncher.ts';

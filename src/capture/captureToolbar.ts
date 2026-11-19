@@ -1,6 +1,6 @@
-import Clutter from '@girs/clutter-18';
-import St from '@girs/st-18';
-import { Slider } from '@girs/gnome-shell/ui/slider';
+import Clutter from 'gi://Clutter';
+import St from 'gi://St';
+import { Slider } from 'resource:///org/gnome/shell/ui/slider.js';
 
 import { gettext as _ } from '~/shared/i18n.ts';
 import type { AnnotationTool } from '~/capture/annotationModel.ts';

@@ -1,6 +1,6 @@
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import * as Main from '@girs/gnome-shell/ui/main';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';

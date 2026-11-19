@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/consistent-type-imports */
 
-declare module '@girs/gnome-shell/ui/shellMountOperation' {
+declare module 'resource:///org/gnome/shell/ui/shellMountOperation.js' {
   export class ShellMountOperation {
     mountOp: import('@girs/gio-2.0').default.MountOperation;
 

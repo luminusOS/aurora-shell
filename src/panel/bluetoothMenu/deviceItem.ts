@@ -1,9 +1,7 @@
-import '@girs/gjs';
-
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';

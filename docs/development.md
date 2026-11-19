@@ -89,3 +89,11 @@ just shexli
 Add the relevant targeted Shell test, and use `just toolbox test` for lifecycle, infrastructure, or cross-module changes. Documentation-only work does not need Shell tests.
 
 Shexli scans the generated production ZIP. Review every location against [GNOME Extensions review notes](extension-review.md); an existing rule ID does not approve a new occurrence.
+
+### TypeScript imports on GNOME 51
+
+Use the same module names in TypeScript that GJS loads: `gi://Meta` for Mutter, `resource:///org/gnome/shell/ui/main.js` for the Shell, and `resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js` for preferences. The two resource prefixes are case-sensitive. esbuild only rewrites local TypeScript paths; it does not resolve GNOME modules from npm.
+
+[`@girs/gnome-shell`](https://github.com/gjsify/gnome-shell) describes the Shell's JavaScript modules. [`gjsify/types`](https://github.com/gjsify/types) supplies declarations generated from GIR, including Clutter, GWeather and Rsvg. Both are development dependencies. Load their ambient declarations through `tsconfig.json`; add a declaration in `src/types/` only for an API that is present in the target runtime but missing from the published types.
+
+Two useful checks when updating these packages: Shell's [`Monitor`](https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/51.0/js/ui/layout.js) stores its scale as `geometry_scale`, even though the constructor parameter is `geometryScale`. Mutter's [`clutter_cursor_type_to_name`](https://gitlab.gnome.org/GNOME/mutter/-/blob/51.0/clutter/clutter/clutter-cursor.c) is available directly through `Clutter`; the generated declaration replaces Aurora's old shim, but the caller must still exclude cursor types without names.

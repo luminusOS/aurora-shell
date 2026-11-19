@@ -5,6 +5,7 @@ import { manifest as pipOnTop } from '~/patches/pipOnTop.manifest.ts';
 import { manifest as focusLaunchedWindows } from '~/patches/focusLaunchedWindows.manifest.ts';
 import { manifest as captureTools } from '~/capture/captureTools.manifest.ts';
 import { manifest as themeChanger } from '~/theme/themeChanger.manifest.ts';
+import { manifest as shellBackgroundEffects } from '~/theme/shellBackgroundEffects.manifest.ts';
 import { manifest as dock } from '~/dock/dock.manifest.ts';
 import { manifest as auroraMenu } from '~/panel/auroraMenu.manifest.ts';
 import { manifest as powerMenuAvatar } from '~/panel/powerMenuAvatar.manifest.ts';
@@ -44,6 +45,7 @@ export const MODULE_CATALOG: readonly ModuleManifest[] = [
   focusLaunchedWindows,
   captureTools,
   themeChanger,
+  shellBackgroundEffects,
   dock,
   auroraMenu,
   powerMenuAvatar,

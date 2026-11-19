@@ -1,7 +1,5 @@
-import '@girs/gjs';
-
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
 
 function getOverlayPreferredHeight(container: Clutter.Actor, forWidth: number): [number, number] {
   const [content, actions] = container.get_children();

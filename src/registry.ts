@@ -4,6 +4,7 @@ import { PipOnTop } from '~/patches/pipOnTop.ts';
 import { FocusLaunchedWindows } from '~/patches/focusLaunchedWindows.ts';
 import { CaptureTools } from '~/capture/captureTools.ts';
 import { ThemeChanger } from '~/theme/themeChanger.ts';
+import { ShellBackgroundEffects } from '~/theme/shellBackgroundEffects.ts';
 import { Dock } from '~/dock/dock.ts';
 import { AuroraMenu } from '~/panel/auroraMenu.ts';
 import { PowerMenuAvatar } from '~/panel/powerMenuAvatar.ts';
@@ -32,6 +33,7 @@ const factories = {
   'focus-launched-windows': (context) => new FocusLaunchedWindows(context),
   'capture-tools': (context) => new CaptureTools(context),
   'theme-changer': (context) => new ThemeChanger(context),
+  'shell-background-effects': (context) => new ShellBackgroundEffects(context),
   dock: (context) => new Dock(context),
   'aurora-menu': (context) => new AuroraMenu(context),
   'power-menu-avatar': (context) => new PowerMenuAvatar(context),

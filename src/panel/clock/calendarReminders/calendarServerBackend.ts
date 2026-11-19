@@ -1,7 +1,5 @@
-import '@girs/gjs';
-
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
 import { logger } from '~/core/logger.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
@@ -75,20 +73,29 @@ export class CalendarServerBackend {
     if (this._lifecycle !== lifecycle) return;
 
     this._proxy = proxy;
-    lifecycle.connect(proxy, 'g-signal', (_proxy, _senderName, signalName, params) => {
-      if (this._lifecycle !== lifecycle) return;
+    lifecycle.connect(
+      proxy,
+      'g-signal',
+      (
+        _proxy: Gio.DBusProxy,
+        _senderName: string | null,
+        signalName: string,
+        params: GLib.Variant,
+      ) => {
+        if (this._lifecycle !== lifecycle) return;
 
-      if (signalName === 'EventsAddedOrUpdated') {
-        const [rawEvents = []] = params.deepUnpack() as [unknown[]?];
-        this._onEventsAddedOrUpdated(rawEvents);
-      } else if (signalName === 'EventsRemoved') {
-        const [rawIds = []] = params.deepUnpack() as [string[]?];
-        this._onEventsRemoved(rawIds);
-      } else if (signalName === 'ClientDisappeared') {
-        const [sourceUid = ''] = params.deepUnpack() as [string?];
-        this._removeMatching(sourceUid + '\n');
-      }
-    });
+        if (signalName === 'EventsAddedOrUpdated') {
+          const [rawEvents = []] = params.deepUnpack() as [unknown[]?];
+          this._onEventsAddedOrUpdated(rawEvents);
+        } else if (signalName === 'EventsRemoved') {
+          const [rawIds = []] = params.deepUnpack() as [string[]?];
+          this._onEventsRemoved(rawIds);
+        } else if (signalName === 'ClientDisappeared') {
+          const [sourceUid = ''] = params.deepUnpack() as [string?];
+          this._removeMatching(sourceUid + '\n');
+        }
+      },
+    );
     lifecycle.connect(proxy, 'notify::g-name-owner', () => {
       if (this._lifecycle !== lifecycle) return;
 
