@@ -1,19 +1,12 @@
 import '@girs/gjs';
 
-import type St from '@girs/st-18';
-
 import {
   CaptureTools,
   type CaptureToolsDevInteraction,
   type CaptureToolsDevState,
 } from '~/capture/captureTools.ts';
 import type { AnnotationTool } from '~/capture/annotationModel.ts';
-import {
-  createDevToolActionButton,
-  createDevToolActionRow,
-  createDevToolModulePanel,
-  createDevToolSummary,
-} from '~/dev/devToolUi.ts';
+import { action, type RuntimeAction } from './protocol.ts';
 import type { Module } from '~/module.ts';
 
 const TOOLS: readonly AnnotationTool[] = [
@@ -33,162 +26,81 @@ const WIDTHS = [2, 4, 8, 12, 16] as const;
 export class CaptureToolsDevTool {
   readonly key = 'capture-tools';
   readonly title = 'Capture Tool';
-  readonly iconName = 'camera-photo-symbolic';
 
-  constructor(
-    private readonly _getModule: (key: string) => Module | null,
-    private readonly _requestMenuRebuild: () => void,
-  ) {}
+  constructor(private readonly _getModule: (key: string) => Module | null) {}
 
-  buildPanel(): St.Widget {
+  describe() {
     const capture = this._getCaptureTools();
     const state = capture ? capture.devState : null;
     const toolLabel = state ? state.tool : 'off';
     const colorLabel = state ? state.color : 'off';
     const widthLabel = state ? state.width : 0;
-    const panel = createDevToolModulePanel();
-    panel.add_child(createDevToolSummary(this.iconName, this._stateSummary(state)));
-    panel.add_child(createDevToolSummary('find-location-symbolic', this._geometrySummary(state)));
+    const actions: RuntimeAction[] = [];
+    const details: string[] = [];
+    details.push(this._stateSummary(state));
+    details.push(this._geometrySummary(state));
 
-    const sessionRow = createDevToolActionRow();
-    sessionRow.add_child(
-      createDevToolActionButton(
-        'camera-photo-symbolic',
-        'Open Preview',
-        () => void this.openPreview(),
-        !capture,
-        false,
-        'suggested',
-      ),
-    );
-    sessionRow.add_child(
-      createDevToolActionButton('view-refresh-symbolic', 'Reset', () => this.reset(), !capture),
-    );
-    panel.add_child(sessionRow);
+    actions.push(action('openPreview', 'Open Preview', () => this.openPreview(), !capture));
+    actions.push(action('reset', 'Reset', () => this.reset(), !capture));
 
-    const appearanceRow = createDevToolActionRow();
-    appearanceRow.add_child(
-      createDevToolActionButton(
-        'document-edit-symbolic',
-        `Tool: ${toolLabel}`,
-        () => this.cycleTool(),
-        !capture,
-        false,
-        undefined,
-        'capture-tool',
-      ),
+    actions.push(action('capture-tool', `Tool: ${toolLabel}`, () => this.cycleTool(), !capture));
+    actions.push(
+      action('capture-color', `Color: ${colorLabel}`, () => this.cycleColor(), !capture),
     );
-    appearanceRow.add_child(
-      createDevToolActionButton(
-        'applications-graphics-symbolic',
-        `Color: ${colorLabel}`,
-        () => this.cycleColor(),
-        !capture,
-        false,
-        undefined,
-        'capture-color',
-      ),
+    actions.push(
+      action('capture-width', `Width: ${widthLabel}`, () => this.cycleWidth(), !capture),
     );
-    appearanceRow.add_child(
-      createDevToolActionButton(
-        'format-text-bold-symbolic',
-        `Width: ${widthLabel}`,
-        () => this.cycleWidth(),
-        !capture,
-        false,
-        undefined,
-        'capture-width',
-      ),
-    );
-    panel.add_child(appearanceRow);
 
-    const opacityRow = createDevToolActionRow();
-    opacityRow.add_child(
-      createDevToolActionButton(
-        'selection-opaque-3-symbolic',
+    actions.push(
+      action(
+        'capture-interaction-selection',
         'Move Selection',
         () => this.toggleInteraction('selection'),
         !capture,
         Boolean(state && state.interaction === 'selection'),
-        undefined,
-        'capture-interaction-selection',
-        true,
       ),
     );
-    opacityRow.add_child(
-      createDevToolActionButton(
-        'document-edit-symbolic',
+    actions.push(
+      action(
+        'capture-interaction-drawing',
         'Draw',
         () => this.toggleInteraction('drawing'),
         !capture,
         Boolean(state && state.interaction === 'drawing'),
-        undefined,
-        'capture-interaction-drawing',
-        true,
       ),
     );
-    panel.add_child(opacityRow);
 
-    const tesseractRow = createDevToolActionRow();
-    tesseractRow.add_child(
-      createDevToolActionButton(
-        'emblem-ok-symbolic',
+    actions.push(
+      action(
+        'capture-tesseract-on',
         'Tesseract On',
         () => this.setTesseractAvailable(true),
         !capture,
         Boolean(state && state.ocrAvailabilityOverridden && state.ocrAvailable === true),
-        undefined,
-        'capture-tesseract-on',
-        true,
       ),
     );
-    tesseractRow.add_child(
-      createDevToolActionButton(
-        'action-unavailable-symbolic',
+    actions.push(
+      action(
+        'capture-tesseract-off',
         'Tesseract Off',
         () => this.setTesseractAvailable(false),
         !capture,
         Boolean(state && state.ocrAvailabilityOverridden && state.ocrAvailable === false),
-        undefined,
-        'capture-tesseract-off',
-        true,
       ),
     );
-    panel.add_child(tesseractRow);
 
-    const ocrRow = createDevToolActionRow();
-    ocrRow.add_child(
-      createDevToolActionButton('scanner-symbolic', 'Inject OCR', () => this.injectOcr(), !capture),
+    actions.push(action('injectOcr', 'Inject OCR', () => this.injectOcr(), !capture));
+    actions.push(
+      action('copyOcr', 'Copy OCR', () => this.copyOcr(), !state || !state.ocrHasResult),
     );
-    ocrRow.add_child(
-      createDevToolActionButton(
-        'edit-copy-symbolic',
-        'Copy OCR',
-        () => this.copyOcr(),
-        !state || !state.ocrHasResult,
-      ),
+    actions.push(
+      action('searchOcr', 'Search OCR', () => this.searchOcr(), !state || !state.ocrHasResult),
     );
-    ocrRow.add_child(
-      createDevToolActionButton(
-        'system-search-symbolic',
-        'Search OCR',
-        () => this.searchOcr(),
-        !state || !state.ocrHasResult,
-      ),
-    );
-    panel.add_child(ocrRow);
 
-    const cleanupRow = createDevToolActionRow();
-    cleanupRow.add_child(
-      createDevToolActionButton(
-        'user-trash-symbolic',
-        'Clear Annotations',
-        () => this.clearAnnotations(),
-        !capture,
-      ),
+    actions.push(
+      action('clearAnnotations', 'Clear Annotations', () => this.clearAnnotations(), !capture),
     );
-    panel.add_child(cleanupRow);
-    return panel;
+    return { details, actions };
   }
 
   destroy(): void {
@@ -200,9 +112,7 @@ export class CaptureToolsDevTool {
     const capture = this._getCaptureTools();
     if (!capture) return false;
 
-    const opened = await capture.openDevPreview();
-    this._requestMenuRebuild();
-    return opened;
+    return await capture.openDevPreview();
   }
 
   cycleTool(): AnnotationTool | null {
@@ -212,7 +122,6 @@ export class CaptureToolsDevTool {
     const current = TOOLS.indexOf(state.tool);
     const next = TOOLS[(current + 1) % TOOLS.length]!;
     if (!capture.setDevTool(next)) return null;
-    this._requestMenuRebuild();
     return next;
   }
 
@@ -223,7 +132,6 @@ export class CaptureToolsDevTool {
     const current = COLORS.indexOf(state.color as (typeof COLORS)[number]);
     const next = COLORS[(current + 1) % COLORS.length]!;
     if (!capture.setDevColor(next)) return null;
-    this._requestMenuRebuild();
     return next;
   }
 
@@ -234,7 +142,6 @@ export class CaptureToolsDevTool {
     const current = WIDTHS.indexOf(state.width as (typeof WIDTHS)[number]);
     const next = WIDTHS[(current + 1) % WIDTHS.length]!;
     if (!capture.setDevWidth(next)) return null;
-    this._requestMenuRebuild();
     return next;
   }
 
@@ -242,38 +149,28 @@ export class CaptureToolsDevTool {
     const capture = this._getCaptureTools();
     const state = capture?.devState;
     if (!capture || !state) return false;
-    const changed = capture.simulateDevInteraction(
-      state.interaction === interaction ? 'idle' : interaction,
-    );
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return capture.simulateDevInteraction(state.interaction === interaction ? 'idle' : interaction);
   }
 
   setTesseractAvailable(available: boolean): boolean {
     const capture = this._getCaptureTools();
     if (!capture) return false;
 
-    const changed = capture.setDevOcrAvailable(available);
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return capture.setDevOcrAvailable(available);
   }
 
   injectOcr(): boolean {
     const capture = this._getCaptureTools();
     if (!capture) return false;
 
-    const changed = capture.injectDevOcrResult();
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return capture.injectDevOcrResult();
   }
 
   copyOcr(): boolean {
     const capture = this._getCaptureTools();
     if (!capture) return false;
 
-    const changed = capture.copyDevOcrText();
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return capture.copyDevOcrText();
   }
 
   searchOcr(): boolean {
@@ -287,18 +184,14 @@ export class CaptureToolsDevTool {
     const capture = this._getCaptureTools();
     if (!capture) return false;
 
-    const changed = capture.clearDevAnnotations();
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return capture.clearDevAnnotations();
   }
 
   reset(): boolean {
     const capture = this._getCaptureTools();
     if (!capture) return false;
 
-    const changed = capture.resetDevState();
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return capture.resetDevState();
   }
 
   get state(): CaptureToolsDevState | null {

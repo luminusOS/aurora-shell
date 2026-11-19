@@ -67,6 +67,8 @@ External Display Brightness talks to the third-party `com.ddcutil.DdcutilService
 
 The production ZIP is the only artifact submitted to extensions.gnome.org. It targets only the Shell versions in `metadata.json`, includes the schema XML, `LICENSE`, and `CREDITS.md`, and excludes developer tooling. The separately named development ZIP exists for DevTool tests and contributor sessions.
 
+The DevTool preferences migration was checked on 2026-11-19. The production ZIP contains no DevTool service, preferences page, or DevTool stylesheet. Shexli reported the same six baseline findings above, including the GNOME 51 version-ceiling error; none point to the migrated preferences code.
+
 Re-run `just shexli` after any change to runtime code, metadata, schemas, package contents, clipboard/subprocess behavior, or ownership. Preserve the complete command output as location-level evidence; update this summary with the date, totals, every rule, affected owners, and evidence for each classification.
 
 Calibration moved from a Shell modal to preferences at the user's request. The targeted Shell test now launches a real GTK/libadwaita preferences window that reads targets and applies limits over D-Bus, verifies that invalid ranges cannot be applied and that applying writes no brightness. The user later removed the endpoint-verification switch; the Shell still validates every range. The preferences process does not provide Shell's `String.prototype.format`; that defect was caught by this test and fixed.

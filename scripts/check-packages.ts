@@ -12,7 +12,7 @@ function inspectPackage(path: string, development: boolean): void {
   const names = new Set(entries.map((entry) => entry.entryName));
   const label = development ? 'development' : 'production';
 
-  for (const required of ['extension.js', 'metadata.json', 'LICENSE', 'CREDITS.md']) {
+  for (const required of ['extension.js', 'prefs.js', 'metadata.json', 'LICENSE', 'CREDITS.md']) {
     if (!names.has(required)) throw new Error(`${label} package is missing ${required}`);
   }
 
@@ -23,11 +23,14 @@ function inspectPackage(path: string, development: boolean): void {
       throw new Error('development package is missing dev/devTool.js');
     if (!extension.includes('DevTool'))
       throw new Error('development entry point does not enable DevTool');
-    if (!stylesheet.includes('.aurora-devtool'))
-      throw new Error('development package is missing DevTool styles');
+    if (
+      !zip.readAsText('prefs.js').includes('dev/preferencesPage.js') ||
+      !names.has('dev/preferencesPage.js')
+    )
+      throw new Error('Missing development preferences page');
   } else {
     const forbidden = [...names].filter(
-      (name) => name === 'extension.dev.js' || name.startsWith('dev/'),
+      (name) => name === 'extension.dev.js' || name === 'prefs.dev.js' || name.startsWith('dev/'),
     );
     if (forbidden.length > 0)
       throw new Error(`production package contains developer files: ${forbidden.join(', ')}`);

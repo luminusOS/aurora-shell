@@ -1,28 +1,14 @@
 import '@girs/gjs';
 
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
-
 import type { SettingsManager } from '~/core/settings.ts';
 import type { Module } from '~/module.ts';
 import { Dock, type ManagedDockBinding } from '~/dock/dock.ts';
 import { DOCK_POSITIONS, type DockPosition } from '~/dock/dockConfiguration.ts';
 import { OverlapStatus } from '~/dock/intellihide.ts';
-import {
-  createDevToolActionButton,
-  createDevToolActionRow,
-  createDevToolModulePanel,
-  createDevToolSummary,
-} from '~/dev/devToolUi.ts';
+import { action, type RuntimeAction } from './protocol.ts';
 
 const MIN_ICON_SIZE = 16;
 const MAX_ICON_SIZE = 64;
-
-const POSITION_ICONS: Record<DockPosition, string> = {
-  bottom: 'go-bottom-symbolic',
-  left: 'go-first-symbolic',
-  right: 'go-last-symbolic',
-};
 
 function formatPosition(position: DockPosition): string {
   return position.charAt(0).toUpperCase() + position.slice(1);
@@ -31,17 +17,16 @@ function formatPosition(position: DockPosition): string {
 export class DockDevTool {
   readonly key = 'dock';
   readonly title = 'Dock';
-  readonly iconName = 'view-app-grid-symbolic';
 
   constructor(
     private readonly _settings: SettingsManager,
     private readonly _getModule: (key: string) => Module | null,
-    private readonly _requestMenuRebuild: () => void,
   ) {}
 
-  buildPanel(): St.Widget {
+  describe() {
     const dock = this._getDock();
-    const panel = createDevToolModulePanel();
+    const actions: RuntimeAction[] = [];
+    const details: string[] = [];
     const iconSize = this._settings.getInt('dock-icon-size');
     const position = this._currentPosition();
     const summary = dock
@@ -53,74 +38,49 @@ export class DockDevTool {
           `Intellihide: ${dock.intellihideEnabled ? 'on' : 'off'}`,
         ].join(' · ')
       : 'Dock disabled';
-    panel.add_child(createDevToolSummary(this.iconName, summary));
+    details.push(summary);
 
     if (dock) {
-      for (const binding of dock.bindings) panel.add_child(this._buildMonitorPanel(binding));
+      for (const binding of dock.bindings) {
+        details.push(this._monitorStatus(binding));
+        actions.push(...this._monitorActions(binding));
+      }
     }
 
-    const firstRow = createDevToolActionRow();
-    firstRow.add_child(
-      createDevToolActionButton(
-        'go-up-symbolic',
-        'Reveal All',
-        () => this.revealAll(),
-        !dock,
-        false,
-        'suggested',
-      ),
-    );
-    firstRow.add_child(
-      createDevToolActionButton('go-down-symbolic', 'Hide All', () => this.hideAll(), !dock),
-    );
-    panel.add_child(firstRow);
+    actions.push(action('revealAll', 'Reveal All', () => this.revealAll(), !dock));
+    actions.push(action('hideAll', 'Hide All', () => this.hideAll(), !dock));
 
-    const secondRow = createDevToolActionRow();
-    secondRow.add_child(
-      createDevToolActionButton(
-        'input-touchpad-symbolic',
-        'Hot Area',
-        () => this.triggerHotArea(),
-        !dock,
-      ),
-    );
-    secondRow.add_child(
-      createDevToolActionButton(
-        'view-pin-symbolic',
+    actions.push(action('triggerHotArea', 'Hot Area', () => this.triggerHotArea(), !dock));
+    actions.push(
+      action(
+        'dock-always-show',
         `Always Show: ${dock?.alwaysShow ? 'On' : 'Off'}`,
         () => this.toggleAlwaysShow(),
         !dock,
-        false,
-        undefined,
-        'dock-always-show',
       ),
     );
-    panel.add_child(secondRow);
 
-    const iconSizeRow = createDevToolActionRow();
-    iconSizeRow.add_child(
-      createDevToolActionButton(
-        'zoom-out-symbolic',
+    actions.push(
+      action(
+        'decreaseIconSize',
         'Smaller Icons',
         () => this.decreaseIconSize(),
         !dock || iconSize <= MIN_ICON_SIZE,
       ),
     );
-    iconSizeRow.add_child(
-      createDevToolActionButton(
-        'zoom-in-symbolic',
+    actions.push(
+      action(
+        'increaseIconSize',
         'Larger Icons',
         () => this.increaseIconSize(),
         !dock || iconSize >= MAX_ICON_SIZE,
       ),
     );
-    panel.add_child(iconSizeRow);
 
-    const positionRow = createDevToolActionRow();
     for (const candidate of DOCK_POSITIONS) {
-      positionRow.add_child(
-        createDevToolActionButton(
-          POSITION_ICONS[candidate],
+      actions.push(
+        action(
+          `position-${candidate}`,
           candidate === position
             ? `Position: ${formatPosition(candidate)}`
             : formatPosition(candidate),
@@ -129,16 +89,14 @@ export class DockDevTool {
         ),
       );
     }
-    panel.add_child(positionRow);
 
-    return panel;
+    return { details, actions };
   }
 
   revealAll(): boolean {
     const dock = this._getDock();
     if (!dock) return false;
     dock.showAll();
-    this._requestMenuRebuild();
     return true;
   }
 
@@ -146,7 +104,6 @@ export class DockDevTool {
     const dock = this._getDock();
     if (!dock) return false;
     dock.hideAll();
-    this._requestMenuRebuild();
     return true;
   }
 
@@ -154,7 +111,6 @@ export class DockDevTool {
     const dock = this._getDock();
     if (!dock) return false;
     dock.revealFromHotArea();
-    this._requestMenuRebuild();
     return true;
   }
 
@@ -162,7 +118,6 @@ export class DockDevTool {
     const dock = this._getDock();
     if (!dock) return false;
     dock.toggleAlwaysShow();
-    this._requestMenuRebuild();
     return true;
   }
 
@@ -171,7 +126,6 @@ export class DockDevTool {
 
     const currentSize = this._settings.getInt('dock-icon-size');
     this._settings.setInt('dock-icon-size', Math.max(MIN_ICON_SIZE, currentSize - 1));
-    this._requestMenuRebuild();
     return true;
   }
 
@@ -180,7 +134,6 @@ export class DockDevTool {
 
     const currentSize = this._settings.getInt('dock-icon-size');
     this._settings.setInt('dock-icon-size', Math.min(MAX_ICON_SIZE, currentSize + 1));
-    this._requestMenuRebuild();
     return true;
   }
 
@@ -190,7 +143,6 @@ export class DockDevTool {
     if (position === this._currentPosition()) return false;
 
     this._settings.setString('dock-position', position);
-    this._requestMenuRebuild();
     return true;
   }
 
@@ -208,79 +160,50 @@ export class DockDevTool {
     const dock = this._getDock();
     if (!dock) return false;
 
-    const changed = dock.showMonitor(monitorIndex);
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return dock.showMonitor(monitorIndex);
   }
 
   hideMonitor(monitorIndex: number): boolean {
     const dock = this._getDock();
     if (!dock) return false;
 
-    const changed = dock.hideMonitor(monitorIndex);
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return dock.hideMonitor(monitorIndex);
   }
 
   triggerMonitorHotArea(monitorIndex: number): boolean {
     const dock = this._getDock();
     if (!dock) return false;
 
-    const changed = dock.revealMonitorFromHotArea(monitorIndex);
-    if (changed) this._requestMenuRebuild();
-    return changed;
+    return dock.revealMonitorFromHotArea(monitorIndex);
   }
 
-  private _buildMonitorPanel(binding: ManagedDockBinding): St.Widget {
-    const panel = new St.BoxLayout({
-      orientation: Clutter.Orientation.VERTICAL,
-      style_class: 'aurora-devtool-module-panel',
-    });
-
-    panel.add_child(
-      new St.Label({
-        text: this._monitorStatus(binding),
-        style_class: 'aurora-devtool-summary-label',
-        y_align: Clutter.ActorAlign.CENTER,
-      }),
-    );
-
-    const actions = createDevToolActionRow();
-    actions.add_child(
-      createDevToolActionButton(
-        'go-up-symbolic',
-        'Show',
+  private _monitorActions(binding: ManagedDockBinding) {
+    const actions: RuntimeAction[] = [];
+    actions.push(
+      action(
+        `dock-monitor-${binding.monitorIndex}-show`,
+        `Monitor ${binding.monitorIndex + 1}: Show`,
         () => this.showMonitor(binding.monitorIndex),
         false,
-        false,
-        undefined,
-        `dock-monitor-${binding.monitorIndex}-show`,
       ),
     );
-    actions.add_child(
-      createDevToolActionButton(
-        'go-down-symbolic',
-        'Hide',
+    actions.push(
+      action(
+        `dock-monitor-${binding.monitorIndex}-hide`,
+        `Monitor ${binding.monitorIndex + 1}: Hide`,
         () => this.hideMonitor(binding.monitorIndex),
         false,
-        false,
-        undefined,
-        `dock-monitor-${binding.monitorIndex}-hide`,
       ),
     );
-    actions.add_child(
-      createDevToolActionButton(
-        'input-touchpad-symbolic',
-        'Hot Area',
+    actions.push(
+      action(
+        `dock-monitor-${binding.monitorIndex}-hot-area`,
+        `Monitor ${binding.monitorIndex + 1}: Hot Area`,
         () => this.triggerMonitorHotArea(binding.monitorIndex),
         !binding.hotArea,
-        false,
-        undefined,
-        `dock-monitor-${binding.monitorIndex}-hot-area`,
       ),
     );
-    panel.add_child(actions);
-    return panel;
+    return actions;
   }
 
   private _monitorStatus(binding: ManagedDockBinding): string {

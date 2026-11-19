@@ -1577,3 +1577,9 @@ msgstr "Monitora e sincroniza o esquema de cores do GNOME"
 
 #~ msgid "Choose"
 #~ msgstr "Escolher"
+
+msgid "Refresh"
+msgstr "Atualizar"
+
+msgid "Start the development session with AURORA_DEVTOOLS=1, then refresh."
+msgstr "Inicie a sessão de desenvolvimento com AURORA_DEVTOOLS=1 e clique em Atualizar."

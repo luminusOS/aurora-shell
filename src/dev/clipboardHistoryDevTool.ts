@@ -1,18 +1,10 @@
 import '@girs/gjs';
 
 import GLib from '@girs/glib-2.0';
-import type St from '@girs/st-18';
 
 import { ClipboardHistory } from '~/clipboard/clipboardHistory.ts';
 import { fingerprintBytes } from '~/clipboard/clipboardMonitor.ts';
-import {
-  createDevToolActionButton,
-  createDevToolActionRow,
-  createDevToolGroup,
-  createDevToolModulePanel,
-  createDevToolRow,
-  createDevToolSummary,
-} from '~/dev/devToolUi.ts';
+import { action, type RuntimeAction } from './protocol.ts';
 import type { Module } from '~/module.ts';
 import { gettext as _ } from '~/shared/i18n.ts';
 
@@ -38,100 +30,46 @@ const SAMPLE_IMAGE_PNG_BASE64 =
 export class ClipboardHistoryDevTool {
   readonly key = 'clipboard-history';
   readonly title = 'Clipboard';
-  readonly iconName = 'edit-paste-symbolic';
 
   private _generatedSamples: string[] = [];
 
-  constructor(
-    private readonly _getModule: (key: string) => Module | null,
-    private readonly _requestMenuRebuild: () => void,
-  ) {}
+  constructor(private readonly _getModule: (key: string) => Module | null) {}
 
-  buildPanel(): St.Widget {
+  describe() {
     const clipboard = this._getClipboardHistory();
-    const panel = createDevToolModulePanel();
-    panel.add_child(
-      createDevToolSummary(
-        this.iconName,
-        clipboard ? `${clipboard.entryCount} history entries` : 'Clipboard History disabled',
-      ),
+    const actions: RuntimeAction[] = [];
+    const details: string[] = [];
+    details.push(
+      clipboard ? `${clipboard.entryCount} history entries` : 'Clipboard History disabled',
     );
 
-    const primaryRow = createDevToolActionRow();
-    primaryRow.add_child(
-      createDevToolActionButton(
-        'document-open-symbolic',
-        'Open Panel',
-        () => this.openPanel(),
-        !clipboard,
-      ),
+    actions.push(action('openPanel', 'Open Panel', () => this.openPanel(), !clipboard));
+    actions.push(
+      action('addRandomMessage', 'Add Message', () => this.addRandomMessage(), !clipboard),
     );
-    primaryRow.add_child(
-      createDevToolActionButton(
-        'list-add-symbolic',
-        'Add Message',
-        () => this.addRandomMessage(),
-        !clipboard,
-      ),
-    );
-    panel.add_child(primaryRow);
 
-    const secondaryRow = createDevToolActionRow();
-    secondaryRow.add_child(
-      createDevToolActionButton(
-        'format-justify-fill-symbolic',
-        'Add 5 Messages',
-        () => this.addRandomMessages(5),
-        !clipboard,
-      ),
+    actions.push(
+      action('addRandomMessages', 'Add 5 Messages', () => this.addRandomMessages(5), !clipboard),
     );
-    secondaryRow.add_child(
-      createDevToolActionButton(
-        'user-trash-symbolic',
+    actions.push(
+      action(
+        'clearHistory',
         'Clear History',
         () => this.clearHistory(),
         !clipboard || clipboard.entryCount === 0,
-        false,
-        'destructive',
       ),
     );
-    panel.add_child(secondaryRow);
 
-    const sampleRow = createDevToolActionRow();
-    sampleRow.add_child(
-      createDevToolActionButton(
-        'image-x-generic-symbolic',
-        'Add Image',
-        () => void this.addSampleImage(),
-        !clipboard,
-      ),
-    );
-    sampleRow.add_child(
-      createDevToolActionButton(
-        'insert-link-symbolic',
-        'Add Link',
-        () => this.addSampleLink(),
-        !clipboard,
-      ),
-    );
-    sampleRow.add_child(
-      createDevToolActionButton(
-        'accessories-text-editor-symbolic',
-        'Add Code',
-        () => this.addSampleCode(),
-        !clipboard,
-      ),
-    );
-    panel.add_child(sampleRow);
+    actions.push(action('addSampleImage', 'Add Image', () => this.addSampleImage(), !clipboard));
+    actions.push(action('addSampleLink', 'Add Link', () => this.addSampleLink(), !clipboard));
+    actions.push(action('addSampleCode', 'Add Code', () => this.addSampleCode(), !clipboard));
 
     if (this._generatedSamples.length) {
-      const preview = createDevToolGroup(_('Generated samples'));
       for (const sample of this._generatedSamples)
-        preview.list.add_child(createDevToolRow(sample, _('Added by Aurora DevTool')));
-      panel.add_child(preview.container);
+        details.push(sample + ': ' + _('Added by Aurora DevTool'));
     }
 
-    return panel;
+    return { details, actions };
   }
 
   openPanel(): boolean {
@@ -199,7 +137,6 @@ export class ClipboardHistoryDevTool {
     if (!clipboard.clearHistory()) return false;
 
     this._generatedSamples = [];
-    this._requestMenuRebuild();
     return true;
   }
 
@@ -229,6 +166,5 @@ export class ClipboardHistoryDevTool {
 
   private _remember(sample: string): void {
     this._generatedSamples = [sample, ...this._generatedSamples].slice(0, 5);
-    this._requestMenuRebuild();
   }
 }
