@@ -4,9 +4,9 @@
 // plan for why. PressMode.LAUNCHES_ONLY is honored via a direct check of
 // the app's running state at click time instead of a launch engine.
 
-import Clutter from '@girs/clutter-18';
-import St from '@girs/st-18';
-import Shell from '@girs/shell-18';
+import Clutter from 'gi://Clutter';
+import St from 'gi://St';
+import Shell from 'gi://Shell';
 
 import type { MotionRecipe } from '~/dock/motion/catalog.ts';
 import type { DockPosition } from '~/dock/dockConfiguration.ts';
@@ -357,7 +357,7 @@ export class IconMotionController {
     if (dim > 0) {
       if (!this._dimmed) {
         this._dimmed = true;
-        this._bin.offscreen_redirect = 0;
+        this._bin.offscreen_redirect = 0 as Clutter.OffscreenRedirect;
       }
       this._bin.opacity = dimOpacity(this._original.opacity, dim);
     } else if (this._dimmed) {

@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import { format, resolveConfig } from 'prettier';
 
 import { localExternals } from './build/plugins/local-externals.ts';
-import { createGirsResolver } from './build/plugins/girs-resolver.ts';
 import { addBlankLinesBetweenMembers } from './build/formatting.ts';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -25,7 +24,7 @@ try {
     outdir: 'dist',
     outbase: 'src',
     bundle: true,
-    plugins: [localExternals, createGirsResolver(currentDir)],
+    plugins: [localExternals],
     treeShaking: false,
     target: 'firefox102',
     format: 'esm',

@@ -1,7 +1,7 @@
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import Meta from '@girs/meta-18';
-import St from '@girs/st-18';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import St from 'gi://St';
 
 import type { ClipboardImagePayload } from '~/clipboard/clipboardStore.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
@@ -48,7 +48,7 @@ export class ClipboardMonitor {
     this._lifecycle.connect(
       global.display.get_selection(),
       'owner-changed',
-      (_selection, selectionType) => {
+      (_selection: Meta.Selection, selectionType: Meta.SelectionType) => {
         if (selectionType !== Meta.SelectionType.SELECTION_CLIPBOARD) return;
         if (this._suppressNextOwnerChange) {
           this._suppressNextOwnerChange = false;

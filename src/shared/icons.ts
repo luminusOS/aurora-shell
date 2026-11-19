@@ -1,5 +1,5 @@
-import Gio from '@girs/gio-2.0';
-import St from '@girs/st-18';
+import Gio from 'gi://Gio';
+import St from 'gi://St';
 
 let defaultLoader: IconThemeLoader | null = null;
 

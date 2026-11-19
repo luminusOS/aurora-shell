@@ -1,8 +1,6 @@
-import '@girs/gjs';
-
-import GLib from '@girs/glib-2.0';
-import * as Config from '@girs/gnome-shell/misc/config';
-import * as Main from '@girs/gnome-shell/ui/main';
+import GLib from 'gi://GLib';
+import * as Config from 'resource:///org/gnome/shell/misc/config.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { action, type RuntimeAction } from './protocol.ts';
 import { gettext as _ } from '~/shared/i18n.ts';

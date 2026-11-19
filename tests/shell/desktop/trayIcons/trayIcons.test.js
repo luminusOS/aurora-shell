@@ -26,9 +26,9 @@ export function init() {
 }
 
 /**
- * @param {import('@girs/clutter-18').Actor | null | undefined} actor
+ * @param {import('gi://Clutter').Actor | null | undefined} actor
  * @param {string} styleClass
- * @returns {import('@girs/clutter-18').Actor | null}
+ * @returns {import('gi://Clutter').Actor | null}
  */
 function findActorWithStyleClass(actor, styleClass) {
   if (!actor) return null;
@@ -43,7 +43,7 @@ function findActorWithStyleClass(actor, styleClass) {
   return null;
 }
 
-/** @returns {import('@girs/clutter-18').Actor | null} */
+/** @returns {import('gi://Clutter').Actor | null} */
 function findBackgroundAppsToggle() {
   const quickSettings = Main.panel.statusArea.quickSettings;
   const items = quickSettings?._backgroundApps?.quickSettingsItems;

@@ -1,10 +1,8 @@
-import '@girs/gjs';
+import GObject from 'gi://GObject';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 
-import GObject from '@girs/gobject-2.0';
-import GLib from '@girs/glib-2.0';
-import Meta from '@girs/meta-18';
-
-import * as Main from '@girs/gnome-shell/ui/main';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
@@ -67,6 +65,14 @@ export const DockIntellihide = GObject.registerClass(
     Signals: { 'status-changed': {}, 'blocked-reasserted': {} },
   },
   class DockIntellihide extends GObject.Object {
+    declare emit: GObject.SignalMethods<
+      this,
+      GObject.Object['$signals'] & {
+        'status-changed': () => void;
+        'blocked-reasserted': () => void;
+      }
+    >['emit'];
+
     declare private _monitorIndex: number;
     private _targetBox: DashBounds | null = null;
     private _status: OverlapStatus | null = null;

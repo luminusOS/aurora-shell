@@ -1,9 +1,7 @@
-import '@girs/gjs';
-
-import St from '@girs/st-18';
-import GObject from '@girs/gobject-2.0';
+import St from 'gi://St';
+import GObject from 'gi://GObject';
 import type Gvc from 'gi://Gvc';
-import Clutter from '@girs/clutter-18';
+import Clutter from 'gi://Clutter';
 
 import { ApplicationStreamSlider } from '~/panel/volumeMixer/streamSlider.ts';
 import type { ExtensionContext } from '~/core/context.ts';

@@ -1,5 +1,5 @@
 import { gettext as _ } from '~/shared/i18n.ts';
-import type Meta from '@girs/meta-18';
+import type Meta from 'gi://Meta';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { Module } from '~/module.ts';

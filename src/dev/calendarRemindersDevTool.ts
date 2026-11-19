@@ -1,6 +1,4 @@
-import '@girs/gjs';
-
-import GLib from '@girs/glib-2.0';
+import GLib from 'gi://GLib';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';

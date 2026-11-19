@@ -1,5 +1,5 @@
-import type Gio from '@girs/gio-2.0';
-import type GdkPixbuf from '@girs/gdkpixbuf-2.0';
+import type Gio from 'gi://Gio';
+import type GdkPixbuf from 'gi://GdkPixbuf';
 
 export const TRAY_ICON_FALLBACK_NAME = 'application-x-executable-symbolic';
 

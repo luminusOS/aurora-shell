@@ -1,5 +1,5 @@
-import Clutter from '@girs/clutter-18';
-import * as Main from '@girs/gnome-shell/ui/main';
+import Clutter from 'gi://Clutter';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { logger } from '~/core/logger.ts';

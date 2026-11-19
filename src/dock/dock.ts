@@ -1,12 +1,11 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import St from '@girs/st-18';
-import GLib from '@girs/glib-2.0';
-import Meta from '@girs/meta-18';
+import St from 'gi://St';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as OverviewControls from '@girs/gnome-shell/ui/overviewControls';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as OverviewControls from 'resource:///org/gnome/shell/ui/overviewControls.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';

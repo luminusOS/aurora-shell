@@ -1,9 +1,8 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import Shell from '@girs/shell-18';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 
 import { TRAY_ICON_FALLBACK_NAME, type TrayItem, type TrayItemStatus } from './trayState.ts';
 import { logger } from '~/core/logger.ts';

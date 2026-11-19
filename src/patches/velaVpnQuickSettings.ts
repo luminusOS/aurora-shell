@@ -1,8 +1,8 @@
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import * as Main from '@girs/gnome-shell/ui/main';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { logger } from '~/core/logger.ts';
 import type { ExtensionContext } from '~/core/context.ts';

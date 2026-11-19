@@ -1,13 +1,12 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Clutter from '@girs/clutter-18';
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import St from 'gi://St';
 import GWeather from 'gi://GWeather';
-import type { ShellWeatherClient } from '@girs/gnome-shell/ui/dateMenu';
-import * as Main from '@girs/gnome-shell/ui/main';
+import type { ShellWeatherClient } from 'resource:///org/gnome/shell/ui/dateMenu.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';

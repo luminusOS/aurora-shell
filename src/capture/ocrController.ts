@@ -1,6 +1,6 @@
-import Gio from '@girs/gio-2.0';
-import type GdkPixbuf from '@girs/gdkpixbuf-2.0';
-import GLib from '@girs/glib-2.0';
+import Gio from 'gi://Gio';
+import type GdkPixbuf from 'gi://GdkPixbuf';
+import GLib from 'gi://GLib';
 import type { SettingsManager } from '~/core/settings.ts';
 import type { Point } from '~/capture/annotationModel.ts';
 import {

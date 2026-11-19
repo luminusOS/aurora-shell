@@ -1,11 +1,9 @@
-import '@girs/gjs';
-
-import St from '@girs/st-18';
-import GObject from '@girs/gobject-2.0';
+import St from 'gi://St';
+import GObject from 'gi://GObject';
 import Gvc from 'gi://Gvc';
-import Clutter from '@girs/clutter-18';
+import Clutter from 'gi://Clutter';
 
-import * as Volume from '@girs/gnome-shell/ui/status/volume';
+import * as Volume from 'resource:///org/gnome/shell/ui/status/volume.js';
 
 import { VolumeMixerItem } from '~/panel/volumeMixer/mixerItem.ts';
 import type { ExtensionContext } from '~/core/context.ts';

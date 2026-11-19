@@ -1,7 +1,7 @@
-import type GioUnix from '@girs/giounix-2.0';
-import GLib from '@girs/glib-2.0';
-import Meta from '@girs/meta-18';
-import Shell from '@girs/shell-18';
+import type GioUnix from 'gi://GioUnix';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';

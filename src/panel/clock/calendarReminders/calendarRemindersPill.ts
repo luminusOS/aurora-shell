@@ -1,6 +1,6 @@
-import Clutter from '@girs/clutter-18';
-import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import St from 'gi://St';
 
 import type { LifecycleScope, ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';

@@ -1,13 +1,12 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
-import * as IconGrid from '@girs/gnome-shell/ui/iconGrid';
-import { DashItemContainer } from '@girs/gnome-shell/ui/dash';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as IconGrid from 'resource:///org/gnome/shell/ui/iconGrid.js';
+import { DashItemContainer } from 'resource:///org/gnome/shell/ui/dash.js';
 
 import type { ExternalStorageItem } from '~/dock/externalStorageMonitor.ts';
 import { ExternalStorageOperations } from '~/dock/externalStorageOperations.ts';

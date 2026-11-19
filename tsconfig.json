@@ -2,7 +2,15 @@
   "extends": "@tsconfig/strictest/tsconfig.json",
   "compilerOptions": {
     "lib": ["ESNext"],
-    "types": [],
+    "types": [
+      "@girs/gjs",
+      "@girs/gnome-shell/ambient",
+      "@girs/gnome-shell/extensions/global",
+      "@girs/soup-3.0",
+      "@girs/gjs/dom",
+      "@girs/gweather-4.0",
+      "@girs/rsvg-2.0"
+    ],
     "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
@@ -14,13 +22,5 @@
       "~/*": ["./src/*"]
     }
   },
-  "include": ["src"],
-  "files": [
-    "src/extension.ts",
-    "src/types/gio.d.ts",
-    "src/types/gnome-shell.d.ts",
-    "src/types/shellMountOperation.d.ts",
-    "src/types/gweather.d.ts",
-    "src/types/console.d.ts"
-  ]
+  "include": ["src"]
 }

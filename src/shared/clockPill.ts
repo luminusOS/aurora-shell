@@ -1,9 +1,7 @@
-import '@girs/gjs';
-
-import Clutter from '@girs/clutter-18';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import type { DateMenuButton } from '@girs/gnome-shell/ui/dateMenu';
+import Clutter from 'gi://Clutter';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import type { DateMenuButton } from 'resource:///org/gnome/shell/ui/dateMenu.js';
 
 type ClockPillSide = 'left' | 'right';
 

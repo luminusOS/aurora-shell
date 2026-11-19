@@ -1,6 +1,6 @@
-import Clutter from '@girs/clutter-18';
-import type St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
+import Clutter from 'gi://Clutter';
+import type St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import type { Geometry, ScreenshotUi } from './screenshotUiAdapter.ts';
 import { calculateToolbarTranslation, findMonitorForSelection } from './toolbarPlacement.ts';

@@ -1,7 +1,6 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Gio from '@girs/gio-2.0';
+import Gio from 'gi://Gio';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';

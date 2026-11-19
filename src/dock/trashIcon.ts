@@ -1,17 +1,16 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
-import Shell from '@girs/shell-18';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as DND from '@girs/gnome-shell/ui/dnd';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
-import * as IconGrid from '@girs/gnome-shell/ui/iconGrid';
-import { DashItemContainer } from '@girs/gnome-shell/ui/dash';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as IconGrid from 'resource:///org/gnome/shell/ui/iconGrid.js';
+import { DashItemContainer } from 'resource:///org/gnome/shell/ui/dash.js';
 
 import { logger } from '~/core/logger.ts';
 import { launchTrash, NAUTILUS_APP_ID, TRASH_URI } from '~/dock/trashLauncher.ts';

@@ -1,7 +1,7 @@
-import Adw from '@girs/adw-1';
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import Gtk from '@girs/gtk-4.0';
+import Adw from 'gi://Adw';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Gtk from 'gi://Gtk';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { parseBrightnessRange } from '~/panel/externalBrightness/brightnessCalibration.ts';
 import {

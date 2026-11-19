@@ -1,13 +1,12 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import St from '@girs/st-18';
-import Gio from '@girs/gio-2.0';
+import St from 'gi://St';
+import Gio from 'gi://Gio';
 
-import type { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
-import type { QuickSettings } from '@girs/gnome-shell/ui/panel';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import type { QuickSlider } from 'resource:///org/gnome/shell/ui/quickSettings.js';
+import type { QuickSettings } from 'resource:///org/gnome/shell/ui/panel.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';

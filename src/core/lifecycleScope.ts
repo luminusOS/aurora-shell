@@ -8,8 +8,8 @@ export interface ManagedSource {
   complete(): void;
 }
 
-type SignalTarget<Args extends unknown[]> = {
-  connect(signal: string, callback: (...args: Args) => void): number;
+type SignalTarget<Signal, Args extends unknown[]> = {
+  connect(signal: Signal, callback: (...args: Args) => void): number;
   disconnect(id: number): void;
 };
 
@@ -60,9 +60,9 @@ export class LifecycleScope {
     this._teardowns.push(teardown);
   }
 
-  connect<Args extends unknown[]>(
-    target: SignalTarget<Args>,
-    signal: string,
+  connect<Signal extends string, Args extends unknown[]>(
+    target: SignalTarget<Signal, Args>,
+    signal: Signal,
     callback: (...args: Args) => void,
   ): number {
     const id = target.connect(signal, callback);

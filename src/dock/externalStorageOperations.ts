@@ -1,7 +1,7 @@
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as ShellMountOperation from '@girs/gnome-shell/ui/shellMountOperation';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as ShellMountOperation from 'resource:///org/gnome/shell/ui/shellMountOperation.js';
 
 import { gettext as _ } from '~/shared/i18n.ts';
 import { logger } from '~/core/logger.ts';

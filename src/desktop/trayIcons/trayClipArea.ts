@@ -1,7 +1,5 @@
-import '@girs/gjs';
-
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
 
 const VIEWPORT_TRANSITION = 'viewport-progress';
 

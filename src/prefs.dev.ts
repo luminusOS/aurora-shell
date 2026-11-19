@@ -1,5 +1,5 @@
-import type Adw from '@girs/adw-1';
-import Gio from '@girs/gio-2.0';
+import type Adw from 'gi://Adw';
+import Gio from 'gi://Gio';
 import GeneralPreferences from './preferences/generalPreferences.ts';
 import { createDeveloperPage } from './dev/preferencesPage.ts';
 import { DEVTOOL_INTERFACE, DEVTOOL_PATH } from './dev/protocol.ts';

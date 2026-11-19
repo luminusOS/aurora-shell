@@ -1,4 +1,4 @@
-import Gio from '@girs/gio-2.0';
+import Gio from 'gi://Gio';
 
 import { logger } from '~/core/logger.ts';
 import {

@@ -1,12 +1,11 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
-import GObject from '@girs/gobject-2.0';
-import Clutter from '@girs/clutter-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import GLib from 'gi://GLib';
+import St from 'gi://St';
+import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { thumbnailPathFor, type ClipboardEntry } from '~/clipboard/clipboardStore.ts';
 import { classifyClipboardCard, parseClipboardUrl } from '~/clipboard/clipboardCardState.ts';

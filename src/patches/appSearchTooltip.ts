@@ -1,8 +1,8 @@
 import { gettext as _ } from '~/shared/i18n.ts';
-import St from '@girs/st-18';
-import GLib from '@girs/glib-2.0';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as Search from '@girs/gnome-shell/ui/search';
+import St from 'gi://St';
+import GLib from 'gi://GLib';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as Search from 'resource:///org/gnome/shell/ui/search.js';
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';

@@ -1,8 +1,8 @@
-import Clutter from '@girs/clutter-18';
-import St from '@girs/st-18';
+import Clutter from 'gi://Clutter';
+import St from 'gi://St';
 import { gettext as _ } from '~/shared/i18n.ts';
-import * as Main from '@girs/gnome-shell/ui/main';
-import type { Slider } from '@girs/gnome-shell/ui/slider';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import type { Slider } from 'resource:///org/gnome/shell/ui/slider.js';
 import { AnnotationCanvas } from '~/capture/annotationCanvas.ts';
 import { AnnotationModel, type AnnotationTool, type Point } from '~/capture/annotationModel.ts';
 import { CaptureOcrSession } from '~/capture/captureOcrSession.ts';

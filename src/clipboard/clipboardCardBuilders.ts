@@ -1,8 +1,7 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Clutter from '@girs/clutter-18';
-import St from '@girs/st-18';
+import Clutter from 'gi://Clutter';
+import St from 'gi://St';
 
 import type { ClipboardEntry } from './clipboardStore.ts';
 import { highlightCodeMarkup } from './codeHighlight.ts';
