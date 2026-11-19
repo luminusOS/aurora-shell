@@ -1,4 +1,9 @@
 import Gio from '@girs/gio-2.0';
+import GLib from '@girs/glib-2.0';
+import St from '@girs/st-18';
+import * as Main from '@girs/gnome-shell/ui/main';
+import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
+import { gettext as _ } from '~/shared/i18n.ts';
 import type { ExtensionContext } from '~/core/context.ts';
 import type { Module } from '~/module.ts';
 import { DEVTOOL_PATH, DEVTOOL_XML } from './protocol.ts';
@@ -14,11 +19,14 @@ import { WeatherClockDevTool } from './weatherClockDevTool.ts';
 export class DevTool {
   private readonly _tools;
   private readonly _service: Gio.DBusExportedObject;
+  private _indicator: PanelMenu.Button | null = null;
+  private _launchDeadline = 0;
 
   constructor(
     context: ExtensionContext,
     getModule: (key: string) => Module | null,
     versionName: string,
+    private readonly _openPreferences: () => void,
   ) {
     this._tools = {
       general: new GeneralDevTool(
@@ -35,6 +43,11 @@ export class DevTool {
       calendar: new CalendarRemindersDevTool(context.settings, getModule),
     };
     this._service = Gio.DBusExportedObject.wrapJSObject(DEVTOOL_XML, {
+      TakeLaunchRequest: () => {
+        const requested = GLib.get_monotonic_time() < this._launchDeadline;
+        this._launchDeadline = 0;
+        return requested;
+      },
       Describe: () =>
         JSON.stringify(
           Object.values(this._tools).map((tool) => ({
@@ -63,8 +76,30 @@ export class DevTool {
 
   enable(): void {
     this._service.export(Gio.DBus.session, DEVTOOL_PATH);
+    const title = _('Developer Tools');
+    this._indicator = new PanelMenu.Button(1, title, true);
+    this._indicator.can_focus = false;
+    this._indicator.reactive = false;
+    const launcher = new St.Button({
+      can_focus: true,
+      accessible_name: title,
+      child: new St.Icon({
+        icon_name: 'applications-engineering-symbolic',
+        style_class: 'system-status-icon',
+      }),
+    });
+    launcher.connect('clicked', () => {
+      // Preferences may already be listening, or GNOME may still need to launch them.
+      this._launchDeadline = GLib.get_monotonic_time() + 15 * GLib.USEC_PER_SEC;
+      this._service.emit_signal('LaunchRequested', new GLib.Variant('()', []));
+      this._openPreferences();
+    });
+    this._indicator.add_child(launcher);
+    Main.panel.addToStatusArea('aurora-devtool', this._indicator, 2, 'left');
   }
   disable(): void {
+    if (this._indicator) this._indicator.destroy();
+    this._indicator = null;
     this._service.unexport();
     this._tools.capture.destroy();
     this._tools.tray.destroy();

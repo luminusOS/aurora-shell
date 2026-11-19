@@ -47,12 +47,14 @@ export async function run() {
   const devToolsEnabled = GLib.getenv('AURORA_DEVTOOLS') === '1';
   const panelButton = Main.panel.statusArea[DEVTOOL_ID];
 
-  if (panelButton) throw new Error('DevTool installed a Shell panel button');
   if (!devToolsEnabled) {
+    if (panelButton) throw new Error('DevTool installed a panel launcher outside development');
     Scripting.scriptEvent('devToolAbsent');
     return;
   }
 
+  if (!panelButton || panelButton.menu.actor !== panelButton)
+    throw new Error('Expected a menu-free DevTool launcher');
   Scripting.scriptEvent('devToolFound');
 
   const settings = getAuroraSettings();

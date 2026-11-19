@@ -28,6 +28,7 @@ export default class AuroraShellDevelopmentExtension extends Extension {
         context,
         (key) => runtime.getModule(key),
         String(this.metadata['version-name'] || this.metadata['version'] || 'Development'),
+        () => this.openPreferences(),
       );
       this._devTool.enable();
     } catch (error) {
