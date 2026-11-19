@@ -4,6 +4,10 @@
   background-color: vars.$aurora-dash-bg;
 }
 
+.aurora-translucent-docks #dash.aurora-dock .dash-background {
+  background-color: rgba(vars.$aurora-dash-bg, 0.76);
+}
+
 #dash .dash-item-container .show-apps,
 #dash .dash-item-container .overview-tile,
 #dash .dash-item-container .grid-search-result {

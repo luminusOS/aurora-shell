@@ -206,6 +206,7 @@ test('catalog: desktop module baseline is preserved', () => {
     'focus-launched-windows',
     'capture-tools',
     'theme-changer',
+    'shell-background-effects',
     'dock',
     'aurora-menu',
     'power-menu-avatar',

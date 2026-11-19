@@ -81,6 +81,7 @@ export const AuroraDash = GObject.registerClass(
     declare private _unredirectInhibitor: UnredirectInhibitor;
     override _init(params: AuroraDashParams = {}): void {
       super._init();
+      this.add_style_class_name('aurora-dock');
 
       const {
         monitorIndex = Main.layoutManager.primaryIndex,

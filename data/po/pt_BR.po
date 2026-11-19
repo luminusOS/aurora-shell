@@ -1591,3 +1591,27 @@ msgstr "Atualizar"
 
 msgid "Start the development session with AURORA_DEVTOOLS=1, then refresh."
 msgstr "Inicie a sessão de desenvolvimento com AURORA_DEVTOOLS=1 e clique em Atualizar."
+
+msgid "Transparency"
+msgstr "Transparência"
+
+msgid "Let the desktop show through the panel and dock"
+msgstr "Ver a área de trabalho através do painel e do dock"
+
+msgid "Translucent Top Bar"
+msgstr "Barra superior translúcida"
+
+msgid "Show the desktop behind the top bar"
+msgstr "Mostrar a área de trabalho atrás da barra superior"
+
+msgid "Translucent Dock"
+msgstr "Dock translúcido"
+
+msgid "Use a translucent background for the Aurora Dock"
+msgstr "Usar um fundo translúcido no Aurora Dock"
+
+msgid "Blur Behind the Top Bar"
+msgstr "Desfocar atrás da barra superior"
+
+msgid "Soften the background when the top bar is translucent"
+msgstr "Suavizar o fundo quando a barra superior estiver translúcida"
