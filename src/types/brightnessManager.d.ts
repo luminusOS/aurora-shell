@@ -1,5 +1,5 @@
 import type GObject from '@girs/gobject-2.0';
-import type Meta from '@girs/meta-18';
+import type Meta from '@girs/meta-51';
 
 declare module '@girs/gnome-shell/ui/main' {
   export interface NativeBrightnessScale extends GObject.Object {

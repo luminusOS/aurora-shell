@@ -1,12 +1,10 @@
-import '@girs/gjs';
-
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
-import GLib from '@girs/glib-2.0';
-import Atk from '@girs/atk-1.0';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import Atk from 'gi://Atk';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';

@@ -1,7 +1,5 @@
-import '@girs/gjs';
-
-import GLib from '@girs/glib-2.0';
-import type St from '@girs/st-18';
+import GLib from 'gi://GLib';
+import type St from 'gi://St';
 
 import { ClipboardHistory } from '~/clipboard/clipboardHistory.ts';
 import { fingerprintBytes } from '~/clipboard/clipboardMonitor.ts';

@@ -1,4 +1,4 @@
-import * as Main from '@girs/gnome-shell/ui/main';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export function getQuickSettingsGrid(): any | null {
   const quickSettings = Main.panel.statusArea.quickSettings;

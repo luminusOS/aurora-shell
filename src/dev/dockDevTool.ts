@@ -1,7 +1,5 @@
-import '@girs/gjs';
-
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
 
 import type { SettingsManager } from '~/core/settings.ts';
 import type { Module } from '~/module.ts';

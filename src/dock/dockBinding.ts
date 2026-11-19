@@ -1,5 +1,5 @@
-import type St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
+import type St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';

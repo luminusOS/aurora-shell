@@ -1,7 +1,5 @@
-import '@girs/gjs';
-
-import GLib from '@girs/glib-2.0';
-import { Extension } from '@girs/gnome-shell/extensions/extension';
+import GLib from 'gi://GLib';
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { enableDebugLogging, logger } from '~/core/logger.ts';
 import { ShellRuntime } from '~/core/shellRuntime.ts';

@@ -1,6 +1,4 @@
-import '@girs/gjs';
-
-import type St from '@girs/st-18';
+import type St from 'gi://St';
 
 import {
   createDevToolActionButton,

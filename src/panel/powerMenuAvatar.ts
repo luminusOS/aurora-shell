@@ -1,9 +1,7 @@
-import '@girs/gjs';
-
-import AccountsService from '@girs/accountsservice-1.0';
-import GLib from '@girs/glib-2.0';
-import type St from '@girs/st-18';
-import { UserWidget } from '@girs/gnome-shell/ui/userWidget';
+import AccountsService from 'gi://AccountsService';
+import GLib from 'gi://GLib';
+import type St from 'gi://St';
+import { UserWidget } from 'resource:///org/gnome/shell/ui/userWidget.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';

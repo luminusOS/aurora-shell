@@ -1,6 +1,4 @@
-import '@girs/gjs';
-
-import { Extension } from '@girs/gnome-shell/extensions/extension';
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { ShellRuntime } from '~/core/shellRuntime.ts';
 

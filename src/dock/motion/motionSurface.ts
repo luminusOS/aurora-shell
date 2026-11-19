@@ -4,10 +4,10 @@
 // _box for app icons and _dashContainer for fixed items such as Trash and
 // removable storage. Both feed one visually ordered neighbor group.
 
-import GLib from '@girs/glib-2.0';
-import Meta from '@girs/meta-18';
-import type Clutter from '@girs/clutter-18';
-import St from '@girs/st-18';
+import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import type Clutter from 'gi://Clutter';
+import St from 'gi://St';
 
 import type { MotionRecipe } from '~/dock/motion/catalog.ts';
 import type { DockPosition } from '~/dock/dockConfiguration.ts';
@@ -69,12 +69,9 @@ export class MotionSurface {
     if (!this._sources || this._sources.has(source)) return;
     for (const container of source.get_children())
       this._registerContainer(container as DashItemContainerLike);
-    const childAddedId = source.connect(
-      'child-added',
-      (_source: St.Widget, container: St.Widget) => {
-        this._registerContainer(container as DashItemContainerLike);
-      },
-    );
+    const childAddedId = source.connect('child-added', (_source, container) => {
+      this._registerContainer(container as DashItemContainerLike);
+    });
     const destroyId = source.connect('destroy', () => {
       this._sources?.delete(source);
     });

@@ -1,8 +1,8 @@
-import Clutter from '@girs/clutter-18';
-import Gio from '@girs/gio-2.0';
-import St from '@girs/st-18';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import St from 'gi://St';
 import { gettext as _ } from '~/shared/i18n.ts';
-import * as Main from '@girs/gnome-shell/ui/main';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import type { AnnotationCanvas } from './annotationCanvas.ts';
 import { CaptureTooltip } from './captureTooltip.ts';

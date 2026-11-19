@@ -1,13 +1,12 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
-import Clutter from '@girs/clutter-18';
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as PanelMenu from '@girs/gnome-shell/ui/panelMenu';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';

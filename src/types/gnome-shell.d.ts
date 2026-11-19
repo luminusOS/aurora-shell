@@ -1,21 +1,12 @@
-import type St from '@girs/st-18';
+import type St from '@girs/st-51';
 import type GWeather from 'gi://GWeather';
-import type { Button } from '@girs/gnome-shell/ui/panelMenu';
+import type GObject from '@girs/gobject-2.0';
 
 declare module '@girs/gnome-shell/ui/dateMenu' {
   interface ShellWeatherClient {
     available: boolean;
     loading: boolean;
-    info: {
-      is_valid(): boolean;
-      get_symbolic_icon_name(): string;
-      get_value_temp(unit: GWeather.TemperatureUnit): [boolean, number];
-      get_temp_summary(): string;
-      get_value_sky(): [boolean, GWeather.Sky];
-      get_sky(): string;
-      get_value_conditions(): [boolean, GWeather.ConditionPhenomenon, unknown?];
-      get_conditions(): string;
-    };
+    info: GWeather.Info;
     update(): void;
     connect(signal: string, callback: (...args: unknown[]) => void): number;
     disconnect(id: number): void;
@@ -29,13 +20,16 @@ declare module '@girs/gnome-shell/ui/dateMenu' {
   }
 }
 
-declare module '@girs/gnome-shell/ui/panel' {
-  interface Panel {
-    addToStatusArea<T extends Omit<Button, '_init'>>(
-      role: string,
-      indicator: T,
-      position?: number,
-      box?: 'left' | 'center' | 'right',
-    ): T;
+declare module '@girs/gnome-shell/ui/layout' {
+  interface LayoutManager {
+    connect: GObject.SignalMethods<this, LayoutManager.SignalSignatures>['connect'];
+  }
+}
+
+declare module '@girs/gnome-shell/ui/sessionMode' {
+  interface SessionMode {
+    isLocked: boolean;
+    hasOverview: boolean;
+    allowSettings: boolean;
   }
 }

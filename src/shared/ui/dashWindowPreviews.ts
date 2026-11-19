@@ -1,14 +1,12 @@
-import '@girs/gjs';
-
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
-import Graphene from '@girs/graphene-1.0';
-import type Meta from '@girs/meta-18';
-import Pango from '@girs/pango-1.0';
-import Shell from '@girs/shell-18';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Graphene from 'gi://Graphene';
+import type Meta from 'gi://Meta';
+import Pango from 'gi://Pango';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { createManagedTimeout } from '~/core/mainLoop.ts';

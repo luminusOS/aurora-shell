@@ -1,4 +1,4 @@
-import Shell from '@girs/shell-18';
+import Shell from 'gi://Shell';
 
 type Patch = { prototype: any; name: string; original: any; wrapper: any };
 export type NativeWindowAppResolver = (window: any) => any;

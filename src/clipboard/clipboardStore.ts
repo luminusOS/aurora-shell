@@ -1,8 +1,6 @@
-import '@girs/gjs';
-
-import GLib from '@girs/glib-2.0';
-import Gio from '@girs/gio-2.0';
-import GdkPixbuf from '@girs/gdkpixbuf-2.0';
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
+import GdkPixbuf from 'gi://GdkPixbuf';
 
 import { logger } from '~/core/logger.ts';
 import {

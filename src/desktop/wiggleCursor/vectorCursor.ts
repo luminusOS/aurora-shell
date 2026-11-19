@@ -1,10 +1,10 @@
-import type Clutter from '@girs/clutter-18';
-import Cogl from '@girs/cogl-18';
-import type GdkPixbuf from '@girs/gdkpixbuf-2.0';
-import Gio from '@girs/gio-2.0';
-import Meta from '@girs/meta-18';
-import Shell from '@girs/shell-18';
-import St from '@girs/st-18';
+import type Clutter from 'gi://Clutter';
+import Cogl from 'gi://Cogl';
+import type GdkPixbuf from 'gi://GdkPixbuf';
+import Gio from 'gi://Gio';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
 import type Rsvg from 'gi://Rsvg';
 
 import { logger } from '~/core/logger.ts';

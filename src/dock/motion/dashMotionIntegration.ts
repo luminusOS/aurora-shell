@@ -3,7 +3,7 @@
 // exactly one AuroraDash target per binding (no "is this a dock or the
 // stock overview dash" guard needed, unlike the source project).
 
-import type St from '@girs/st-18';
+import type St from 'gi://St';
 
 import type { MotionRecipe } from '~/dock/motion/catalog.ts';
 import type { DockPosition } from '~/dock/dockConfiguration.ts';

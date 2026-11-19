@@ -1,6 +1,6 @@
-import * as Main from '@girs/gnome-shell/ui/main';
-import type { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
-import { PopupBaseMenuItem } from '@girs/gnome-shell/ui/popupMenu';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import type { QuickSlider } from 'resource:///org/gnome/shell/ui/quickSettings.js';
+import { PopupBaseMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { shiftBrightness } from './brightnessLevels.ts';
 import { DisplayBrightnessSlider } from './brightnessSliders.ts';

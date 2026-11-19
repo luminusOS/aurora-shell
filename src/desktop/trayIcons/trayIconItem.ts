@@ -1,11 +1,9 @@
-import '@girs/gjs';
-
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
-import GdkPixbuf from '@girs/gdkpixbuf-2.0';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import GdkPixbuf from 'gi://GdkPixbuf';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { logger } from '~/core/logger.ts';
 
 import { TRAY_ICON_FALLBACK_NAME, type TrayItem } from './trayState.ts';

@@ -1,4 +1,4 @@
-import type Clutter from '@girs/clutter-18';
+import type Clutter from 'gi://Clutter';
 
 import { Easing, type EasingId } from '~/dock/motion/catalog.ts';
 

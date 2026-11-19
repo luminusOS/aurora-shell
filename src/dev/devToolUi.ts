@@ -1,7 +1,7 @@
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
-import Pango from '@girs/pango-1.0';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import Pango from 'gi://Pango';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { gettext as _ } from '~/shared/i18n.ts';
 import { createIcon } from '~/shared/icons.ts';

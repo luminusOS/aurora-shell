@@ -1,8 +1,8 @@
-import St from '@girs/st-18';
-import Clutter from '@girs/clutter-18';
-import Meta from '@girs/meta-18';
-import Pango from '@girs/pango-1.0';
-import Atk from '@girs/atk-1.0';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import Meta from 'gi://Meta';
+import Pango from 'gi://Pango';
+import Atk from 'gi://Atk';
 
 import type { SettingsManager } from '~/core/settings.ts';
 import type { Module, ModuleManifest, ModuleOption } from '~/module.ts';

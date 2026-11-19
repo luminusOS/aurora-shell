@@ -1,9 +1,7 @@
-import '@girs/gjs';
-
-import type St from '@girs/st-18';
-import GLib from '@girs/glib-2.0';
-import * as Config from '@girs/gnome-shell/misc/config';
-import * as Main from '@girs/gnome-shell/ui/main';
+import type St from 'gi://St';
+import GLib from 'gi://GLib';
+import * as Config from 'resource:///org/gnome/shell/misc/config.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
   createDevToolActionButton,

@@ -1,4 +1,4 @@
-import Gio from '@girs/gio-2.0';
+import Gio from 'gi://Gio';
 
 export interface SettingsManager {
   getBoolean(key: string): boolean;
@@ -9,7 +9,7 @@ export interface SettingsManager {
   setStrv(key: string, value: string[]): void;
   getInt(key: string): number;
   setInt(key: string, value: number): void;
-  connect(signal: string, callback: () => void): number;
+  connect(signal: keyof Gio.Settings.SignalSignatures, callback: () => void): number;
   disconnect(id: number): void;
   getSchema(schemaId: string): SettingsManager;
   getRawSettings(): Gio.Settings; // Needed for legacy Adw/GSettings bindings temporarily
@@ -50,7 +50,7 @@ export class GSettingsManager implements SettingsManager {
     this.settings.set_int(key, value);
   }
 
-  connect(signal: string, callback: () => void): number {
+  connect(signal: keyof Gio.Settings.SignalSignatures, callback: () => void): number {
     return this.settings.connect(signal, callback);
   }
 

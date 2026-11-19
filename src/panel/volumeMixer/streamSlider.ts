@@ -1,11 +1,9 @@
-import '@girs/gjs';
-
-import GObject from '@girs/gobject-2.0';
+import GObject from 'gi://GObject';
 import Gvc from 'gi://Gvc';
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
-import { QuickSlider } from '@girs/gnome-shell/ui/quickSettings';
+import { QuickSlider } from 'resource:///org/gnome/shell/ui/quickSettings.js';
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
@@ -19,6 +17,11 @@ export const ApplicationStreamSlider = GObject.registerClass(
     },
   },
   class ApplicationStreamSlider extends QuickSlider {
+    declare emit: GObject.SignalMethods<
+      this,
+      QuickSlider['$signals'] & { 'stream-updated': () => void }
+    >['emit'];
+
     declare private _control: Gvc.MixerControl;
     declare private _lifecycle: LifecycleScope;
     declare private _notifyVolumeChange: ManagedSource;

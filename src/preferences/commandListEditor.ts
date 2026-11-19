@@ -1,8 +1,6 @@
-import '@girs/gjs';
-
-import Adw from '@girs/adw-1';
-import type Gio from '@girs/gio-2.0';
-import Gtk from '@girs/gtk-4.0';
+import Adw from 'gi://Adw';
+import type Gio from 'gi://Gio';
+import Gtk from 'gi://Gtk';
 
 import {
   parseCustomCommand,

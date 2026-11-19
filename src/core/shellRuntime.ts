@@ -1,4 +1,4 @@
-import type { Extension } from '@girs/gnome-shell/extensions/extension';
+import type { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { DefaultExtensionContext } from '~/core/context.ts';

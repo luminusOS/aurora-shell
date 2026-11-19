@@ -1,8 +1,7 @@
-import '@girs/gjs';
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
-import Clutter from '@girs/clutter-18';
-import * as PopupMenu from '@girs/gnome-shell/ui/popupMenu';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Clutter from 'gi://Clutter';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { logger } from '~/core/logger.ts';
 
 const DBUS_MENU_IFACE = 'com.canonical.dbusmenu';

@@ -1,4 +1,4 @@
-import GObject from '@girs/gobject-2.0';
+import GObject from 'gi://GObject';
 import type { SettingsManager } from './settings.ts';
 import type { DeviceService } from '~/device/device.ts';
 
@@ -11,7 +11,12 @@ export const AuroraSignals = GObject.registerClass(
       'icons-woven': {},
     },
   },
-  class AuroraSignals extends GObject.Object {},
+  class AuroraSignals extends GObject.Object {
+    declare emit: GObject.SignalMethods<
+      this,
+      GObject.Object['$signals'] & { 'icons-woven': () => void }
+    >['emit'];
+  },
 );
 
 export type AuroraSignals = InstanceType<typeof AuroraSignals>;

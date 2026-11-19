@@ -1,13 +1,12 @@
-import '@girs/gjs';
-import GLib from '@girs/glib-2.0';
-import Clutter from '@girs/clutter-18';
-import GObject from '@girs/gobject-2.0';
-import Shell from '@girs/shell-18';
-import St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
-import * as DND from '@girs/gnome-shell/ui/dnd';
-import * as AppFavorites from '@girs/gnome-shell/ui/appFavorites';
-import { Dash, DashItemContainer } from '@girs/gnome-shell/ui/dash';
+import GLib from 'gi://GLib';
+import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+import Shell from 'gi://Shell';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
+import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
+import { Dash, DashItemContainer } from 'resource:///org/gnome/shell/ui/dash.js';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
@@ -56,6 +55,11 @@ const VerticalDragPlaceholderItem = GObject.registerClass(
 
 export const AuroraDash = GObject.registerClass(
   class AuroraDash extends Dash {
+    declare emit: GObject.SignalMethods<
+      this,
+      Dash['$signals'] & { 'icon-size-changed': () => void }
+    >['emit'];
+
     declare private _monitorIndex: number;
     declare private _isolateMonitor: boolean;
     declare private _maxIconSize: number;

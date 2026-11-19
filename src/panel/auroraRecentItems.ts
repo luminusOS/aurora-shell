@@ -1,5 +1,5 @@
-import Gio from '@girs/gio-2.0';
-import GLib from '@girs/glib-2.0';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
 import { logger } from '~/core/logger.ts';
 import { parseRecentXbel, type RecentMenuItem } from '~/panel/auroraMenuState.ts';

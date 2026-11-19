@@ -1,4 +1,3 @@
-import '@girs/gjs';
 import { gettext as _ } from '~/shared/i18n.ts';
 
 import type { ExtensionContext } from '~/core/context.ts';

@@ -1,7 +1,7 @@
-import Clutter from '@girs/clutter-18';
-import GLib from '@girs/glib-2.0';
-import * as DND from '@girs/gnome-shell/ui/dnd';
-import * as Main from '@girs/gnome-shell/ui/main';
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';

@@ -1,7 +1,7 @@
-import Clutter from '@girs/clutter-18';
-import Shell from '@girs/shell-18';
-import type St from '@girs/st-18';
-import * as Main from '@girs/gnome-shell/ui/main';
+import Clutter from 'gi://Clutter';
+import Shell from 'gi://Shell';
+import type St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isDashWindowRelevant } from './dashState.ts';
 import type { DockPosition } from '~/dock/dockConfiguration.ts';
