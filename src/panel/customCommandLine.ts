@@ -13,11 +13,14 @@ export function parseCommandWords(raw: string): string[] | null {
 export function parseCustomCommandLine(raw: string) {
   const words = parseCommandWords(raw);
   if (!words) return null;
+
   const environment = new Map<string, string>();
   for (const [index, word] of words.entries()) {
     if (!word) return null;
+
     const assignment = /^[A-Za-z_][A-Za-z0-9_]*=/.exec(word);
     if (!assignment) return { argv: words.slice(index), environment };
+
     const prefix = assignment[0];
     const value = word.slice(prefix.length);
     environment.set(
@@ -25,5 +28,6 @@ export function parseCustomCommandLine(raw: string) {
       value.replace(/^\$HOME(?=\/|$)/, () => GLib.get_home_dir()),
     );
   }
+
   return null;
 }

@@ -285,14 +285,17 @@ class CommandListEditor {
       const invalidSeparator = label.includes('|');
       const raw = commandRow.text.trim();
       const invalidCommand = raw.length > 0 && !parseCustomCommandLine(raw);
+
       validationMessage.visible = invalidSeparator || invalidCommand;
       if (invalidSeparator) validationMessage.label = _('The name cannot contain “|”');
       else if (invalidCommand)
         validationMessage.label = _('Enter a program name and check that all quotes are closed.');
+
       if (invalidCommand) commandRow.add_css_class('error');
       else commandRow.remove_css_class('error');
       if (invalidSeparator) labelRow.add_css_class('error');
       else labelRow.remove_css_class('error');
+
       saveButton.sensitive =
         label.length > 0 && !invalidSeparator && raw.length > 0 && !invalidCommand;
     };

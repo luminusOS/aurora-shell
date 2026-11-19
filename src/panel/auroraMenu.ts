@@ -406,6 +406,7 @@ export class AuroraMenu extends Module {
       if (environment) {
         for (const [name, value] of environment) launcher.setenv(name, value, true);
       }
+
       launcher.spawnv(argv);
     } catch (e) {
       logger.warn(`Failed to launch "${argv[0]}": ${e}`, { prefix: LOG_PREFIX });
@@ -458,6 +459,7 @@ export class AuroraMenu extends Module {
 
     const argv = parseCommandWords(raw);
     if (argv) return argv;
+
     logger.warn(`Invalid command in ${key}`, { prefix: LOG_PREFIX });
     return fallback;
   }

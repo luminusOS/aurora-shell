@@ -48,17 +48,21 @@ export async function run() {
     assertIncludes(labels, 'Terminal');
     assertIncludes(labels, 'Files');
     assertExcludes(labels, 'Incomplete');
+
     const item = Main.panel.statusArea['aurora-menu'].menu
       ._getMenuItems()
       .find((item) => item.label?.text === 'Probe');
     item.emit('activate', null);
+
     for (let i = 0; i < 50 && !GLib.file_test(result, GLib.FileTest.EXISTS); i++)
       await Scripting.sleep(50);
+
     const [, bytes] = GLib.file_get_contents(result);
     if (
       new globalThis.TextDecoder().decode(bytes) !== `${GLib.get_home_dir()}/profile dir ARG=value`
     )
       throw new Error('Custom command received unexpected environment or arguments');
+
     assertExcludes(labels, 'Software');
     assertExcludes(labels, 'Extensions');
 
