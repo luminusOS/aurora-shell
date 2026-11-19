@@ -1,13 +1,8 @@
 /* eslint camelcase: ["error", { properties: "never", allow: ["^script_"] }] */
 
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import {
-  EXTENSION_UUID,
-  getAuroraModule,
-  getAuroraSettings,
-  waitForCondition,
-  waitForExtension,
-} from '../support/testUtils.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { EXTENSION_UUID, waitForCondition, waitForExtension } from '../support/testUtils.js';
 
 export var METRICS = {};
 
@@ -25,15 +20,41 @@ export function init() {
 export async function run() {
   await waitForExtension(EXTENSION_UUID);
 
-  const settings = getAuroraSettings();
-  const originalIntellihide = settings.get_boolean('dock-intellihide');
-  settings.set_boolean('dock-intellihide', true);
-  await Scripting.waitLeisure();
+  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
+  const { DockIntellihide } = await import(`${extension.dir.get_uri()}/dock/intellihide.js`);
+  const intellihide = new DockIntellihide(Main.layoutManager.primaryIndex);
 
   try {
-    const dock = getAuroraModule('dock');
-    const intellihide = dock?.bindings?.[0]?.intellihide;
-    if (!intellihide) throw new Error('Dock intellihide is unavailable');
+    Main.overview.hide();
+    const previous = new Set(global.get_window_actors());
+    await Scripting.createTestWindow({ width: 640, height: 400 });
+    await Scripting.waitTestWindows();
+    await Scripting.waitLeisure();
+    const window = await waitForCondition({
+      evaluate: () => global.get_window_actors().find((actor) => !previous.has(actor))?.meta_window,
+      signals: [[global.stage, 'after-paint']],
+      description: 'mapped geometry benchmark window',
+    });
+    await waitForCondition({
+      evaluate: () => {
+        intellihide.refresh('await-geometry');
+        return intellihide._trackedWindows.has(window);
+      },
+      signals: [[global.stage, 'after-paint']],
+      description: 'test window eligible for overlap tracking',
+    });
+    const getFrame = window.get_frame_rect;
+    let frameReads = 0;
+    window.get_frame_rect = function () {
+      frameReads++;
+      return getFrame.call(this);
+    };
+    try {
+      intellihide.refresh('geometry-budget');
+    } finally {
+      delete window.get_frame_rect;
+    }
+    if (frameReads !== 1) throw new Error(`Expected one frame read, got ${frameReads}`);
 
     intellihide._queuedRefreshes.clear();
     intellihide._settle.clear();
@@ -59,6 +80,7 @@ export async function run() {
       throw new Error(`${inputSignals} geometry signals produced ${overlapChecks} overlap checks`);
 
     METRICS = {
+      frameReads,
       inputSignals,
       uncoalescedPotentialChecks: inputSignals,
       optimizedChecks: overlapChecks,
@@ -95,8 +117,8 @@ export async function run() {
       throw new Error(`Dock teardown allowed ${postDestroyChecks} pending overlap checks`);
     Scripting.scriptEvent('dockPendingCheckCancelled');
   } finally {
-    settings.set_boolean('dock-intellihide', originalIntellihide);
-    await Scripting.waitLeisure();
+    intellihide.destroy();
+    await Scripting.destroyTestWindows();
   }
 }
 
