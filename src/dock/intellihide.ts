@@ -17,6 +17,7 @@ import {
   getBlockingOverlapState,
   isOnActiveWorkspace,
   rectanglesOverlap,
+  type Rectangle,
 } from '~/dock/intellihideState.ts';
 import type { DashBounds } from '~/shared/ui/dash.ts';
 
@@ -216,15 +217,20 @@ export const DockIntellihide = GObject.registerClass(
         return;
       }
 
-      const candidates = global
-        .get_window_actors()
-        .map((actor: any) => ({ actor, window: actor.meta_window as Meta.Window }))
-        .filter(({ window }) => this._isCandidateWindow(window));
+      const candidates = [];
+      const activeWorkspace = global.workspace_manager.get_active_workspace();
+      const focusedWindow = global.display.focus_window;
+      for (const actor of global.get_window_actors()) {
+        const window = actor.meta_window;
+        if (!window || window.minimized) continue;
+        const rectangle = window.get_frame_rect();
+        if (this._isCandidateWindow(window, rectangle, activeWorkspace))
+          candidates.push({ actor, window, rectangle });
+      }
 
       this._syncTrackedWindows(candidates);
-      const focusedWindow = this._getFocusedCandidateWindow(candidates);
-      const descriptors = candidates.map(({ window }, index) => ({
-        rectangle: window.get_frame_rect(),
+      const descriptors = candidates.map(({ window, rectangle }, index) => ({
+        rectangle,
         focused: focusedWindow === window,
         topmost: index === candidates.length - 1,
         fullscreen: window.is_fullscreen(),
@@ -248,14 +254,6 @@ export const DockIntellihide = GObject.registerClass(
       }
     }
 
-    private _getFocusedCandidateWindow(
-      candidates: Array<{ actor: any; window: Meta.Window }>,
-    ): Meta.Window | null {
-      const focusWindow = global.display.focus_window as Meta.Window | null;
-      if (!focusWindow) return null;
-      return candidates.some(({ window }) => window === focusWindow) ? focusWindow : null;
-    }
-
     private _queueRefresh(reason: string, delays: number[] = [0]): void {
       this._queuedRefreshes.replace(delays, () => this._checkOverlap(reason));
     }
@@ -272,35 +270,31 @@ export const DockIntellihide = GObject.registerClass(
       return this._monitorIndex < global.display.get_n_monitors();
     }
 
-    private _isCandidateWindow(win: Meta.Window | null): win is Meta.Window {
-      if (!win || !this._windowBelongsToMonitor(win)) return false;
-      if (win.minimized) return false;
+    private _isCandidateWindow(
+      win: Meta.Window,
+      frame: Rectangle,
+      activeWorkspace: Meta.Workspace,
+    ): boolean {
+      if (!this._windowBelongsToMonitor(win, frame)) return false;
 
       // A window mid-creation/placement reports a 0x0 frame before mutter places
       // it. Such a degenerate rect never meaningfully overlaps the dock and only
       // injects spurious CLEAR flaps, so ignore it until it has real geometry.
-      const frame = win.get_frame_rect();
       if (frame.width <= 0 || frame.height <= 0) return false;
 
-      if (
-        !isOnActiveWorkspace(
-          win.get_workspace(),
-          global.workspace_manager.get_active_workspace(),
-          win.is_on_all_workspaces(),
-        )
-      )
+      if (!isOnActiveWorkspace(win.get_workspace(), activeWorkspace, win.is_on_all_workspaces()))
         return false;
 
       return OVERLAP_WINDOW_TYPES.includes(win.get_window_type());
     }
 
-    private _windowBelongsToMonitor(win: Meta.Window): boolean {
+    private _windowBelongsToMonitor(win: Meta.Window, frame: Rectangle): boolean {
       if (win.get_monitor() === this._monitorIndex) return true;
 
       const monitor = Main.layoutManager.monitors?.[this._monitorIndex];
       if (!monitor) return false;
 
-      return rectanglesOverlap(win.get_frame_rect(), monitor);
+      return rectanglesOverlap(frame, monitor);
     }
 
     private _applyOverlap(
