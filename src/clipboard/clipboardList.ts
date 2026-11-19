@@ -88,16 +88,16 @@ export const ClipboardList = GObject.registerClass(
 
       this._emptyState.visible = !hasPinned && !hasHistory;
       if (this._emptyState.visible) {
-        this._emptyTitle.text = query
-          ? _('No Results')
-          : pinnedOnly
-            ? _('No Pinned Items')
-            : _('Clipboard history is empty');
-        this._emptyHint.text = query
-          ? _('Try a different search.')
-          : pinnedOnly
-            ? _('Pin an item to find it here.')
-            : _('Copy text, links, code, or images to see them here.');
+        if (query) {
+          this._emptyTitle.text = _('No Results');
+          this._emptyHint.text = _('Try a different search.');
+        } else if (pinnedOnly) {
+          this._emptyTitle.text = _('No Pinned Items');
+          this._emptyHint.text = _('Pin an item to find it here.');
+        } else {
+          this._emptyTitle.text = _('Clipboard history is empty');
+          this._emptyHint.text = _('Copy text, links, code, or images to see them here.');
+        }
       }
 
       this.remove_child(this._emptyState);

@@ -6,8 +6,16 @@ export const manifest: ModuleManifest = {
   settingsKey: 'module-clipboard-history',
   section: 'privacy-clipboard',
   title: _('Clipboard History'),
-  subtitle: _('Keep copied text and images on this device between sessions'),
+  subtitle: _('Browse copied text and images'),
   options: [
+    {
+      key: 'clipboard-history-persist',
+      title: _('Remember History Between Sessions'),
+      subtitle: _(
+        'When off, use a separate session history. Previously saved items return when you turn this on.',
+      ),
+      type: 'switch',
+    },
     {
       key: 'clipboard-history-link-previews',
       title: _('Link Previews'),

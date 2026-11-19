@@ -51,14 +51,17 @@ export class ClipboardHistory extends Module {
     const autoPasteTimeout = createManagedSource(lifecycle);
     this._lifecycle = lifecycle;
     this._autoPasteTimeout = autoPasteTimeout;
-    const historyDir = GLib.build_filenamev([
-      GLib.get_user_data_dir(),
-      'aurora-shell',
-      this.context.uuid,
-    ]);
+    const rawSettings = this.context.settings.getRawSettings();
+    let storageRoot = GLib.get_user_runtime_dir();
+    if (rawSettings.get_boolean('clipboard-history-persist'))
+      storageRoot = GLib.get_user_data_dir();
+    const historyDir = GLib.build_filenamev([storageRoot, 'aurora-shell', this.context.uuid]);
     const filePath = historyDir + '/clipboard-history.log';
     const mediaDir = historyDir + '/clipboard-media';
-    const rawSettings = this.context.settings.getRawSettings();
+    lifecycle.connect(rawSettings, 'changed::clipboard-history-persist', () => {
+      this.disable();
+      this.enable();
+    });
     lifecycle.connect(rawSettings, 'changed::clipboard-history-link-previews', () => {
       if (!rawSettings.get_boolean('clipboard-history-link-previews')) this._cancelPreviews();
     });

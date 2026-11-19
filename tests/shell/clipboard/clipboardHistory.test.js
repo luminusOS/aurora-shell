@@ -145,6 +145,7 @@ export async function run() {
   }
 
   auroraSettings.set_boolean('module-clipboard-history', true);
+  auroraSettings.set_boolean('clipboard-history-persist', true);
   await Scripting.waitLeisure();
 
   Scripting.scriptEvent('lifecycleOk');

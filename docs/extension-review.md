@@ -29,7 +29,7 @@ The overlay is extension-only. The cropped or transformed Wayland cursor and mid
 
 Aurora Shell intentionally accesses the clipboard in Clipboard History and Capture Tools. `metadata.json` describes both uses, states that data remains local, and records that Clipboard History has no default shortcut. This satisfies the guideline that clipboard access be declared.
 
-Clipboard History reads and stores clipboard content locally so the user can browse and restore it. Capture Tools writes the requested screenshot or recognized text to the clipboard. History and images are saved across sessions in the user data directory. If Link Previews is enabled, copying an HTTPS URL makes a direct request to its site. Preview text stays in memory. A web search occurs only after an explicit user action and uses the configured provider.
+Clipboard History reads and stores clipboard content locally so the user can browse and restore it. Capture Tools writes the requested screenshot or recognized text to the clipboard. History and images stay in the session runtime directory by default. Enabling Remember History Between Sessions selects a separate history in the user data directory. If Link Previews is enabled, copying an HTTPS URL makes a direct request to its site. Preview text stays in memory. A web search occurs only after an explicit user action and uses the configured provider.
 
 Any new clipboard call requires all of the following evidence before acceptance:
 

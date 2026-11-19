@@ -200,8 +200,14 @@ msgid "Clipboard History"
 msgstr "Histórico da área de transferência"
 
 #: dist/clipboard/clipboardHistory.manifest.js:9
-msgid "Keep copied text and images on this device between sessions"
-msgstr "Manter textos e imagens copiados neste dispositivo entre sessões"
+msgid "Browse copied text and images"
+msgstr "Consultar textos e imagens copiados"
+
+msgid "Remember History Between Sessions"
+msgstr "Lembrar histórico entre sessões"
+
+msgid "When off, use a separate session history. Previously saved items return when you turn this on."
+msgstr "Quando desativado, usa um histórico separado para a sessão. Os itens salvos anteriormente voltam ao ativar esta opção."
 "Histórico pesquisável da área de transferência, com fixação e navegação por "
 "teclado"
 
