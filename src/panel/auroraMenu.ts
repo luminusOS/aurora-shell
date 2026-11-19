@@ -1,5 +1,5 @@
 import { gettext as _ } from '~/shared/i18n.ts';
-import { parseCustomCommandLine } from './customCommandLine.ts';
+import { parseCommandWords, parseCustomCommandLine } from './customCommandLine.ts';
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -456,8 +456,10 @@ export class AuroraMenu extends Module {
     const raw = this.context.settings.getString(key).trim();
     if (!raw) return fallback;
 
-    const argv = this._parseCommandLine(raw, key);
-    return argv.length > 0 ? argv : fallback;
+    const argv = parseCommandWords(raw);
+    if (argv) return argv;
+    logger.warn(`Invalid command in ${key}`, { prefix: LOG_PREFIX });
+    return fallback;
   }
 
   private _readCustomCommands(): CustomMenuCommand[] {
@@ -540,16 +542,5 @@ export class AuroraMenu extends Module {
 
   private _isMenuIconKey(value: string): value is MenuIconKey {
     return value in MENU_ICONS;
-  }
-
-  private _parseCommandLine(raw: string, key: string): string[] {
-    try {
-      const [ok, argv] = GLib.shell_parse_argv(raw);
-      if (ok && argv && argv.length > 0) return argv;
-    } catch (e) {
-      logger.warn(`Invalid command in ${key}: ${e}`, { prefix: LOG_PREFIX });
-    }
-
-    return [];
   }
 }
