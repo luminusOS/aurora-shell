@@ -3,7 +3,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { waitForCondition } from '../../support/testUtils.js';
 
 export async function exerciseTrayIcons(devTool, tray) {
-  const tool = devTool.trayIconsTool;
+  const tool = devTool.tray;
   if (!tool) throw new Error('Tray Icons DevTool section not found');
 
   const firstId = tool.addRandomFakeIcon();
@@ -39,7 +39,7 @@ export async function exerciseWeatherClock(settings, devTool) {
   settings.set_boolean('module-weather-clock', true);
   await Scripting.waitLeisure();
 
-  const tool = devTool.weatherClockTool;
+  const tool = devTool.weather;
   if (!tool) throw new Error('Weather Clock DevTool section not found');
   if (!tool.showSunny()) throw new Error('Weather Clock did not set a sunny snapshot');
   await Scripting.waitLeisure();
@@ -57,7 +57,7 @@ export async function exerciseCalendarReminders(settings, devTool) {
   settings.set_boolean('module-calendar-reminders', true);
   await Scripting.waitLeisure();
 
-  const tool = devTool.calendarRemindersTool;
+  const tool = devTool.calendar;
   if (!tool) throw new Error('Calendar Reminders DevTool section not found');
   let source = null;
   let bannerRequested = false;

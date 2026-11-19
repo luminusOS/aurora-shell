@@ -42,7 +42,7 @@ flowchart LR
 
 `src/extension.ts` creates and stops `ShellRuntime`. `src/prefs.ts` runs separately under GTK/Adwaita and reads only catalog metadata plus GSettings. GTK and Adw belong in preferences; Clutter, Meta, Shell, and St belong in the Shell process.
 
-`src/extension.dev.ts` is the development entry point. It starts the same `ShellRuntime` and adds DevTool only when `AURORA_DEVTOOLS=1`. Package inspection ensures the production ZIP uses the normal entry point and omits development files.
+`src/extension.dev.ts` starts the same `ShellRuntime` and exports the DevTool session D-Bus interface only when `AURORA_DEVTOOLS=1`. The development preferences entry point adds a Developer Tools page alongside General. The page requests the available actions from the Shell; the Shell checks their availability again before running them. The production ZIP includes neither the page nor the service.
 
 ## Startup, reconciliation, and shutdown
 
@@ -109,7 +109,7 @@ flowchart LR
 - `MODULE_CATALOG` owns user-visible order and is safe to import from preferences.
 - `registry.ts` is the only manifest-key-to-factory map.
 - The schema owns value types and defaults. No generator copies data between these files.
-- `prefs.ts` selects a native preferences row from each option type.
+- `preferences/generalPreferences.ts` selects a native preferences row from each option type.
 - `registry.test.ts` and `project/schema.test.ts` parse the TypeScript and XML to reject drift.
 
 See the [module guide](modules.md) for the change sequence and the [module reference](module-reference.md) for the current catalog.

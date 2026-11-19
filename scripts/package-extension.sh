@@ -25,7 +25,7 @@ extra_sources() {
 
 package_production() {
   local sources=()
-  mapfile -d '' sources < <(extra_sources dist 'dev:extension.dev.js:extension.js:metadata.json:schemas:target')
+  mapfile -d '' sources < <(extra_sources dist 'dev:prefs.dev.js:extension.dev.js:extension.js:metadata.json:schemas:target')
 
   mkdir -p dist/target
   gnome-extensions pack dist \
@@ -48,11 +48,9 @@ package_development() (
   cp -a dist/. "$stage/"
   rm -rf "$stage/target"
   cp "$stage/extension.dev.js" "$stage/extension.js"
-  cp "$stage/dev/stylesheet.css" "$stage/stylesheet.css"
-  cp "$stage/dev/stylesheet-light.css" "$stage/stylesheet-light.css"
-  cp "$stage/dev/stylesheet-dark.css" "$stage/stylesheet-dark.css"
+  cp "$stage/prefs.dev.js" "$stage/prefs.js"
   mapfile -d '' sources < <(
-    extra_sources "$stage" 'extension.dev.js:extension.js:metadata.json:schemas:target'
+    extra_sources "$stage" 'prefs.dev.js:extension.dev.js:extension.js:metadata.json:schemas:target'
   )
 
   gnome-extensions pack "$stage" \

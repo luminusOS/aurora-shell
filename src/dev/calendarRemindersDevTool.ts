@@ -1,19 +1,11 @@
 import '@girs/gjs';
 
 import GLib from '@girs/glib-2.0';
-import type St from '@girs/st-18';
 
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { createManagedSource } from '~/core/mainLoop.ts';
 import type { SettingsManager } from '~/core/settings.ts';
-import {
-  createDevToolActionButton,
-  createDevToolActionRow,
-  createDevToolGroup,
-  createDevToolModulePanel,
-  createDevToolRow,
-  createDevToolSummary,
-} from '~/dev/devToolUi.ts';
+import { action, type RuntimeAction } from './protocol.ts';
 import type { Module } from '~/module.ts';
 import { CalendarReminders } from '~/panel/clock/calendarReminders/calendarReminders.ts';
 import type { CalendarEvent } from '~/panel/clock/calendarReminders/calendarRemindersLogic.ts';
@@ -24,7 +16,6 @@ const DEVTOOL_SOURCE_KEY = 'aurora-devtool';
 export class CalendarRemindersDevTool {
   readonly key = 'calendar-reminders';
   readonly title = 'Calendar Reminders';
-  readonly iconName = 'x-office-calendar-symbolic';
 
   private _events: CalendarEvent[] = [];
   private _withReminder = true;
@@ -34,7 +25,6 @@ export class CalendarRemindersDevTool {
   constructor(
     private readonly _settings: SettingsManager,
     private readonly _getModule: (key: string) => Module | null,
-    private readonly _requestMenuRebuild: () => void,
   ) {
     this._lifecycle.connect(_settings, 'changed::calendar-reminders-alerts-enabled', () => {
       if (!_settings.getBoolean('calendar-reminders-alerts-enabled')) this._clearReminderTimers();
@@ -44,97 +34,64 @@ export class CalendarRemindersDevTool {
     });
   }
 
-  buildPanel(): St.Widget {
+  describe() {
     const calendarReminders = this._getCalendarReminders();
-    const panel = createDevToolModulePanel();
-    panel.add_child(
-      createDevToolSummary(
-        this.iconName,
-        calendarReminders
-          ? `${this._events.length} fake events, ${calendarReminders.eventCount} available`
-          : 'Calendar Reminders disabled',
-      ),
+    const actions: RuntimeAction[] = [];
+    const details: string[] = [];
+    details.push(
+      calendarReminders
+        ? `${this._events.length} fake events, ${calendarReminders.eventCount} available`
+        : 'Calendar Reminders disabled',
     );
 
     if (this._events.length) {
-      const preview = createDevToolGroup(_('Fake events'));
       for (const event of this._events) {
         const time = new Date(event.startEpochSeconds * 1000).toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
         });
-        preview.list.add_child(
-          createDevToolRow(
-            event.title,
-            `${time} · ${this._withReminder ? _('reminder') : _('no reminder')}`,
-          ),
+        details.push(
+          event.title + ': ' + `${time} · ${this._withReminder ? _('reminder') : _('no reminder')}`,
         );
       }
-      panel.add_child(preview.container);
     }
 
-    const firstRow = createDevToolActionRow();
-    firstRow.add_child(
-      createDevToolActionButton(
-        'appointment-new-symbolic',
-        'Add Soon',
-        () => this.addSoonEvent(),
-        !calendarReminders,
-      ),
+    actions.push(action('addSoonEvent', 'Add Soon', () => this.addSoonEvent(), !calendarReminders));
+    actions.push(
+      action('addCurrentEvent', 'Add Now', () => this.addCurrentEvent(), !calendarReminders),
     );
-    firstRow.add_child(
-      createDevToolActionButton(
-        'media-playback-start-symbolic',
-        'Add Now',
-        () => this.addCurrentEvent(),
-        !calendarReminders,
-      ),
-    );
-    panel.add_child(firstRow);
 
-    const secondRow = createDevToolActionRow();
-    secondRow.add_child(
-      createDevToolActionButton(
-        'alarm-symbolic',
+    actions.push(
+      action(
+        'calendar-with-reminder',
         'With Reminder',
         () => this.setWithReminder(!this._withReminder),
         !calendarReminders,
         this._withReminder,
-        undefined,
-        'calendar-with-reminder',
-        true,
       ),
     );
-    secondRow.add_child(
-      createDevToolActionButton(
-        'dialog-warning-symbolic',
+    actions.push(
+      action(
+        'triggerAlert',
         'Trigger Alert',
         () => this.triggerAlert(),
-        !calendarReminders,
+        !calendarReminders || this._events.length === 0,
       ),
     );
-    panel.add_child(secondRow);
 
-    const thirdRow = createDevToolActionRow();
-    thirdRow.add_child(
-      createDevToolActionButton(
-        'document-open-symbolic',
-        'Open Calendar',
-        () => this.openCalendar(),
-        !calendarReminders,
-      ),
+    actions.push(
+      action('openCalendar', 'Open Calendar', () => this.openCalendar(), !calendarReminders),
     );
-    thirdRow.add_child(
-      createDevToolActionButton(
-        'user-trash-symbolic',
+    actions.push(
+      action(
+        'clearEvents',
         'Clear Fake',
         () => this.clearEvents(),
         !calendarReminders || this._events.length === 0,
       ),
     );
-    panel.add_child(thirdRow);
 
-    return panel;
+    return { details, actions };
   }
 
   destroy(): void {
@@ -152,7 +109,6 @@ export class CalendarRemindersDevTool {
 
   setWithReminder(enabled: boolean): void {
     this._withReminder = enabled;
-    this._requestMenuRebuild();
   }
 
   triggerAlert(): boolean {
@@ -161,7 +117,6 @@ export class CalendarRemindersDevTool {
     if (!calendarReminders || !event) return false;
 
     const triggered = calendarReminders.showAlert(event.id);
-    this._requestMenuRebuild();
     return triggered;
   }
 
@@ -176,7 +131,6 @@ export class CalendarRemindersDevTool {
     this._clearReminderTimers();
     this._events = [];
     this._getCalendarReminders()?.clearSourceEvents(DEVTOOL_SOURCE_KEY);
-    this._requestMenuRebuild();
   }
 
   get devEventCount(): number {
@@ -236,7 +190,6 @@ export class CalendarRemindersDevTool {
         );
       }
     }
-    this._requestMenuRebuild();
     return id;
   }
 
