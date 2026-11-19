@@ -25,3 +25,9 @@ test('clipboard truncation adds an ellipsis only beyond the limit', () => {
   assert.equal(truncateClipboardText('abcd', 4), 'abcd');
   assert.equal(truncateClipboardText('abcde', 4), 'abcd…');
 });
+
+test('IP literals stay plain text, even inside HTTP and HTTPS URLs', () => {
+  for (const text of ['192.0.2.1', 'https://192.0.2.1/status', 'http://[2001:db8::1]:80/']) {
+    assert.equal(classifyClipboardCard('text', text), 'text');
+  }
+});

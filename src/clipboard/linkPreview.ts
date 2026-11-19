@@ -3,6 +3,7 @@ import GLib from '@girs/glib-2.0';
 import Soup from '@girs/soup-3.0';
 
 import { callAsync } from '~/core/callAsync.ts';
+import { isWebsiteDomain } from './clipboardCardState.ts';
 
 export type LinkPreview = { title: string; description: string };
 
@@ -104,7 +105,7 @@ export async function fetchPreview(
   if (
     uri.get_scheme() !== 'https' ||
     !host ||
-    !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(host) ||
+    !isWebsiteDomain(host) ||
     /\.(local|localhost|internal|lan|home|test|invalid|onion|arpa)$/i.test(host) ||
     uri.get_userinfo() !== null ||
     ![-1, 443].includes(uri.get_port())

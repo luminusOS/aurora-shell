@@ -1,19 +1,16 @@
 export type ClipboardCardKind = 'image' | 'link' | 'code' | 'text';
 export type ParsedClipboardUrl = { host: string; path: string };
 
+export function isWebsiteDomain(host: string): boolean {
+  return /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(host);
+}
+
 export function parseClipboardUrl(text: string): ParsedClipboardUrl | null {
   const trimmed = text.trim();
-  if (trimmed.includes('\n') || trimmed.includes(' ') || trimmed.length > 2048) return null;
-  if (!/^https?:\/\//.test(trimmed)) return null;
-
-  const withoutScheme = trimmed.replace(/^https?:\/\//, '');
-  const slashIndex = withoutScheme.indexOf('/');
-  const host = slashIndex === -1 ? withoutScheme : withoutScheme.slice(0, slashIndex);
-  const rawPath = slashIndex === -1 ? '' : withoutScheme.slice(slashIndex);
-  if (!host || !host.includes('.')) return null;
-
-  const [path = ''] = rawPath.split('?');
-  return { host, path };
+  if (trimmed.length > 2048 || /[\s\\]/u.test(trimmed)) return null;
+  const match = /^https?:\/\/([^/:?#]+)(:\d+)?(\/[^?#]*)?(?:[?#].*)?$/i.exec(trimmed);
+  if (!match?.[1] || !isWebsiteDomain(match[1])) return null;
+  return { host: match[1] + (match[2] || ''), path: match[3] || '' };
 }
 
 export function isClipboardCode(text: string): boolean {
