@@ -1,6 +1,7 @@
 import Adw from 'gi://Adw';
 import type Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
+import { parseCustomCommandLine } from '~/panel/customCommandLine.ts';
 
 import {
   parseCustomCommand,
@@ -244,7 +245,9 @@ class CommandListEditor {
     form.append(validationMessage);
 
     const description = new Gtk.Label({
-      label: _('Choose the name shown in Aurora Menu and the command to run.'),
+      label: _(
+        'Enter a program and its arguments. You can prefix it with NAME=value. Start a value with $HOME/ for a path in your home folder.',
+      ),
       halign: Gtk.Align.START,
       wrap: true,
     });
@@ -280,11 +283,18 @@ class CommandListEditor {
     const validate = () => {
       const label = labelRow.text.trim();
       const invalidSeparator = label.includes('|');
-      validationMessage.visible = invalidSeparator;
+      const raw = commandRow.text.trim();
+      const invalidCommand = raw.length > 0 && !parseCustomCommandLine(raw);
+      validationMessage.visible = invalidSeparator || invalidCommand;
+      if (invalidSeparator) validationMessage.label = _('The name cannot contain “|”');
+      else if (invalidCommand)
+        validationMessage.label = _('Enter a program name and check that all quotes are closed.');
+      if (invalidCommand) commandRow.add_css_class('error');
+      else commandRow.remove_css_class('error');
       if (invalidSeparator) labelRow.add_css_class('error');
       else labelRow.remove_css_class('error');
       saveButton.sensitive =
-        label.length > 0 && !invalidSeparator && commandRow.text.trim().length > 0;
+        label.length > 0 && !invalidSeparator && raw.length > 0 && !invalidCommand;
     };
     labelRow.connect('changed', validate);
     commandRow.connect('changed', validate);

@@ -1473,8 +1473,11 @@ msgid "The name cannot contain “|”"
 msgstr "O nome não pode conter “|”"
 
 #: dist/preferences/commandListEditor.js:208
-msgid "Choose the name shown in Aurora Menu and the command to run."
-msgstr "Escolha o nome exibido no Menu Aurora e o comando a ser executado."
+msgid "Enter a program and its arguments. You can prefix it with NAME=value. Start a value with $HOME/ for a path in your home folder."
+msgstr "Digite um programa e seus argumentos. Você pode incluir NOME=valor antes do programa. Comece o valor com $HOME/ para indicar um caminho na sua pasta pessoal."
+
+msgid "Enter a program name and check that all quotes are closed."
+msgstr "Digite o nome de um programa e confira se todas as aspas foram fechadas."
 
 #: dist/preferences/commandListEditor.js:219
 msgid "Add"
