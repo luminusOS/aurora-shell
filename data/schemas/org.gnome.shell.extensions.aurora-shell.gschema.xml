@@ -429,6 +429,14 @@
       <summary>Clipboard History shortcut</summary>
       <description>Keyboard shortcut to open the clipboard history panel</description>
     </key>
+    <key name="clipboard-history-persist" type="b">
+      <default>false</default>
+      <summary>Remember clipboard history between sessions</summary>
+    </key>
+    <key name="clipboard-history-link-previews" type="b">
+      <default>false</default>
+      <summary>Visit copied links to load previews</summary>
+    </key>
     <key name="clipboard-history-auto-paste" type="b">
       <default>true</default>
       <summary>Insert clipboard text automatically</summary>

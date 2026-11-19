@@ -151,7 +151,7 @@ export const ClipboardItem = GObject.registerClass(
       if (!parsed) return;
 
       this.add_style_class_name('aurora-clipboard-item--link');
-      this.set_child(buildLinkCard(parsed, this._actions));
+      this.set_child(buildLinkCard(parsed, this._actions, this._entry.preview));
     }
 
     private _createActionButton(

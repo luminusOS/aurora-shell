@@ -200,8 +200,14 @@ msgid "Clipboard History"
 msgstr "Histórico da área de transferência"
 
 #: dist/clipboard/clipboardHistory.manifest.js:9
-msgid "Searchable clipboard history with pinning and keyboard navigation"
-msgstr ""
+msgid "Browse copied text and images"
+msgstr "Consultar textos e imagens copiados"
+
+msgid "Remember History Between Sessions"
+msgstr "Lembrar histórico entre sessões"
+
+msgid "When off, use a separate session history. Previously saved items return when you turn this on."
+msgstr "Quando desativado, usa um histórico separado para a sessão. Os itens salvos anteriormente voltam ao ativar esta opção."
 "Histórico pesquisável da área de transferência, com fixação e navegação por "
 "teclado"
 
@@ -1594,6 +1600,33 @@ msgstr "Atualizar"
 
 msgid "Start the development session with AURORA_DEVTOOLS=1, then refresh."
 msgstr "Inicie a sessão de desenvolvimento com AURORA_DEVTOOLS=1 e clique em Atualizar."
+
+msgid "All"
+msgstr "Todos"
+
+msgid "Pinned"
+msgstr "Fixados"
+
+msgid "Search Clipboard History…"
+msgstr "Pesquisar no histórico…"
+
+msgid "No Results"
+msgstr "Nenhum resultado"
+
+msgid "No Pinned Items"
+msgstr "Nenhum item fixado"
+
+msgid "Try a different search."
+msgstr "Tente outra busca."
+
+msgid "Pin an item to find it here."
+msgstr "Fixe um item para encontrá-lo aqui."
+
+msgid "Link Previews"
+msgstr "Prévias de links"
+
+msgid "Visit copied HTTPS links to show page titles and descriptions. Sites will see your visit."
+msgstr "Visitar links HTTPS copiados para mostrar títulos e descrições. Os sites verão sua visita."
 
 msgid "Transparency"
 msgstr "Transparência"

@@ -16,7 +16,6 @@ import {
 import {
   assertPanelInsideWorkArea,
   assertPanelTrackedAboveFullscreen,
-  clearClipboardRuntime,
   exercisePostUnlockPanel,
   exerciseWorkspacePanel,
   findClipboardPanel,
@@ -94,7 +93,7 @@ async function waitForFloatingActions(
 
 async function waitForHistoryWrite(evaluate, description) {
   const historyFile = Gio.File.new_for_path(
-    `${GLib.get_user_runtime_dir()}/aurora-shell/${EXTENSION_UUID}/clipboard-history.log`,
+    `${GLib.get_user_data_dir()}/aurora-shell/${EXTENSION_UUID}/clipboard-history.log`,
   );
   const historyMonitor = historyFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
   try {
@@ -144,9 +143,9 @@ export async function run() {
   if (findClipboardPanel()) {
     throw new Error(`"${PANEL_CSS}" still in uiGroup after module was disabled`);
   }
-  clearClipboardRuntime();
 
   auroraSettings.set_boolean('module-clipboard-history', true);
+  auroraSettings.set_boolean('clipboard-history-persist', true);
   await Scripting.waitLeisure();
 
   Scripting.scriptEvent('lifecycleOk');
@@ -165,6 +164,26 @@ export async function run() {
   );
 
   Scripting.scriptEvent('clipboardWritten');
+
+  const historyDir = `${GLib.get_user_data_dir()}/aurora-shell/${EXTENSION_UUID}`;
+  const log = Gio.File.new_for_path(`${historyDir}/clipboard-history.log`);
+  await waitForHistoryWrite(() => {
+    if (!log.query_exists(null)) return false;
+    return new globalThis.TextDecoder()
+      .decode(log.load_contents(null)[1])
+      .includes('aurora-test-clipboard-entry');
+  }, 'clipboard log in the persistent data directory');
+  const restored = new (getClipboardModule()._store.constructor)(
+    `${historyDir}/clipboard-history.log`,
+    `${historyDir}/clipboard-media`,
+  );
+  try {
+    await restored.load();
+    if (!restored.getHistory().some((entry) => entry.text === 'aurora-test-clipboard-entry'))
+      throw new Error('New clipboard store failed to restore the persisted text');
+  } finally {
+    restored.destroy();
+  }
 
   const clipboard = St.Clipboard.get_default();
   const clipboardModule = getClipboardModule();

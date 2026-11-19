@@ -2,6 +2,8 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
+import type { LinkPreview } from './linkPreview.ts';
+import { callAsync } from '~/core/callAsync.ts';
 import { logger } from '~/core/logger.ts';
 import {
   encodeAddOp,
@@ -33,25 +35,12 @@ const WRITE_PRIORITY = GLib.PRIORITY_DEFAULT_IDLE;
 const MAX_WASTED_OPS = 500;
 const THUMBNAIL_SIZE = 640;
 
-export type ClipboardEntry = ClipboardEntrySnapshot;
+export type ClipboardEntry = ClipboardEntrySnapshot & {
+  preview?: LinkPreview;
+};
 
 export function thumbnailPathFor(filePath: string): string {
   return filePath.replace(/\.[^./]+$/, '') + '.thumb.png';
-}
-
-function callAsync<T>(
-  start: (callback: (_source: unknown, result: Gio.AsyncResult) => void) => void,
-  finish: (result: Gio.AsyncResult) => T,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    start((_source, result) => {
-      try {
-        resolve(finish(result));
-      } catch (e) {
-        reject(e);
-      }
-    });
-  });
 }
 
 export type ClipboardImagePayload = {
@@ -85,8 +74,11 @@ export class ClipboardStore {
     const clearVersion = this._clearVersion;
     try {
       const file = Gio.File.new_for_path(this._filePath);
-      const [contents] = await file.load_contents_async(null);
-      const decoded = new TextDecoder().decode(contents);
+      const bytes = await callAsync(
+        (callback) => file.load_bytes_async(null, callback),
+        (result) => file.load_bytes_finish(result)[0],
+      );
+      const decoded = new TextDecoder().decode(bytes.get_data() || new Uint8Array());
       const state = parseClipboardLog(decoded);
       const { pinned, history, removed } = await this._dropInvalidImageEntries(
         state.pinned,
@@ -303,6 +295,10 @@ export class ClipboardStore {
     return this._pinned;
   }
 
+  entryForText(text: string): ClipboardEntry | undefined {
+    return this._byContentKey.get('text:' + text);
+  }
+
   getHistory(): ClipboardEntry[] {
     return this._history;
   }
@@ -440,8 +436,15 @@ export class ClipboardStore {
     );
 
     try {
-      const bytes = new TextEncoder().encode(data);
-      await stream.write_all_async(bytes, WRITE_PRIORITY, null);
+      let bytes = new GLib.Bytes(new TextEncoder().encode(data));
+      while (bytes.get_size() > 0) {
+        const written = await callAsync<number>(
+          (callback) => stream.write_bytes_async(bytes, WRITE_PRIORITY, null, callback),
+          (result) => stream.write_bytes_finish(result),
+        );
+        if (written <= 0) throw new Error('Clipboard log write made no progress');
+        bytes = GLib.Bytes.new_from_bytes(bytes, written, bytes.get_size() - written);
+      }
       await stream.flush_async(WRITE_PRIORITY, null);
     } finally {
       await stream.close_async(WRITE_PRIORITY, null);
@@ -465,10 +468,7 @@ export class ClipboardStore {
   }
 
   private _ensureDirectory(): void {
-    const dir = Gio.File.new_for_path(this._filePath).get_parent();
-    if (dir && !dir.query_exists(null)) {
-      dir.make_directory_with_parents(null);
-    }
+    GLib.mkdir_with_parents(GLib.path_get_dirname(this._filePath), 0o700);
   }
 
   private _ensureMediaDirectory(): void {
