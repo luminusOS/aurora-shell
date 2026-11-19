@@ -1,4 +1,5 @@
 import { gettext as _ } from '~/shared/i18n.ts';
+import { parseCommandWords, parseCustomCommandLine } from './customCommandLine.ts';
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -296,14 +297,13 @@ export class AuroraMenu extends Module {
     let added = false;
 
     for (const command of commands) {
-      const argv = this._parseCommandLine(command.command, CUSTOM_ITEMS_KEY);
-      if (argv.length === 0) continue;
+      const parsed = parseCustomCommandLine(command.command);
+      if (!parsed) continue;
 
       this._addAction(menu, {
         title: command.label,
         iconName: 'application-x-executable-symbolic',
-        // The final argv is exactly the result of GLib.shell_parse_argv(); no shell is involved.
-        activate: () => this._spawn(argv),
+        activate: () => this._spawn(parsed.argv, parsed.environment),
       });
       added = true;
     }
@@ -400,11 +400,16 @@ export class AuroraMenu extends Module {
     this._panelIcon.gicon = loadIcon(icon.iconName);
   }
 
-  private _spawn(argv: string[]): void {
+  private _spawn(argv: string[], environment?: ReadonlyMap<string, string>): void {
     try {
-      Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE);
+      const launcher = new Gio.SubprocessLauncher({ flags: Gio.SubprocessFlags.NONE });
+      if (environment) {
+        for (const [name, value] of environment) launcher.setenv(name, value, true);
+      }
+
+      launcher.spawnv(argv);
     } catch (e) {
-      logger.warn(`Failed to spawn command "${argv.join(' ')}": ${e}`, { prefix: LOG_PREFIX });
+      logger.warn(`Failed to launch "${argv[0]}": ${e}`, { prefix: LOG_PREFIX });
       Main.notifyError(_('Aurora Menu'), _('Could not launch the selected command.'));
     } finally {
       this._getMenu()?.close();
@@ -452,8 +457,11 @@ export class AuroraMenu extends Module {
     const raw = this.context.settings.getString(key).trim();
     if (!raw) return fallback;
 
-    const argv = this._parseCommandLine(raw, key);
-    return argv.length > 0 ? argv : fallback;
+    const argv = parseCommandWords(raw);
+    if (argv) return argv;
+
+    logger.warn(`Invalid command in ${key}`, { prefix: LOG_PREFIX });
+    return fallback;
   }
 
   private _readCustomCommands(): CustomMenuCommand[] {
@@ -536,16 +544,5 @@ export class AuroraMenu extends Module {
 
   private _isMenuIconKey(value: string): value is MenuIconKey {
     return value in MENU_ICONS;
-  }
-
-  private _parseCommandLine(raw: string, key: string): string[] {
-    try {
-      const [ok, argv] = GLib.shell_parse_argv(raw);
-      if (ok && argv && argv.length > 0) return argv;
-    } catch (e) {
-      logger.warn(`Invalid command in ${key}: ${e}`, { prefix: LOG_PREFIX });
-    }
-
-    return [];
   }
 }

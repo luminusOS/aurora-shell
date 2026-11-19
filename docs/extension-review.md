@@ -44,7 +44,7 @@ Capture Tools invokes the local `tesseract` executable only after an OCR action.
 
 The direct subprocess calls below use argument vectors and follow direct user actions:
 
-- Aurora Menu runs user-configured commands only after they are selected.
+- Aurora Menu runs user-configured commands only after they are selected. Leading `NAME=value` words apply to that child process only. After GLib splits quoted arguments, a leading `$HOME` or `$HOME/` in an assignment value refers to the user's home folder. For example, `OPENCODE_CONFIG_DIR="$HOME/.config/opencode-oak" openchamber` selects an OpenChamber configuration. Arguments following the executable are passed literally; there is no shell expansion or pipeline.
 - Its Extensions item selects the first installed manager from `gnome-extensions-app`, `gnome-shell-extension-prefs`, or `flatpak run com.mattjakeman.ExtensionManager`.
 - Volume Mixer opens `gnome-control-center sound` from its Sound Settings item.
 - Background Apps requests the application's quit action first and uses `flatpak kill <app-id>` only as the fallback for a user-selected Quit action.
