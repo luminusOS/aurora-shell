@@ -411,15 +411,10 @@ export class SniHost {
       icon: this._resolveIcon(proxy),
       get tooltip(): string | undefined {
         const raw = proxy.get_cached_property('ToolTip');
-        if (!raw) return undefined;
-        try {
-          const desc = raw.get_child_value(3).unpack() as string;
-          if (desc) return desc;
-          const title = raw.get_child_value(2).unpack() as string;
-          return title || undefined;
-        } catch {
-          return undefined;
-        }
+        if (raw?.get_type_string() !== '(sa(iiay)ss)') return undefined;
+        const description = raw.get_child_value(3).get_string()[0];
+        if (description) return description;
+        return raw.get_child_value(2).get_string()[0] || undefined;
       },
       get status(): TrayItemStatus {
         return (proxy.get_cached_property('Status')?.unpack() as TrayItemStatus) || 'Active';
