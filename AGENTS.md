@@ -83,7 +83,7 @@ Do not leave a task incomplete if either command reports errors or failures.
     - `privacy/` — privacy and screen-sharing behavior
     - `clipboard/` — clipboard history module and UI
   - `device/` — runtime target and hardware capability detection for future mobile work
-  - `dev/` — developer-only tooling (e.g., `devTool.ts`), gated behind the `AURORA_DEVTOOLS=1` env var and excluded from the production ZIP. **Not** a feature module: it is not in the registry, prefs, or gschema
+  - `dev/` — developer-only tooling (e.g., `devTool.ts`), gated behind the `AURORA_DEVTOOLS=1` env var and excluded from the production ZIP. **Not** a feature module: its development-only preferences page calls a session D-Bus service; it is not in the registry or gschema
   - `shared/` — shared utilities used across modules (e.g., `quickSettings.ts`)
   - `styles/` — SCSS stylesheets (compiled to light + dark CSS)
   - `types/` — TypeScript type declarations (`@girs`, GJS, etc.)

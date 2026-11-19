@@ -1,21 +1,22 @@
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { getAuroraModule, waitForCondition } from '../../support/testUtils.js';
+import {
+  ensureOverviewHidden,
+  getAuroraModule,
+  waitForCondition,
+} from '../../support/testUtils.js';
 
-function collectText(actor) {
-  const text = typeof actor?.text === 'string' ? [actor.text] : [];
-  const children = actor && actor.get_children ? actor.get_children() : [];
-  for (const child of children) text.push(...collectText(child));
-  return text;
+function collectText(tool) {
+  const { details, actions } = tool.describe();
+  return [...details, ...actions.map((action) => action.label)];
 }
 
 export async function exerciseDock(settings, devTool) {
+  await ensureOverviewHidden();
   settings.set_boolean('module-dock', true);
   await Scripting.waitLeisure();
 
-  const tool = devTool.dockTool;
+  const tool = devTool.dock;
   if (!tool) throw new Error('Dock DevTool section not found');
-  if (tool.iconName !== 'view-app-grid-symbolic')
-    throw new Error(`Unexpected Dock DevTool icon: ${tool.iconName}`);
 
   const dock = getAuroraModule('dock');
   if (dock.bindings.length === 0) throw new Error('Dock test requires at least one binding');
@@ -91,9 +92,7 @@ export async function exerciseDock(settings, devTool) {
   if (dock.alwaysShow !== alwaysShowBefore)
     throw new Error('Dock alwaysShow does not reflect the persisted setting');
 
-  const panelBeforeToggle = tool.buildPanel();
-  const textsBeforeToggle = collectText(panelBeforeToggle);
-  panelBeforeToggle.destroy();
+  const textsBeforeToggle = collectText(tool);
   if (!textsBeforeToggle.includes(`Always Show: ${alwaysShowBefore ? 'On' : 'Off'}`))
     throw new Error('Dock Always Show control does not display the persisted state');
   if (!textsBeforeToggle.some((text) => text.startsWith(`Monitor ${monitorIndex + 1}:`)))
@@ -104,9 +103,7 @@ export async function exerciseDock(settings, devTool) {
   if (settings.get_boolean('dock-always-show') === alwaysShowBefore)
     throw new Error('Dock toggleAlwaysShow did not change the setting');
 
-  const panelAfterToggle = tool.buildPanel();
-  const textsAfterToggle = collectText(panelAfterToggle);
-  panelAfterToggle.destroy();
+  const textsAfterToggle = collectText(tool);
   if (!textsAfterToggle.includes(`Always Show: ${alwaysShowBefore ? 'Off' : 'On'}`))
     throw new Error('Dock Always Show control did not update');
 
@@ -119,9 +116,7 @@ export async function exerciseDock(settings, devTool) {
   settings.set_string('dock-position', 'bottom');
   await Scripting.waitLeisure();
 
-  const positionPanel = tool.buildPanel();
-  const positionTexts = collectText(positionPanel);
-  positionPanel.destroy();
+  const positionTexts = collectText(tool);
   if (!positionTexts.some((text) => text.includes('Position: Bottom')))
     throw new Error('Dock DevTool summary did not display the configured position');
   for (const label of ['Left', 'Right'])
@@ -159,9 +154,7 @@ export async function exerciseDock(settings, devTool) {
   settings.set_int('dock-icon-size', 32);
   await Scripting.waitLeisure();
 
-  const iconSizePanel = tool.buildPanel();
-  const iconSizeTexts = collectText(iconSizePanel);
-  iconSizePanel.destroy();
+  const iconSizeTexts = collectText(tool);
   if (!iconSizeTexts.some((text) => text.includes('Icon size: 32px')))
     throw new Error('Dock DevTool summary did not display the configured icon size');
   if (!iconSizeTexts.includes('Smaller Icons') || !iconSizeTexts.includes('Larger Icons'))

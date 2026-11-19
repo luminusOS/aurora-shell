@@ -167,7 +167,7 @@ test('catalog: every section is declared by moduleCatalog', () => {
 });
 
 test('prefs uses the manifest-only catalog and extension core uses the runtime registry', () => {
-  const prefs = sourceFile('src/prefs.ts');
+  const prefs = sourceFile('src/preferences/generalPreferences.ts');
   const importsCatalog = prefs.statements.some(
     (statement) =>
       ts.isImportDeclaration(statement) &&

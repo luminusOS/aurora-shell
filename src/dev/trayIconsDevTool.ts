@@ -1,14 +1,6 @@
-import type St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {
-  createDevToolActionButton,
-  createDevToolActionRow,
-  createDevToolGroup,
-  createDevToolModulePanel,
-  createDevToolRow,
-  createDevToolSummary,
-} from '~/dev/devToolUi.ts';
+import { action, type RuntimeAction } from './protocol.ts';
 import type { TrayItem } from '~/desktop/trayIcons/trayState.ts';
 import { gettext as _ } from '~/shared/i18n.ts';
 
@@ -34,82 +26,47 @@ type AuroraTrayApi = {
 export class TrayIconsDevTool {
   readonly key = 'tray-icons';
   readonly title = 'Tray Icons';
-  readonly iconName = 'view-grid-symbolic';
 
   private _counter = 0;
   private _fakeItems = new Map<string, TrayItem>();
   private _attentionEnabled = false;
 
-  constructor(private readonly _requestMenuRebuild: () => void) {}
-
-  buildPanel(): St.Widget {
+  describe() {
     const tray = this._getTray();
     const hasFakeItems = this._fakeItems.size > 0;
 
-    const panel = createDevToolModulePanel();
-    panel.add_child(
-      createDevToolSummary(
-        this.iconName,
-        tray ? `${this._fakeItems.size} fake icons` : 'Tray unavailable',
-      ),
-    );
+    const actions: RuntimeAction[] = [];
+    const details: string[] = [];
+    details.push(tray ? `${this._fakeItems.size} fake icons` : 'Tray unavailable');
 
-    const primaryRow = createDevToolActionRow();
-    primaryRow.add_child(
-      createDevToolActionButton('list-add-symbolic', 'Add Random Icon', () => {
-        this.addRandomFakeIcon();
-      }),
+    actions.push(
+      action('addRandomFakeIcon', 'Add Random Icon', () => this.addRandomFakeIcon(), !tray),
     );
-    primaryRow.add_child(
-      createDevToolActionButton(
-        'dialog-warning-symbolic',
+    actions.push(
+      action(
+        'tray-attention',
         this._attentionEnabled ? 'Alerts On' : 'Alert Icons',
         () => this.toggleAttentionOnAll(),
-        !hasFakeItems,
+        !tray || !hasFakeItems,
         this._attentionEnabled,
-        undefined,
-        'tray-attention',
-        true,
       ),
     );
-    panel.add_child(primaryRow);
 
-    const secondaryRow = createDevToolActionRow();
-    secondaryRow.add_child(
-      createDevToolActionButton(
-        'user-trash-symbolic',
+    actions.push(
+      action(
+        'removeAllFakeIcons',
         'Remove All',
         () => this.removeAllFakeIcons(),
-        !hasFakeItems,
+        !tray || !hasFakeItems,
       ),
     );
-    panel.add_child(secondaryRow);
 
     if (hasFakeItems) {
-      const preview = createDevToolGroup(_('Fake tray preview'));
       for (const item of this._fakeItems.values())
-        preview.list.add_child(
-          createDevToolRow(
-            item.tooltip || item.id,
-            item.status || _('Active'),
-            undefined,
-            typeof item.icon === 'string' ? item.icon : undefined,
-          ),
-        );
-      panel.add_child(preview.container);
+        details.push((item.tooltip || item.id) + ': ' + (item.status || _('Active')));
     }
 
-    if (!tray) {
-      for (const row of [primaryRow, secondaryRow]) {
-        for (const button of row.get_children()) {
-          (button as St.Button).reactive = false;
-          (button as St.Button).can_focus = false;
-          button.opacity = 120;
-        }
-      }
-    }
-
-    return panel;
+    return { details, actions };
   }
 
   destroy(): void {
@@ -149,7 +106,6 @@ export class TrayIconsDevTool {
     this._fakeItems.set(id, item);
     tray.addItem(item);
     if (this._attentionEnabled) tray.notifyAttention(id);
-    this._requestMenuRebuild();
     return id;
   }
 
@@ -161,7 +117,6 @@ export class TrayIconsDevTool {
     tray.clearAttentionBadge(id);
     tray.removeItem(id);
     if (this._fakeItems.size === 0) this._attentionEnabled = false;
-    this._requestMenuRebuild();
   }
 
   removeAllFakeIcons(): void {
@@ -174,12 +129,10 @@ export class TrayIconsDevTool {
     }
     this._fakeItems.clear();
     this._attentionEnabled = false;
-    this._requestMenuRebuild();
   }
 
-  toggleAttentionOnAll(): boolean {
+  toggleAttentionOnAll(): void {
     this.setAttentionOnAll(!this._attentionEnabled);
-    return this._attentionEnabled;
   }
 
   setAttentionOnAll(enabled: boolean): void {
@@ -194,7 +147,6 @@ export class TrayIconsDevTool {
       }
     }
     this._attentionEnabled = enabled;
-    this._requestMenuRebuild();
   }
 
   triggerAttentionOnAll(): void {

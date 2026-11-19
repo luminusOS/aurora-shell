@@ -22,13 +22,12 @@ export default class AuroraShellDevelopmentExtension extends Extension {
     if (GLib.getenv('AURORA_DEVTOOLS') !== '1' || !context) return;
 
     try {
-      this._devTool = new DevTool(context, {
-        getModule: (key) => runtime.getModule(key),
-        openPreferences: () => this.openPreferences(),
-        versionName: String(
-          this.metadata['version-name'] || this.metadata['version'] || 'Development',
-        ),
-      });
+      this._devTool = new DevTool(
+        context,
+        (key) => runtime.getModule(key),
+        String(this.metadata['version-name'] || this.metadata['version'] || 'Development'),
+        () => this.openPreferences(),
+      );
       this._devTool.enable();
     } catch (error) {
       const devTool = this._devTool;

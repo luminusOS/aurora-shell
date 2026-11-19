@@ -36,7 +36,7 @@ Or build, install, and start an isolated GNOME Shell devkit session:
 just run
 ```
 
-The development package uses `extension.dev.ts` and enables DevTool only when the launcher supplies `AURORA_DEVTOOLS=1`. It is separate from the production ZIP. To run the same session in Toolbox:
+The development package uses `extension.dev.ts` and enables DevTool only when the launcher supplies `AURORA_DEVTOOLS=1`. Open the extension preferences and select **Developer Tools** to inspect the session and run simulations. Module settings remain on **General**. The production ZIP has no developer tab or runtime service. To run the same session in Toolbox:
 
 ```bash
 just toolbox create
