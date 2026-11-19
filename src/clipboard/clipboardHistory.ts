@@ -12,13 +12,15 @@ import * as Main from '@girs/gnome-shell/ui/main';
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
-import { createManagedSource } from '~/core/mainLoop.ts';
+import { createManagedSource, createManagedTimeout } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
 
 import type { ClipboardEntry, ClipboardImagePayload } from '~/clipboard/clipboardStore.ts';
 import { ClipboardStore } from '~/clipboard/clipboardStore.ts';
 import { ClipboardMonitor } from '~/clipboard/clipboardMonitor.ts';
 import { ClipboardPanel } from '~/clipboard/clipboardPanel.ts';
+import { fetchPreview } from '~/clipboard/linkPreview.ts';
+import { parseClipboardUrl } from '~/clipboard/clipboardCardState.ts';
 
 const KEYBINDING_KEY = 'clipboard-history-shortcut';
 const AUTO_PASTE_KEY = 'clipboard-history-auto-paste';
@@ -30,6 +32,7 @@ Gio._promisify(Gio.File.prototype, 'load_bytes_async');
 
 export class ClipboardHistory extends Module {
   private _store: ClipboardStore | null = null;
+  private _previewRequests = new Map<string, Gio.Cancellable>();
   private _monitor: ClipboardMonitor | null = null;
   private _panel: ClipboardPanel | null = null;
   private _lifecycle: LifecycleScope | null = null;
@@ -48,10 +51,18 @@ export class ClipboardHistory extends Module {
     const autoPasteTimeout = createManagedSource(lifecycle);
     this._lifecycle = lifecycle;
     this._autoPasteTimeout = autoPasteTimeout;
-    const sessionDir = GLib.get_user_runtime_dir() + '/aurora-shell/' + this.context.uuid;
-    const filePath = sessionDir + '/clipboard-history.log';
-    const mediaDir = sessionDir + '/clipboard-media';
+    const historyDir = GLib.build_filenamev([
+      GLib.get_user_data_dir(),
+      'aurora-shell',
+      this.context.uuid,
+    ]);
+    const filePath = historyDir + '/clipboard-history.log';
+    const mediaDir = historyDir + '/clipboard-media';
     const rawSettings = this.context.settings.getRawSettings();
+    lifecycle.connect(rawSettings, 'changed::clipboard-history-link-previews', () => {
+      if (!rawSettings.get_boolean('clipboard-history-link-previews')) this._cancelPreviews();
+    });
+    lifecycle.onDispose(() => this._cancelPreviews());
 
     const store = new ClipboardStore(filePath, mediaDir);
     this._store = store;
@@ -149,9 +160,50 @@ export class ClipboardHistory extends Module {
     const added = this._store.addText(text);
     if (added) {
       this._panel.refresh();
+      void this._preview(text);
     }
 
     return added;
+  }
+
+  private _cancelPreviews(): void {
+    for (const cancel of this._previewRequests.values()) cancel.cancel();
+  }
+
+  private async _preview(text: string): Promise<void> {
+    const store = this._store;
+    const entry = store?.entryForText(text);
+    if (
+      !store ||
+      !entry ||
+      entry.preview ||
+      !this.context.settings.getBoolean('clipboard-history-link-previews') ||
+      !parseClipboardUrl(text) ||
+      this._previewRequests.has(text) ||
+      this._previewRequests.size >= 2
+    )
+      return;
+    const cancel = new Gio.Cancellable();
+    this._previewRequests.set(text, cancel);
+    const requestScope = new LifecycleScope();
+    createManagedTimeout(requestScope).schedule(5000, () => cancel.cancel());
+    try {
+      const preview = await fetchPreview(text.trim(), cancel);
+      if (
+        preview &&
+        !cancel.is_cancelled() &&
+        store === this._store &&
+        entry === store.entryForText(text)
+      ) {
+        entry.preview = preview;
+        this._panel?.refresh();
+      }
+    } catch {
+      // The URL remains usable when the site is offline or has no preview.
+    } finally {
+      requestScope.dispose();
+      this._previewRequests.delete(text);
+    }
   }
 
   async addImage(payload: ClipboardImagePayload): Promise<boolean> {

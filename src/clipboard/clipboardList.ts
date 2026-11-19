@@ -20,6 +20,8 @@ export const ClipboardList = GObject.registerClass(
     declare private _items: ClipboardItem[];
     declare private _selectedIndex: number;
     declare private _emptyState: St.Bin;
+    declare private _emptyTitle: St.Label;
+    declare private _emptyHint: St.Label;
 
     override _init(callbacks: ListCallbacks): void {
       super._init({
@@ -47,20 +49,17 @@ export const ClipboardList = GObject.registerClass(
           x_align: Clutter.ActorAlign.CENTER,
         }),
       );
-      emptyContent.add_child(
-        new St.Label({
-          text: _('Clipboard history is empty'),
-          style_class: 'aurora-clipboard-empty-title',
-          x_align: Clutter.ActorAlign.CENTER,
-        }),
-      );
-      const hint = new St.Label({
-        text: _('Copy text, links, code, or images to see them here.'),
+      this._emptyTitle = new St.Label({
+        style_class: 'aurora-clipboard-empty-title',
+        x_align: Clutter.ActorAlign.CENTER,
+      });
+      emptyContent.add_child(this._emptyTitle);
+      this._emptyHint = new St.Label({
         style_class: 'aurora-clipboard-empty-hint',
         x_align: Clutter.ActorAlign.CENTER,
       });
-      hint.clutter_text.set_line_wrap(true);
-      emptyContent.add_child(hint);
+      this._emptyHint.clutter_text.set_line_wrap(true);
+      emptyContent.add_child(this._emptyHint);
 
       this._emptyState = new St.Bin({
         child: emptyContent,
@@ -74,7 +73,12 @@ export const ClipboardList = GObject.registerClass(
       this.add_child(this._emptyState);
     }
 
-    populate(pinned: ClipboardEntry[], history: ClipboardEntry[]): void {
+    populate(
+      pinned: ClipboardEntry[],
+      history: ClipboardEntry[],
+      query: string,
+      pinnedOnly: boolean,
+    ): void {
       for (const item of this._items) item.destroy();
       this._items = [];
       this._selectedIndex = -1;
@@ -83,6 +87,18 @@ export const ClipboardList = GObject.registerClass(
       const hasHistory = history.length > 0;
 
       this._emptyState.visible = !hasPinned && !hasHistory;
+      if (this._emptyState.visible) {
+        this._emptyTitle.text = query
+          ? _('No Results')
+          : pinnedOnly
+            ? _('No Pinned Items')
+            : _('Clipboard history is empty');
+        this._emptyHint.text = query
+          ? _('Try a different search.')
+          : pinnedOnly
+            ? _('Pin an item to find it here.')
+            : _('Copy text, links, code, or images to see them here.');
+      }
 
       this.remove_child(this._emptyState);
 

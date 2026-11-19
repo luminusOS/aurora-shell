@@ -48,6 +48,7 @@ export function buildImageCard(entry: ClipboardEntry, actions: St.BoxLayout): St
 export function buildLinkCard(
   parsed: { host: string; path: string },
   actions: St.BoxLayout,
+  preview?: ClipboardEntry['preview'],
 ): St.Widget {
   const root = new St.Widget({
     layout_manager: new FloatingActionsLayout(),
@@ -70,12 +71,17 @@ export function buildLinkCard(
   });
 
   const title = new St.Label({
-    text: parsed.host,
+    text: preview?.title || parsed.host,
     style_class: 'aurora-clipboard-item-link-title',
     x_expand: true,
   });
   title.clutter_text.ellipsize = 3;
   body.add_child(title);
+  if (preview?.description) {
+    const summary = new St.Label({ text: preview.description, x_expand: true });
+    summary.clutter_text.ellipsize = 3;
+    body.add_child(summary);
+  }
 
   const path = parsed.path && parsed.path !== '/' ? parsed.path : '';
   const urlLabel = new St.Label({

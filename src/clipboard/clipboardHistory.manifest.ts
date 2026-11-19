@@ -6,8 +6,16 @@ export const manifest: ModuleManifest = {
   settingsKey: 'module-clipboard-history',
   section: 'privacy-clipboard',
   title: _('Clipboard History'),
-  subtitle: _('Searchable clipboard history with pinning and keyboard navigation'),
+  subtitle: _('Keep copied text and images on this device between sessions'),
   options: [
+    {
+      key: 'clipboard-history-link-previews',
+      title: _('Link Previews'),
+      subtitle: _(
+        'Visit copied HTTPS links to show page titles and descriptions. Sites will see your visit.',
+      ),
+      type: 'switch',
+    },
     {
       key: 'clipboard-history-shortcut',
       title: _('Open Shortcut'),

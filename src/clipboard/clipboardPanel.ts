@@ -32,6 +32,8 @@ export const ClipboardPanel = GObject.registerClass(
     declare private _callbacks: PanelCallbacks;
     declare private _list: ClipboardList;
     declare private _searchEntry: St.Entry;
+    declare private _allButton: St.Button;
+    declare private _pinnedButton: St.Button;
     declare private _scroll: St.ScrollView;
 
     private _isOpen: boolean = false;
@@ -59,7 +61,8 @@ export const ClipboardPanel = GObject.registerClass(
 
       this._searchEntry = new St.Entry({
         style_class: 'aurora-clipboard-search',
-        hint_text: _('Search…'),
+        hint_text: _('Search Clipboard History…'),
+        accessible_name: _('Search Clipboard History…'),
         can_focus: true,
         x_expand: true,
       });
@@ -80,8 +83,32 @@ export const ClipboardPanel = GObject.registerClass(
       this._scroll = new St.ScrollView({ x_expand: true, y_expand: true });
       this._scroll.set_child(this._list);
 
+      this.add_child(new St.Label({ text: _('Clipboard History'), style_class: 'heading' }));
       this.add_child(this._searchEntry);
+      const filters = new St.BoxLayout({ style_class: 'aurora-clipboard-filters' });
+      this._allButton = this._createFilter(_('All'), false);
+      this._pinnedButton = this._createFilter(_('Pinned'), true);
+      filters.add_child(this._allButton);
+      filters.add_child(this._pinnedButton);
+      this._allButton.checked = true;
+      this.add_child(filters);
       this.add_child(this._scroll);
+    }
+
+    private _createFilter(label: string, pinned: boolean): St.Button {
+      const button = new St.Button({
+        label,
+        style_class: 'button',
+        can_focus: true,
+        toggle_mode: true,
+        x_expand: true,
+      });
+      button.connect('clicked', () => {
+        this._allButton.checked = !pinned;
+        this._pinnedButton.checked = pinned;
+        this.refresh();
+      });
+      return button;
     }
 
     get isOpen(): boolean {
@@ -169,6 +196,8 @@ export const ClipboardPanel = GObject.registerClass(
         this.close();
         return Clutter.EVENT_STOP;
       }
+      const focus = global.stage.get_key_focus();
+      if (focus === this._allButton || focus === this._pinnedButton) return Clutter.EVENT_PROPAGATE;
       if (sym === Clutter.KEY_Return || sym === Clutter.KEY_KP_Enter) {
         this._list.activateSelected();
         return Clutter.EVENT_STOP;
@@ -200,7 +229,13 @@ export const ClipboardPanel = GObject.registerClass(
     }
 
     private _syncList(query: string): void {
-      this._list.populate(this._store.filterPinned(query), this._store.filterHistory(query));
+      const pinnedOnly = this._pinnedButton.checked;
+      this._list.populate(
+        this._store.filterPinned(query),
+        pinnedOnly ? [] : this._store.filterHistory(query),
+        query,
+        pinnedOnly,
+      );
     }
 
     private _isSearchFocused(): boolean {

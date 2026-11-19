@@ -1,8 +1,6 @@
-import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
-import { waitForCondition, EXTENSION_UUID, getAuroraModule } from '../../support/testUtils.js';
+import { waitForCondition, getAuroraModule } from '../../support/testUtils.js';
 
 const PANEL_CSS = 'aurora-clipboard-panel';
 
@@ -14,38 +12,6 @@ export function findClipboardPanel() {
 
 export function getClipboardModule() {
   return getAuroraModule('clipboard-history');
-}
-
-function deleteFileIfExists(file) {
-  try {
-    if (file.query_exists(null)) file.delete(null);
-  } catch {
-    // Cleanup must not hide the assertion that originally failed.
-  }
-}
-
-function deleteDirectoryChildren(directory) {
-  if (!directory.query_exists(null)) return;
-
-  const enumerator = directory.enumerate_children(
-    'standard::name,standard::type',
-    Gio.FileQueryInfoFlags.NONE,
-    null,
-  );
-  let info;
-  while ((info = enumerator.next_file(null))) {
-    const child = directory.get_child(info.get_name());
-    if (info.get_file_type() === Gio.FileType.DIRECTORY) deleteDirectoryChildren(child);
-    else deleteFileIfExists(child);
-  }
-  enumerator.close(null);
-  deleteFileIfExists(directory);
-}
-
-export function clearClipboardRuntime() {
-  const runtimeDir = `${GLib.get_user_runtime_dir()}/aurora-shell/${EXTENSION_UUID}`;
-  deleteFileIfExists(Gio.File.new_for_path(`${runtimeDir}/clipboard-history.log`));
-  deleteDirectoryChildren(Gio.File.new_for_path(`${runtimeDir}/clipboard-media`));
 }
 
 export function assertPanelInsideWorkArea(panel, monitorIndex = Main.layoutManager.primaryIndex) {
