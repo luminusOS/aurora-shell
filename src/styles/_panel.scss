@@ -5,6 +5,10 @@
   background-color: vars.$aurora-panel-bg;
 }
 
+#panel.aurora-translucent-panel {
+  background-color: rgba(vars.$aurora-panel-bg, 0.76);
+}
+
 #panel .panel-button {
   color: vars.$aurora-panel-fg;
 }
