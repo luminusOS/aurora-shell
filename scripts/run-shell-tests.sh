@@ -42,6 +42,7 @@ extra_monitors_for() {
   case "$1" in
     */capture/captureTools.test.js|*/clipboard/clipboardHistory.test.js) echo 1 ;;
     */dock/dock.test.js) echo 2 ;;
+    */wiggleCursor/monitors.test.js) echo 1 ;;
     *) echo 0 ;;
   esac
 }

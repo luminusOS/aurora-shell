@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.aurora-shell" path="/org/gnome/shell/extensions/aurora-shell/">
+    <key name="module-wiggle-cursor" type="b">
+      <default>true</default>
+      <summary>Enable Wiggle Cursor module</summary>
+      <description>Shake the mouse to enlarge the pointer to five times its normal size. It needs the Rsvg typelib (gir1.2-rsvg-2.0 on Debian and Ubuntu) and leaves cursors that applications supply themselves alone</description>
+    </key>
     <key name="module-no-overview" type="b">
       <default>true</default>
       <summary>Enable No Overview module</summary>

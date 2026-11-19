@@ -1,0 +1,135 @@
+/* global TextEncoder */
+
+import Gio from 'gi://Gio';
+import Rsvg from 'gi://Rsvg';
+import Shell from 'gi://Shell';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { EXTENSION_UUID } from '../../support/testUtils.js';
+import { MAGNIFICATION } from './support.js';
+
+// The module looks in the user and system data directories before this bundled copy, so the test
+// assumes the session has no scalable Adwaita of its own, as in the CI image.
+const SHELL_THEME = 'resource:///org/gnome/shell/cursor-theme/icons/Adwaita/cursors_scalable/';
+const MAX_MEAN_DIFFERENCE = 2;
+
+/** Draw a cursor of the Shell's bundled theme from its SVG, as the module is expected to. */
+export function drawThemeCursor(name, width, height) {
+  const file = Gio.File.new_for_uri(`${SHELL_THEME}${name}/${name}.svg`);
+  const [, contents] = file.load_contents(null);
+  const handle = Rsvg.Handle.new_from_data(contents);
+  handle.set_stylesheet(
+    new TextEncoder().encode(`svg { width: ${width}px; height: ${height}px; }`),
+  );
+
+  return handle.get_pixbuf();
+}
+
+export function readTexture(texture) {
+  // The Shell API also encodes a PNG into this stream; only the returned pixbuf is used.
+  const discardedPng = Gio.MemoryOutputStream.new_resizable();
+
+  return new Promise((resolve, reject) => {
+    Shell.Screenshot.composite_to_stream(
+      texture,
+      0,
+      0,
+      -1,
+      -1,
+      1,
+      null,
+      0,
+      0,
+      1,
+      discardedPng,
+      (_source, result) => {
+        try {
+          resolve(Shell.Screenshot.composite_to_stream_finish(result));
+        } catch (error) {
+          reject(error);
+        }
+      },
+    );
+  });
+}
+
+function meanDifference(first, second) {
+  const channels = first.get_n_channels();
+  const pixels = first.get_pixels();
+  const others = second.get_pixels();
+  let total = 0;
+
+  for (let y = 0; y < first.get_height(); y++) {
+    for (let x = 0; x < first.get_width(); x++) {
+      const a = y * first.get_rowstride() + x * channels;
+      const b = y * second.get_rowstride() + x * second.get_n_channels();
+      const alphaA = pixels[a + 3];
+      const alphaB = others[b + 3];
+      for (let channel = 0; channel < 3; channel++)
+        total += Math.abs((pixels[a + channel] * alphaA - others[b + channel] * alphaB) / 255);
+      total += Math.abs(alphaA - alphaB);
+    }
+  }
+
+  return total / (first.get_width() * first.get_height() * 4);
+}
+
+/** Throw unless the overlay's image is the theme's SVG `name`, drawn at the size of the image. */
+export async function assertDrawnFromTheme(texture, name) {
+  const shown = await readTexture(texture);
+  const expected = drawThemeCursor(name, shown.get_width(), shown.get_height());
+  const difference = meanDifference(shown, expected);
+
+  if (difference > MAX_MEAN_DIFFERENCE)
+    throw new Error(
+      `The enlarged cursor is not the '${name}' SVG of the theme (mean difference ${difference})`,
+    );
+}
+
+/**
+ * Throw unless the overlay sprite has the logical size and hotspot of the native cursor.
+ *
+ * The Shell rasterises its cursors at the monitor scale and truncates the texture size and hotspot
+ * to whole pixels, so they only agree with the sprite to within a logical pixel.
+ */
+export function assertCursorGeometry(sprite, tracker) {
+  const monitorScale = global.display.get_monitor_scale(global.display.get_current_monitor());
+  const texture = tracker.get_sprite();
+  const [hotX, hotY] = tracker.get_hot();
+  const mismatches = [
+    [sprite.width, texture.get_width() / monitorScale, 'width'],
+    [sprite.height, texture.get_height() / monitorScale, 'height'],
+    [-sprite.x, hotX / monitorScale, 'hotspot x'],
+    [-sprite.y, hotY / monitorScale, 'hotspot y'],
+  ].filter(([actual, expected]) => Math.abs(actual - expected) > 1);
+
+  if (mismatches.length > 0) {
+    const details = mismatches.map(
+      ([actual, expected, what]) => `${what} ${actual} (expected ${expected})`,
+    );
+    throw new Error(
+      `Enlarged cursor does not match the native one on a ${monitorScale}x monitor: ${details.join(', ')}`,
+    );
+  }
+}
+
+/**
+ * Ask the module's own search which theme cursor the tracker's current one is. Resolves to null when
+ * none comes close. This looks at one frozen texture, so unlike watching the overlay it cannot be
+ * hidden by an animated cursor changing before its image has loaded.
+ */
+export async function searchThemeFor(tracker) {
+  const { path } = Main.extensionManager.lookup(EXTENSION_UUID);
+  const { VectorCursorSource } = await import(
+    `file://${path}/desktop/wiggleCursor/vectorCursor.js`
+  );
+  const source = new VectorCursorSource(
+    new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' }),
+  );
+  const nativeCursor = {
+    texture: tracker.get_sprite(),
+    hotspot: tracker.get_hot(),
+    monitorScale: global.display.get_monitor_scale(global.display.get_current_monitor()),
+  };
+
+  return source.createCursor(nativeCursor, MAGNIFICATION, () => true);
+}

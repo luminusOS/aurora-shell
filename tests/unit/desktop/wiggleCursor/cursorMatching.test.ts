@@ -1,0 +1,222 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import {
+  logicalGeometry,
+  matchesHotspot,
+  maxMatchDifference,
+  meanPixelDifference,
+  parseCursorMetadata,
+  rasterisedSize,
+  textureSize,
+  type CursorFrame,
+  type PixelView,
+} from '../../../../src/desktop/wiggleCursor/cursorMatching.ts';
+
+const ARROW: CursorFrame = {
+  filename: 'default.svg',
+  hotspotX: 8,
+  hotspotY: 7,
+  nominalSize: 24,
+};
+
+function image(width: number, height: number, fill: [number, number, number, number]): PixelView {
+  const pixels = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i++) pixels.set(fill, i * 4);
+
+  return { pixels, width, height, rowstride: width * 4, channels: 4 };
+}
+
+describe('parseCursorMetadata', () => {
+  it('reads the frames of a theme cursor', () => {
+    const frames = parseCursorMetadata(
+      '[{"filename":"default.svg","hotspot_x":8,"hotspot_y":7,"nominal_size":24}]',
+    );
+
+    assert.deepEqual(frames, [ARROW]);
+  });
+
+  it('returns every frame of an animated cursor', () => {
+    const frames = parseCursorMetadata(
+      '[{"filename":"a.svg","delay":16,"nominal_size":24},{"filename":"b.svg","delay":16,"nominal_size":24}]',
+    );
+
+    assert.deepEqual(
+      frames?.map((frame) => frame.filename),
+      ['a.svg', 'b.svg'],
+    );
+  });
+
+  it('rejects text that is not JSON', () => {
+    assert.equal(parseCursorMetadata('not json'), null);
+  });
+
+  it('rejects anything but a non-empty list', () => {
+    assert.equal(parseCursorMetadata('{}'), null);
+    assert.equal(parseCursorMetadata('[]'), null);
+  });
+
+  it('rejects a filename that leaves the cursor directory', () => {
+    assert.equal(parseCursorMetadata('[{"filename":"../x/default.svg","nominal_size":24}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"/etc/a.svg","nominal_size":24}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"..","nominal_size":24}]'), null);
+  });
+
+  it('rejects a filename that is not an SVG', () => {
+    assert.equal(parseCursorMetadata('[{"filename":"default.png","nominal_size":24}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"","nominal_size":24}]'), null);
+  });
+
+  it('rejects a frame without a file or a usable nominal size', () => {
+    assert.equal(parseCursorMetadata('[{"nominal_size":24}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"a.svg"}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"a.svg","nominal_size":0}]'), null);
+    assert.equal(parseCursorMetadata('[{"filename":"a.svg","nominal_size":0.5}]'), null);
+    assert.equal(parseCursorMetadata('[null]'), null);
+  });
+});
+
+describe('matchesHotspot', () => {
+  it('accepts the hotspot the Shell reports at the nominal size', () => {
+    assert.equal(matchesHotspot(ARROW, 24, 1, [8, 7]), true);
+  });
+
+  it('scales the hotspot by the cursor size over the nominal size', () => {
+    assert.equal(matchesHotspot(ARROW, 48, 1, [16, 14]), true);
+    assert.equal(matchesHotspot(ARROW, 48, 1, [8, 7]), false);
+  });
+
+  it('follows the monitor scale, truncating like the Shell does', () => {
+    assert.equal(matchesHotspot(ARROW, 24, 2, [16, 14]), true);
+    assert.equal(matchesHotspot(ARROW, 24, 1.5, [12, 10]), true);
+  });
+
+  it('tolerates a pixel of rounding and no more', () => {
+    assert.equal(matchesHotspot(ARROW, 24, 1, [9, 7]), true);
+    assert.equal(matchesHotspot(ARROW, 24, 1, [8, 8]), true);
+    assert.equal(matchesHotspot(ARROW, 24, 1, [10, 7]), false);
+    assert.equal(matchesHotspot(ARROW, 24, 1, [8, 9]), false);
+  });
+
+  it('rejects another cursor shape', () => {
+    assert.equal(matchesHotspot(ARROW, 24, 1, [16, 16]), false);
+  });
+});
+
+describe('logicalGeometry', () => {
+  it('scales the svg size and the hotspot by the cursor size over the nominal size', () => {
+    assert.deepEqual(logicalGeometry(ARROW, 32, 32, 24), {
+      width: 32,
+      height: 32,
+      hotspotX: 8,
+      hotspotY: 7,
+    });
+    assert.deepEqual(logicalGeometry(ARROW, 32, 32, 48), {
+      width: 64,
+      height: 64,
+      hotspotX: 16,
+      hotspotY: 14,
+    });
+  });
+
+  it('keeps the fraction the truncated texture hotspot would lose', () => {
+    const geometry = logicalGeometry(ARROW, 32, 32, 36);
+
+    assert.equal(geometry.hotspotX, 12);
+    assert.equal(geometry.hotspotY, 10.5);
+  });
+});
+
+describe('rasterisedSize', () => {
+  it('is the svg size scaled by the cursor size and the monitor scale', () => {
+    assert.deepEqual(rasterisedSize(ARROW, 32, 32, 24, 1), { width: 32, height: 32 });
+    assert.deepEqual(rasterisedSize(ARROW, 32, 32, 48, 1.25), { width: 80, height: 80 });
+  });
+
+  it('stays fractional on a fractional scale, where the texture is that size truncated', () => {
+    const size = rasterisedSize(ARROW, 32, 32, 24, 4 / 3);
+
+    assert.ok(Math.abs(size.width - 42.667) < 0.001);
+    assert.deepEqual(textureSize(size), { width: 42, height: 42 });
+  });
+
+  it('does not lose a pixel to floating point error on a whole size', () => {
+    const size = rasterisedSize(ARROW, 32, 32, 24, 1.25);
+
+    assert.deepEqual(textureSize({ width: size.width - 1e-9, height: size.height }), {
+      width: 40,
+      height: 40,
+    });
+  });
+});
+
+describe('maxMatchDifference', () => {
+  it('is tight where the Shell reproduces the svg exactly', () => {
+    assert.ok(maxMatchDifference({ width: 32, height: 32 }) <= 2);
+    assert.ok(maxMatchDifference({ width: 40, height: 40 }) <= 2);
+  });
+
+  it('is looser on a fractional size', () => {
+    assert.ok(maxMatchDifference({ width: 42.667, height: 42.667 }) > 6);
+    assert.ok(maxMatchDifference({ width: 40, height: 42.5 }) > 6);
+  });
+
+  it('stays under what a frame of the wait cursor measures against another shape', () => {
+    assert.ok(maxMatchDifference({ width: 42.667, height: 42.667 }) < 9.69);
+  });
+});
+
+describe('meanPixelDifference', () => {
+  it('is zero for identical images', () => {
+    const opaque = image(4, 4, [200, 10, 10, 255]);
+
+    assert.equal(meanPixelDifference(opaque, image(4, 4, [200, 10, 10, 255])), 0);
+  });
+
+  it('ignores the colour of fully transparent pixels', () => {
+    assert.equal(meanPixelDifference(image(4, 4, [255, 0, 0, 0]), image(4, 4, [0, 255, 0, 0])), 0);
+  });
+
+  it('reads rows by their own stride', () => {
+    const tight = image(2, 2, [10, 20, 30, 255]);
+    const padded: PixelView = {
+      pixels: new Uint8Array(2 * 12),
+      width: 2,
+      height: 2,
+      rowstride: 12,
+      channels: 4,
+    };
+    for (let y = 0; y < 2; y++)
+      for (let x = 0; x < 2; x++) padded.pixels.set([10, 20, 30, 255], y * 12 + x * 4);
+
+    assert.equal(meanPixelDifference(tight, padded), 0);
+  });
+
+  it('averages the difference over every channel of every pixel', () => {
+    const noisy = image(4, 4, [201, 10, 10, 255]);
+
+    assert.equal(meanPixelDifference(image(4, 4, [200, 10, 10, 255]), noisy), 0.25);
+  });
+
+  it('stops early with Infinity once the ceiling is reached, and not before', () => {
+    const empty = image(4, 4, [0, 0, 0, 0]);
+    const opaque = image(4, 4, [0, 0, 0, 255]);
+
+    assert.equal(meanPixelDifference(empty, opaque), 63.75);
+    assert.equal(meanPixelDifference(empty, opaque, 100), 63.75);
+    assert.equal(meanPixelDifference(empty, opaque, 10), Infinity);
+  });
+
+  it('never matches images of a different size or format', () => {
+    assert.equal(
+      meanPixelDifference(image(4, 4, [0, 0, 0, 255]), image(5, 4, [0, 0, 0, 255])),
+      Infinity,
+    );
+    assert.equal(
+      meanPixelDifference(image(4, 4, [0, 0, 0, 255]), {
+        ...image(4, 4, [0, 0, 0, 255]),
+        channels: 3,
+      }),
+      Infinity,
+    );
+  });
+});

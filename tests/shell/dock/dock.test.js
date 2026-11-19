@@ -553,13 +553,33 @@ function resolveLivePreviewApp(window, currentApp) {
   return reassignedApp?.get_windows().includes(window) ? reassignedApp : currentApp;
 }
 
+let rebuildingDock = false;
+
+// The synthetic hover does not keep an auto-hidden Dock mapped, and a hidden Dash defers its
+// redisplay, so an icon holding a replaced Shell.App is only rebuilt once the Dock is shown. The
+// refresh emits signals that the waits below watch, hence the re-entrancy guard.
+function rebuildDock(dash) {
+  if (rebuildingDock) return;
+
+  rebuildingDock = true;
+  try {
+    dash.show(false);
+    dash.refresh();
+  } finally {
+    rebuildingDock = false;
+  }
+}
+
 // Re-resolve after app or tree changes because a rebuild may replace the icon.
 async function waitForWindowPreviewTarget(dash, window, currentApp) {
   let app = resolveLivePreviewApp(window, currentApp);
   const target = await waitForCondition({
     evaluate: () => {
       app = resolveLivePreviewApp(window, app);
-      return findWindowPreviewTarget(dash, window, app);
+      const found = findWindowPreviewTarget(dash, window, app);
+      if (!found) rebuildDock(dash);
+
+      return found;
     },
     signals: [
       [Shell.AppSystem.get_default(), 'app-state-changed'],
@@ -598,8 +618,7 @@ async function exerciseWindowPreviews(settings, dock) {
     if (!dash?._windowPreviews)
       throw new Error('Window-preview controller was not created when enabled');
 
-    dash.show(false);
-    dash.refresh();
+    rebuildDock(dash);
     await Scripting.waitLeisure();
 
     // App tracking may rebuild this item between interactions.
@@ -652,7 +671,10 @@ async function exerciseWindowPreviews(settings, dock) {
 
         previewApp = resolveLivePreviewApp(window, previewApp);
         const target = findWindowPreviewTarget(dash, window, previewApp);
-        if (!target) return false;
+        if (!target) {
+          rebuildDock(dash);
+          return false;
+        }
         if (dash._windowPreviews._pendingSource?.appIcon === target.appIcon) return false;
 
         ({ item, appIcon } = target);
