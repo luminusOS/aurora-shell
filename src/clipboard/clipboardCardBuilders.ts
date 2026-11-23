@@ -1,12 +1,17 @@
 import { gettext as _ } from '~/shared/i18n.ts';
 
 import Clutter from 'gi://Clutter';
+import Cogl from 'gi://Cogl';
 import St from 'gi://St';
 
 import type { ClipboardEntry } from './clipboardStore.ts';
 import { highlightCodeMarkup } from './codeHighlight.ts';
 import { truncateClipboardText } from './clipboardCardState.ts';
-import { CodeCardOverlayLayout, FloatingActionsLayout } from './clipboardCardLayouts.ts';
+import {
+  CodeCardOverlayLayout,
+  FloatingActionsLayout,
+  TextCardOverlayLayout,
+} from './clipboardCardLayouts.ts';
 
 const MAX_LABEL_CHARS = 360;
 const MAX_CODE_LINES = 5;
@@ -61,6 +66,22 @@ export function buildLinkCard(
     x_expand: true,
     style_class: 'aurora-clipboard-item-content',
   });
+
+  if (preview?.thumbnail) {
+    const content = St.ImageContent.new_with_preferred_size(56, 56) as St.ImageContent;
+    const coglContext = global.stage.context.get_backend().get_cogl_context();
+    if (
+      content.set_bytes(coglContext, preview.thumbnail, Cogl.PixelFormat.RGBA_8888, 96, 96, 384)
+    ) {
+      row.add_child(
+        new St.Widget({
+          content,
+          style_class: 'aurora-clipboard-item-link-thumb',
+          y_align: Clutter.ActorAlign.CENTER,
+        }),
+      );
+    }
+  }
 
   const body = new St.BoxLayout({
     orientation: Clutter.Orientation.VERTICAL,
@@ -161,7 +182,7 @@ export function buildCodeCard(entry: ClipboardEntry, actions: St.BoxLayout): St.
 
 export function buildTextCard(entry: ClipboardEntry, actions: St.BoxLayout): St.Widget {
   const overlay = new St.Widget({
-    layout_manager: new FloatingActionsLayout(),
+    layout_manager: new TextCardOverlayLayout(),
     request_mode: Clutter.RequestMode.HEIGHT_FOR_WIDTH,
     x_expand: true,
     x_align: Clutter.ActorAlign.FILL,
@@ -182,7 +203,7 @@ export function buildTextCard(entry: ClipboardEntry, actions: St.BoxLayout): St.
   });
   label.clutter_text.set_line_wrap(true);
   label.clutter_text.set_single_line_mode(false);
-  label.clutter_text.ellipsize = 0;
+  label.clutter_text.ellipsize = 3;
 
   textBody.set_child(label);
   overlay.add_child(textBody);

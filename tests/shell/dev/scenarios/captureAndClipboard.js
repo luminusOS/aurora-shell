@@ -1,3 +1,4 @@
+import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Scripting from 'resource:///org/gnome/shell/ui/scripting.js';
 import { waitForCondition } from '../../support/testUtils.js';
@@ -105,6 +106,21 @@ export async function exerciseClipboardHistory(runAction, settings, devTool) {
     );
   if (panel && panel.close) panel.close();
 
+  const clipboard = tool._getClipboardHistory();
+  const pinnedText = `DevTool pinned regression ${GLib.uuid_string_random()}`;
+  clipboard.addText(pinnedText);
+  clipboard._store.pin(clipboard._store.entryForText(pinnedText).id);
+  const pinnedIds = clipboard._store.getPinned().map(({ id }) => id);
   await runAction(tool.key, 'Clear History');
-  if (tool.entryCount !== 0) throw new Error('Clipboard History still has entries after clear');
+  if (clipboard._store.getHistory().length !== 0)
+    throw new Error('Clipboard History still has unpinned entries after clear');
+  if (
+    clipboard._store
+      .getPinned()
+      .map(({ id }) => id)
+      .join() !== pinnedIds.join()
+  )
+    throw new Error('Clipboard History did not preserve pinned entries');
+  if (tool.entryCount !== pinnedIds.length)
+    throw new Error('Clipboard History entry count does not match preserved pinned entries');
 }

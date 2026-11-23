@@ -2,16 +2,18 @@ import { gettext as _ } from '~/shared/i18n.ts';
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
-import type Clutter from 'gi://Clutter';
+import Atk from 'gi://Atk';
+import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 
 import type { ExtensionContext } from '~/core/context.ts';
 import { LifecycleScope, type ManagedSource } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
-import { createManagedSource, createManagedTimeout } from '~/core/mainLoop.ts';
+import { createManagedSource } from '~/core/mainLoop.ts';
 import { Module } from '~/module.ts';
 
 import type { ClipboardEntry, ClipboardImagePayload } from '~/clipboard/clipboardStore.ts';
@@ -25,6 +27,8 @@ const KEYBINDING_KEY = 'clipboard-history-shortcut';
 const AUTO_PASTE_KEY = 'clipboard-history-auto-paste';
 const AUTO_PASTE_DELAY_MS = 100;
 const LOG_PREFIX = 'ClipboardHistory';
+const INDICATOR_KEY = 'clipboard-history-indicator';
+const INDICATOR_ID = 'aurora-clipboard-history';
 
 // @ts-ignore - _promisify is a GJS extension not reflected in .d.ts
 Gio._promisify(Gio.File.prototype, 'load_bytes_async');
@@ -34,11 +38,15 @@ export class ClipboardHistory extends Module {
   private _previewRequests = new Map<string, Gio.Cancellable>();
   private _monitor: ClipboardMonitor | null = null;
   private _panel: ClipboardPanel | null = null;
+  private _indicator: PanelMenu.Button | null = null;
+  private _indicatorLifecycle: LifecycleScope | null = null;
   private _lifecycle: LifecycleScope | null = null;
   private _autoPasteTimeout: ManagedSource | null = null;
   private _restoreCancellable: Gio.Cancellable | null = null;
   private _pasteTargetWindow: Meta.Window | null = null;
   private _pasteTargetInputFocus: Clutter.InputFocus | null = null;
+  private _incognito = false;
+  private _storageReady = false;
 
   constructor(context: ExtensionContext) {
     super(context);
@@ -46,7 +54,6 @@ export class ClipboardHistory extends Module {
 
   override enable(): void {
     const lifecycle = new LifecycleScope();
-    const startupIdle = createManagedSource(lifecycle);
     const autoPasteTimeout = createManagedSource(lifecycle);
     this._lifecycle = lifecycle;
     this._autoPasteTimeout = autoPasteTimeout;
@@ -58,7 +65,9 @@ export class ClipboardHistory extends Module {
     const filePath = historyDir + '/clipboard-history.log';
     const mediaDir = historyDir + '/clipboard-media';
     lifecycle.connect(rawSettings, 'changed::clipboard-history-persist', () => {
+      const incognito = this._incognito;
       this.disable();
+      this._incognito = incognito;
       this.enable();
     });
     lifecycle.connect(rawSettings, 'changed::clipboard-history-link-previews', () => {
@@ -66,23 +75,35 @@ export class ClipboardHistory extends Module {
     });
     lifecycle.onDispose(() => this._cancelPreviews());
 
-    const store = new ClipboardStore(filePath, mediaDir);
+    const store = new ClipboardStore(filePath, mediaDir, () => {
+      if (this._store !== store) return;
+      Main.notifyError(
+        _('Clipboard History'),
+        _('Could not save clipboard history. Cleared items may remain on disk.'),
+      );
+    });
     this._store = store;
 
     const panel = new ClipboardPanel(store, {
       onActivate: (entry: ClipboardEntry) => this._onActivate(entry),
       onRemove: (id: string) => this._onRemove(id),
       onTogglePin: (id: string) => this._onTogglePin(id),
+      onToggleIncognito: (active: boolean) => this._setIncognito(active),
+      onClear: () => this.clearHistory(),
     });
     this._panel = panel;
+    panel.setIncognito(this._incognito);
+    lifecycle.connect(rawSettings, `changed::${INDICATOR_KEY}`, () => this._syncIndicator());
+    this._syncIndicator();
 
     const monitor = new ClipboardMonitor({
       onText: (text) => this.addText(text),
       onImage: (payload) => this.addImage(payload),
     });
     this._monitor = monitor;
+    monitor.setPaused(this._incognito);
 
-    void store.load().then(() => {
+    const storageReady = store.load().then(() => {
       if (
         this._lifecycle !== lifecycle ||
         this._store !== store ||
@@ -91,15 +112,11 @@ export class ClipboardHistory extends Module {
       )
         return;
 
+      this._storageReady = true;
+      panel.setClearAvailable(true);
       panel.refresh();
-      startupIdle.replace(() =>
-        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-          startupIdle.complete();
-          monitor.start();
-          return GLib.SOURCE_REMOVE;
-        }),
-      );
     });
+    monitor.start(storageReady);
 
     Main.wm.addKeybinding(
       KEYBINDING_KEY,
@@ -112,6 +129,9 @@ export class ClipboardHistory extends Module {
   }
 
   override disable(): void {
+    this._incognito = false;
+    this._storageReady = false;
+    this._removeIndicator();
     this._pasteTargetWindow = null;
     this._pasteTargetInputFocus = null;
 
@@ -134,13 +154,13 @@ export class ClipboardHistory extends Module {
     this._store = null;
   }
 
-  openPanel(): boolean {
-    if (!this._panel) return false;
+  openPanel(anchor?: Clutter.Actor): boolean {
+    if (!this._panel || this._panel.isConfirmingClear) return false;
     if (!this._panel.isOpen) {
       this._pasteTargetWindow = global.display.focus_window;
       this._pasteTargetInputFocus = Main.inputMethod.currentFocus;
     }
-    this._panel.open();
+    this._panel.open(anchor);
     return true;
   }
 
@@ -152,12 +172,71 @@ export class ClipboardHistory extends Module {
     return true;
   }
 
-  togglePanel(): boolean {
-    return this.isPanelOpen ? this.closePanel() : this.openPanel();
+  togglePanel(anchor?: Clutter.Actor): boolean {
+    if (this._panel?.isConfirmingClear) return false;
+    return this.isPanelOpen ? this.closePanel() : this.openPanel(anchor);
+  }
+
+  private _syncIndicator(): void {
+    if (!this.context.settings.getRawSettings().get_boolean(INDICATOR_KEY)) {
+      this._removeIndicator();
+      return;
+    }
+    if (this._indicator) return;
+
+    const indicator = new PanelMenu.Button(0, _('Clipboard History'), true);
+    indicator.accessible_role = Atk.Role.PUSH_BUTTON;
+    indicator.add_child(
+      new St.Icon({ icon_name: 'edit-paste-symbolic', style_class: 'system-status-icon' }),
+    );
+    const click = new Clutter.ClickGesture({ recognize_on_press: true });
+    click.connect('recognize', () => this.togglePanel(indicator));
+    indicator.add_action(click);
+    const keys = new Clutter.KeyController();
+    keys.connect('key-press', () => {
+      const [, key] = keys.get_key();
+      if (key !== Clutter.KEY_Return && key !== Clutter.KEY_KP_Enter && key !== Clutter.KEY_space)
+        return Clutter.EVENT_PROPAGATE;
+      this.togglePanel(indicator);
+      return Clutter.EVENT_STOP;
+    });
+    indicator.add_action(keys);
+    this._indicator = indicator;
+    const quickSettings = Main.panel.statusArea.quickSettings;
+    if (!(quickSettings instanceof PanelMenu.Button))
+      throw new Error('Quick Settings indicator is unavailable');
+    const box = quickSettings.container.get_parent();
+    if (!box) throw new Error('Panel right box is unavailable');
+    const position = box.get_children().indexOf(quickSettings.container);
+    Main.panel.addToStatusArea(INDICATOR_ID, indicator, position, 'right');
+
+    const indicatorLifecycle = new LifecycleScope();
+    this._indicatorLifecycle = indicatorLifecycle;
+    indicatorLifecycle.connect(box, 'child-added', () => {
+      const children = box.get_children();
+      const indicatorIndex = children.indexOf(indicator.container);
+      const quickSettingsIndex = children.indexOf(quickSettings.container);
+      if (
+        indicatorIndex >= 0 &&
+        quickSettingsIndex >= 0 &&
+        indicatorIndex + 1 !== quickSettingsIndex
+      )
+        box.set_child_at_index(
+          indicator.container,
+          indicatorIndex < quickSettingsIndex ? quickSettingsIndex - 1 : quickSettingsIndex,
+        );
+    });
+  }
+
+  private _removeIndicator(): void {
+    this._indicatorLifecycle?.dispose();
+    this._indicatorLifecycle = null;
+    this._indicator?.destroy();
+    this._indicator = null;
   }
 
   addText(text: string): boolean {
-    if (!this._store || !this._panel) return false;
+    if (this._incognito || !this._store || !this._panel) return false;
 
     const added = this._store.addText(text);
     if (added) {
@@ -169,7 +248,9 @@ export class ClipboardHistory extends Module {
   }
 
   private _cancelPreviews(): void {
-    for (const cancel of this._previewRequests.values()) cancel.cancel();
+    const requests = [...this._previewRequests.values()];
+    this._previewRequests.clear();
+    for (const cancel of requests) cancel.cancel();
   }
 
   private async _preview(text: string): Promise<void> {
@@ -181,14 +262,12 @@ export class ClipboardHistory extends Module {
       entry.preview ||
       !this.context.settings.getBoolean('clipboard-history-link-previews') ||
       !parseClipboardUrl(text) ||
-      this._previewRequests.has(text) ||
+      this._previewRequests.has(entry.id) ||
       this._previewRequests.size >= 2
     )
       return;
     const cancel = new Gio.Cancellable();
-    this._previewRequests.set(text, cancel);
-    const requestScope = new LifecycleScope();
-    createManagedTimeout(requestScope).schedule(5000, () => cancel.cancel());
+    this._previewRequests.set(entry.id, cancel);
     try {
       const preview = await fetchPreview(text.trim(), cancel);
       if (
@@ -203,15 +282,14 @@ export class ClipboardHistory extends Module {
     } catch {
       // The URL remains usable when the site is offline or has no preview.
     } finally {
-      requestScope.dispose();
-      this._previewRequests.delete(text);
+      if (this._previewRequests.get(entry.id) === cancel) this._previewRequests.delete(entry.id);
     }
   }
 
   async addImage(payload: ClipboardImagePayload): Promise<boolean> {
     const store = this._store;
     const panel = this._panel;
-    if (!store || !panel) {
+    if (this._incognito || !store || !panel) {
       return false;
     }
 
@@ -223,9 +301,21 @@ export class ClipboardHistory extends Module {
     return added;
   }
 
+  private _setIncognito(active: boolean): void {
+    this._incognito = active;
+    this._monitor?.setPaused(active);
+    if (active) {
+      this._store?.discardPendingImages();
+      this._cancelPreviews();
+    }
+  }
+
   clearHistory(): boolean {
     if (!this._store || !this._panel) return false;
 
+    if (this._monitor) this._monitor.discardPendingCaptures();
+    this._cancelPreviews();
+    if (!this._storageReady) return false;
     const cleared = this._store.clear();
     if (cleared) {
       this._panel.refresh();
@@ -257,8 +347,11 @@ export class ClipboardHistory extends Module {
       ? this._pasteTargetWindow
       : null;
     const pasteTargetInputFocus = pasteTarget ? this._pasteTargetInputFocus : null;
-    this._monitor?.suppressNextOwnerChange();
-    St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, entry.text);
+    if (!this._monitor) return;
+    this._monitor.restoreContent(
+      'text/plain;charset=utf-8',
+      new GLib.Bytes(new TextEncoder().encode(entry.text)),
+    );
     this.closePanel();
     if (pasteTarget && pasteTargetInputFocus)
       this._scheduleAutoPaste(pasteTarget, pasteTargetInputFocus, entry.text);
@@ -266,22 +359,26 @@ export class ClipboardHistory extends Module {
   }
 
   private async _restoreImage(entry: ClipboardEntry): Promise<void> {
-    if (!this._lifecycle || !entry.filePath || !entry.mimeType) return;
+    const monitor = this._monitor;
+    if (!monitor || !entry.filePath || !entry.mimeType) return;
 
     if (this._restoreCancellable) this._restoreCancellable.cancel();
     const restoreCancellable = new Gio.Cancellable();
     this._restoreCancellable = restoreCancellable;
+    const ownerRevision = monitor.ownerRevision;
 
     try {
       const [bytes] = await Gio.File.new_for_path(entry.filePath).load_bytes_async(
         restoreCancellable,
       );
-      if (this._restoreCancellable !== restoreCancellable || restoreCancellable.is_cancelled())
+      if (
+        this._restoreCancellable !== restoreCancellable ||
+        restoreCancellable.is_cancelled() ||
+        monitor.ownerRevision !== ownerRevision
+      )
         return;
 
-      if (!this._monitor) return;
-      this._monitor.suppressNextOwnerChange();
-      St.Clipboard.get_default().set_content(St.ClipboardType.CLIPBOARD, entry.mimeType, bytes);
+      monitor.restoreContent(entry.mimeType, bytes);
       logger.debug(`Restored clipboard image: ${entry.mimeType}`, { prefix: LOG_PREFIX });
     } catch (e) {
       if (restoreCancellable.is_cancelled()) return;
@@ -329,6 +426,11 @@ export class ClipboardHistory extends Module {
   private _onRemove(id: string): void {
     if (!this._store || !this._panel) return;
 
+    const previewRequest = this._previewRequests.get(id);
+    if (previewRequest) {
+      this._previewRequests.delete(id);
+      previewRequest.cancel();
+    }
     this._store.remove(id);
     this._panel.refresh();
   }
