@@ -4,6 +4,8 @@ import GdkPixbuf from 'gi://GdkPixbuf';
 
 import type { LinkPreview } from './linkPreview.ts';
 import { callAsync } from '~/core/callAsync.ts';
+import { LifecycleScope } from '~/core/lifecycleScope.ts';
+import { createManagedTimeout } from '~/core/mainLoop.ts';
 import { logger } from '~/core/logger.ts';
 import {
   encodeAddOp,
@@ -33,6 +35,8 @@ Gio._promisify(Gio.OutputStream.prototype, 'close_async', 'close_finish');
 const LOG_PREFIX = 'ClipboardHistory';
 const WRITE_PRIORITY = GLib.PRIORITY_DEFAULT_IDLE;
 const MAX_WASTED_OPS = 500;
+const INITIAL_RETRY_DELAY = 1000;
+const MAX_RETRY_DELAY = 30000;
 const THUMBNAIL_SIZE = 640;
 
 export type ClipboardEntry = ClipboardEntrySnapshot & {
@@ -49,6 +53,10 @@ export type ClipboardImagePayload = {
   fingerprint: string;
 };
 
+const activeTemporaryFiles = new Set<string>();
+const TEMPORARY_MEDIA_NAME =
+  /^[0-9]+\.(?:png|jpg|webp|gif|bmp|tiff)\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:tmp|thumb\.png)$/;
+
 export class ClipboardStore {
   private _pinned: ClipboardEntry[] = [];
   private _history: ClipboardEntry[] = [];
@@ -61,17 +69,26 @@ export class ClipboardStore {
   private _pendingWrites: string[] = [];
   private _writing: boolean = false;
   private _compactionRequested: boolean = false;
-  private _writeRequestVersion = 0;
+  private _needsRecovery = false;
+  private _retryLifecycle = new LifecycleScope();
+  private _retryTimeout = createManagedTimeout(this._retryLifecycle);
+  private _retryDelay = INITIAL_RETRY_DELAY;
+  private _failureReported = false;
+  private _onPersistenceError: (() => void) | null;
   private _clearVersion = 0;
   private _imageCancellable = new Gio.Cancellable();
+  private _captureCancellables = new Set<Gio.Cancellable>();
+  private _imageVersion = 0;
 
-  constructor(filePath: string, mediaDir: string) {
+  constructor(filePath: string, mediaDir: string, onPersistenceError?: () => void) {
     this._filePath = filePath;
     this._mediaDir = mediaDir;
+    this._onPersistenceError = onPersistenceError || null;
   }
 
   async load(): Promise<void> {
     const clearVersion = this._clearVersion;
+    await this._removeOrphanedTemporaryFiles();
     try {
       const file = Gio.File.new_for_path(this._filePath);
       const bytes = await callAsync(
@@ -112,7 +129,9 @@ export class ClipboardStore {
   }
 
   destroy(): void {
+    this._retryLifecycle.dispose();
     this._clearVersion++;
+    this.discardPendingImages();
     this._imageCancellable.cancel();
   }
 
@@ -159,24 +178,29 @@ export class ClipboardStore {
     }
 
     const id = String(this._nextId++);
-    const clearVersion = this._clearVersion;
+    const imageVersion = this._imageVersion;
+    const cancellable = new Gio.Cancellable();
+    this._captureCancellables.add(cancellable);
     const filePath = this._mediaDir + '/' + id + this._extensionForMimeType(payload.mimeType);
     const temporaryPath = `${filePath}.${GLib.uuid_string_random()}.tmp`;
+    activeTemporaryFiles.add(temporaryPath);
+    activeTemporaryFiles.add(thumbnailPathFor(temporaryPath));
     let hasThumbnail = false;
     try {
-      await this._writeImage(temporaryPath, payload.bytes);
-      await this._validateImageFileAsync(temporaryPath, payload.mimeType);
-      const pixbuf = await this._decodeThumbnail(temporaryPath);
+      await this._writeImage(temporaryPath, payload.bytes, cancellable);
+      await this._validateImageFileAsync(temporaryPath, payload.mimeType, cancellable);
+      const pixbuf = await this._decodeThumbnail(temporaryPath, cancellable);
 
       try {
-        await this._writeThumbnail(temporaryPath, pixbuf);
+        await this._writeThumbnail(temporaryPath, pixbuf, cancellable);
         hasThumbnail = true;
       } catch (e) {
-        if (this._imageCancellable.is_cancelled()) {
+        if (cancellable.is_cancelled()) {
           this._deleteMediaPath(temporaryPath);
           return false;
         }
 
+        this._deletePath(thumbnailPathFor(temporaryPath));
         logger.warn(
           'Failed to create clipboard image thumbnail:',
           { prefix: LOG_PREFIX },
@@ -184,7 +208,7 @@ export class ClipboardStore {
         );
       }
 
-      if (this._imageCancellable.is_cancelled() || this._clearVersion !== clearVersion) {
+      if (cancellable.is_cancelled() || this._imageVersion !== imageVersion) {
         this._deleteMediaPath(temporaryPath);
         return false;
       }
@@ -193,20 +217,20 @@ export class ClipboardStore {
         Gio.File.new_for_path(thumbnailPathFor(temporaryPath)).move(
           Gio.File.new_for_path(thumbnailPathFor(filePath)),
           Gio.FileCopyFlags.OVERWRITE,
-          this._imageCancellable,
+          cancellable,
           null,
         );
       }
       Gio.File.new_for_path(temporaryPath).move(
         Gio.File.new_for_path(filePath),
         Gio.FileCopyFlags.OVERWRITE,
-        this._imageCancellable,
+        cancellable,
         null,
       );
     } catch (e) {
       this._deleteMediaPath(temporaryPath);
       if (hasThumbnail) this._deleteMediaPath(filePath);
-      if (this._imageCancellable.is_cancelled()) return false;
+      if (cancellable.is_cancelled()) return false;
 
       logger.warn(
         `Rejected clipboard image: ${payload.mimeType}, ${payload.bytes.get_size()} bytes`,
@@ -214,6 +238,10 @@ export class ClipboardStore {
         e as Error,
       );
       return false;
+    } finally {
+      this._captureCancellables.delete(cancellable);
+      activeTemporaryFiles.delete(temporaryPath);
+      activeTemporaryFiles.delete(thumbnailPathFor(temporaryPath));
     }
 
     const entry: ClipboardEntry = {
@@ -269,25 +297,32 @@ export class ClipboardStore {
     this._requestCompactionIfNeeded();
   }
 
+  discardPendingImages(): void {
+    this._imageVersion++;
+    for (const cancellable of this._captureCancellables) cancellable.cancel();
+  }
+
   clear(): boolean {
     this._clearVersion++;
-    const entries = [...this._pinned, ...this._history];
+    this.discardPendingImages();
+    const entries = this._history;
     if (entries.length === 0) {
       this._compactionRequested = true;
-      this._writeRequestVersion++;
       void this._drainWrites();
       return false;
     }
 
     for (const entry of entries) this._deleteMediaFile(entry);
 
-    this._pinned = [];
     this._history = [];
-    this._byId.clear();
-    this._byContentKey.clear();
+    for (const entry of entries) {
+      this._byId.delete(entry.id);
+      this._byContentKey.delete(entry.contentKey);
+    }
     this._wastedOps += entries.length;
     this._appendLog(entries.map((entry) => encodeDeleteOp(entry.id)).join(''));
-    this._requestCompactionIfNeeded();
+    this._compactionRequested = true;
+    void this._drainWrites();
     return true;
   }
 
@@ -383,47 +418,61 @@ export class ClipboardStore {
 
   private _appendLog(data: string): void {
     this._pendingWrites.push(data);
-    this._writeRequestVersion++;
     void this._drainWrites();
   }
 
   private _requestCompactionIfNeeded(): void {
     if (this._wastedOps < MAX_WASTED_OPS) return;
     this._compactionRequested = true;
-    this._writeRequestVersion++;
     void this._drainWrites();
   }
 
   private async _drainWrites(): Promise<void> {
-    if (this._writing) return;
+    if (this._writing || this._retryTimeout.active) return;
     this._writing = true;
-    const requestVersion = this._writeRequestVersion;
+    let failures = 0;
 
     try {
-      while (this._pendingWrites.length > 0 || this._compactionRequested) {
-        if (this._pendingWrites.length > 0) {
-          const batch = this._pendingWrites.join('');
-          this._pendingWrites = [];
-          try {
+      while (this._pendingWrites.length > 0 || this._compactionRequested || this._needsRecovery) {
+        try {
+          if (this._needsRecovery) {
+            // A failed append may have written any prefix, so replace it with a fresh snapshot.
+            this._pendingWrites = [];
+            this._compactionRequested = false;
+            await this._compactLog();
+            this._needsRecovery = false;
+            this._retryDelay = INITIAL_RETRY_DELAY;
+            this._failureReported = false;
+          } else if (this._pendingWrites.length > 0) {
+            const batch = this._pendingWrites.join('');
+            this._pendingWrites = [];
             await this._appendBatch(batch);
-          } catch (e) {
-            this._pendingWrites.unshift(batch);
-            throw e;
+          } else if (this._compactionRequested) {
+            this._compactionRequested = false;
+            await this._compactLog();
+          }
+          failures = 0;
+        } catch (error) {
+          this._needsRecovery = true;
+          failures++;
+          if (failures >= 3) {
+            if (!this._failureReported) {
+              logger.error(
+                'Failed to write clipboard history log:',
+                { prefix: LOG_PREFIX },
+                error as Error,
+              );
+              if (this._onPersistenceError) this._onPersistenceError();
+              this._failureReported = true;
+            }
+            this._retryTimeout.schedule(this._retryDelay, () => void this._drainWrites());
+            this._retryDelay = Math.min(this._retryDelay * 2, MAX_RETRY_DELAY);
+            break;
           }
         }
-
-        if (this._compactionRequested) {
-          await this._compactLog();
-          this._compactionRequested = false;
-        }
       }
-    } catch (e) {
-      logger.error('Failed to write clipboard history log:', { prefix: LOG_PREFIX }, e as Error);
     } finally {
       this._writing = false;
-      if (this._writeRequestVersion !== requestVersion) {
-        void this._drainWrites();
-      }
     }
   }
 
@@ -455,7 +504,8 @@ export class ClipboardStore {
     this._ensureDirectory();
     const entries = [...this._history].reverse().concat([...this._pinned].reverse());
     const data = encodeCompactedLog(entries);
-    const bytes = new TextEncoder().encode(data);
+    // Gio's async replacement can stall on a zero-length GJS buffer.
+    const bytes = new TextEncoder().encode(data || '\n');
 
     await Gio.File.new_for_path(this._filePath).replace_contents_async(
       bytes,
@@ -475,7 +525,73 @@ export class ClipboardStore {
     GLib.mkdir_with_parents(this._mediaDir, 0o700);
   }
 
-  private async _writeImage(filePath: string, bytes: GLib.Bytes): Promise<void> {
+  private async _removeOrphanedTemporaryFiles(): Promise<void> {
+    const directory = Gio.File.new_for_path(this._mediaDir);
+    let enumerator: Gio.FileEnumerator;
+    try {
+      enumerator = await callAsync(
+        (callback) =>
+          directory.enumerate_children_async(
+            'standard::name,standard::type',
+            Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS,
+            GLib.PRIORITY_DEFAULT,
+            null,
+            callback,
+          ),
+        (result) => directory.enumerate_children_finish(result),
+      );
+    } catch (e) {
+      if (e instanceof GLib.Error && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) return;
+      logger.warn(
+        'Failed to inspect clipboard temporary files:',
+        { prefix: LOG_PREFIX },
+        e as Error,
+      );
+      return;
+    }
+    try {
+      while (true) {
+        const files = await callAsync(
+          (callback) => enumerator.next_files_async(100, GLib.PRIORITY_DEFAULT, null, callback),
+          (result) => enumerator.next_files_finish(result),
+        );
+        if (files.length === 0) break;
+        for (const info of files) {
+          const name = info.get_name();
+          if (info.get_file_type() !== Gio.FileType.REGULAR || !TEMPORARY_MEDIA_NAME.test(name))
+            continue;
+          const file = directory.get_child(name);
+          const path = file.get_path();
+          if (!path || activeTemporaryFiles.has(path)) continue;
+          try {
+            file.delete(null);
+          } catch (e) {
+            if (e instanceof GLib.Error && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+              continue;
+            logger.warn(
+              'Failed to remove clipboard temporary file:',
+              { prefix: LOG_PREFIX },
+              e as Error,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn(
+        'Failed to inspect clipboard temporary files:',
+        { prefix: LOG_PREFIX },
+        e as Error,
+      );
+    } finally {
+      enumerator.close(null);
+    }
+  }
+
+  private async _writeImage(
+    filePath: string,
+    bytes: GLib.Bytes,
+    cancellable: Gio.Cancellable = this._imageCancellable,
+  ): Promise<void> {
     this._ensureMediaDirectory();
     const file = Gio.File.new_for_path(filePath);
     await callAsync(
@@ -485,17 +601,20 @@ export class ClipboardStore {
           null,
           false,
           Gio.FileCreateFlags.PRIVATE,
-          this._imageCancellable,
+          cancellable,
           callback,
         ),
       (result) => file.replace_contents_finish(result),
     );
   }
 
-  private async _decodeThumbnail(filePath: string): Promise<GdkPixbuf.Pixbuf> {
+  private async _decodeThumbnail(
+    filePath: string,
+    cancellable: Gio.Cancellable = this._imageCancellable,
+  ): Promise<GdkPixbuf.Pixbuf> {
     const source = Gio.File.new_for_path(filePath);
     const input = await callAsync(
-      (callback) => source.read_async(GLib.PRIORITY_DEFAULT, this._imageCancellable, callback),
+      (callback) => source.read_async(GLib.PRIORITY_DEFAULT, cancellable, callback),
       (result) => source.read_finish(result),
     );
     return callAsync(
@@ -505,7 +624,7 @@ export class ClipboardStore {
           THUMBNAIL_SIZE,
           THUMBNAIL_SIZE,
           true,
-          this._imageCancellable,
+          cancellable,
           callback,
         ),
       (result) => GdkPixbuf.Pixbuf.new_from_stream_finish(result),
@@ -513,7 +632,11 @@ export class ClipboardStore {
   }
 
   // PNG encoding runs on a GdkPixbuf worker thread.
-  private async _writeThumbnail(filePath: string, pixbuf: GdkPixbuf.Pixbuf): Promise<void> {
+  private async _writeThumbnail(
+    filePath: string,
+    pixbuf: GdkPixbuf.Pixbuf,
+    cancellable: Gio.Cancellable = this._imageCancellable,
+  ): Promise<void> {
     const target = Gio.File.new_for_path(thumbnailPathFor(filePath));
     const output = await callAsync(
       (callback) =>
@@ -522,7 +645,7 @@ export class ClipboardStore {
           false,
           Gio.FileCreateFlags.PRIVATE,
           GLib.PRIORITY_DEFAULT,
-          this._imageCancellable,
+          cancellable,
           callback,
         ),
       (result) => target.replace_finish(result),
@@ -530,11 +653,11 @@ export class ClipboardStore {
     try {
       await callAsync(
         (callback) =>
-          pixbuf.save_to_streamv_async(output, 'png', null, null, this._imageCancellable, callback),
+          pixbuf.save_to_streamv_async(output, 'png', null, null, cancellable, callback),
         (result) => GdkPixbuf.Pixbuf.save_to_stream_finish(result),
       );
     } finally {
-      await output.close_async(GLib.PRIORITY_DEFAULT, this._imageCancellable);
+      await output.close_async(GLib.PRIORITY_DEFAULT, null);
     }
   }
 
@@ -544,15 +667,15 @@ export class ClipboardStore {
   }
 
   private _deleteMediaPath(filePath: string): void {
-    for (const path of [filePath, thumbnailPathFor(filePath)]) {
-      try {
-        Gio.File.new_for_path(path).delete(null);
-      } catch (e) {
-        if (e instanceof GLib.Error && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
-          continue;
+    for (const path of [filePath, thumbnailPathFor(filePath)]) this._deletePath(path);
+  }
 
-        logger.warn(`Failed to delete clipboard media: ${path}`, { prefix: LOG_PREFIX }, e);
-      }
+  private _deletePath(path: string): void {
+    try {
+      Gio.File.new_for_path(path).delete(null);
+    } catch (e) {
+      if (e instanceof GLib.Error && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) return;
+      logger.warn(`Failed to delete clipboard media: ${path}`, { prefix: LOG_PREFIX }, e);
     }
   }
 
@@ -566,10 +689,13 @@ export class ClipboardStore {
   }
 
   // Reads only the image header, on a GdkPixbuf worker thread.
-  private async _validateImageFileAsync(filePath: string, mimeType: string): Promise<void> {
+  private async _validateImageFileAsync(
+    filePath: string,
+    mimeType: string,
+    cancellable: Gio.Cancellable = this._imageCancellable,
+  ): Promise<void> {
     const [format] = await callAsync(
-      (callback) =>
-        GdkPixbuf.Pixbuf.get_file_info_async(filePath, this._imageCancellable, callback),
+      (callback) => GdkPixbuf.Pixbuf.get_file_info_async(filePath, cancellable, callback),
       (result) => GdkPixbuf.Pixbuf.get_file_info_finish(result),
     );
     const expectedMimeType = mimeType === 'image/jpg' ? 'image/jpeg' : mimeType;

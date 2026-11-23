@@ -429,6 +429,10 @@
       <summary>Clipboard History shortcut</summary>
       <description>Keyboard shortcut to open the clipboard history panel</description>
     </key>
+    <key name="clipboard-history-indicator" type="b">
+      <default>false</default>
+      <summary>Show clipboard history indicator in the top bar</summary>
+    </key>
     <key name="clipboard-history-persist" type="b">
       <default>false</default>
       <summary>Remember clipboard history between sessions</summary>

@@ -28,7 +28,11 @@ export const CaptureTooltip = GObject.registerClass(
       this.text = text;
       this._lifecycle.connect(anchor, 'notify::hover', () => {
         if (anchor.hover) this.open();
-        else this.close();
+        else if (!anchor.has_key_focus()) this.close();
+      });
+      this._lifecycle.connect(anchor, 'key-focus-in', () => this.open());
+      this._lifecycle.connect(anchor, 'key-focus-out', () => {
+        if (!anchor.hover) this.close();
       });
     }
 
@@ -38,7 +42,7 @@ export const CaptureTooltip = GObject.registerClass(
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, SHOW_DELAY_MS, () => {
           this._showTimeout.complete();
           const anchor = this._anchor;
-          if (!anchor?.hover) return GLib.SOURCE_REMOVE;
+          if (!anchor || (!anchor.hover && !anchor.has_key_focus())) return GLib.SOURCE_REMOVE;
 
           this.opacity = 0;
           this.show();

@@ -9,6 +9,12 @@ export const manifest: ModuleManifest = {
   subtitle: _('Browse copied text and images'),
   options: [
     {
+      key: 'clipboard-history-indicator',
+      title: _('Show Panel Indicator'),
+      subtitle: _('Open clipboard history from the top bar'),
+      type: 'switch',
+    },
+    {
       key: 'clipboard-history-persist',
       title: _('Remember History Between Sessions'),
       subtitle: _(
@@ -20,7 +26,7 @@ export const manifest: ModuleManifest = {
       key: 'clipboard-history-link-previews',
       title: _('Link Previews'),
       subtitle: _(
-        'Visit copied HTTPS links to show page titles and descriptions. Sites will see your visit.',
+        'Visit copied HTTPS links to load titles, descriptions, and images. Sites and image hosts will see your visits.',
       ),
       type: 'switch',
     },

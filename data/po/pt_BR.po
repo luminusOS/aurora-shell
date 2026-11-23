@@ -199,6 +199,12 @@ msgstr "%d linhas"
 msgid "Clipboard History"
 msgstr "Histórico da área de transferência"
 
+msgid "Show Panel Indicator"
+msgstr "Mostrar indicador no painel"
+
+msgid "Open clipboard history from the top bar"
+msgstr "Abrir o histórico da área de transferência pela barra superior"
+
 #: dist/clipboard/clipboardHistory.manifest.js:9
 msgid "Browse copied text and images"
 msgstr "Consultar textos e imagens copiados"
@@ -1625,8 +1631,8 @@ msgstr "Fixe um item para encontrá-lo aqui."
 msgid "Link Previews"
 msgstr "Prévias de links"
 
-msgid "Visit copied HTTPS links to show page titles and descriptions. Sites will see your visit."
-msgstr "Visitar links HTTPS copiados para mostrar títulos e descrições. Os sites verão sua visita."
+msgid "Visit copied HTTPS links to load titles, descriptions, and images. Sites and image hosts will see your visits."
+msgstr "Visitar links HTTPS copiados para carregar títulos, descrições e imagens. Os sites e servidores de imagens verão suas visitas."
 
 msgid "Transparency"
 msgstr "Transparência"
@@ -1651,3 +1657,24 @@ msgstr "Desfocar atrás da barra superior"
 
 msgid "Soften the background when the top bar is translucent"
 msgstr "Suavizar o fundo quando a barra superior estiver translúcida"
+
+msgid "Pause Clipboard History"
+msgstr "Pausar histórico da área de transferência"
+
+msgid "Resume Clipboard History"
+msgstr "Retomar histórico da área de transferência"
+
+msgid "Clear Clipboard History"
+msgstr "Limpar histórico da área de transferência"
+
+msgid "Clear History?"
+msgstr "Limpar histórico?"
+
+msgid "Pinned items will be kept."
+msgstr "Os itens fixados serão mantidos."
+
+msgid "Clear History"
+msgstr "Limpar histórico"
+
+msgid "Could not save clipboard history. Cleared items may remain on disk."
+msgstr "Não foi possível salvar o histórico da área de transferência. Itens limpos podem permanecer no disco."

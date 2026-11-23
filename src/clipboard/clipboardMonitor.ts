@@ -1,14 +1,15 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
-import St from 'gi://St';
 
 import type { ClipboardImagePayload } from '~/clipboard/clipboardStore.ts';
+import { callAsync } from '~/core/callAsync.ts';
 import { LifecycleScope } from '~/core/lifecycleScope.ts';
 import { logger } from '~/core/logger.ts';
 import { createManagedTimeout } from '~/core/mainLoop.ts';
 
 const LOG_PREFIX = 'ClipboardMonitor';
+const CLIPBOARD = Meta.SelectionType.SELECTION_CLIPBOARD;
 const IMAGE_MIME_TYPES = [
   'image/png',
   'image/jpeg',
@@ -18,168 +19,264 @@ const IMAGE_MIME_TYPES = [
   'image/bmp',
   'image/tiff',
 ];
+const TEXT_MIME_TYPES = ['text/plain;charset=utf-8', 'UTF8_STRING', 'text/plain', 'STRING'];
+const SENSITIVE_MIME_TYPE = 'x-kde-passwordManagerHint';
 const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
-const READ_DELAY_MS = 50;
+const MAX_TEXT_BYTES = 1024 * 1024;
+const MAX_PENDING_BYTES = 128 * 1024 * 1024;
+const MAX_PENDING_CAPTURES = 32;
+const READ_CHUNK_BYTES = 64 * 1024;
+const READ_TIMEOUT_MS = 15_000;
 
 type ClipboardMonitorCallbacks = {
-  onText: (text: string) => void;
-  onImage: (payload: ClipboardImagePayload) => Promise<unknown>;
+  onText: (text: string) => boolean;
+  onImage: (payload: ClipboardImagePayload) => Promise<boolean>;
 };
+
+type CaptureDeduplication = { lastContentKey: string | null };
+
+type CaptureRequest = {
+  mimeType: string;
+  limit: number;
+  read: CaptureRead;
+  deduplication: CaptureDeduplication;
+};
+
+type Capture = Omit<CaptureRequest, 'read'> & {
+  bytes: Promise<GLib.Bytes | null>;
+  discarded: boolean;
+};
+
+type CaptureRead = (
+  mimeType: string,
+  limit: number,
+  cancellable: Gio.Cancellable,
+) => Promise<GLib.Bytes>;
 
 export class ClipboardMonitor {
   private _callbacks: ClipboardMonitorCallbacks | null;
   private _lifecycle = new LifecycleScope();
-  private _readTimeout = createManagedTimeout(this._lifecycle);
-  private _cancellable = new Gio.Cancellable();
-  private _lastContentKey: string | null = null;
-  private _started = false;
-  private _suppressNextOwnerChange = false;
-  private _readInProgress = false;
-  private _readPending = false;
+  private _selection: Meta.Selection | null = null;
+  private _restoredSource: Meta.SelectionSourceMemory | null = null;
+  private _ownerRevision = 0;
+  private _deduplication: CaptureDeduplication = { lastContentKey: null };
+  private _pendingCaptures: Capture[] = [];
+  private _deferredCapture: CaptureRequest | null = null;
+  private _reservedBytes = 0;
+  private _activeReads = new Set<LifecycleScope>();
+  private _persisting = false;
+  private _paused = false;
 
   constructor(callbacks: ClipboardMonitorCallbacks) {
     this._callbacks = callbacks;
   }
 
-  start(): void {
-    if (this._started || !this._callbacks) return;
-    this._started = true;
+  start(storageReady: Promise<void>): void {
+    if (this._selection || !this._callbacks) return;
 
+    const selection = global.display.get_selection();
+    this._selection = selection;
+    this._persisting = true;
     this._lifecycle.connect(
-      global.display.get_selection(),
+      selection,
       'owner-changed',
-      (_selection: Meta.Selection, selectionType: Meta.SelectionType) => {
-        if (selectionType !== Meta.SelectionType.SELECTION_CLIPBOARD) return;
-        if (this._suppressNextOwnerChange) {
-          this._suppressNextOwnerChange = false;
-          return;
-        }
-        // owner-changed is emitted synchronously from inside set_content (e.g. while the
-        // screenshot UI still holds its grab), and reading a shell-owned source copies the
-        // whole payload in mutter. Defer, and coalesce bursts of owner changes.
-        this._readTimeout.schedule(READ_DELAY_MS, () => this._requestRead());
+      (
+        _selection: Meta.Selection,
+        selectionType: Meta.SelectionType,
+        owner: Meta.SelectionSource | null,
+      ) => {
+        if (selectionType !== CLIPBOARD) return;
+
+        this._ownerRevision++;
+        this._deferredCapture = null;
+        if (this._paused || !owner || owner === this._restoredSource) return;
+
+        this._capture(owner.get_mimetypes(), (mimeType, limit, cancellable) =>
+          readSource(owner, mimeType, limit, cancellable),
+        );
       },
     );
-    this._requestRead();
+
+    void storageReady.finally(() => {
+      this._persisting = false;
+      void this._drainCaptures();
+    });
   }
 
-  // Call right before setting the clipboard ourselves: the owner-changed it emits is
-  // synchronous, so the flag is consumed by exactly that change.
-  suppressNextOwnerChange(): void {
-    this._readTimeout.clear();
-    this._readPending = false;
-    this._suppressNextOwnerChange = true;
+  get ownerRevision(): number {
+    return this._ownerRevision;
+  }
+
+  discardPendingCaptures(): void {
+    this._deduplication = { lastContentKey: null };
+    this._deferredCapture = null;
+    // Keep reservations until cancelled reads and any in-flight write settle.
+    for (const capture of this._pendingCaptures) capture.discarded = true;
+    this._cancelReads();
+  }
+
+  setPaused(paused: boolean): void {
+    this._paused = paused;
+    if (paused) this.discardPendingCaptures();
+  }
+
+  restoreContent(mimeType: string, bytes: GLib.Bytes): void {
+    if (!this._selection) return;
+
+    const source = Meta.SelectionSourceMemory.new(mimeType, bytes);
+    // Earlier captures can still complete, but cannot deduplicate across a restore.
+    this._deduplication = { lastContentKey: null };
+    this._restoredSource = source;
+    try {
+      this._selection.set_owner(CLIPBOARD, source);
+    } finally {
+      this._restoredSource = null;
+    }
   }
 
   destroy(): void {
     this._callbacks = null;
-    this._cancellable.cancel();
+    this._selection = null;
     this._lifecycle.dispose();
+    this._cancelReads();
+    this._pendingCaptures.length = 0;
+    this._deferredCapture = null;
   }
 
-  private _requestRead(): void {
-    if (!this._callbacks) return;
-    if (this._readInProgress) {
-      this._readPending = true;
-      return;
-    }
-
-    this._readInProgress = true;
-    this._readClipboard();
+  private _cancelReads(): void {
+    for (const readScope of this._activeReads) readScope.dispose();
+    this._activeReads.clear();
   }
 
-  private _readClipboard(): void {
-    const clipboard = St.Clipboard.get_default();
-    const imageMimeType = findImageMimeType(clipboard.get_mimetypes(St.ClipboardType.CLIPBOARD));
-    if (imageMimeType) {
-      this._readImage(imageMimeType);
-      return;
-    }
+  private _capture(mimeTypes: string[], read: CaptureRead): void {
+    if (mimeTypes.includes(SENSITIVE_MIME_TYPE)) return;
 
-    clipboard.get_text(
-      St.ClipboardType.CLIPBOARD,
-      (_clipboard: St.Clipboard, text: string | null) => {
-        try {
-          if (!this._callbacks || !text || text.trim().length === 0) return;
+    const imageMime = findImageMimeType(mimeTypes);
+    const mimeType = imageMime || TEXT_MIME_TYPES.find((type) => mimeTypes.includes(type));
+    if (!mimeType) return;
 
-          const contentKey = 'text:' + text;
-          if (contentKey === this._lastContentKey) return;
-
-          this._lastContentKey = contentKey;
-          this._callbacks.onText(text);
-        } finally {
-          this._finishRead();
-        }
-      },
-    );
-  }
-
-  // Not St.Clipboard.get_content(): its callback receives a transfer-none GBytes that GJS
-  // wraps without taking a reference (Boxed::NoCopy) and St unrefs right after the callback.
-  // When the wrapper is later finalized, GJS removes g_bytes_get_size() of the freed GBytes
-  // from SpiderMonkey's malloc accounting; reading reused memory underflows the counter to
-  // ~2^64 and every later JS allocation then triggers a full GC, crippling the shell for the
-  // rest of the session. Transferring into our own stream yields an owned GBytes instead.
-  private _readImage(mimeType: string): void {
-    const selection = global.display.get_selection();
-    const stream = Gio.MemoryOutputStream.new_resizable();
-    selection.transfer_async(
-      Meta.SelectionType.SELECTION_CLIPBOARD,
+    this._deferredCapture = {
       mimeType,
-      MAX_IMAGE_BYTES + 1,
-      stream,
-      this._cancellable,
-      (_selection, result) => {
-        try {
-          selection.transfer_finish(result);
-        } catch {
-          // Cancelled on destroy, or the owner vanished mid-transfer; the next owner-changed
-          // reads again.
-          this._finishRead();
-          return;
-        }
-
-        let persistenceStarted = false;
-        try {
-          if (!stream.is_closed()) stream.close(null);
-          const bytes = stream.steal_as_bytes();
-          const size = bytes.get_size();
-          if (!this._callbacks || size === 0 || size > MAX_IMAGE_BYTES) return;
-
-          const fingerprint = fingerprintBytes(bytes);
-          const contentKey = 'image:' + mimeType + ':' + fingerprint;
-          if (contentKey === this._lastContentKey) return;
-
-          this._lastContentKey = contentKey;
-          persistenceStarted = true;
-          void this._persistImage(this._callbacks, { mimeType, bytes, fingerprint });
-        } finally {
-          if (!persistenceStarted) this._finishRead();
-        }
-      },
-    );
+      limit: imageMime ? MAX_IMAGE_BYTES : MAX_TEXT_BYTES,
+      read,
+      deduplication: this._deduplication,
+    };
+    this._admitDeferredCapture();
+    void this._drainCaptures();
   }
 
-  private async _persistImage(
-    callbacks: ClipboardMonitorCallbacks,
-    payload: ClipboardImagePayload,
-  ): Promise<void> {
+  private _admitDeferredCapture(): void {
+    if (!this._deferredCapture) return;
+
+    if (
+      this._pendingCaptures.length >= MAX_PENDING_CAPTURES ||
+      this._reservedBytes + this._deferredCapture.limit + 1 > MAX_PENDING_BYTES
+    )
+      return;
+
+    const { mimeType, limit, read, deduplication } = this._deferredCapture;
+    this._deferredCapture = null;
+    this._reservedBytes += limit + 1;
+    const bytes = this._readWithDeadline((cancellable) => read(mimeType, limit + 1, cancellable));
+    this._pendingCaptures.push({ mimeType, limit, deduplication, bytes, discarded: false });
+  }
+
+  private async _readWithDeadline(
+    read: (cancellable: Gio.Cancellable) => Promise<GLib.Bytes>,
+  ): Promise<GLib.Bytes | null> {
+    const cancellable = new Gio.Cancellable();
+    const readScope = new LifecycleScope();
+    const timeout = createManagedTimeout(readScope);
+    this._activeReads.add(readScope);
+    readScope.onDispose(() => cancellable.cancel());
+    timeout.schedule(READ_TIMEOUT_MS, () => cancellable.cancel());
     try {
-      await callbacks.onImage(payload);
-    } catch (e) {
-      logger.error('Unexpected clipboard image persistence failure:', { prefix: LOG_PREFIX }, e);
+      const bytes = await read(cancellable);
+      return cancellable.is_cancelled() ? null : bytes;
+    } catch {
+      // The source can disappear or fail to send its data; later captures are still valid.
+      return null;
     } finally {
-      this._finishRead();
+      this._activeReads.delete(readScope);
+      readScope.dispose();
     }
   }
 
-  private _finishRead(): void {
-    this._readInProgress = false;
-    if (!this._readPending || !this._callbacks) return;
+  private async _drainCaptures(): Promise<void> {
+    if (this._persisting || !this._callbacks) return;
 
-    this._readPending = false;
-    this._requestRead();
+    this._persisting = true;
+    try {
+      while (this._pendingCaptures[0]) {
+        const capture = this._pendingCaptures[0];
+        const { mimeType, limit, deduplication } = capture;
+        try {
+          const bytes = await capture.bytes;
+          if (!this._callbacks) return;
+          if (capture.discarded || !bytes || bytes.get_size() === 0 || bytes.get_size() > limit)
+            continue;
+
+          if (mimeType.startsWith('image/')) {
+            const fingerprint = fingerprintBytes(bytes);
+            const key = `image:${mimeType}:${fingerprint}`;
+            if (
+              key !== deduplication.lastContentKey &&
+              (await this._callbacks.onImage({ mimeType, bytes, fingerprint }))
+            )
+              deduplication.lastContentKey = key;
+          } else {
+            const text = new TextDecoder().decode(bytes.get_data() || new Uint8Array());
+            const key = 'text:' + text;
+            if (text.trim() && key !== deduplication.lastContentKey && this._callbacks.onText(text))
+              deduplication.lastContentKey = key;
+          }
+        } catch (e) {
+          logger.error('Unexpected clipboard persistence failure:', { prefix: LOG_PREFIX }, e);
+        } finally {
+          this._pendingCaptures.shift();
+          this._reservedBytes -= limit + 1;
+          this._admitDeferredCapture();
+        }
+      }
+    } finally {
+      this._persisting = false;
+    }
   }
+}
+
+async function readSource(
+  owner: Meta.SelectionSource,
+  mimeType: string,
+  limit: number,
+  cancellable: Gio.Cancellable,
+): Promise<GLib.Bytes> {
+  const input = await callAsync(
+    (callback) => owner.read_async(mimeType, cancellable, callback),
+    (result) => owner.read_finish(result),
+  );
+  const output = Gio.MemoryOutputStream.new_resizable();
+  try {
+    let remaining = limit;
+    while (remaining > 0) {
+      const chunk = await callAsync(
+        (callback) =>
+          input.read_bytes_async(
+            Math.min(remaining, READ_CHUNK_BYTES),
+            GLib.PRIORITY_DEFAULT,
+            cancellable,
+            callback,
+          ),
+        (result) => input.read_bytes_finish(result),
+      );
+      if (chunk.get_size() === 0) break;
+
+      remaining -= output.write_bytes(chunk, cancellable);
+    }
+  } finally {
+    output.close(null);
+    input.close(null);
+  }
+  return output.steal_as_bytes();
 }
 
 function findImageMimeType(mimeTypes: string[]): string | null {

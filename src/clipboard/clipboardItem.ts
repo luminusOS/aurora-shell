@@ -20,9 +20,14 @@ export type ClipboardItemCallbacks = {
   onActivate: (entry: ClipboardEntry) => void;
   onRemove: (id: string) => void;
   onTogglePin: (id: string) => void;
+  scheduleMenuAction: (action: () => void) => void;
 };
 
-const _menuManagers = new WeakMap<PopupMenu.PopupMenu, PopupMenu.PopupMenuManager>();
+type ClipboardItemMenu = {
+  popup: PopupMenu.PopupMenu;
+  manager: PopupMenu.PopupMenuManager;
+  host: Clutter.Actor;
+};
 
 export const ClipboardItem = GObject.registerClass(
   class ClipboardItem extends St.Button {
@@ -32,7 +37,7 @@ export const ClipboardItem = GObject.registerClass(
     declare private _pinButton: St.Button;
     declare private _removeButton: St.Button;
     declare private _menuButton: St.Button;
-    declare private _menu: PopupMenu.PopupMenu | null;
+    declare private _menu: ClipboardItemMenu | null;
 
     override _init(entry: ClipboardEntry, callbacks: ClipboardItemCallbacks): void {
       super._init({
@@ -174,42 +179,56 @@ export const ClipboardItem = GObject.registerClass(
     }
 
     private _openMenu(): void {
-      if (!this._menu) this._createMenu();
-      this._menu?.toggle();
+      if (!this._menu) this._menu = this._createMenu();
+
+      Main.uiGroup.set_child_above_sibling(this._menu.host, null);
+      this._menu.popup.toggle();
     }
 
-    private _createMenu(): void {
-      this._menu = new PopupMenu.PopupMenu(this._menuButton, 0.5, St.Side.TOP);
-      this._menu.actor.add_style_class_name('aurora-clipboard-item-menu');
+    private _createMenu(): ClipboardItemMenu {
+      const popup = new PopupMenu.PopupMenu(this._menuButton, 0.5, St.Side.TOP);
+      popup.actor.add_style_class_name('aurora-clipboard-item-menu');
 
+      const { onActivate, onTogglePin, onRemove, scheduleMenuAction } = this._callbacks;
+      const entry = this._entry;
       const copyItem = new PopupMenu.PopupMenuItem(_('Copy'));
-      copyItem.connect('activate', () => this._callbacks.onActivate(this._entry));
-      this._menu.addMenuItem(copyItem);
+      copyItem.connect('activate', () => scheduleMenuAction(() => onActivate(entry)));
+      popup.addMenuItem(copyItem);
 
       const pinItem = new PopupMenu.PopupMenuItem(this._entry.pinned ? _('Unpin') : _('Pin'));
-      pinItem.connect('activate', () => this._callbacks.onTogglePin(this._entry.id));
-      this._menu.addMenuItem(pinItem);
+      pinItem.connect('activate', () => scheduleMenuAction(() => onTogglePin(entry.id)));
+      popup.addMenuItem(pinItem);
 
       const deleteItem = new PopupMenu.PopupMenuItem(_('Delete'));
-      deleteItem.connect('activate', () => this._callbacks.onRemove(this._entry.id));
-      this._menu.addMenuItem(deleteItem);
+      deleteItem.connect('activate', () => scheduleMenuAction(() => onRemove(entry.id)));
+      popup.addMenuItem(deleteItem);
 
       const manager = new PopupMenu.PopupMenuManager(this);
-      manager.addMenu(this._menu);
-      _menuManagers.set(this._menu, manager);
+      manager.addMenu(popup);
 
-      Main.uiGroup.add_child(this._menu.actor);
-      this._menu.actor.hide();
+      popup.actor.hide();
+      // uiGroup queues its children directly for relayout. Keep the BoxPointer
+      // in a layout-managed parent so it can be destroyed between frames.
+      const host = new Clutter.Actor({
+        name: 'aurora-clipboard-item-menu-host',
+        layout_manager: new Clutter.FixedLayout(),
+      });
+      host.add_child(popup.actor);
+      Main.uiGroup.add_child(host);
+
+      return { popup, manager, host };
     }
 
     private _destroyMenu(): void {
       if (!this._menu) return;
 
-      const manager = _menuManagers.get(this._menu)!;
-      manager.removeMenu(this._menu);
-      _menuManagers.delete(this._menu);
-      this._menu.destroy();
+      const { popup, manager, host } = this._menu;
       this._menu = null;
+
+      popup.close({ animate: false });
+      manager.removeMenu(popup);
+      popup.destroy();
+      host.destroy();
     }
   },
 );
