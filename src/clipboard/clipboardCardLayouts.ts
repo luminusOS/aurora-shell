@@ -1,6 +1,8 @@
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 
+const TEXT_CARD_MAX_CONTENT_HEIGHT = 82;
+
 function getOverlayPreferredHeight(container: Clutter.Actor, forWidth: number): [number, number] {
   const [content, actions] = container.get_children();
   const [contentMin, contentNatural] = content ? content.get_preferred_height(forWidth) : [0, 0];
@@ -54,6 +56,19 @@ export const FloatingActionsLayout = GObject.registerClass(
 );
 
 export type FloatingActionsLayout = InstanceType<typeof FloatingActionsLayout>;
+
+export const TextCardOverlayLayout = GObject.registerClass(
+  class TextCardOverlayLayout extends FloatingActionsLayout {
+    override vfunc_get_preferred_height(
+      container: Clutter.Actor,
+      forWidth: number,
+    ): [number, number] {
+      const [, natural] = getOverlayPreferredHeight(container, forWidth);
+      const height = Math.min(TEXT_CARD_MAX_CONTENT_HEIGHT, Math.max(32, natural));
+      return [height, height];
+    }
+  },
+);
 
 export const CodeCardOverlayLayout = GObject.registerClass(
   class CodeCardOverlayLayout extends FloatingActionsLayout {

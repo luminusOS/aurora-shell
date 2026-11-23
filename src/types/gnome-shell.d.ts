@@ -2,6 +2,12 @@ import type St from '@girs/st-51';
 import type GWeather from 'gi://GWeather';
 import type GObject from '@girs/gobject-2.0';
 
+declare module '@girs/gnome-shell/ui/popupMenu' {
+  interface PopupMenu {
+    close(params: { animate?: boolean; fadeOnly?: boolean }): void;
+  }
+}
+
 declare module '@girs/gnome-shell/ui/dateMenu' {
   interface ShellWeatherClient {
     available: boolean;

@@ -11,6 +11,7 @@ type ListCallbacks = {
   onActivate: (entry: ClipboardEntry) => void;
   onRemove: (id: string) => void;
   onTogglePin: (id: string) => void;
+  scheduleMenuAction: (action: () => void) => void;
 };
 
 export const ClipboardList = GObject.registerClass(
@@ -72,12 +73,13 @@ export const ClipboardList = GObject.registerClass(
       this.add_child(this._emptyState);
     }
 
-    populate(
-      pinned: ClipboardEntry[],
-      history: ClipboardEntry[],
-      query: string,
-      pinnedOnly: boolean,
-    ): void {
+    override destroy(): void {
+      for (const item of this._items) item.destroy();
+      this._items = [];
+      super.destroy();
+    }
+
+    populate(pinned: ClipboardEntry[], history: ClipboardEntry[], query: string): void {
       for (const item of this._items) item.destroy();
       this._items = [];
       this._selectedIndex = -1;
@@ -90,9 +92,6 @@ export const ClipboardList = GObject.registerClass(
         if (query) {
           this._emptyTitle.text = _('No Results');
           this._emptyHint.text = _('Try a different search.');
-        } else if (pinnedOnly) {
-          this._emptyTitle.text = _('No Pinned Items');
-          this._emptyHint.text = _('Pin an item to find it here.');
         } else {
           this._emptyTitle.text = _('Clipboard history is empty');
           this._emptyHint.text = _('Copy text, links, code, or images to see them here.');

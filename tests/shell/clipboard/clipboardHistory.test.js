@@ -238,27 +238,22 @@ export async function run() {
   clipboard.set_text(St.ClipboardType.CLIPBOARD, marker);
   await waitForHistoryWrite(() => newestEntry()?.text === marker, 'marker text to be captured');
 
-  const selection = global.display.get_selection();
-  const originalTransfer = selection.transfer_async;
-  let imageReads = 0;
-  selection.transfer_async = function (...args) {
-    imageReads++;
-    return originalTransfer.apply(this, args);
-  };
-  try {
-    clipboardModule._onActivate(imageEntry);
-    await waitForCondition({
-      evaluate: () => clipboard.get_mimetypes(St.ClipboardType.CLIPBOARD).includes('image/png'),
-      signals: [[global.display.get_selection(), 'owner-changed']],
-      description: 'restored image to own the clipboard',
-    });
-    await waitForTiming(250, 'negative check: the 50 ms monitor read delay passes with no read');
-  } finally {
-    selection.transfer_async = originalTransfer;
-  }
-  if (imageReads !== 0) {
-    throw new Error(`Restoring an image made the monitor read it back (${imageReads} reads)`);
-  }
+  clipboardModule._onActivate(imageEntry);
+  await waitForCondition({
+    evaluate: () => clipboard.get_mimetypes(St.ClipboardType.CLIPBOARD).includes('image/png'),
+    signals: [[global.display.get_selection(), 'owner-changed']],
+    description: 'restored image to own the clipboard',
+  });
+
+  const markerAfterRestore = 'aurora-test-after-image-restore';
+  clipboard.set_text(St.ClipboardType.CLIPBOARD, markerAfterRestore);
+  await waitForHistoryWrite(
+    () => newestEntry()?.text === markerAfterRestore,
+    'capture to continue after an image restore',
+  );
+  if (store.getHistory()[1]?.text !== marker)
+    throw new Error('Restoring an image moved it to the front of history');
+
   Scripting.scriptEvent('clipboardImageWritten');
 
   const longText =
@@ -273,7 +268,10 @@ export async function run() {
     'const e = 5;',
   ].join('\n');
   const sixLineCode = `${fiveLineCode}\nconst f = 6;`;
+  const mediumText =
+    'This clipboard entry wraps across multiple lines while remaining shorter than the maximum card height.';
   clipboardModule.addText(longText);
+  clipboardModule.addText(mediumText);
   clipboardModule.addText('Short clipboard entry');
   clipboardModule.addText(fiveLineCode);
   clipboardModule.addText(sixLineCode);
@@ -292,13 +290,66 @@ export async function run() {
   assertPanelInsideWorkArea(panel);
   assertPanelTrackedAboveFullscreen(panel);
 
+  const extension = Main.extensionManager.lookup(EXTENSION_UUID);
+  const { ClipboardItem } = await import(`${extension.dir.get_uri()}/clipboard/clipboardItem.js`);
+  const callbacks = { onActivate() {}, onRemove() {}, onTogglePin() {} };
+  const entry = {
+    id: 'thumbnail-test',
+    kind: 'text',
+    text: 'https://example.com/path',
+    pinned: false,
+  };
+  const plainLink = new ClipboardItem(entry, callbacks);
+  const previewLink = new ClipboardItem(
+    {
+      ...entry,
+      preview: {
+        title: 'Example title',
+        description: 'Example description',
+        thumbnail: new GLib.Bytes(new Uint8Array(96 * 96 * 4).fill(255)),
+      },
+    },
+    callbacks,
+  );
+  Main.uiGroup.add_child(plainLink);
+  Main.uiGroup.add_child(previewLink);
+  await Scripting.waitLeisure();
+  const thumbnail = findActorByStyle(previewLink, 'aurora-clipboard-item-link-thumb');
+  if (!thumbnail || !(thumbnail.get_content() instanceof St.ImageContent)) {
+    throw new Error('Link preview thumbnail is missing image content');
+  }
+  if (thumbnail.width !== 56 || thumbnail.height !== 56) {
+    throw new Error(
+      `Link preview thumbnail has incorrect size: ${thumbnail.width}x${thumbnail.height}`,
+    );
+  }
+  if (
+    findActorByStyle(plainLink, 'aurora-clipboard-item-link-thumb') ||
+    findActorByStyle(plainLink, 'aurora-clipboard-item-link-title')?.text !== 'example.com'
+  ) {
+    throw new Error('Link without preview did not fall back to its hostname');
+  }
+  previewLink.destroy();
+  plainLink.destroy();
+
+  const panelChildren = panel.get_children();
+  const searchRow = panelChildren[0];
+  if (
+    panelChildren.length !== 2 ||
+    searchRow.get_children()[0] !== panel._searchEntry ||
+    searchRow.get_children()[1] !== panel._incognitoButton
+  ) {
+    throw new Error('Clipboard panel must contain the search row and history list');
+  }
+
   const list = panel._list;
   const shortItem = list?._items?.find((item) => item.entry.text === 'Short clipboard entry');
   const longItem = list?._items?.find((item) => item.entry.text === longText);
+  const mediumItem = list?._items?.find((item) => item.entry.text === mediumText);
   const fiveLineCodeItem = list?._items?.find((item) => item.entry.text === fiveLineCode);
   const sixLineCodeItem = list?._items?.find((item) => item.entry.text === sixLineCode);
   const imageItem = list?._items?.find((item) => item.entry.kind === 'image');
-  if (!shortItem || !longItem) {
+  if (!shortItem || !mediumItem || !longItem) {
     throw new Error('Clipboard text cards were not created for the layout test');
   }
   if (!fiveLineCodeItem || !sixLineCodeItem) {
@@ -323,6 +374,33 @@ export async function run() {
   const widthBeforeSelection = longItem.width;
   if (longTextLabel.clutter_text.get_layout().get_line_count() <= 1)
     throw new Error('Long text card did not wrap onto multiple lines');
+  if (mediumItem.height <= shortItem.height || longItem.height <= mediumItem.height)
+    throw new Error(
+      `Text cards did not grow: short=${shortItem.height}, medium=${mediumItem.height}, long=${longItem.height}`,
+    );
+  if (longItem.height > 100 || longItem.height > imageItem.height) {
+    throw new Error(
+      `Text card exceeds height limit: text=${longItem.height}, image=${imageItem.height}`,
+    );
+  }
+  if (!longTextLabel.clutter_text.get_layout().is_ellipsized())
+    throw new Error('Long text card should show an ellipsis');
+  const [, textHeight] = longTextLabel.clutter_text.get_layout().get_pixel_size();
+  if (
+    textHeight > longTextLabel.clutter_text.height ||
+    textHeight > textBody.height ||
+    textHeight > textOverlay.height ||
+    textHeight > longItem.height
+  )
+    throw new Error(
+      `Text layout exceeds its allocation: ${textHeight} > ${longTextLabel.clutter_text.height}`,
+    );
+  const shortTextLabel = findActorByStyle(shortItem, 'aurora-clipboard-item-label');
+  if (!shortTextLabel || shortTextLabel.clutter_text.get_layout().is_ellipsized())
+    throw new Error('Short text card should not be ellipsized');
+  const mediumTextLabel = findActorByStyle(mediumItem, 'aurora-clipboard-item-label');
+  if (!mediumTextLabel || mediumTextLabel.clutter_text.get_layout().is_ellipsized())
+    throw new Error('Medium text card should not be ellipsized');
 
   const longItemIndex = list._items.indexOf(longItem);
   list.moveFocus(longItemIndex);
@@ -427,6 +505,11 @@ export async function run() {
   const hoveredHistoryItem = refreshedList._items.find((item) => item.entry.text === longText);
   if (!pinnedItem?.entry.pinned || !hoveredHistoryItem || hoveredHistoryItem.entry.pinned) {
     throw new Error('Could not prepare pinned and history items for the hover actions test');
+  }
+  if (
+    refreshedList._items.indexOf(pinnedItem) >= refreshedList._items.indexOf(hoveredHistoryItem)
+  ) {
+    throw new Error('Pinned clipboard items must appear before history items');
   }
   hoveredHistoryItem.set_hover(true);
   await Scripting.waitLeisure();

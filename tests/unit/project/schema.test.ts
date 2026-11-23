@@ -144,6 +144,7 @@ test('schema: Vela VPN integration and Shell fallback are disabled by default', 
 
 test('schema: Clipboard History automatic paste is enabled by default', () => {
   assert.equal(schemaDefault('clipboard-history-auto-paste'), 'true');
+  assert.equal(schemaDefault('clipboard-history-indicator'), 'false');
 });
 
 test('schema: Capture Tools uses DuckDuckGo by default', () => {
