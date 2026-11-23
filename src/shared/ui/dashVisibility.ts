@@ -27,6 +27,7 @@ type DashVisibilityOptions = {
   getPosition: () => DockPosition;
   getWorkArea: () => DashBounds | null;
   isMenuOpen: () => boolean;
+  isPointerOverDock: () => boolean;
   applyWorkArea: (workArea: DashBounds) => void;
   showActor: () => void;
   hideActor: () => void;
@@ -215,11 +216,15 @@ export class DashVisibilityController {
           return GLib.SOURCE_REMOVE;
         }
 
-        if (this._hovered) {
+        if (this._blockAutoHide || this._target === 'hidden') {
           this._autohideTimeout.complete();
           return GLib.SOURCE_REMOVE;
         }
 
+        // Crossing events can be lost when a client takes the pointer or changes
+        // fullscreen state. Keep checking the actual pointer while hover holds
+        // autohide; St.Widget.sync_hover() only reuses its crossing counter.
+        this._hovered = this._options.isPointerOverDock();
         const menuOpen = this._options.isMenuOpen();
         const shouldHide = shouldHideDash({
           target: this._target,
@@ -230,9 +235,9 @@ export class DashVisibilityController {
         });
         if (shouldHide) {
           this.hide(true);
-        } else if (menuOpen) {
-          // A closing menu may not change hover, so nothing else would re-arm us.
-          // Blocking, hover and drag changes call updateAutoHide() themselves.
+        } else if (this._hovered || menuOpen) {
+          // A pointer leaving through a client grab or a closing menu may not
+          // emit another hover notification to re-arm autohide.
           return GLib.SOURCE_CONTINUE;
         }
 

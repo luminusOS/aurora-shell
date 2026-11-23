@@ -10,6 +10,7 @@ import {
   ensureOverviewHidden,
   getAuroraModule,
   getAuroraSettings,
+  waitForCondition,
   waitForExtension,
 } from '../support/testUtils.js';
 
@@ -105,9 +106,19 @@ export async function run() {
     .create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
   const [x, y] = indicator.get_transformed_position();
   const [width, height] = indicator.get_transformed_size();
-  await dispatchInput(() =>
-    pointer.notify_absolute_motion(GLib.get_monotonic_time(), x + width / 2, y + height / 2),
-  );
+  const seat = global.stage.context.get_backend().get_default_seat();
+  await waitForCondition({
+    evaluate: () => {
+      const [pointerX, pointerY] = global.get_pointer();
+      if (Math.abs(pointerX - (x + width / 2)) < 1 && Math.abs(pointerY - (y + height / 2)) < 1)
+        return true;
+      seat.warp_pointer(x + width / 2, y + height / 2);
+      global.stage.queue_redraw();
+      return false;
+    },
+    signals: [[global.stage, 'after-paint']],
+    description: 'pointer to reach indicator',
+  });
   const picked = global.stage.get_actor_at_pos(
     Clutter.PickMode.REACTIVE,
     x + width / 2,

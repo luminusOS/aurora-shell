@@ -594,6 +594,8 @@ async function waitForWindowPreviewTarget(dash, window, currentApp) {
 }
 
 async function exerciseWindowPreviews(settings, dock) {
+  let previewVisibility = null;
+  let originalPreviewPointerCheck = null;
   const previousWindows = new Set(global.get_window_actors().map((actor) => actor.meta_window));
   await Scripting.createTestWindow({ width: 760, height: 480, maximized: false });
   await Scripting.waitTestWindows();
@@ -619,6 +621,10 @@ async function exerciseWindowPreviews(settings, dock) {
       throw new Error('Window-preview controller was not created when enabled');
 
     rebuildDock(dash);
+    previewVisibility = dash._visibility;
+    originalPreviewPointerCheck = previewVisibility._options.isPointerOverDock;
+    previewVisibility._options.isPointerOverDock = () =>
+      dash._applications.getChildren().some((child) => child.child?.get_hover());
     await Scripting.waitLeisure();
 
     // App tracking may rebuild this item between interactions.
@@ -869,6 +875,8 @@ async function exerciseWindowPreviews(settings, dock) {
 
     appIcon.set_hover(false);
   } finally {
+    if (previewVisibility)
+      previewVisibility._options.isPointerOverDock = originalPreviewPointerCheck;
     if (global.get_window_actors().some((actor) => actor.meta_window === window))
       window.delete(global.get_current_time());
     settings.set_boolean('dock-window-previews', false);
@@ -1491,7 +1499,9 @@ export async function run() {
   // Switching from a small window to fullscreen hands BLOCKED to hover autohide.
   dash.show(false);
   const originalDashContainerHasHover = dash._visibility._hovered;
+  const originalBlockedPointerCheck = dash._visibility._options.isPointerOverDock;
   try {
+    dash._visibility._options.isPointerOverDock = () => dash._visibility._hovered;
     dash._visibility._hovered = true;
     binding.hotAreaActive = false;
     clearIntellihideQueuedRefreshes(binding.intellihide);
@@ -1512,6 +1522,7 @@ export async function run() {
     });
   } finally {
     dash._visibility._hovered = originalDashContainerHasHover;
+    dash._visibility._options.isPointerOverDock = originalBlockedPointerCheck;
   }
   if (dash.visible) throw new Error('Intellihide BLOCKED did not hide after the pointer left');
 
@@ -1528,10 +1539,12 @@ export async function run() {
   // Native crossing events, not stage motion, keep the revealed Dock visible
   // while the pointer crosses onto a client window.
   const originalHoldZoneDashContainerHasHover = dash._visibility._hovered;
+  const originalHoldZonePointerCheck = dash._visibility._options.isPointerOverDock;
   clearIntellihideQueuedRefreshes(binding.intellihide);
   binding.intellihide._status = 1; // BLOCKED
   try {
     dash._visibility._hovered = true; // pointer resting over the dock
+    dash._visibility._options.isPointerOverDock = () => dash._visibility._hovered;
     dock._clearHotAreaReveal(binding);
     binding.hotAreaActive = false;
     dock.revealFromHotArea();
@@ -1541,6 +1554,7 @@ export async function run() {
     ); // past the reveal grace → handoff to autohide
   } finally {
     dash._visibility._hovered = originalHoldZoneDashContainerHasHover;
+    dash._visibility._options.isPointerOverDock = originalHoldZonePointerCheck;
   }
   if (!dash.visible) throw new Error('Native autohide hid the dock while the pointer was over it');
   if (!binding.hotAreaActive)
@@ -1578,7 +1592,9 @@ export async function run() {
   // motion missed the pointer leaving the Dock.
   const originalBlockedDashContainerHasHover = dash._visibility._hovered;
   const originalSyncHover = dash._dashContainer.sync_hover;
+  const originalHotAreaPointerCheck = dash._visibility._options.isPointerOverDock;
   try {
+    dash._visibility._options.isPointerOverDock = () => dash._visibility._hovered;
     binding.intellihide._status = 1; // BLOCKED
     dash._visibility._hovered = false; // stale after a pointer grab
     dash._dashContainer.sync_hover = () => dash._visibility.setHovered(true);
@@ -1616,6 +1632,7 @@ export async function run() {
   } finally {
     dash._dashContainer.sync_hover = originalSyncHover;
     dash._visibility._hovered = originalBlockedDashContainerHasHover;
+    dash._visibility._options.isPointerOverDock = originalHotAreaPointerCheck;
   }
   if (dash.visible)
     throw new Error('Hot-area active BLOCKED did not hide the dock after the pointer left');
@@ -1718,7 +1735,9 @@ export async function run() {
   // blocked-reasserted uses the same native autohide handoff as status-changed.
   dock._clearHotAreaReveal(binding);
   const originalReassertHasHover = dash._visibility._hovered;
+  const originalReassertPointerCheck = dash._visibility._options.isPointerOverDock;
   try {
+    dash._visibility._options.isPointerOverDock = () => dash._visibility._hovered;
     binding.intellihide._status = 1; // BLOCKED
     dash._visibility._hovered = true; // pointer over the dock
     binding.hotAreaActive = true;
@@ -1754,6 +1773,7 @@ export async function run() {
     });
   } finally {
     dash._visibility._hovered = originalReassertHasHover;
+    dash._visibility._options.isPointerOverDock = originalReassertPointerCheck;
   }
   if (dash.visible) throw new Error('Focus reassert did not hide the dock after the pointer left');
   if (binding.hotAreaActive)
