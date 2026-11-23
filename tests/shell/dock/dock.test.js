@@ -387,6 +387,19 @@ function assertBackgroundClearsScreenEdge(dash, position) {
     throw new Error(`${position} Dock background sits flush against the screen edge (gap=${gap})`);
 }
 
+function assertIconsCentered(dash, position) {
+  if (position !== 'bottom' || dash.has_style_class_name('flush-mode')) return;
+
+  const background = dash._background;
+  const icon = dash._showAppsIcon.icon;
+  const [, backgroundY] = background.get_transformed_position();
+  const [, iconY] = icon.get_transformed_position();
+  const topGap = iconY - backgroundY;
+  const bottomGap = backgroundY + background.height - iconY - icon.height;
+  if (Math.abs(topGap - bottomGap) > 1)
+    throw new Error(`Floating Dock icons are off-center (top=${topGap}, bottom=${bottomGap})`);
+}
+
 function assertRunningDotsPointToEdge(dash, position) {
   const expected = RUNNING_DOT_ALIGNMENT[position];
   for (const child of dash._box.get_children()) {
@@ -937,6 +950,7 @@ async function exerciseDockPositions(settings, dock) {
     assertSeparatorOrientation(binding.dash, position);
     assertBackgroundCoversDash(binding.dash, position);
     assertBackgroundClearsScreenEdge(binding.dash, position);
+    assertIconsCentered(binding.dash, position);
     assertRunningDotsPointToEdge(binding.dash, position);
     assertRunningDotIsRound(binding.dash, position);
     await assertRunningDotClearsIcon(binding.dash, position);
