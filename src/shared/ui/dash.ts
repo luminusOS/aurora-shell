@@ -109,6 +109,12 @@ export const AuroraDash = GObject.registerClass(
         getPosition: () => this._position,
         getWorkArea: () => this._workArea,
         isMenuOpen: () => this._isMenuOpen(),
+        isPointerOverDock: () => {
+          if (!this._dashContainer.mapped) return false;
+
+          const [x, y] = global.get_pointer();
+          return boundsContainPoint(this._getActorStageBounds(this._dashContainer), x, y);
+        },
         applyWorkArea: (workArea) => this.applyWorkArea(workArea),
         showActor: () => Dash.prototype.show.call(this),
         hideActor: () => Dash.prototype.hide.call(this),

@@ -172,10 +172,12 @@ async function exerciseBinding(dock, binding) {
   await Scripting.waitLeisure();
 
   const hovered = binding.dash._visibility._hovered;
+  const pointerCheck = binding.dash._visibility._options.isPointerOverDock;
   binding.dash.hide(false);
   binding.hotAreaActive = false;
   binding.dash._visibility._hovered = true;
   try {
+    binding.dash._visibility._options.isPointerOverDock = () => binding.dash._visibility._hovered;
     if (!dock.revealMonitorFromHotArea(binding.monitorIndex))
       throw new Error(`Could not reveal Dock on monitor ${binding.monitorIndex}`);
     await waitForTiming(
@@ -210,6 +212,7 @@ async function exerciseBinding(dock, binding) {
     }
   } finally {
     binding.dash._visibility._hovered = hovered;
+    binding.dash._visibility._options.isPointerOverDock = pointerCheck;
   }
   await Scripting.waitLeisure();
 }
